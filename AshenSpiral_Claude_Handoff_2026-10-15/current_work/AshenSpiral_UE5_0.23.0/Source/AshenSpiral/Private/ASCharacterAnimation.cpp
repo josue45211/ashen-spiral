@@ -21,7 +21,7 @@ void AASCharacter::Animate(float Delta) {
     AirWeight=FMath::Lerp(AirWeight,Airborne?1.f:0.f,ASAnimation::Blend(Delta,13.f));
     if(bWasAirborne&&!Airborne) LandingAge=0;else LandingAge+=Delta;bWasAirborne=Airborne;
     const float Landing=FMath::Exp(-LandingAge*9.f)*FMath::Sin(FMath::Min(LandingAge*18.f,UE_PI));
-    if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/230.f*UE_TWO_PI;
+    if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/ASAnimation::StrideDistance(LocomotionWeight)*UE_TWO_PI;
     const float Step=FMath::Sin(WalkPhase)*LocomotionWeight*(1.f-AirWeight);
     const FVector LocalMove=GetActorTransform().InverseTransformVectorNoScale(GetVelocity()).GetSafeNormal2D();
     const float LeapPhase=ASMelee::Phase(Now,HammerLeapStarted,ASHammer::Startup);
@@ -33,8 +33,15 @@ void AASCharacter::Animate(float Delta) {
     const FVector RecoilLocal=GetActorTransform().InverseTransformVectorNoScale(DamageReactionDirection);
     Figure->SetRelativeLocation(Figure->GetRelativeLocation()+FVector(RecoilLocal.X,RecoilLocal.Y,0.f)*(Recoil*10.f));
     Figure->SetRelativeRotation(FRotator(bDowned?65.f:-RecoilLocal.X*Recoil*14.f,0,RecoilLocal.Y*Recoil*10.f));
+    // Visual-only acceleration lean from smoothed velocity; never feeds back into movement.
+    const FVector Velocity=GetVelocity();
+    if(!bVisualInitialized||(Velocity-AnimationVelocity).SizeSquared2D()>2200.f*2200.f) {AnimationVelocity=Velocity;PreviousVisualVelocity=Velocity;bVisualInitialized=true;}
+    PreviousVisualVelocity=AnimationVelocity;
+    AnimationVelocity=FMath::Lerp(AnimationVelocity,Velocity,ASAnimation::Blend(Delta,9.f));
+    const FVector LeanAccel=GetActorTransform().InverseTransformVectorNoScale((AnimationVelocity-PreviousVisualVelocity)/FMath::Max(Delta,.001f));
+    const float LeanPitch=FMath::Clamp(LeanAccel.X/2600.f,-1.f,1.f)*6.f*(1.f-AirWeight),LeanRoll=FMath::Clamp(LeanAccel.Y/2600.f,-1.f,1.f)*5.f*(1.f-AirWeight);
     const float Breath=FMath::Sin(Now*2.2f)*.6f;
-    Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f));
+    Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f-LeanPitch,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f+LeanRoll));
     Parts[0]->SetRelativeLocation(FVector(0,0,111+Breath));Parts[2]->SetRelativeRotation(FRotator(0,-Step*4.f,Step*2.f));
     Parts[1]->SetRelativeLocation(FVector(0,0,165+Breath));Parts[1]->SetRelativeRotation(FRotator(-Landing*3.f,Step,0));
     for(int32 Side=0;Side<2;++Side) {
