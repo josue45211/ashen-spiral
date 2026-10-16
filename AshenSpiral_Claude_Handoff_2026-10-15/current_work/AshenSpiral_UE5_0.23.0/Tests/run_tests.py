@@ -94,7 +94,7 @@ def validate():
     gm_src=(ROOT/'Source/AshenSpiral/Private/ASGameMode.cpp').read_text()
     gi_src=(ROOT/'Source/AshenSpiral/Private/ASGameInstance.cpp').read_text()
     check('R.ProfileId=PS->ProfileId' in gm_src,'SendReceipt stamps the receipt profile id (lexical check)')
-    check('PC->ProfileRejected()' in gm_src and 'ProfileRejected_Implementation' in controller,'Refused hub character switches revert the client slot (lexical check)')
+    check('PC->ProfileRejected(PS->ProfileId)' in gm_src and 'ProfileRejected_Implementation' in controller,'Refused hub character switches revert the client slot (lexical check)')
     check('else if(!Commit(Profile))' in gi_src,'Fresh character slot creation failure blocks progress instead of being ignored (lexical check)')
     check('ReceiptQueue.RemoveAt(0)' in controller and 'ReceiveReceipt(PS->PendingReceipt)' in controller,
           'Acknowledgement drains queued receipts rather than dropping later rewards')

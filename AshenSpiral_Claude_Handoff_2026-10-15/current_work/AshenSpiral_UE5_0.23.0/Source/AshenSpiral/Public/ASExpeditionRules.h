@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include "ASRules.h"
 // Engine-independent expedition rules. Wave numbers are one-based; wave zero is a normal expedition.
 namespace ASExpedition {
 inline int Difficulty(int D) {return std::clamp(D,0,2);}
@@ -59,7 +60,7 @@ inline int GambleStake(int Cinders,int Index) {
 // Returns the balance after one resolved spin. Multipliers include the stake return.
 inline int GambleBalance(int Cinders,int Stake,int Multiplier) {
     Cinders=std::max(0,Cinders);Stake=std::clamp(Stake,0,Cinders); // a stake can never exceed what is held
-    return int(std::min<std::int64_t>(std::int64_t(Cinders-Stake)+std::int64_t(Stake)*std::max(0,Multiplier),1000000000));
+    return int(std::min<std::int64_t>(std::int64_t(Cinders-Stake)+std::int64_t(Stake)*std::max(0,Multiplier),ASRules::MaxCurrency));
 }
 struct GambleOdds {int Loss,Refund,Double,Five,Ten;};
 inline GambleOdds Odds(int Ash) {return Ash<=50?GambleOdds{45,25,24,5,1}:(Ash>=1000?GambleOdds{50,20,22,7,1}:GambleOdds{60,20,17,2,1});}

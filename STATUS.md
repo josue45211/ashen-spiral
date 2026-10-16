@@ -1,8 +1,8 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-15 22:50 PDT
-phase: Overnight run - all 0.23 and 0.23.1 items implemented; verification and review pass
-current_item: independent review of server paths (B2/B6/B8), then cleanup and test expansion
+updated: 2026-10-15 23:00 PDT
+phase: Overnight run - everything implemented; independent review fixes applied; waiting for answers and playtest
+current_item: idle (nothing left that is safe without answers); expand tests if time allows
 
 ## Done (every item: UBT editor build OK unity + non-unity, Tests/run_tests.py exit 0; none verified in-engine)
 - Phase 1 compile blockers: C4458 rename, DamageReaction/AbilityGesture/cape definitions, ProfileId stamped in SendReceipt
@@ -17,9 +17,10 @@ current_item: independent review of server paths (B2/B6/B8), then cleanup and te
 - 0.23.1 B1 portals: Ember/Ashen/Blood arches side by side, chained when locked, Blood drips, tooltips with exact modifiers and unlock condition, colour transition into chamber 1
 - 0.23.1 B8: sinister Endless portal (dormant until Normal cleared), sky stages clear / gloomy (21) / red (50, fast unmistakable step + flash)
 - Native tests added: expedition rules, boss/endless arena structure, heavy cape chain, Endless offers (about 1.5M checks)
+- Independent read-only review of B2/B6/B8 found 9 issues; 8 fixed: stale Endless boss flag (likely out-of-bounds Ward crash), switch ignored mid-run leaving client/server on different characters, revert now uses the server-kept profile id, abandoning an Endless run now banks stats/earnings (and no longer files a fake chamber-32 clear), reconnect snapshot now refreshes well/shop/stat fields, real capsule for post-shuffle unsticking + pending shuffle cleared at checkpoints, empty offer list no longer blocks the chest, failed spawn point no longer skips Endless timers. Also found by clang: ASExpeditionRules.h was missing its ASRules.h include (masked by unity builds).
 
 ## In Progress
-- Independent read-only review of B2/B6/B8 server logic (subagent); fixes will follow if it finds real bugs
+- (none)
 
 ## UNVERIFIED (playtest checklist for Josue and P2; compile + native tests only)
 - A1 Blade poses: art review needed (no reference frames)
@@ -34,7 +35,7 @@ current_item: independent review of server paths (B2/B6/B8), then cleanup and te
 - Receipts: ProfileId stamping verified by reasoning and a lexical test only
 
 ## Needs Josue
-- B6 odds: defaults give Cinders <=50 and >=1000 an expected return above break-even (1.08x / 1.09x), middle 0.74x. The 50/1000 thresholds were tuned for Ash, not Cinders. Keep or retune?
+- B6 odds (review also flagged it): defaults give Cinders <=50 and >=1000 an expected return above break-even (1.08x / 1.09x), middle 0.74x. The 50/1000 thresholds were tuned for Ash, not Cinders. Keep or retune?
 - B1 co-op: difficulty unlocks check the host's profile only. Intended?
 - B8 elimination: downed or eliminated players return at the next checkpoint chest with 35% HP (TUNABLE). Keep, or stay out until the run ends?
 - B8 economy: Ash/Scrap earn rates (Scrap 1/5/25 per normal/elite/boss kill, Ash 2 per checkpoint and 10 per boss, banked at run end) and shop prices are my placeholders. OK for playtest?

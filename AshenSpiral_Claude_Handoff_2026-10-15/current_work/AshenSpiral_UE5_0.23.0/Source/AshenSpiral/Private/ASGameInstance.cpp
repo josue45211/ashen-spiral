@@ -301,10 +301,10 @@ bool UASGameInstance::LoadCharacter() {
     }
     return !bProgressBlocked;
 }
-bool UASGameInstance::SwitchCharacterSlot(int32 Index) {
+bool UASGameInstance::SwitchCharacterSlot(int32 Index,bool bForce) {
     auto* State=AS::State(this);
-    if(Index<0||Index>1||!State||State->Phase!=EASPhase::Hub) {LastMessage=TEXT("Switch characters in the hub.");return false;}
-    for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(Player->bSavePending) {LastMessage=TEXT("Wait for pending saves before switching.");return false;}
+    if(Index<0||Index>1||(!bForce&&(!State||State->Phase!=EASPhase::Hub))) {LastMessage=TEXT("Switch characters in the hub.");return false;}
+    if(!bForce&&State) for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(Player->bSavePending) {LastMessage=TEXT("Wait for pending saves before switching.");return false;}
     if(Index==ActiveCharacterSlot) return true;
     const auto OldProfile=Profile;const auto OldSlot=Slot;const int32 OldRevision=Revision;const bool OldBlocked=bProgressBlocked;
     Slot=BaseSlot+(Index==1?TEXT("_Character2"):TEXT(""));

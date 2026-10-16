@@ -18,7 +18,7 @@ public:
     UPROPERTY() FASProfileData Profile;
     FString LastMessage;
     int32 ActiveCharacterSlot=0;
-    bool SwitchCharacterSlot(int32 Index);
+    bool SwitchCharacterSlot(int32 Index,bool bForce=false);
     bool Commit(const FASProfileData& Candidate);
     bool Purchase(int32 Category,int32 Index);
     bool Receive(const FASReceipt& Receipt);

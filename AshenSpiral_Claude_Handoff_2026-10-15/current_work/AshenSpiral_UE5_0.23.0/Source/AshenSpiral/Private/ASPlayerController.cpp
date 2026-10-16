@@ -202,11 +202,13 @@ void AASPlayerController::ResubmitProfile() {
     const auto& P=GI->Profile;
     SubmitProfile(P.ProfileId,P.Build,ASData::Protocol,P.Experience,P.ColorChoice,GI->bRaiseStakes,P.TitleChoice,P.TitleChoice>=0?ASCareer::Tier(P.Career[P.TitleChoice],P.TitleChoice):0,ASExpedition::ClearedMask(P.Wins,P.ClearedMask),P.EndlessChoices);
 }
-void AASPlayerController::ProfileRejected_Implementation() {
+void AASPlayerController::ProfileRejected_Implementation(const FString& KeptProfileId) {
     // The server refused the switch; return to the character it still has for us.
     if(auto* GI=GetGameInstance<UASGameInstance>()) {
         const FString Message=GI->LastMessage;
-        if(GI->SwitchCharacterSlot(GI->ActiveCharacterSlot==0?1:0)) ResubmitProfile();
+        // The server kept KeptProfileId. Return to that character without the hub-only guards, then resubmit.
+        for(int32 Try=0;Try<2&&GI->Profile.ProfileId!=KeptProfileId;++Try) GI->SwitchCharacterSlot(GI->ActiveCharacterSlot==0?1:0,true);
+        ResubmitProfile();
         GI->LastMessage=Message;
         if(Menu.IsValid()) OpenMenu(Menu->Page,true);
     }

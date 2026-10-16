@@ -62,7 +62,7 @@ public:
     UFUNCTION(Client,Reliable) void ReceiveReceipt(const FASReceipt& Receipt);
     UFUNCTION(Server,Reliable) void AckReceipt(const FString& Id,bool Success,int32 Experience);
     UFUNCTION(Client,Reliable) void Notify(const FString& Message);
-    UFUNCTION(Client,Reliable) void ProfileRejected();
+    UFUNCTION(Client,Reliable) void ProfileRejected(const FString& KeptProfileId);
     void ResubmitProfile();
     UFUNCTION(Client,Unreliable) void DamageNumber(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind);
     UFUNCTION(Exec) void ASPerformance();

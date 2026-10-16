@@ -1,5 +1,6 @@
 #include "ASGameMode.h"
 #include "ASPortal.h"
+#include "Components/CapsuleComponent.h"
 #include "ASPlayerController.h"
 #include "ASGameState.h"
 #include "ASCharacter.h"
@@ -98,14 +99,14 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
     bool Valid=ID.Len()==32;for(TCHAR C:ID) if(!FChar::IsHexDigit(C)) Valid=false;
     if(!Valid) {PC->Notify(TEXT("Invalid profile ID. Restart with a writable save folder."));return;}
     // A changed id is a hub character switch; if refused, the client must revert its local slot.
-    const bool Switching=!PS->ProfileId.IsEmpty()&&PS->ProfileId!=ID;
+    const bool Switching=PS->bProfileReady&&!PS->ProfileId.IsEmpty()&&PS->ProfileId!=ID;
     for(auto P:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(P)) if(Other!=PS && Other->bProfileReady && Other->ProfileId==ID) {
-        PC->Notify(TEXT("Duplicate profile. Use a different -ProfileSlot for two local clients."));if(Switching) PC->ProfileRejected();return;
+        PC->Notify(TEXT("Duplicate profile. Use a different -ProfileSlot for two local clients."));if(Switching) PC->ProfileRejected(PS->ProfileId);return;
     }
-    if(PS->bProfileReady && S->Phase!=EASPhase::Hub) return; // No mid-run loadout injection.
+    if(PS->bProfileReady && S->Phase!=EASPhase::Hub) {if(Switching) PC->ProfileRejected(PS->ProfileId);return;} // No mid-run loadout injection.
     if(Switching) {
         // Only a quiet hub may change character: no run, no unsaved receipts, no held reconnect.
-        if(S->Phase!=EASPhase::Hub||PS->bSavePending||PS->ReceiptQueue.Num()>0||Disconnected.Contains(PS->ProfileId)) {PC->Notify(TEXT("Character can only be switched in the hub with no pending saves."));PC->ProfileRejected();return;}
+        if(S->Phase!=EASPhase::Hub||PS->bSavePending||PS->ReceiptQueue.Num()>0||Disconnected.Contains(PS->ProfileId)) {PC->Notify(TEXT("Character can only be switched in the hub with no pending saves."));PC->ProfileRejected(PS->ProfileId);return;}
         LiveSnapshots.Remove(PS->ProfileId);
     }
     PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->ClearedMask=ClearedMask&7;PS->EndlessChoices=FMath::Clamp(EndlessChoices,0,2);PS->bEndlessUnlocked=ASExpedition::EndlessUnlocked(PS->ClearedMask);PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
@@ -151,6 +152,8 @@ void AASGameMode::Logout(AController* Exiting) {
             Saved.Mercy=H->bMercyUsed;Saved.SecondWind=H->bSecondWindUsed;
         }
         Saved.PendingExperience=PS->PendingExperience;Saved.PendingCareer=PS->PendingCareer;Saved.RoomDamaged=PS->bRoomDamaged;Saved.RoomEligible=PS->bRoomEligible;Saved.ReceiptQueue=PS->ReceiptQueue;
+        Saved.WagerVote=PS->bWagerVote;Saved.ShrineUsed=PS->bShrineUsed;Saved.LastGambleRoom=PS->LastGambleRoom;
+        Saved.EndlessAsh=PS->AvailableAsh;Saved.EndlessScrap=PS->AvailableScrap;Saved.ShopBought=PS->ShopBought;Saved.RunKills=PS->RunKills;Saved.RunDamage=PS->RunDamage;Saved.RunDamageTaken=PS->RunDamageTaken;
         Saved.PlayerIndex=PS->PlayerIndex;Saved.Claimed=PS->bRewardClaimed;Saved.Offers=PS->Offers;
         Saved.Receipt=PS->bSavePending?PS->PendingReceipt:FASReceipt();
         Disconnected.Add(PS->ProfileId,Saved);S->bConnectionHold=true;S->ReconnectRemaining=90;ReconnectDeadline=GetWorld()->GetTimeSeconds()+90;
@@ -296,7 +299,7 @@ void AASGameMode::Tick(float Delta) {
     if(S->Phase!=EASPhase::Combat) return;
     if(Queued>0 && S->SimTime>=NextSpawn && S->Enemies.Num()<(S->bEndless?FMath::Min(ASRules::MaxEnemies,36):ASRules::MaxEnemies)) {
         const FVector Warning=S->SpawnWarnings.IsEmpty()?S->Arena->CellPosition(0)+FVector(400,400,100):S->SpawnWarnings[0];
-        FVector At;if(!S->Arena->FreeEnemyPoint(Warning,At)) {NextSpawn=S->SimTime+.25f;return;}
+        FVector At;if(!S->Arena->FreeEnemyPoint(Warning,At)) {NextSpawn=S->SimTime+.25f;if(S->bEndless) EndlessTick(Delta);return;}
         auto* E=GetWorld()->SpawnActorDeferred<AASEnemy>(AASEnemy::StaticClass(),FTransform(At),nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
         if(E) {
             E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);const int32 Pool[]={0,1,2,5,6,7,8,9};
@@ -334,7 +337,7 @@ void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
 void AASGameMode::EnterEndless() {
     auto* S=AS::State(this);if(!S||!S->Arena) return;
     ClearCombat();S->Room=ASRules::EndlessRoom;S->Wave=0;S->VaultMask=0;S->bVaultClaimed=false;bAdvancePending=false;RoomStarted=S->SimTime;
-    EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
+    bEndlessBossPending=false;EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
     NextShuffleWave=1+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
     S->Arena->ConfigureEndless(RunSeed,0,TArray<FVector>());
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
@@ -382,7 +385,7 @@ void AASGameMode::ConfigureEndlessEnemy(AASEnemy* E) {
     const int32 Wave=FMath::Max(1,S->EndlessWave);int32 Tier=0;
     E->Ward=FMath::Clamp((Wave-1)/10,0,3);E->Theme=E->Ward;
     if(bEndlessBossPending) {
-        bEndlessBossPending=false;E->Kind=4;E->Ward=(Wave/10-1)%ASRules::WardCount;E->Theme=E->Ward;Tier=2;
+        bEndlessBossPending=false;E->Kind=4;E->Ward=FMath::Max(0,Wave/10-1)%ASRules::WardCount;E->Theme=E->Ward;Tier=2;
     } else {
         const int32 Pool[]={0,1,2,5,6,7,8,9};
         const float EliteChance=Wave>=5?FMath::Min(.30f,.05f+.01f*Wave):0.f;
@@ -431,7 +434,7 @@ void AASGameMode::ShuffleEndlessArena() {
     FCollisionObjectQueryParams Solid;Solid.AddObjectTypesToQuery(ECC_WorldStatic);
     auto Enemies=S->Enemies;
     for(auto W:Enemies) if(auto* E=W.Get()) {
-        if(GetWorld()->OverlapAnyTestByObjectType(E->GetActorLocation(),FQuat::Identity,Solid,FCollisionShape::MakeCapsule(60,90))) {
+        if(GetWorld()->OverlapAnyTestByObjectType(E->GetActorLocation(),FQuat::Identity,Solid,FCollisionShape::MakeCapsule(E->GetCapsuleComponent()->GetScaledCapsuleRadius(),E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()))) {
             FVector At;if(S->Arena->FreeEnemyPoint(E->GetActorLocation(),At)) E->SetActorLocation(At,false,nullptr,ETeleportType::TeleportPhysics);
         }
     }
@@ -439,7 +442,7 @@ void AASGameMode::ShuffleEndlessArena() {
 }
 void AASGameMode::EndlessFinishWave() {
     auto* S=AS::State(this);if(!S) return;
-    S->ClearedEndlessWave=S->EndlessWave;S->Phase=EASPhase::Reward;S->ChestKind=0;
+    S->ClearedEndlessWave=S->EndlessWave;S->Phase=EASPhase::Reward;S->ChestKind=0;EndlessShuffleAt=-1.f;
     // TUNABLE: about 15% of checkpoints after wave 10 open a lucky shop; a quarter of those stock rare Ash items.
     S->bLuckyShop=ASExpedition::ShopAppears(S->EndlessWave,Random.FRand());S->bRareShop=S->bLuckyShop&&Random.FRand()<.25f;
     auto Projectiles=S->Projectiles;for(auto W:Projectiles) if(auto* P=W.Get()) P->Destroy();
@@ -604,12 +607,14 @@ void AASGameMode::BackToHub() {
     // Freeze before draining progress so no late projectile or kill can create a
     // second return receipt while the first is awaiting its durable-save ack.
     S->bPartyPaused=true;for(auto W:S->Heroes) if(auto* H=W.Get()) H->ResetInput(true);
+    // Leaving an Endless run early is a defeat for scoring: bank cleared-wave stats and earnings first.
+    if(S->bEndless&&!bEnding) {S->bPartyPaused=false;EndRun(false);S->bPartyPaused=true;}
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
         bool Pending=PS->PendingExperience>0;for(int32 V:PS->PendingCareer) Pending|=V>0;
-        if(Pending) {FASReceipt R;R.Id=S->RunId+TEXT(":return:")+PS->ProfileId;R.Room=FMath::Clamp(S->Room,0,32);PS->DrainCareer(R);SendReceipt(PS,R);}
+        if(Pending) {FASReceipt R;R.Id=S->RunId+TEXT(":return:")+PS->ProfileId;R.Room=S->bEndless?0:FMath::Clamp(S->Room,0,32);PS->DrainCareer(R);SendReceipt(PS,R);}
     }
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(PS->bSavePending) {bHubPending=true;return;}
-    bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->bEndless=false;S->EndlessWave=0;S->ClearedEndlessWave=0;S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
+    bEndlessBossPending=false;EndlessShuffleAt=-1.f;bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->bEndless=false;S->EndlessWave=0;S->ClearedEndlessWave=0;S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
     S->Arena->Configure(-1,1103);SpawnPracticeDummy();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         if(auto* PS=H->GetPlayerState<AASPlayerState>()) {PS->bReady=false;PS->bRewardClaimed=false;PS->Offers.Empty();H->ApplyBuild(PS->Build,true);}
@@ -620,7 +625,7 @@ void AASGameMode::BackToHub() {
 void AASGameMode::RollOffers(AASPlayerState* PS,AASCharacter* H) {
     if(!PS||!H) return;auto* S=AS::State(this);if(!S) return;
     PS->Offers.Empty();for(int I:ASBuild::Offers(H->UpgradeContext(),uint32(Random.RandRange(1,MAX_int32)),S->bEndless?ASExpedition::ChoiceCount(PS->EndlessChoices):(PS->Build.Rank(12)>0?4:3))) PS->Offers.Add(I);
-    if(S->bEndless) {PS->ForceNetUpdate();PS->OnOffersChanged();return;}
+    if(S->bEndless) {if(PS->Offers.IsEmpty()) PS->bRewardClaimed=true;PS->ForceNetUpdate();PS->OnOffersChanged();return;}
     TArray<int32> Pool;for(int32 I=0;I<(S->ChestKind==2?PS->Build.StylePool:PS->Build.RelicPool);++I) if(S->ChestKind==2?I!=H->Build.Style:!H->Relic(I)) Pool.Add(I);
     if(!Pool.IsEmpty()) PS->Offers.Add(Pool[Random.RandRange(0,Pool.Num()-1)]);
     PS->ForceNetUpdate();PS->OnOffersChanged();
