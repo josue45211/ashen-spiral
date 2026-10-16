@@ -270,7 +270,7 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
     const TCHAR* Names[]={TEXT("SYNERGY: Lightning Blast"),TEXT("SYNERGY: Stormbreak"),TEXT("SYNERGY: Wildfire")};
     const FLinearColor Colors[]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
     const FVector At=GetActorLocation();State->Effect(8,At,FVector::UpVector,Colors[Trigger],470.f);
-    for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* Controller=Cast<AASPlayerController>(Player->GetOwner())) Controller->Notify(Names[Trigger]);
+    for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* NotifyController=Cast<AASPlayerController>(Player->GetOwner())) NotifyController->Notify(Names[Trigger]);
     const auto Targets=State->Enemies;
     for(auto W:Targets) if(auto* Target=W.Get()) if(!Target->SpawnProtected()&&Target->Health>0&&FVector::DistSquared2D(At,Target->GetActorLocation())<470.f*470.f&&AS::ClearSight(GetWorld(),At,Target->GetActorLocation())) {
         Target->BeginHitReaction(Source->GetActorLocation(),true);
