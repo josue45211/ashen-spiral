@@ -21,7 +21,8 @@ void CaptureTraits(AASCharacter* H,AASPlayerState* PS,FASReconnect& R) {
     R.TraitRanks=H->TraitRanks;R.EvolutionMask=H->EvolutionMask;R.LastUpgrade=H->LastUpgrade;R.Rerolls=H->Rerolls;R.CurseStacks=H->CurseStacks;
     R.Focus=H->Focus;R.NextRune=H->NextRune;R.ConduitHits=H->ConduitHits;R.PhoenixUsed=H->bPhoenixUsed;R.GoldRemainder=H->GoldRemainder;
     R.RoomBuffUntil=H->RoomBuffUntil;R.KillBuffUntil=H->KillBuffUntil;R.DashCharges=H->Movement()->DashCharges;R.DashRecharge=H->Movement()->DashRecharge;R.AirDashesUsed=H->Movement()->AirDashesUsed;
-    R.WagerVote=PS->bWagerVote;R.ShrineUsed=PS->bShrineUsed;R.LastGambleRoom=PS->LastGambleRoom;R.WarCryUntil=H->WarCryUntil;R.ReceiptQueue=PS->ReceiptQueue;
+    R.WagerVote=PS->bWagerVote;R.ShrineUsed=PS->bShrineUsed;R.LastGambleRoom=PS->LastGambleRoom;
+    R.EndlessRanks=H->EndlessRanks;R.EndlessAsh=PS->AvailableAsh;R.EndlessScrap=PS->AvailableScrap;R.ShopBought=PS->ShopBought;R.RunKills=PS->RunKills;R.RunDamage=PS->RunDamage;R.RunDamageTaken=PS->RunDamageTaken;R.Bleed=H->BleedRemaining;R.Eliminated=H->bEliminated;R.WarCryUntil=H->WarCryUntil;R.ReceiptQueue=PS->ReceiptQueue;
 }
 }
 AASGameMode::AASGameMode() {
@@ -112,7 +113,11 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
         H->RunRanks=Saved->RunRanks;H->RunRanks.SetNumZeroed(ASRules::RunUpgradeCount);
         for(int32& Rank:H->RunRanks) Rank=ASRules::UpgradeRank(Rank);
         H->TraitRanks=Saved->TraitRanks;H->TraitRanks.SetNumZeroed(ASBuild::Count);
-        for(int32 I=0;I<ASBuild::Count;++I) H->TraitRanks[I]=FMath::Clamp(H->TraitRanks[I],0,ASBuild::Catalog[I].Max);
+        for(int32 I=0;I<ASBuild::Count;++I) H->TraitRanks[I]=FMath::Clamp(H->TraitRanks[I],0,(S->bEndless&&ASBuild::ScalesEndlessly(I))?10000:ASBuild::Catalog[I].Max);
+        H->EndlessRanks=Saved->EndlessRanks;H->EndlessRanks.SetNumZeroed(4);for(int32& Rank:H->EndlessRanks) Rank=FMath::Clamp(Rank,0,10000);
+        PS->AvailableAsh=FMath::Clamp(Saved->EndlessAsh,0,ASRules::MaxCurrency);PS->AvailableScrap=FMath::Clamp(Saved->EndlessScrap,0,ASRules::MaxCurrency);PS->ShopBought=Saved->ShopBought&((1<<ASExpedition::ShopCount)-1);
+        PS->RunKills=FMath::Max(0,Saved->RunKills);PS->RunDamage=FMath::Max(0.f,Saved->RunDamage);PS->RunDamageTaken=FMath::Max(0.f,Saved->RunDamageTaken);
+        H->BleedRemaining=FMath::Clamp(Saved->Bleed,0.f,25.f);H->bEliminated=Saved->Eliminated;
         H->Ammo=FMath::Clamp(Saved->Ammo,0,H->MagazineCapacity());H->ReloadStart=ASArsenal::UsesMagazine(H->Build.Weapon)?Saved->ReloadStart:0;H->ReloadEnd=ASArsenal::UsesMagazine(H->Build.Weapon)?Saved->ReloadEnd:0;H->NextAttack=Saved->NextAttack;H->NextHammerLeap=Saved->NextHammerLeap;
         H->EvolutionMask=Saved->EvolutionMask;H->LastUpgrade=Saved->LastUpgrade;H->Rerolls=Saved->Rerolls;H->CurseStacks=Saved->CurseStacks;
         H->Focus=Saved->Focus;H->NextRune=Saved->NextRune;H->ConduitHits=Saved->ConduitHits;H->bPhoenixUsed=Saved->PhoenixUsed;H->GoldRemainder=Saved->GoldRemainder;

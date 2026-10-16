@@ -13,6 +13,8 @@ struct FASReconnect {
     float ReloadStart=0,ReloadEnd=0,NextAttack=0,NextHammerLeap=0;
     bool Mercy=false,SecondWind=false,Claimed=false;
     int32 LastGambleRoom=-100;
+    // Endless run state that must survive a reconnect.
+    TArray<int32> EndlessRanks;int32 EndlessAsh=0,EndlessScrap=0,ShopBought=0,RunKills=0;float RunDamage=0,RunDamageTaken=0,Bleed=25.f;bool Eliminated=false;
     TArray<int32> Offers;
     TArray<int32> RunRanks;
     TArray<int32> TraitRanks;
