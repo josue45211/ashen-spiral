@@ -26,5 +26,13 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     ArmorWeapon->SetRelativeRotation(FRotator(Kind==8?0.f:-Windup*65.f,0,0));
     ArmorParts[15]->SetRelativeRotation(FRotator(-8.f-Weight*18.f,Step*2.f,0));
     ArmorParts[19]->SetRelativeRotation(FRotator(-Weight*8.f+FMath::Sin(AS::Time(this)*3.f)*3.f,0,Step*2.f));
+    // Replicated attack release and hit reaction: readable, brief, cosmetic only.
+    const float Now=AS::Time(this);
+    const float Release=ASAnimation::ReleaseGesture(Now-AttackReleaseTime);
+    const float Recoil=ASAnimation::Reaction(Now-HitReactionTime,HitReactionStrength);
+    const FVector Push=GetActorTransform().InverseTransformVectorNoScale(HitReactionDirection);
+    ArmorParts[0]->AddRelativeRotation(FRotator(Release*14.f-Push.X*Recoil*18.f,0,Push.Y*Recoil*12.f));
+    ArmorParts[1]->AddRelativeRotation(FRotator(-Recoil*8.f,0,0));
+    ArmorFigure->SetRelativeLocation(FVector(Push.X*Recoil*12.f+Release*6.f,Push.Y*Recoil*12.f,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
 }
 

@@ -28,7 +28,11 @@ void AASCharacter::Animate(float Delta) {
     const float HammerCrouch=Build.Weapon==1?(HammerLeapState==1?-16.f*ASMelee::Smooth(LeapPhase):(HammerLeapState==2?-16.f*(1.f-ASMelee::Smooth((Now-HammerLeapStarted-ASHammer::Startup)/(ASHammer::Flight*.28f))):0.f)):0.f;
     const float BodyDrop=-4.f*LocomotionWeight-7.f*Landing+HammerCrouch;
     Figure->SetRelativeLocation(FVector(0,0,bDowned?-117.f:-88.f+BodyDrop+FMath::Abs(Step)*1.5f));
-    Figure->SetRelativeRotation(FRotator(bDowned?65.f:0.f,0,0));
+    // Player hit reaction: brief recoil away from the source. Visual only; velocity is never touched.
+    const float Recoil=bDowned?0.f:ASAnimation::Reaction(DamageReactionAge,DamageReactionStrength,true);
+    const FVector RecoilLocal=GetActorTransform().InverseTransformVectorNoScale(DamageReactionDirection);
+    Figure->SetRelativeLocation(Figure->GetRelativeLocation()+FVector(RecoilLocal.X,RecoilLocal.Y,0.f)*(Recoil*10.f));
+    Figure->SetRelativeRotation(FRotator(bDowned?65.f:-RecoilLocal.X*Recoil*14.f,0,RecoilLocal.Y*Recoil*10.f));
     const float Breath=FMath::Sin(Now*2.2f)*.6f;
     Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f));
     Parts[0]->SetRelativeLocation(FVector(0,0,111+Breath));Parts[2]->SetRelativeRotation(FRotator(0,-Step*4.f,Step*2.f));

@@ -81,6 +81,8 @@ int main() {
         const auto K=ASAnimation::TwoBone(I*.15f,A,B);
         Check(Near(std::hypot(K.Along,K.Out),A,.003)&&Near(std::hypot(K.Reach-K.Along,K.Out),B,.003),"two-bone solve preserves both segment lengths across unreachable targets");
     }
+    Check(ASAnimation::Reaction(.05f,1.f,true)>0.f&&ASAnimation::Reaction(.3f,1.f,true)==0.f&&ASAnimation::Reaction(.6f,1.f)==0.f,"hit reactions are visible and expire quickly (no stunlock window)");
+    for(int I=0;I<400;++I) Check(ASAnimation::Reaction(I*.002f,3.f)<=1.f&&ASAnimation::ReleaseGesture(I*.002f)<=1.f,"reaction and release gestures stay bounded");
     for(int I=0;I<500;++I) {const auto F=ASAnimation::Foot(I*.03f,1);Check(F.Lift>=0&&F.Lift<=28.001&&std::abs(F.Forward)<=37.001,"gait keeps stance planted and swing within anatomical reach");}
     Check(Near(std::pow(1-ASAnimation::Blend(1.f/30,12),30),std::pow(1-ASAnimation::Blend(1.f/120,12),120),1e-5),"animation blending is frame-rate independent");
     Check(ASAdventure::NovaAreaRadius(330,true)==630&&ASAdventure::NovaAreaRadius(320,false)==320,"Nova expands existing area skills without changing ordinary casts");
