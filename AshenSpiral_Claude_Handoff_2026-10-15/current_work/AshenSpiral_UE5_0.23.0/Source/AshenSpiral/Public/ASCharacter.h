@@ -96,7 +96,7 @@ public:
     void ResetTraits();
     void EnterRoomTraits(float CombatStarts);
     void TickTraits(float Delta);
-    void OnKill();
+    void OnKill(const class AASEnemy* Killed=nullptr);
     void OnCinderPickup();
     void SecondaryDamage(AASEnemy* Enemy,float Damage,EASHitKind Kind);
     void HitProcs(AASEnemy* Enemy,const FVector& At,float Dealt);

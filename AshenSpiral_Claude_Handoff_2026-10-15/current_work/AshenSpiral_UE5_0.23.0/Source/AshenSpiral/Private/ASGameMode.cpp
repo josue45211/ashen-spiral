@@ -314,7 +314,7 @@ void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
     S->bEndless=true;S->EndlessWave=0;S->ClearedEndlessWave=0;S->bLuckyShop=false;S->bRareShop=false;
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         auto* PS=H->GetPlayerState<AASPlayerState>();if(!PS) continue;
-        PS->RunDamage=0;PS->RunDamageTaken=0;PS->RunKills=0;PS->LastGambleRoom=-100;PS->bShopClaimed=false;
+        PS->RunDamage=0;PS->RunDamageTaken=0;PS->RunKills=0;PS->LastGambleRoom=-100;PS->bShopClaimed=false;PS->AvailableAsh=0;PS->AvailableScrap=0;
         H->ApplyBuild(PS->Build,true);
     }
     EnterEndless();
@@ -434,7 +434,7 @@ void AASGameMode::EndlessFinishWave() {
         H->bDowned=false;H->bEliminated=false;H->BleedRemaining=25.f;H->ReviveProgress=0;H->Health=FMath::Max(H->Health,H->MaxHealth*.35f);H->RefreshLook();H->ForceNetUpdate();
     }
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
-        PS->Offers.Empty();PS->bRewardClaimed=false;
+        PS->Offers.Empty();PS->bRewardClaimed=false;PS->AvailableAsh=ASRules::Credit(PS->AvailableAsh,ASExpedition::CheckpointAsh(S->EndlessWave));
         AASCharacter* Hero=nullptr;for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->GetPlayerState<AASPlayerState>()==PS) {Hero=H;break;}
         RollOffers(PS,Hero);
         if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(FString::Printf(TEXT("WAVE %d CLEARED. Claim your reward at the chest, then either player presses E to continue."),S->EndlessWave));
@@ -460,7 +460,8 @@ void AASGameMode::EnemyKilled(AASEnemy* E,AASCharacter* Killer) {
     }
     const int32 Base=E->Boss()?30:(E->Elite()?8:1);
     const int32 Gold=IsValid(Killer)?ASBuild::CreditKills(Base,Killer->TraitValue(ASBuild::Trait::Greed),Killer->GoldRemainder):Base;
-    S->Cinders=ASRules::Credit(S->Cinders,Gold);if(IsValid(Killer)) Killer->OnKill();
+    S->Cinders=ASRules::Credit(S->Cinders,Gold);if(IsValid(Killer)) Killer->OnKill(E);
+    if(S->bEndless&&IsValid(Killer)) if(auto* KillerState=Killer->GetPlayerState<AASPlayerState>()) KillerState->AvailableScrap=ASRules::Credit(KillerState->AvailableScrap,ASExpedition::KillScrap(E->Elite(),E->Boss()));
     const float DropChance=.12f+(IsValid(Killer)?.06f*Killer->TraitValue(ASBuild::Trait::Fortune):0.f);
     if(Random.FRand()<DropChance) AASPickup::Spawn(GetWorld(),E->GetActorLocation(),Random.FRand()<.3f?1:0,12.f);
     if(Random.FRand()<.25f) AASPickup::Spawn(GetWorld(),E->GetActorLocation()+FVector(40,0,0),2,1.f);
@@ -506,6 +507,14 @@ void AASGameMode::Reward(AASPlayerController* PC,int32 Index) {
     if(H->bDowned) {PC->Notify(TEXT("Ask your partner to hold Revive nearby, then claim your upgrade."));return;}
     if(FVector::Dist2D(H->GetActorLocation(),S->Arena->ExitPoint())>400) {PC->Notify(TEXT("Approach the gold chest to claim your reward."));return;}
     const int32 Choice=PS->Offers[Index];
+    if(ASExpedition::Exclusive(Choice)) {
+        // Endless-exclusive stacking trait: validated server-side, never available in normal runs.
+        if(!S->bEndless||!H->EndlessRanks.IsValidIndex(Choice-ASExpedition::ExclusiveBase)) return;
+        H->EndlessRanks[Choice-ASExpedition::ExclusiveBase]=FMath::Min(10000,H->EndlessRanks[Choice-ASExpedition::ExclusiveBase]+1);
+        H->ForceNetUpdate();PS->bRewardClaimed=true;PS->ForceNetUpdate();
+        PC->Notify(FString::Printf(TEXT("%s gained. Either player uses E at the chest to continue."),UTF8_TO_TCHAR(ASExpedition::ExclusiveName(Choice))));
+        return;
+    }
     const bool StatUpgrade=ASRules::IsRunUpgradeOffer(Choice)||ASBuild::IsTrait(Choice);
     if(StatUpgrade&&!H->CanApplyChoice(Choice)) {PC->Notify(TEXT("That upgrade is already at its maximum rank or effect."));return;}
     if(!StatUpgrade&&(Choice<0||Choice>=(S->ChestKind==2?PS->Build.StylePool:PS->Build.RelicPool))) return;
@@ -564,7 +573,7 @@ void AASGameMode::EndRun(bool Victory) {
         if(S->bEndless) {
             // Highest CLEARED wave, plus both players' run stats. TUNABLE earnings: Ash and Scrap per cleared wave.
             R.Id=S->RunId+TEXT(":endless:")+PS->ProfileId;R.bEndless=true;R.bRunEnded=true;R.EndlessWave=S->ClearedEndlessWave;
-            R.Room=0;R.Ward=0;R.bDeath=true;R.Ash=FMath::Min(10000,S->ClearedEndlessWave*3);R.Scrap=FMath::Min(10000,S->ClearedEndlessWave*2);
+            R.Room=0;R.Ward=0;R.bDeath=true;R.Ash=FMath::Clamp(PS->AvailableAsh,0,10000);R.Scrap=FMath::Clamp(PS->AvailableScrap,0,10000);
             R.EndlessRecord.RunId=S->RunId;R.EndlessRecord.Wave=S->ClearedEndlessWave;R.EndlessRecord.Damage=PS->RunDamage;R.EndlessRecord.Kills=PS->RunKills;R.EndlessRecord.DamageTaken=PS->RunDamageTaken;
             for(auto Q:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(Q)) if(Other!=PS) {R.EndlessRecord.PartnerDamage=Other->RunDamage;R.EndlessRecord.PartnerKills=Other->RunKills;R.EndlessRecord.PartnerDamageTaken=Other->RunDamageTaken;}
             R.EndlessRecord.EndedUtc=FDateTime::UtcNow().ToIso8601();R.EndlessRecord.Sanitize();R.Difficulty=S->Difficulty;

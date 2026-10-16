@@ -67,6 +67,7 @@ float AASCharacter::DamageScale(bool WeaponHit) const {
     if(WeaponHit&&(Build.Weapon==2||Build.Weapon==3||Build.Weapon>=6)) Bonus+=.12f*TraitValue(Trait::Ranged);
     if(!WeaponHit||Build.Weapon==4) Bonus+=.12f*TraitValue(Trait::Magic);
     Bonus+=.45f*TraitValue(Trait::BloodPact);
+    if(WeaponHit) Bonus+=.08f*EndlessValue(3); // Unbound Fury (Endless exclusive): 8% primary damage per effective rank
     const auto* State=AS::State(this);
     if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&WeaponHit&&Now<WarCryUntil&&(Build.Weapon==0||Build.Weapon==1||Build.Weapon==5)) Bonus+=.20f;
     if(CombatBenefits()) {
@@ -78,8 +79,22 @@ float AASCharacter::DamageScale(bool WeaponHit) const {
     }
     return ASRules::DamageMultiplier(Rank(17),RunRank(2))*(1.f+Bonus);
 }
-void AASCharacter::OnKill() {
+void AASCharacter::OnKill(const AASEnemy* Killed) {
     if(!CombatBenefits()) return;
+    if(const auto* S=AS::State(this)) if(S->bEndless&&HasAuthority()) {
+        auto* PS=GetPlayerState<AASPlayerState>();
+        // Bloodroot: each kill permanently adds max HP (and heals the same amount).
+        if(const float V=EndlessValue(0);V>0.f) {const float Gain=ASExpedition::BloodrootGain(V);MaxHealth=FMath::Min(100000.f,MaxHealth+Gain);Health=FMath::Min(MaxHealth,Health+Gain);}
+        // Close Quarters: kills within 350 cm heal and pay Scrap.
+        if(const float V=EndlessValue(1);V>0.f&&Killed&&FVector::DistSquared2D(GetActorLocation(),Killed->GetActorLocation())<=350.f*350.f) {
+            Heal(3.f*V);if(PS) PS->AvailableScrap=ASRules::Credit(PS->AvailableScrap,int32(FMath::RoundToInt(2.f*V)));
+        }
+        // First Blood: a kill within one second of first engaging the enemy pays Scrap.
+        if(const float V=EndlessValue(2);V>0.f&&Killed&&Killed->FirstEngagedAt>=0.f&&AS::Time(this)-Killed->FirstEngagedAt<1.f) {
+            if(PS) PS->AvailableScrap=ASRules::Credit(PS->AvailableScrap,int32(FMath::RoundToInt(3.f*V)));
+        }
+        ForceNetUpdate();
+    }
     Heal(1.5f*TraitValue(Trait::Reaper));
     if(TraitValue(Trait::KillFlow)>0) {NextSpiral=FMath::Max(AS::Time(this),NextSpiral-.25f*TraitValue(Trait::KillFlow));KillBuffUntil=AS::Time(this)+2.f;}
 }

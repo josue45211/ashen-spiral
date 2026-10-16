@@ -546,6 +546,9 @@ void SASMenu::RewardScreen() {
             const int32 Id=Offer-100;const int32 Icons[]={ASEffectArt::Reload,ASEffectArt::Bolt,ASEffectArt::Blade,ASEffectArt::Heart,ASEffectArt::Dash,ASEffectArt::Precision};
             const TCHAR* Summaries[]={TEXT("Cast Spiral more often"),TEXT("Attack faster"),TEXT("Deal more weapon damage"),TEXT("Gain maximum health"),TEXT("Move faster"),TEXT("Land more critical hits")};
             Name=ASData::RunUpgrades[Id].Name;Brief=Summaries[Id];Detail=FString(ASData::RunUpgrades[Id].Desc)+TEXT("\n")+StatPreview(Id,Hero->Build,Hero->RunRanks,false,Hero->MaxHealth);Type=TEXT("CORE STAT");Icon=Icons[Id];
+        } else if(ASExpedition::Exclusive(Offer)) {
+            Name=UTF8_TO_TCHAR(ASExpedition::ExclusiveName(Offer));Detail=UTF8_TO_TCHAR(ASExpedition::ExclusiveDescription(Offer))+FString::Printf(TEXT("\nEndless exclusive. Stacks with diminishing returns after rank 5. Current rank: %d."),Hero->EndlessRanks.IsValidIndex(Offer-ASExpedition::ExclusiveBase)?Hero->EndlessRanks[Offer-ASExpedition::ExclusiveBase]:0);
+            Brief=TEXT("Endless-only stacking power");Type=TEXT("ENDLESS");Icon=ASEffectArt::Heart;Rarity=2;
         } else if(Offer>=0&&Offer<(Style?10:24)) {
             Name=Style?ASData::Styles[Offer].Name:ASData::Relics[Offer].Name;Detail=Style?ASData::Styles[Offer].Desc:ASData::Relics[Offer].Desc;
             Brief=ShortEffect(Detail);Type=Style?TEXT("SPIRAL STYLE"):TEXT("RELIC");Icon=Style?ASEffectArt::Vortex:ASEffectArt::Star;Rarity=1;

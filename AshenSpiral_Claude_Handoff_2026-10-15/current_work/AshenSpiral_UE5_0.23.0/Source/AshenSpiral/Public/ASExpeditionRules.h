@@ -78,6 +78,10 @@ inline float SynergyDamage(int Kind,float MaxHP,float Power,bool Boss) {
     return Base*std::max(1.f,Power)+(Boss?std::max(0.f,MaxHP)*.035f:0.f);
 }
 constexpr int ExclusiveBase=400,ExclusiveCount=4;
+inline float BloodrootGain(float EffectiveRank) {return .35f*std::max(0.f,EffectiveRank);}
+// TUNABLE Endless earnings: Scrap for kills (normal / elite / boss) and Ash for checkpoints and bosses.
+inline int KillScrap(bool Elite,bool Boss) {return Boss?25:(Elite?5:1);}
+inline int CheckpointAsh(int Wave) {return BossWave(Wave)?10:(Wave>0?2:0);}
 inline bool Exclusive(int Id) {return Id>=ExclusiveBase&&Id<ExclusiveBase+ExclusiveCount;}
 inline const char* ExclusiveName(int Id) {const char* Names[]={"Bloodroot","Close Quarters","First Blood","Unbound Fury"};return Names[std::clamp(Id-ExclusiveBase,0,3)];}
 inline const char* ExclusiveDescription(int Id) {

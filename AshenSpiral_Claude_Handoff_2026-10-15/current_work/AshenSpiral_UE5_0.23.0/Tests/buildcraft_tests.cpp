@@ -117,5 +117,24 @@ int main() {
     Check(BladeContact(.25f,100,100,200),"rotating blades follow visual angle");
     for(int I=0;I<10000;++I) {const float P=TrapPhase(I*.13f,30);Check(P>=0&&P<6,"trap cycle bounded");}
     std::cout<<"PASS: "<<Checks<<" buildcraft checks; 18000 weighted reward drafts; 66 stable trait IDs (65 selectable).\n";
+        // 0.23 Endless offers: exclusives only in Endless, sidegrade shift after wave 15, deterministic.
+    {
+        Context N;N.Weapon=0;Context E=N;E.Endless=true;E.EndlessWave=20;
+        int NormalExclusive=0,EndlessExclusive=0,Offence=0,Offers5=0;
+        for(std::uint32_t Seed=1;Seed<3000;++Seed) {
+            for(int V:Offers(N,Seed,5)) if(ASExpedition::Exclusive(V)) ++NormalExclusive;
+            const auto A=Offers(E,Seed,5),B=Offers(E,Seed,5);
+            Check(A==B,"endless offers are deterministic for a seed");
+            Check(A.size()==5,"endless chest with 5 choices offers 5");
+            for(int V:A) {if(ASExpedition::Exclusive(V)) ++EndlessExclusive;else if(Category(V)==0) ++Offence;}
+            ++Offers5;
+        }
+        Check(NormalExclusive==0,"normal runs never offer Endless-exclusive traits");
+        Check(EndlessExclusive>Offers5*ExclusiveChance(20)/100/2&&EndlessExclusive<Offers5*ExclusiveChance(20)/100*2,"exclusive traits appear at about the tuned rate");
+        Check(Offence<=Offers5*2,"after wave 15 at most about two of five Endless choices are offence");
+        Context Early=E;Early.EndlessWave=10;int Exclusive10=0;for(std::uint32_t Seed=1;Seed<500;++Seed) for(int V:Offers(Early,Seed,3)) if(ASExpedition::Exclusive(V)) ++Exclusive10;
+        Check(Exclusive10>0,"exclusives can appear before wave 15");
+        Context W1=E;W1.EndlessWave=1;for(std::uint32_t Seed=1;Seed<500;++Seed) for(int V:Offers(W1,Seed,3)) Check(!ASExpedition::Exclusive(V),"no exclusives in the first two waves");
+    }
     std::cout<<"Shared C++ rules only: does not compile or run Unreal actors, replication, UI, physics or saves.\n";
 }

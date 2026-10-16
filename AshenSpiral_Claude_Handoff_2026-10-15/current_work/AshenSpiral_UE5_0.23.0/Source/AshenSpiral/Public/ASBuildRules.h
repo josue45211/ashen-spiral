@@ -1,5 +1,6 @@
 #pragma once
 #include "ASRules.h"
+#include "ASExpeditionRules.h"
 
 // Run-only choices. Stable IDs leave the original six stat IDs untouched.
 namespace ASBuild {
@@ -236,17 +237,28 @@ inline int Weight(const Context& C,int Offer) {
     const int Quality=Rarity>0?25*std::clamp(C.Difficulty,0,2):0;
     return ((W*(100+Bonus)+99)/100*(100+Quality)+99)/100;
 }
+// TUNABLE: percent chance that an Endless chest carries one exclusive trait; rises slowly with the wave.
+inline int ExclusiveChance(int Wave) {return Wave<3?0:std::min(25,8+Wave/5);}
 inline std::vector<int> Offers(const Context& C,std::uint32_t Seed,int CountWanted=3) {
     ASRules::Random R(Seed);std::vector<int> Pool,Result;
     for(int I=0;I<ASRules::RunUpgradeCount;++I) if(CanChoose(C,100+I)) Pool.push_back(100+I);
     for(int I=0;I<Count;++I) if(CanChoose(C,OfferBase+I)) Pool.push_back(OfferBase+I);
     for(int Slot=0;Slot<std::clamp(CountWanted,0,5)&&!Pool.empty();++Slot) {
         std::vector<int> Candidates;for(int V:Pool) if(Slot>=3||Category(V)==Slot) Candidates.push_back(V);
+        // Endless sidegrades (TUNABLE): after wave 15 the extra chest slots lean to sustain/utility/mobility,
+        // so at most about half of a five-choice chest is offence.
+        if(C.Endless&&C.EndlessWave>15&&Slot>=3) {
+            std::vector<int> Side;for(int V:Candidates) if(Category(V)!=0) Side.push_back(V);
+            if(!Side.empty()) Candidates=Side;
+        }
         if(Candidates.empty()) Candidates=Pool;
         int Sum=0;for(int V:Candidates) Sum+=Weight(C,V);int Pick=R.Range(Sum),Chosen=Candidates.back();
         for(int V:Candidates) {Pick-=Weight(C,V);if(Pick<0) {Chosen=V;break;}}
         Result.push_back(Chosen);Pool.erase(std::find(Pool.begin(),Pool.end(),Chosen));
     }
+    // Endless-exclusive stacking traits replace the last choice from time to time (never in normal runs).
+    if(C.Endless&&!Result.empty()&&R.Range(100)<ExclusiveChance(C.EndlessWave))
+        Result.back()=ASExpedition::ExclusiveBase+R.Range(ASExpedition::ExclusiveCount);
     return Result;
 }
 inline void RefillDash(int& Charges,float& Timer,float Delta,int Capacity,float Recharge) {
