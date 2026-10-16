@@ -217,6 +217,8 @@ void AASWorld::EndlessArena(const FVector& Center) {
     for(const auto& O:ASRules::EndlessProps(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep)) {
         Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=370?0:(O.Height>=290?1:2)),Center+FVector(O.X,O.Y,O.Height*.5f),FVector(O.Length/100.f,O.Thickness/100.f,O.Height/100.f),Stone*(O.Height>=370?1.15f:1.f),true,O.Yaw,0,.05f);
     }
+    Add(TEXT("Cube"),TEXT("EndlessShopStall"),ExitPoint()+FVector(0,380,60),FVector(1.6f,.8f,1.2f),FLinearColor(.25f,.15f,.07f),true);
+    Text(TEXT("LUCKY SHOP / when the lamp burns"),ExitPoint()+FVector(0,380,260),90,22);
     Add(TEXT("SM_Ring"),TEXT("EndlessSigilOuter"),Center+FVector(0,0,9),FVector(12,12,1),Sigil,false,0,1.5f);
     Add(TEXT("SM_Ring"),TEXT("EndlessSigilInner"),Center+FVector(0,0,9),FVector(7,7,1),Sigil,false,0,2.5f);
     Light(Center+FVector(0,0,600),FLinearColor(1,.35f,.2f),2200,3200);
@@ -722,6 +724,7 @@ int32 AASWorld::VaultInteraction(const FVector& P) const {
 }
 int32 AASWorld::StationAt(const FVector& P,FString* Label) const {
     if(HasShrine()&&ASAdventure::InReach(FVector::DistSquared2D(P,ShrinePoint()),P.Z-ShrinePoint().Z)) {if(Label) *Label=TEXT("Ember bargain / trade health for a trait");return 220;}
+    if(IsEndlessArena()&&ASAdventure::InReach(FVector::DistSquared2D(P,ShopPoint()),P.Z-ShopPoint().Z)) {if(Label) *Label=TEXT("Lucky shop / spend Scrap and Ash");return 222;}
     if(HasWell()&&ASAdventure::InReach(FVector::DistSquared2D(P,WellPoint()),P.Z-WellPoint().Z)) {if(Label) *Label=TEXT("Wishing well / stake Cinders");return 221;}
     const int32 Vault=VaultInteraction(P);if(Vault) {if(Label) *Label=Vault==3?TEXT("Rune vault cache / both sigils required"):FString::Printf(TEXT("Activate vault sigil %d"),Vault);return 200+Vault;}
     const int32 Weapon=WeaponAt(P);if(Weapon>=0) {if(Label)*Label=FString(ASData::Weapons[Weapon].Name)+TEXT(" / inspect, buy or practice");return 100+Weapon;}
@@ -734,6 +737,7 @@ FVector AASWorld::InteractionPoint(int32 Id) const {
     if(Id>=201&&Id<=203) return VaultPoint(Id-200)+FVector(0,0,80);
     if(Id==220) return ShrinePoint()+FVector(0,0,210);
     if(Id==221) return WellPoint()+FVector(0,0,210);
+    if(Id==222) return ShopPoint()+FVector(0,0,120);
     if(Id>=100&&Id<100+ASRules::WeaponCount) return WeaponStand(Id-100)+FVector(0,0,165);
     if(Id==9) return ExitPoint()+FVector(0,0,95);
     for(const auto& S:Stations) if(S.Menu==Id) return S.Position+FVector(0,0,150);
@@ -741,7 +745,7 @@ FVector AASWorld::InteractionPoint(int32 Id) const {
 }
 void AASWorld::InteractionCandidates(TArray<int32>& Ids) const {
     if(Config.Room<0) {for(const auto& S:Stations) Ids.Add(S.Menu);for(int32 I=0;I<ASRules::WeaponCount;++I) Ids.Add(100+I);}
-    else {Ids.Add(9);if(HasVault()) {Ids.Add(201);Ids.Add(202);Ids.Add(203);}if(HasShrine()) Ids.Add(220);if(HasWell()) Ids.Add(221);}
+    else {Ids.Add(9);if(HasVault()) {Ids.Add(201);Ids.Add(202);Ids.Add(203);}if(HasShrine()) Ids.Add(220);if(HasWell()) Ids.Add(221);if(IsEndlessArena()) Ids.Add(222);}
 }
 
 bool AASWorld::WallTrapPath(int32 Cell,FVector& Start,FVector& End) const {

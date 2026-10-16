@@ -66,6 +66,8 @@ public:
     bool HasShrine() const {return Config.Room>=0&&Config.Room%3==2&&Layout.Cells.size()>2;}
     // TUNABLE: the wishing well stands in shrine rooms (every third chamber), opposite the Ember Bargain.
     bool HasWell() const {return HasShrine();}
+    // Endless lucky shop stall: beside the chest in the cleared centre.
+    FVector ShopPoint() const {return ExitPoint()+FVector(0,380,0);}
     FVector WellPoint() const {return CellPosition(1)+FVector(0,-260,0);}
     FVector ShrinePoint() const {return CellPosition(1)+FVector(0,260,0);}
     FVector InteractionPoint(int32 Id) const;

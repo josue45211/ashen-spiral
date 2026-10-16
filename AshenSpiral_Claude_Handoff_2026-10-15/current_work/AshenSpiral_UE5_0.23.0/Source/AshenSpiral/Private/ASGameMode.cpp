@@ -428,15 +428,18 @@ void AASGameMode::ShuffleEndlessArena() {
 void AASGameMode::EndlessFinishWave() {
     auto* S=AS::State(this);if(!S) return;
     S->ClearedEndlessWave=S->EndlessWave;S->Phase=EASPhase::Reward;S->ChestKind=0;
+    // TUNABLE: about 15% of checkpoints after wave 10 open a lucky shop; a quarter of those stock rare Ash items.
+    S->bLuckyShop=ASExpedition::ShopAppears(S->EndlessWave,Random.FRand());S->bRareShop=S->bLuckyShop&&Random.FRand()<.25f;
     auto Projectiles=S->Projectiles;for(auto W:Projectiles) if(auto* P=W.Get()) P->Destroy();
     for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->bDowned) {
         // TUNABLE: downed or eliminated players return at the checkpoint chest with 35% health.
         H->bDowned=false;H->bEliminated=false;H->BleedRemaining=25.f;H->ReviveProgress=0;H->Health=FMath::Max(H->Health,H->MaxHealth*.35f);H->RefreshLook();H->ForceNetUpdate();
     }
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
-        PS->Offers.Empty();PS->bRewardClaimed=false;PS->AvailableAsh=ASRules::Credit(PS->AvailableAsh,ASExpedition::CheckpointAsh(S->EndlessWave));
+        PS->ShopBought=0;PS->Offers.Empty();PS->bRewardClaimed=false;PS->AvailableAsh=ASRules::Credit(PS->AvailableAsh,ASExpedition::CheckpointAsh(S->EndlessWave));
         AASCharacter* Hero=nullptr;for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->GetPlayerState<AASPlayerState>()==PS) {Hero=H;break;}
         RollOffers(PS,Hero);
+        if(S->bLuckyShop) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(S->bRareShop?TEXT("A LUCKY SHOP appears, with rare stock for Ash!"):TEXT("A LUCKY SHOP appears beside the chest."));
         if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(FString::Printf(TEXT("WAVE %d CLEARED. Claim your reward at the chest, then either player presses E to continue."),S->EndlessWave));
     }
     if(S->Arena) S->Effect(7,S->Arena->ExitPoint()+FVector(0,0,100),FVector::ForwardVector,FLinearColor(1,.6f,.12f),2.f);
@@ -445,6 +448,7 @@ void AASGameMode::EndlessFinishWave() {
 void AASGameMode::EndlessAdvance(AASPlayerController* PC) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Reward) return;
     // Both players have chosen (checked by the caller); there is no timer and either player advances.
+    S->bLuckyShop=false;S->bRareShop=false;
     QueueEndlessWave();
     S->Phase=EASPhase::Countdown;S->CountdownEnd=S->SimTime+3.f;NextSpawn=S->CountdownEnd;
     for(auto W:S->Heroes) if(auto* H=W.Get()) {H->InvulnerableUntil=S->SimTime+2;H->EnterRoomTraits(S->CountdownEnd);}
@@ -663,6 +667,29 @@ void AASGameMode::GambleAtWell(AASPlayerController* PC,int32 StakeIndex) {
     const FString Result=Multiplier==0?FString::Printf(TEXT("The well takes %d Cinders."),Stake):(Multiplier==1?TEXT("The well returns your stake."):FString::Printf(TEXT("WISH GRANTED x%d: +%d Cinders!"),Multiplier,Stake*(Multiplier-1)));
     for(auto P:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(P)) if(auto* OtherPC=Cast<AASPlayerController>(Other->GetOwner())) OtherPC->Notify(FString::Printf(TEXT("Player %d staked %d Cinders. %s"),PS->PlayerIndex+1,Stake,*Result));
     S->Effect(7,At,FVector::UpVector,Multiplier==0?FLinearColor(.5f,.05f,.05f):FLinearColor(.3f,.9f,1),Multiplier>=5?320.f:180.f);
+}
+void AASGameMode::BuyShopItem(AASPlayerController* PC,int32 Index) {
+    auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;
+    if(!S||!H||!PS||!PS->bProfileReady||!S->Arena||!S->bEndless||!S->bLuckyShop||S->Phase!=EASPhase::Reward||S->Frozen()||H->bDowned) return;
+    const FVector At=S->Arena->ShopPoint();
+    if(!ASAdventure::InReach(FVector::DistSquared2D(H->GetActorLocation(),At),H->GetActorLocation().Z-At.Z)) {PC->Notify(TEXT("Stand next to the lucky shop."));return;}
+    if(!ASExpedition::CanBuyShopItem(Index,PS->AvailableScrap,PS->AvailableAsh,PS->ShopBought,S->bRareShop)) {PC->Notify(TEXT("You cannot buy that: already bought, closed, or not enough Scrap/Ash."));return;}
+    const auto& Item=ASExpedition::ShopStock(Index);
+    // Apply first; only a successful effect consumes the purchase.
+    bool Applied=false;
+    if(Index==0) {H->Heal(H->MaxHealth*.6f);Applied=true;}
+    else if(Index==1) {H->Shield=FMath::Min(H->MaxHealth,H->Shield+40.f);Applied=true;}
+    else if(Index==2) {++H->Rerolls;Applied=true;}
+    else if(Index==3) {
+        TArray<int32> Rare;for(int32 I=0;I<ASBuild::Count;++I) if(ASBuild::Catalog[I].Rarity==2&&!ASBuild::Catalog[I].Instant&&H->CanApplyChoice(ASBuild::OfferBase+I)) Rare.Add(ASBuild::OfferBase+I);
+        if(Rare.IsEmpty()) {PC->Notify(TEXT("No legendary trait fits your build right now. Nothing spent."));return;}
+        Applied=H->ApplyChoice(Rare[Random.RandRange(0,Rare.Num()-1)]);
+    }
+    else if(Index==4) {H->MaxHealth=FMath::Min(100000.f,H->MaxHealth+25.f);H->Health=FMath::Min(H->MaxHealth,H->Health+25.f);Applied=true;}
+    if(!Applied) return;
+    PS->AvailableScrap=FMath::Max(0,PS->AvailableScrap-Item.Scrap);PS->AvailableAsh=FMath::Max(0,PS->AvailableAsh-Item.Ash);PS->ShopBought|=1<<Index;
+    H->RefreshLook();H->ForceNetUpdate();PS->ForceNetUpdate();
+    PC->Notify(FString::Printf(TEXT("Bought %s."),UTF8_TO_TCHAR(Item.Name)));
 }
 void AASGameMode::UseShrine(AASPlayerController* PC) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;

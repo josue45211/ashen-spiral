@@ -49,5 +49,12 @@ int main() {
     for(int C=0;C<3000;C+=7) for(int I=-2;I<6;++I) Check(GambleStake(C,I)>=0&&GambleStake(C,I)<=C,"a stake can never exceed the balance, even for out-of-range indices");
     Check(GambleBalance(100,25,0)==75&&GambleBalance(100,25,1)==100&&GambleBalance(100,25,2)==125&&GambleBalance(100,100,10)==1000,"balance after a spin: loss, refund, x2, x10");
     Check(GambleBalance(100,25,-3)==75&&GambleBalance(100,500,2)==200&&GambleBalance(0,0,5)==0,"negative multipliers cannot mint money");
+    Check(CanBuyShopItem(0,40,0,0,false)&&!CanBuyShopItem(0,39,0,0,false),"shop item needs exact Scrap");
+    Check(!CanBuyShopItem(0,500,0,1,false),"each shop item can be bought once per shop");
+    Check(!CanBuyShopItem(3,999,20,0,false)&&CanBuyShopItem(3,0,20,0,true)&&!CanBuyShopItem(3,0,19,0,true),"rare Ash stock only when the shop rolled rare, at exact Ash");
+    Check(!CanBuyShopItem(-1,999,999,0,true)&&!CanBuyShopItem(ShopCount,999,999,0,true),"out-of-range shop indices are refused");
+    for(int I=0;I<ShopCount;++I) Check((ShopStock(I).Scrap>0)!=(ShopStock(I).Ash>0),"every shop item costs exactly one currency");
+    Check(BloodrootGain(0)==0.f&&BloodrootGain(-4)==0.f&&Near(BloodrootGain(2),.7f),"Bloodroot gain is .35 HP per effective rank and never negative");
+    Check(KillScrap(false,false)==1&&KillScrap(true,false)==5&&KillScrap(true,true)==25&&CheckpointAsh(10)==10&&CheckpointAsh(7)==2&&CheckpointAsh(0)==0,"Endless earnings table");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

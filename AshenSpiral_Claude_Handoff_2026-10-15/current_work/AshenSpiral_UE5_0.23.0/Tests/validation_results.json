@@ -1,5 +1,5 @@
 {
-  "source_checks_passed": 447654,
+  "source_checks_passed": 447906,
   "source_files_checked": 54,
   "mesh_count": 78,
   "mesh_vertex_count": 80514,
@@ -7,7 +7,7 @@
   "degenerate_triangles": 0,
   "texture_count": 12,
   "audio_count": 12,
-  "rpc_implementation_presence_checks": 38,
+  "rpc_implementation_presence_checks": 39,
   "native_tests": "PASS: 1451458 assertions; 10000 deterministic layouts; 2263 optional gap edges.\nNative shared-rule tests only. Unreal compilation, physics, rendering and networking were NOT exercised.",
   "gameplay_tests": "PASS: 2169971 gameplay logic/geometry checks; 1598508 sampled weapon vertices.\nUses the game's shared rules and actual OBJ geometry. Does not run Unreal networking, input, collision, or rendering.",
   "buildcraft_tests": "PASS: 456282 buildcraft checks; 18000 weighted reward drafts; 66 stable trait IDs (65 selectable).\nShared C++ rules only: does not compile or run Unreal actors, replication, UI, physics or saves.",

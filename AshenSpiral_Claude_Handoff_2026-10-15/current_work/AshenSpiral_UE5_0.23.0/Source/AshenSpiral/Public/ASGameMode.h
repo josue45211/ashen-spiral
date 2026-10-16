@@ -49,6 +49,7 @@ public:
     void Interact(AASPlayerController* PC,int32 Target=0);
     void UseShrine(AASPlayerController* PC);
     void GambleAtWell(AASPlayerController* PC,int32 StakeIndex);
+    void BuyShopItem(AASPlayerController* PC,int32 Index);
     void BackToHub();
     bool ReturningToHub() const {return bHubPending;}
     void EndRun(bool Victory);

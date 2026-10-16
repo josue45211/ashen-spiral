@@ -224,6 +224,15 @@ void SASMenu::Construct(const FArguments& Args) {
             Card(ASData::Weapons[I].Name,ASData::Weapons[I].Desc,P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
         }
         Card(TEXT("Spiral styles"),TEXT("Change how your ability pulls, slows, shields, or collapses."),TEXT("SANCTUM"),10,3);
+    } else if(Page==23) {
+        const bool Open=S&&S->bLuckyShop&&S->Phase==EASPhase::Reward;
+        Text(Open?TEXT("The lucky shop. Spend Scrap for supplies; rare items cost Ash. One of each item per player."):TEXT("The shop is closed. It appears at some checkpoints from wave 10."),18,Open?ASMenuGold:ASMenuMuted);
+        Text(FString::Printf(TEXT("Your Scrap: %d     Your Ash: %d (run earnings, banked when the run ends)"),PS?PS->AvailableScrap:0,PS?PS->AvailableAsh:0),16,ASMenuGold);
+        for(int32 I=0;I<ASExpedition::ShopCount;++I) {
+            const auto& Item=ASExpedition::ShopStock(I);if(Item.Rare&&!(S&&S->bRareShop)) continue;
+            const FString Price=Item.Ash>0?FString::Printf(TEXT("%d ASH"),Item.Ash):FString::Printf(TEXT("%d SCRAP"),Item.Scrap);
+            Card(UTF8_TO_TCHAR(Item.Name),UTF8_TO_TCHAR(Item.Description),(PS&&(PS->ShopBought&(1<<I)))?FString(TEXT("BOUGHT")):Price,75,I,Open&&PS&&ASExpedition::CanBuyShopItem(I,PS->AvailableScrap,PS->AvailableAsh,PS->ShopBought,S->bRareShop));
+        }
     } else if(Page==22) {
         const bool Open=PS&&PS->bEndlessUnlocked;
         Text(Open?TEXT("Endless: one huge arena, chained waves, a boss every ten waves. Many entered, none came back whole. Permanent skill-tree upgrades come with you; everything else starts fresh."):TEXT("The portal is sealed. Beat Normal mode once to open it."),18,Open?ASMenuGold:ASMenuMuted);

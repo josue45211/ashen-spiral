@@ -56,6 +56,7 @@ public:
     UFUNCTION(Server,Reliable) void ReturnHub();
     UFUNCTION(Server,Reliable) void SetDifficulty(int32 Difficulty);
     UFUNCTION(Server,Reliable) void StartEndless(int32 Seed);
+    UFUNCTION(Server,Reliable) void BuyShopItem(int32 Index);
     UFUNCTION(Server,Reliable) void ContinueAlone();
     UFUNCTION(Server,Reliable) void InteractServer(int32 Target=0);
     UFUNCTION(Client,Reliable) void ReceiveReceipt(const FASReceipt& Receipt);

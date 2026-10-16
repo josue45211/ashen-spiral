@@ -69,17 +69,24 @@ void AASProjectile::Detonate(const FVector& Position,AASEnemy* DirectTarget) {
 }
 void AASProjectile::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Projectiles.Remove(this);Super::EndPlay(R);}
 void AASProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASProjectile,Velocity);DOREPLIFETIME(AASProjectile,Hero);DOREPLIFETIME(AASProjectile,bEnemy);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASProjectile,Velocity);DOREPLIFETIME(AASProjectile,bHoming);DOREPLIFETIME(AASProjectile,Hero);DOREPLIFETIME(AASProjectile,bEnemy);
     DOREPLIFETIME(AASProjectile,Weapon);DOREPLIFETIME(AASProjectile,Damage);DOREPLIFETIME(AASProjectile,bCritical);DOREPLIFETIME(AASProjectile,bCosmetic);DOREPLIFETIME(AASProjectile,bPractice);DOREPLIFETIME(AASProjectile,bSecondary);
 }
 void AASProjectile::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||S->Frozen()) return;
+    if(bHoming&&Visual) Visual->SetRelativeScale3D(FVector(.85f));
     if(!HasAuthority()) {SetActorLocation(GetActorLocation()+Velocity*Delta);SetActorRotation(Velocity.Rotation());return;}
     if(!bCosmetic&&S->Phase!=(bPractice?EASPhase::Hub:EASPhase::Combat)) {Destroy();return;}
     if(S->SimTime>Expires) {if(!bEnemy&&Weapon==ASArsenal::Launcher) Detonate(GetActorLocation());else Destroy();return;}
     if(!bCosmetic&&!bEnemy&&!bSecondary&&IsValid(Hero)) for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&FVector::DistSquared2D(GetActorLocation(),W->GetActorLocation())<FMath::Square(W->Radius)) {
         if(Weapon==3) {W->OrbitUntil=S->SimTime+2.5f;Destroy();return;}
         break;
+    }
+    if(bHoming&&HomingTarget.IsValid()&&!HomingTarget->bDowned) {
+        // Limited turn rate: walking cannot shake it, a dash can.
+        const FVector Cur=Velocity.GetSafeNormal(),Want=(HomingTarget->GetActorLocation()-GetActorLocation()).GetSafeNormal();
+        const float Angle=FMath::Acos(FMath::Clamp(FVector::DotProduct(Cur,Want),-1.f,1.f)),Step=FMath::Min(Angle,FMath::DegreesToRadians(75.f)*Delta);
+        if(Angle>KINDA_SMALL_NUMBER) {const FVector Axis=FVector::CrossProduct(Cur,Want).GetSafeNormal();if(!Axis.IsNearlyZero()) Velocity=Cur.RotateAngleAxisRad(Step,Axis)*Velocity.Size();}
     }
     const FVector Start=GetActorLocation(),End=Start+Velocity*Delta;
     const float FrameTravel=FVector::Dist(Start,End);

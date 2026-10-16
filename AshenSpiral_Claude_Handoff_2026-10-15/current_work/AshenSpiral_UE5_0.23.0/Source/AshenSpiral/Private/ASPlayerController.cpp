@@ -130,6 +130,7 @@ void AASPlayerController::Interact() {
     if(Page==9&&S->Phase==EASPhase::Victory) {InteractServer(9);return;}
     if(Page==220) {OpenMenu(18);return;}
     if(Page==221) {OpenMenu(21);return;}
+    if(Page==222) {OpenMenu(23);return;}
     if(Page>=201&&Page<=203) {InteractServer(Page);return;}
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}
     else if(S->Phase==EASPhase::Hub&&Page>0) OpenMenu(Page);
@@ -213,6 +214,7 @@ void AASPlayerController::CancelActions_Implementation() {if(auto* H=Cast<AASCha
 void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State(this);if(S&&S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) PS->bReady=Ready;}
 void AASPlayerController::SetDifficulty_Implementation(int32 Difficulty) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->SetDifficulty(this,Difficulty);}
 void AASPlayerController::GambleAtWell_Implementation(int32 StakeIndex) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->GambleAtWell(this,StakeIndex);}
+void AASPlayerController::BuyShopItem_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BuyShopItem(this,Index);}
 void AASPlayerController::StartEndless_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginEndless(this,Seed);}
 void AASPlayerController::StartRun_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginRun(this,Seed);}
 void AASPlayerController::ChooseReward_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Reward(this,Index);}
@@ -345,6 +347,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         Notice=GI->LastMessage;
     }
     else if(Code==73) {GambleAtWell(Index);}
+    else if(Code==75) {BuyShopItem(Index);}
     else if(Code==74) {StartEndless(FMath::Rand());CloseMenu();return;}
     else if(Code==72) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Difficulty is chosen in the hub.");return;}

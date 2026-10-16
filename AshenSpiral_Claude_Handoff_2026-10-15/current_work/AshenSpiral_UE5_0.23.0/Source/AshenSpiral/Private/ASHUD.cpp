@@ -245,6 +245,14 @@ void AASHUD::DrawHUD() {
         Text(H->ReviveProgress>0?TEXT("YOUR PARTNER IS REVIVING YOU"):TEXT("DOWNED  /  YOUR PARTNER CAN REVIVE YOU"),14,12,H->ReviveProgress>0?ASHudTeal:ASHudRed,.8f);
         Bar(14,55,482,5,H->ReviveProgress/ASRules::ReviveSeconds,ASHudTeal);Group();
     }
+    // Endless bleed-out bars above downed players, visible to both. Reviving pauses the bar (it does not reset).
+    if(S->bEndless) for(auto W:S->Heroes) if(auto* Down=W.Get()) if(Down->bDowned||Down->bEliminated) {
+        FVector2D P;if(PC->ProjectWorldLocationToScreen(Down->GetActorLocation()+FVector(0,0,185),P)) {
+            const float X=P.X/Scale,Y=P.Y/Scale;
+            if(Down->bEliminated) Text(TEXT("ELIMINATED"),X-45,Y-18,ASHudRed,.7f);
+            else {Text(FString::Printf(TEXT("BLEEDING OUT  %.0f"),Down->BleedRemaining),X-58,Y-18,ASHudRed,.65f);Bar(X-60,Y,120,7,Down->BleedRemaining/25.f,ASHudRed);}
+        }
+    }
     FString Station;const int32 Near=S->Arena?S->Arena->StationAt(H->GetActorLocation(),&Station):-1;
     const int32 StationId=PC->FocusedInteraction>0?PC->FocusedInteraction:Near;
     if(S->Arena&&StationId>0&&(S->Phase==EASPhase::Hub||S->Phase==EASPhase::Reward||S->Phase==EASPhase::Victory||StationId>=200)) {
@@ -254,6 +262,7 @@ void AASHUD::DrawHUD() {
         if(StationId==201||StationId==202) {Done=(S->VaultMask&(1<<(StationId-201)))!=0;Station=Done?TEXT("SIGIL ACTIVATED"):TEXT("ACTIVATE SIGIL");}
         else if(StationId==203) {Done=S->bVaultClaimed;Station=Done?TEXT("VAULT COLLECTED"):(S->VaultMask==3?TEXT("OPEN RUNE VAULT"):TEXT("VAULT / ACTIVATE BOTH SIGILS"));}
         else if(StationId==220) Station=TEXT("EMBER BARGAIN / TRADE HEALTH");
+        else if(StationId==222) Station=S->bLuckyShop?TEXT("LUCKY SHOP / SPEND SCRAP AND ASH"):TEXT("LUCKY SHOP / CLOSED");
         else if(StationId==221) Station=TEXT("WISHING WELL / STAKE CINDERS");
         else if(StationId==9) Station=S->Phase==EASPhase::Victory?TEXT("RETURN TO HUB / BOTH PLAYERS"):TEXT("REWARD CHEST / NEXT ROOM");
         else if(StationId>=100&&StationId<100+ASRules::WeaponCount) Station=ASData::Weapons[StationId-100].Name;

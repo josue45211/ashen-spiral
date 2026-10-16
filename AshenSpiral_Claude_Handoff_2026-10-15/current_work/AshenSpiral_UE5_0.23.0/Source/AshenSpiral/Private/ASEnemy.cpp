@@ -208,6 +208,19 @@ void AASEnemy::CommitAttack() {
         for(auto W:S->Enemies) if(auto* E=W.Get()) if(E!=this&&!E->Boss()&&FVector::DistSquared2D(E->GetActorLocation(),GetActorLocation())<550*550&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) {E->Health=FMath::Min(E->MaxHealth,E->Health+8);E->ForceNetUpdate();}
         S->Effect(6,GetActorLocation(),FVector::UpVector,FLinearColor(.2f,1,.35f),550);return;
     }
+    if(Boss()&&S->bEndless&&S->EndlessWave>50&&Pattern%3!=2) {
+        // Endless wave 50+: obviously lethal, telegraphed area attacks and homing shots. Dash to survive.
+        if(Pattern%3==0) {
+            for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) {auto* F=AASField::Spawn(GetWorld(),0,H->GetActorLocation()-FVector(0,0,77),620.f,100000.f,1.9f,2.3f);if(F) F->EnemySource=this;}
+        } else {
+            AASCharacter* Target=nullptr;float Best=FLT_MAX;
+            for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) {const float D=FVector::DistSquared2D(GetActorLocation(),H->GetActorLocation());if(D<Best) {Best=D;Target=H.Get();}}
+            if(Target) if(auto* P=AASProjectile::Fire(GetWorld(),GetActorLocation()+FVector(0,0,60),(Target->GetActorLocation()-GetActorLocation()).GetSafeNormal(),nullptr,2,100000.f,true)) {
+                P->EnemySource=this;P->bHoming=true;P->HomingTarget=Target;P->Velocity=P->Velocity.GetSafeNormal()*560.f;
+            }
+        }
+        return;
+    }
     if(Boss()) {
         const bool PhaseTwo=Health<MaxHealth*.5f;
         if(Ward==1 && Pattern%2==0) {ChargeUntil=S->SimTime+.7f;return;}

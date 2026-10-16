@@ -20,6 +20,9 @@ public:
     UPROPERTY(Replicated) bool bCosmetic=false;
     UPROPERTY(Replicated) bool bPractice=false;
     UPROPERTY(Replicated) bool bSecondary=false;
+    // Endless wave 50+: slow, large, homing and lethal; only a well-timed dash avoids it.
+    UPROPERTY(Replicated) bool bHoming=false;
+    TWeakObjectPtr<AASCharacter> HomingTarget;
     TWeakObjectPtr<AASEnemy> EnemySource;
     TSet<TWeakObjectPtr<AActor>> HitActors;
     int32 Bounces=0,Pierces=0;
