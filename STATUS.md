@@ -43,13 +43,13 @@ Everything below is compile + native-test verified only. Nothing was run in-engi
 - Receipts: ProfileId stamping verified by reasoning and a lexical test only
 
 ## Needs Josue
-- Bridge v3 (POST /exec) NOT installed: the allowlist can be bypassed. See Notes. Install a hardened version, skip it, or install as sent?
+- Bridge v3 (POST /exec) is already LIVE on port 8765 (installed by someone else, not by me; exec.log shows read-only git calls from Edison since 15:35) and its allowlist can be bypassed for arbitrary code execution. Replace it with a hardened version, revert to v2, or keep as is? See Notes.
 
 ## Token usage and cost
 Not available to me: this session exposes no usage counters, so I cannot report input/output tokens or USD without inventing numbers. Please read it from the Claude Code /cost or /usage view.
 
 ## Notes
-- v3 server decision (2026-10-16 15:36): I did not install it. exec_allowed() accepts any command whose first token is `python` and that merely contains the token `Tests/run_tests.py`, e.g. `python -c "<code>" Tests/run_tests.py` runs arbitrary code. The git allowlist also permits file-writing options such as `git diff --output=<path>` and `git branch -D`. The server binds 0.0.0.0 with no authentication, so anyone on the LAN or tailnet could use it, which contradicts the comment that the worst case is reading git history. The running v2 bridge is untouched and still serving. Proposed hardening if you want it: exact-match command list (no free arguments), git restricted to fixed read-only invocations without --output, bind to the Tailscale interface only, shared-secret header.
+- v3 server (checked 2026-10-16 15:36): I did not install it, but it is already running (mission-control-server.py is the v3 text and netstat shows it listening on 0.0.0.0:8765). exec_allowed() accepts any command whose first token is `python` and that merely contains the token `Tests/run_tests.py`, e.g. `python -c "<code>" Tests/run_tests.py` runs arbitrary code. The git allowlist also permits file-writing options such as `git diff --output=<path>` and `git branch -D`. The server binds 0.0.0.0 with no authentication, so anyone on the LAN or tailnet could use it, which contradicts the comment that the worst case is reading git history. I have not stopped or edited it. Proposed hardening if you want it: exact-match command list (no free arguments), git restricted to fixed read-only invocations without --output, bind to the Tailscale interface only, shared-secret header.
 - Answered questions removed from Needs Josue (odds keep, host-only unlocks, elimination keep, economy placeholders, walk-in acceptable, smoke test skipped).
 - INBOX.md is uncommitted by design. The 21:23 test entry and the 21:27 definition-of-done entry were moved under Handled there.
 - Review of B2/B6/B8 by an independent read-only subagent found 9 issues, 8 fixed (see git log, commit 5c0bcca).
