@@ -49,4 +49,58 @@ inline ClothPoint CapePoint(int Node,float Time,float Speed,float Turn,float Fla
         141.f-126.f*T+45.f*Stream*T*T+Ripple};
 }
 inline float CapeWidth(float T) {return 27.f+19.f*std::clamp(T,0.f,1.f);}
+// ---- Heavy cape (0.23.1 A3): a damped, length-constrained chain in figure-local space.
+// Heavy cloth: soft springs, real inertia, delayed turn/dash/leap/swing response, broad idle billow and a slow resettle.
+// Node 0 is pinned to the shoulders. Nodes never enter the body (X stays behind the back plate) or the floor.
+struct CapeDrive {float Time=0,Speed=0,Turn=0,Flare=0,Lift=0,Wind=0,AccelX=0,AccelY=0,AccelZ=0;};
+constexpr int CapeNodes=7;
+inline ClothPoint CapeTarget(int Node,const CapeDrive& D) {
+    ClothPoint B=CapePoint(Node,D.Time,D.Speed,D.Turn,D.Flare);
+    const float T=std::clamp(float(Node)/6.f,0.f,1.f),W=std::clamp(D.Wind,0.f,1.f),L=std::clamp(D.Lift,0.f,1.f);
+    // Broad, slow billow (knight-in-the-wind reference): the hem lifts out and back, then falls.
+    B.X-=62.f*W*T*T+22.f*L*T;B.Z+=34.f*W*T*T*T+76.f*L*T*T;
+    B.Y+=std::sin(D.Time*.85f-T*2.1f)*46.f*W*T*T;
+    return B;
+}
+struct CapeChain {
+    float P[CapeNodes][3]={},V[CapeNodes][3]={};bool Ready=false;
+    void Reset(const CapeDrive& D) {
+        for(int I=0;I<CapeNodes;++I) {const ClothPoint C=CapeTarget(I,D);P[I][0]=C.X;P[I][1]=C.Y;P[I][2]=C.Z;V[I][0]=V[I][1]=V[I][2]=0.f;}
+        Ready=true;
+    }
+    void Step(float Dt,const CapeDrive& D) {
+        if(!Ready) Reset(D);
+        Dt=std::clamp(Dt,0.f,.1f);const int Sub=std::max(1,int(std::ceil(Dt/(1.f/90.f))));const float H=Dt/float(Sub);
+        static float Rest[CapeNodes]={};static bool RestReady=false;
+        if(!RestReady) {
+            CapeDrive Idle;for(int I=1;I<CapeNodes;++I) {const ClothPoint A=CapePoint(I-1,0,0,0,0),B=CapePoint(I,0,0,0,0);Rest[I]=std::sqrt((A.X-B.X)*(A.X-B.X)+(A.Y-B.Y)*(A.Y-B.Y)+(A.Z-B.Z)*(A.Z-B.Z));}
+            (void)Idle;RestReady=true;
+        }
+        for(int S=0;S<Sub;++S) {
+            const ClothPoint Pin=CapeTarget(0,D);P[0][0]=Pin.X;P[0][1]=Pin.Y;P[0][2]=Pin.Z;V[0][0]=V[0][1]=V[0][2]=0.f;
+            for(int I=1;I<CapeNodes;++I) {
+                const float T=float(I)/6.f,K=36.f-20.f*T,C=2.f*.6f*std::sqrt(K);
+                const ClothPoint G=CapeTarget(I,D);const float Tg[3]={G.X,G.Y,G.Z},Ac[3]={D.AccelX,D.AccelY,D.AccelZ};
+                for(int A=0;A<3;++A) {
+                    const float Acc=K*(Tg[A]-P[I][A])-C*V[I][A]-.55f*T*std::clamp(Ac[A],-4000.f,4000.f);
+                    V[I][A]=std::clamp(V[I][A]+Acc*H,-1400.f,1400.f);P[I][A]+=V[I][A]*H;
+                }
+            }
+            // Alternate the length and clearance constraints; clearance (body/floor) always has the last word.
+            for(int Pass=0;Pass<4;++Pass) {
+                for(int I=1;I<CapeNodes;++I) {
+                    float Dx=P[I][0]-P[I-1][0],Dy=P[I][1]-P[I-1][1],Dz=P[I][2]-P[I-1][2];const float Len=std::sqrt(Dx*Dx+Dy*Dy+Dz*Dz);
+                    if(Len>.001f) {const float F=Rest[I]/Len;P[I][0]=P[I-1][0]+Dx*F;P[I][1]=P[I-1][1]+Dy*F;P[I][2]=P[I-1][2]+Dz*F;}
+                }
+                for(int I=1;I<CapeNodes;++I) {
+                    const float T=float(I)/6.f;
+                    P[I][0]=std::min(P[I][0],-27.f-3.f*T);          // always behind the back plate and legs
+                    P[I][2]=std::max(P[I][2],8.f);                   // never through the floor
+                    const float Reach=CapeWidth(T)+75.f;P[I][1]=std::clamp(P[I][1],-Reach,Reach);
+                }
+            }
+        }
+    }
+};
+
 }

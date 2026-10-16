@@ -5,6 +5,7 @@
 #include "ASArsenalRules.h"
 #include "ASMeleeRules.h"
 #include "ASExpeditionRules.h"
+#include "ASAnimationRules.h"
 #include "ASCharacter.generated.h"
 class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;
 UCLASS() class ASHENSPIRAL_API AASCharacter : public ACharacter {
@@ -170,7 +171,8 @@ private:
     FVector AnimationVelocity=FVector::ZeroVector,PreviousVisualVelocity=FVector::ZeroVector;
     FVector FootAnchors[2]={FVector::ZeroVector,FVector::ZeroVector};
     bool bFootPlanted[2]={false,false};
-    float TurnVelocity=0,PreviousVisualYaw=0,CapeTurn=0;
+    float TurnVelocity=0,PreviousVisualYaw=0,CapeTurn=0,CapeLift=0;
+    ASAnimation::CapeChain CapeSim;FVector CapeAccelLocal=FVector::ZeroVector;
     bool bVisualInitialized=false;
     float DamageReactionAge=10,DamageReactionStrength=0,AbilityGestureAge=10;
     FVector DamageReactionDirection=FVector::ZeroVector;

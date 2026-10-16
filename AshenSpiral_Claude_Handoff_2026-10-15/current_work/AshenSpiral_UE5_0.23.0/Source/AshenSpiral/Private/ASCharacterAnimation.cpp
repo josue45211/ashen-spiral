@@ -39,6 +39,7 @@ void AASCharacter::Animate(float Delta) {
     PreviousVisualVelocity=AnimationVelocity;
     AnimationVelocity=FMath::Lerp(AnimationVelocity,Velocity,ASAnimation::Blend(Delta,9.f));
     const FVector LeanAccel=GetActorTransform().InverseTransformVectorNoScale((AnimationVelocity-PreviousVisualVelocity)/FMath::Max(Delta,.001f));
+    CapeAccelLocal=FMath::Lerp(CapeAccelLocal,LeanAccel,ASAnimation::Blend(Delta,10.f));
     const float LeanPitch=FMath::Clamp(LeanAccel.X/2600.f,-1.f,1.f)*6.f*(1.f-AirWeight),LeanRoll=FMath::Clamp(LeanAccel.Y/2600.f,-1.f,1.f)*5.f*(1.f-AirWeight);
     const float Breath=FMath::Sin(Now*2.2f)*.6f;
     Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f-LeanPitch,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f+LeanRoll));
@@ -115,6 +116,14 @@ void AASCharacter::Animate(float Delta) {
     }
     CapeLean=FMath::Lerp(CapeLean,LocomotionWeight*26.f+(Dashing?24.f:0.f)+AirWeight*9.f,ASAnimation::Blend(Delta,5.f));
     float CapeFlare=0,CapeTwist=0;
+    // Cape drivers (cosmetic): dash flares, the hammer leap lifts, every melee swing throws the hem out; the Blade lunge most.
+    if(Dashing) CapeFlare=1.f;
+    if(ASMelee::IsMelee(Build.Weapon)&&!bDowned) {
+        const bool Swinging=Now>=AttackPoseStarted&&Now<AttackPoseStarted+AttackPoseDuration;
+        if(Swinging) CapeFlare=FMath::Max(CapeFlare,FMath::Sin(ASMelee::Phase(Now,AttackPoseStarted,AttackPoseDuration)*UE_PI)*(Build.Weapon==0&&MeleeStep==2?1.f:.6f));
+    }
+    const float WantLift=Build.Weapon==1?(HammerLeapState==2?1.f:(HammerLeapState==1?.35f:0.f)):0.f;
+    CapeLift=FMath::Lerp(CapeLift,WantLift,ASAnimation::Blend(Delta,WantLift>CapeLift?7.f:2.2f));
     if(Build.Weapon==1&&!bDowned) {
         ASHammer::Pose HP;ASHammer::Frame HF;AnimateHammer(Now,HP,HF);
         CapeFlare=FMath::Clamp(FMath::Abs(HP.BodyPitch)/30.f,0.f,1.f);CapeTwist=HP.BodyYaw;
@@ -172,22 +181,27 @@ void AASCharacter::RefreshCape() {
 void AASCharacter::AnimateCape(float Delta,float AttackFlare,float BodyTwist) {
     if(FlowingCape.Num()<6||Delta<=0.f) return;
     const float Now=AS::Time(this),Yaw=GetActorRotation().Yaw,Rate=FMath::FindDeltaAngleDegrees(PreviousVisualYaw,Yaw);PreviousVisualYaw=Yaw;
-    // Large jumps are teleports/respawns: do not whip the cape.
-    TurnVelocity=FMath::Abs(Rate)>120.f?0.f:FMath::Lerp(TurnVelocity,Rate/Delta/540.f,ASAnimation::Blend(Delta,6.f));
-    CapeTurn=FMath::Lerp(CapeTurn,FMath::Clamp(TurnVelocity,-1.f,1.f),ASAnimation::Blend(Delta,3.f));
-    const float Speed=FMath::Clamp(CapeLean/40.f,0.f,1.5f),Flare=FMath::Clamp(AttackFlare,0.f,1.f);
+    // Large jumps are teleports/respawns: do not whip the cape, rebuild it settled.
+    const bool Teleported=FMath::Abs(Rate)>120.f||Delta>.25f;
+    TurnVelocity=Teleported?0.f:FMath::Lerp(TurnVelocity,Rate/Delta/540.f,ASAnimation::Blend(Delta,5.f));
+    CapeTurn=FMath::Lerp(CapeTurn,FMath::Clamp(TurnVelocity,-1.f,1.f),ASAnimation::Blend(Delta,2.2f));
+    ASAnimation::CapeDrive Drive;Drive.Time=Now;Drive.Speed=FMath::Clamp(CapeLean/40.f,0.f,1.5f);Drive.Turn=CapeTurn;
+    Drive.Flare=FMath::Clamp(AttackFlare,0.f,1.f);Drive.Lift=CapeLift;
+    // Idle wind: a broad, slow billow that fades while running (the cape streams instead).
+    Drive.Wind=FMath::Clamp((.45f+.35f*FMath::Sin(Now*.45f))*(1.f-Drive.Speed),0.f,1.f);
+    Drive.AccelX=CapeAccelLocal.X;Drive.AccelY=CapeAccelLocal.Y;Drive.AccelZ=CapeAccelLocal.Z;
+    if(Teleported||bDowned) CapeSim.Reset(Drive);else CapeSim.Step(Delta,Drive);
     const float Twist=FMath::Clamp(BodyTwist,-40.f,40.f)*.3f;
-    FVector Node[7];
-    for(int32 I=0;I<7;++I) {
-        const auto P=ASAnimation::CapePoint(I,Now,Speed,CapeTurn,Flare);
-        Node[I]=FVector(P.X,P.Y+Twist*float(I)/6.f,P.Z);
-    }
+    FVector Node[ASAnimation::CapeNodes];
+    for(int32 I=0;I<ASAnimation::CapeNodes;++I) Node[I]=FVector(CapeSim.P[I][0],CapeSim.P[I][1]+Twist*float(I)/6.f,CapeSim.P[I][2]);
     for(int32 I=0;I<6;++I) if(auto* C=FlowingCape[I].Get()) {
         const FVector Down=Node[I+1]-Node[I];const float Length=Down.Size();
         if(Length<KINDA_SMALL_NUMBER) continue;
         const float T=(float(I)+.5f)/6.f;
+        // Broader as it billows; the hem spreads with the flare and the lift.
+        const float Spread=1.f+.35f*Drive.Wind*T+.30f*Drive.Flare*T+.25f*Drive.Lift*T;
         C->SetRelativeLocation(Node[I]);
         C->SetRelativeRotation(FRotationMatrix::MakeFromZX(-Down,FVector::ForwardVector).Rotator());
-        C->SetRelativeScale3D(FVector(1.f,ASAnimation::CapeWidth(T)/31.f,Length/55.f*1.08f));
+        C->SetRelativeScale3D(FVector(1.f,ASAnimation::CapeWidth(T)*Spread/31.f,Length/55.f*1.08f));
     }
 }

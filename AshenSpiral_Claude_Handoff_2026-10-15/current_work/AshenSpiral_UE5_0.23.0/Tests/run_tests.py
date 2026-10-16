@@ -222,6 +222,15 @@ def validate():
             arena=subprocess.run([str(arena_exe)],check=True,text=True,capture_output=True).stdout.strip()
             (ROOT/'Tests/boss_arena_023_results.txt').write_text(arena+'\n')
             check(arena.startswith('PASS:'),'0.23 boss arena layouts: structure, clearances and attack-aligned cover passed')
+            capechain_exe=Path(d)/('cape_0231_tests.exe' if sys.platform=='win32' else 'cape_0231_tests')
+            capechain_src=ROOT/'Tests/cape_0231_tests.cpp'
+            if Path(compiler).stem.lower()=='cl':
+                capechain_cmd=[compiler,'/nologo','/std:c++17','/EHsc','/W4',str(capechain_src),'/Fe:'+str(capechain_exe)]
+            else: capechain_cmd=[compiler,'-std=c++17','-O2','-Wall','-Wextra','-pedantic',str(capechain_src),'-o',str(capechain_exe)]
+            subprocess.run(capechain_cmd,cwd=d,check=True)
+            capechain=subprocess.run([str(capechain_exe)],check=True,text=True,capture_output=True).stdout.strip()
+            (ROOT/'Tests/cape_0231_results.txt').write_text(capechain+chr(10))
+            check(capechain.startswith('PASS:'),'0.23.1 heavy cape chain: stability, clearance, length, lag and response passed')
             career_exe=Path(d)/('career_tests.exe' if sys.platform=='win32' else 'career_tests')
             career_src=ROOT/'Tests/career_tests.cpp'
             if Path(compiler).stem.lower()=='cl':
