@@ -35,13 +35,15 @@ inline Pose Swing(int W,int Step,float PhaseValue,bool Active=true) {
     if(W==5) {
         Wind={52,4,125,30,65,0,-14,-3};Strike={54,4,105,45,-50,0,10,5};Follow={40,5,109,40,-65,0,16,3};
     } else if(Step==2) {
-        Wind={36,42,116,65,30,0,-15,-2};Strike={68,20,114,90,0,0,12,10};Follow={55,24,111,75,-10,0,10,6};
+        Wind={36,42,116,65,30,0,-15,-7};Strike={72,20,114,90,0,0,12,16};Follow={64,22,112,82,-4,0,11,12};
     } else {
         const float Side=Step==1?-1.f:1.f;
         Wind={40,34+Side*15,125,55,Side*65,0,-Side*16,-2};
         Strike={52,24,113,82,-Side*10,0,Side*9,5};Follow={40,26-Side*28,104,85,-Side*65,0,Side*19,3};
     }
-    const float WindEnd=W==1&&Step==2?.42f:.22f,FollowEnd=Impact+.12f;
+    // Blade: a quick coil and almost no follow-through. Same cycle length and impact fraction.
+    const float WindEnd=W==1&&Step==2?.42f:(W==0?.15f:.22f),FollowEnd=Impact+.12f;
+    if(W==0&&Step!=2) {const float K=.5f;Follow={Strike.X+(Follow.X-Strike.X)*K,Strike.Y+(Follow.Y-Strike.Y)*K,Strike.Z+(Follow.Z-Strike.Z)*K,Strike.Pitch+(Follow.Pitch-Strike.Pitch)*K,Strike.Yaw+(Follow.Yaw-Strike.Yaw)*K,Follow.Roll,Strike.BodyYaw+(Follow.BodyYaw-Strike.BodyYaw)*K,Strike.BodyPitch+(Follow.BodyPitch-Strike.BodyPitch)*K};}
     if(P<WindEnd) return ASMelee::Blend(Rest,Wind,P/WindEnd);
     if(P<Impact) return ASMelee::Blend(Wind,Strike,(P-WindEnd)/(Impact-WindEnd));
     if(P<FollowEnd) return ASMelee::Blend(Strike,Follow,(P-Impact)/.12f);

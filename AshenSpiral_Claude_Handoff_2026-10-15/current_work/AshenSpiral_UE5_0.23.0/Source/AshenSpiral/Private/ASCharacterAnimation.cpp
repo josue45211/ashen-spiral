@@ -76,7 +76,7 @@ void AASCharacter::Animate(float Delta) {
             Parts[1]->SetRelativeRotation(FRotator(-M.BodyPitch*.3f,M.BodyYaw*.35f,0));
         }
         Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,FVector(M.X,M.Y,M.Z),RightPole);Parts[18]->SetRelativeLocation(Grip);
-        const FVector Support=Build.Weapon==0?FVector(12+Step*12,-39,86):Grip+WeaponRotation.RotateVector(FVector(0,0,ASMelee::SupportHeight(Build.Weapon)));
+        const FVector Support=Build.Weapon==0?FVector(12+Step*12,-39-FMath::Clamp(M.Yaw,-65.f,65.f)*.18f,86-FMath::Abs(M.BodyPitch)*.8f):Grip+WeaponRotation.RotateVector(FVector(0,0,ASMelee::SupportHeight(Build.Weapon)));
         Parts[17]->SetRelativeLocation(ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole));
         Parts[0]->AddRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));Parts[2]->AddRelativeRotation(FRotator(0,M.BodyYaw*.35f,0));
     } else if(Build.Weapon==2) {
