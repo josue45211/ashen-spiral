@@ -19,7 +19,7 @@ void AASGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 }
 void AASPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(AASPlayerState,bEndlessUnlocked);DOREPLIFETIME(AASPlayerState,EndlessChoices);DOREPLIFETIME(AASPlayerState,AvailableAsh);DOREPLIFETIME(AASPlayerState,AvailableScrap);DOREPLIFETIME(AASPlayerState,RunDamage);DOREPLIFETIME(AASPlayerState,RunDamageTaken);DOREPLIFETIME(AASPlayerState,RunKills);DOREPLIFETIME(AASPlayerState,bShopClaimed);DOREPLIFETIME(AASPlayerState,LastGambleRoom);
+    DOREPLIFETIME(AASPlayerState,bEndlessUnlocked);DOREPLIFETIME(AASPlayerState,ClearedMask);DOREPLIFETIME(AASPlayerState,EndlessChoices);DOREPLIFETIME(AASPlayerState,AvailableAsh);DOREPLIFETIME(AASPlayerState,AvailableScrap);DOREPLIFETIME(AASPlayerState,RunDamage);DOREPLIFETIME(AASPlayerState,RunDamageTaken);DOREPLIFETIME(AASPlayerState,RunKills);DOREPLIFETIME(AASPlayerState,bShopClaimed);DOREPLIFETIME(AASPlayerState,LastGambleRoom);
     DOREPLIFETIME(AASPlayerState,ColorChoice);DOREPLIFETIME(AASPlayerState,CharacterLevel);DOREPLIFETIME(AASPlayerState,TitleIndex);DOREPLIFETIME(AASPlayerState,TitleTier);DOREPLIFETIME(AASPlayerState,Build);DOREPLIFETIME(AASPlayerState,PlayerIndex);DOREPLIFETIME(AASPlayerState,bReady);DOREPLIFETIME(AASPlayerState,bWagerVote);DOREPLIFETIME(AASPlayerState,bShrineUsed);
     DOREPLIFETIME(AASPlayerState,bProfileReady);DOREPLIFETIME(AASPlayerState,bRewardClaimed);DOREPLIFETIME(AASPlayerState,bSavePending);
     DOREPLIFETIME(AASPlayerState,ProfileId);DOREPLIFETIME_CONDITION(AASPlayerState,Offers,COND_OwnerOnly);

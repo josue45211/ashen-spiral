@@ -38,5 +38,11 @@ int main() {
     Check(Synergy(2,8)==0&&Synergy(8,2)==0&&Synergy(4,8)==1&&Synergy(2,3)==2&&Synergy(2,4)==-1&&Synergy(2,2)==-1&&Synergy(0,8)==-1,"synergy pairs; same element and physical never trigger");
     Check(SynergyDamage(0,1000,1,true)>SynergyDamage(0,1000,1,false),"synergy deals bonus boss-max-HP damage to bosses");
     Check(SynergyDamage(2,1000,0,false)==50.f,"synergy power floors at 1");
+    Check(DifficultyUnlocked(0,0)&&!DifficultyUnlocked(1,0)&&!DifficultyUnlocked(2,0),"fresh character: only Normal is open");
+    Check(DifficultyUnlocked(1,1)&&!DifficultyUnlocked(2,1),"beating Normal unlocks Hard only");
+    Check(DifficultyUnlocked(2,3)&&DifficultyUnlocked(2,2),"beating Hard unlocks Very Hard");
+    Check(!DifficultyUnlocked(2,4)&&!DifficultyUnlocked(1,6),"unlocks require the previous tier, not just any clear");
+    Check(ClearedMask(1,0)==1&&ClearedMask(0,0)==0&&ClearedMask(0,0xFF)==7,"older saves with wins count as Normal-beaten; mask is sanitized");
+    Check(EndlessUnlocked(1)&&!EndlessUnlocked(0)&&!EndlessUnlocked(6),"Endless needs a Normal clear");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

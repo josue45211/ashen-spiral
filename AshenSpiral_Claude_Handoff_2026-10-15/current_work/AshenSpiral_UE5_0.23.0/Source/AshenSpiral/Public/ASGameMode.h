@@ -35,7 +35,7 @@ public:
     virtual void Logout(AController* Exiting) override;
     virtual FString InitNewPlayer(APlayerController* NewPlayer,const FUniqueNetIdRepl& UniqueId,const FString& Options,const FString& Portal) override;
     virtual void RestartPlayer(AController* NewPlayer) override;
-    void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience,int32 ColorChoice);
+    void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience,int32 ColorChoice,int32 ClearedMask);
     void BeginRun(AASPlayerController* PC,int32 Seed);
     void SetDifficulty(AASPlayerController* PC,int32 Difficulty);
     void EnterRoom(int32 Room);

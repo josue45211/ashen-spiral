@@ -1,5 +1,5 @@
 {
-  "source_checks_passed": 446703,
+  "source_checks_passed": 446733,
   "source_files_checked": 54,
   "mesh_count": 78,
   "mesh_vertex_count": 80514,
@@ -10,7 +10,7 @@
   "rpc_implementation_presence_checks": 36,
   "native_tests": "PASS: 1451458 assertions; 10000 deterministic layouts; 2263 optional gap edges.\nNative shared-rule tests only. Unreal compilation, physics, rendering and networking were NOT exercised.",
   "gameplay_tests": "PASS: 2169971 gameplay logic/geometry checks; 1598508 sampled weapon vertices.\nUses the game's shared rules and actual OBJ geometry. Does not run Unreal networking, input, collision, or rendering.",
-  "buildcraft_tests": "PASS: 456283 buildcraft checks; 18000 weighted reward drafts; 66 stable trait IDs (65 selectable).\nShared C++ rules only: does not compile or run Unreal actors, replication, UI, physics or saves.",
+  "buildcraft_tests": "PASS: 456282 buildcraft checks; 18000 weighted reward drafts; 66 stable trait IDs (65 selectable).\nShared C++ rules only: does not compile or run Unreal actors, replication, UI, physics or saves.",
   "adventure_tests": "PASS: 45507 adventure checks; camera, popup clearance, interaction reach, six abilities, shrine safety, biome mapping and four-ward trap motion.",
   "career_tests": "PASS: 77444 career checks; linear XP thresholds, 36 achievement milestones, bounded Cinder conversion and status combinations.",
   "hammer_022_tests": "PASS: 9537191 hammer/0.22 checks; 2886 actual-mesh pose samples; tangent orientation, two-hand reach, contact timing, haste, frontal coverage and leap immunity boundaries.\nShared rules/source geometry only; Unreal physics and network execution still require playtest.",

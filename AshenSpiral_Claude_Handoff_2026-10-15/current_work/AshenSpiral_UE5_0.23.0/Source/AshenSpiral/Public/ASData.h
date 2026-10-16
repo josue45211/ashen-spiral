@@ -55,6 +55,8 @@ USTRUCT() struct FASProfileData {
     UPROPERTY() int32 Wins=0;
     UPROPERTY() int32 Deaths=0;
     UPROPERTY() int32 BestEndlessWave=0;
+    // Bit 0/1/2: Normal/Hard/Very Hard beaten. Normal also counts when Wins>0 (older saves).
+    UPROPERTY() int32 ClearedMask=0;
     UPROPERTY() int32 EndlessChoices=0;
     UPROPERTY() TArray<FASEndlessRecord> EndlessRecords;
     UPROPERTY() TArray<int32> Materials;
@@ -87,6 +89,7 @@ USTRUCT() struct FASReceipt {
     UPROPERTY() int32 Material=0;
     UPROPERTY() int32 Cores=0;
     UPROPERTY() bool bWin=false;
+    UPROPERTY() int32 Difficulty=0;
     UPROPERTY() bool bDeath=false;
 };
 struct FASWeapon { const TCHAR* Name; const TCHAR* Desc; int32 Cost; float Rate; };

@@ -231,7 +231,7 @@ bool UASGameInstance::Receive(const FASReceipt& R) {
     C.Materials[W]=ASRules::Credit(C.Materials[W],FMath::Clamp(R.Material,0,100));
     C.Materials[4]=ASRules::Credit(C.Materials[4],FMath::Clamp(R.Cores,0,10));
     C.BestRoom=FMath::Max(C.BestRoom,R.Room);
-    if(R.bWin) {++C.Wins;if(C.Build.Talent(11)) {C.Materials[0]=ASRules::Credit(C.Materials[0],30);C.Materials[1]=ASRules::Credit(C.Materials[1],10);}}
+    if(R.bWin) {++C.Wins;C.ClearedMask|=1<<ASExpedition::Difficulty(R.Difficulty);if(C.Build.Talent(11)) {C.Materials[0]=ASRules::Credit(C.Materials[0],30);C.Materials[1]=ASRules::Credit(C.Materials[1],10);}}
     if(R.bDeath) ++C.Deaths;
     C.Experience=ASCareer::Add(C.Experience,FMath::Clamp(R.Experience,0,100000));C.Career.SetNumZeroed(ASCareer::Count);
     FString Earned;

@@ -86,7 +86,7 @@ void AASGameMode::RestartPlayer(AController* Player) {
     auto* H=GetWorld()->SpawnActor<AASCharacter>(DefaultPawnClass,Position,FRotator::ZeroRotator,Params);
     if(H) {H->ColorIndex=PS?PS->PlayerIndex:0;H->RefreshLook();Player->Possess(H);}
 }
-void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const FASBuild& InBuild,int32 Experience,int32 ColorChoice) {
+void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const FASBuild& InBuild,int32 Experience,int32 ColorChoice,int32 ClearedMask) {
     auto* S=AS::State(this);auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;if(!S||!PS) return;
     bool Valid=ID.Len()==32;for(TCHAR C:ID) if(!FChar::IsHexDigit(C)) Valid=false;
     if(!Valid) {PC->Notify(TEXT("Invalid profile ID. Restart with a writable save folder."));return;}
@@ -101,7 +101,7 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
         if(S->Phase!=EASPhase::Hub||PS->bSavePending||PS->ReceiptQueue.Num()>0||Disconnected.Contains(PS->ProfileId)) {PC->Notify(TEXT("Character can only be switched in the hub with no pending saves."));PC->ProfileRejected();return;}
         LiveSnapshots.Remove(PS->ProfileId);
     }
-    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
+    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->ClearedMask=ClearedMask&7;PS->bEndlessUnlocked=ASExpedition::EndlessUnlocked(PS->ClearedMask);PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
     RestartPlayer(PC);auto* H=Cast<AASCharacter>(PC->GetPawn());if(!H) return;
     H->ColorIndex=PS->PlayerIndex;H->ApplyBuild(PS->Build,true);
     if(FASReconnect* Saved=Disconnected.Find(ID)) {
@@ -155,6 +155,8 @@ bool AASGameMode::AllReady() const {
 }
 void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
+    const auto* HostState=PC->GetPlayerState<AASPlayerState>();
+    if(!HostState||!ASExpedition::DifficultyUnlocked(Difficulty,HostState->ClearedMask)) {PC->Notify(TEXT("That difficulty is locked."));return;}
     S->Difficulty=ASExpedition::Difficulty(Difficulty);S->ForceNetUpdate();
 }
 void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
@@ -408,7 +410,7 @@ void AASGameMode::EndRun(bool Victory) {
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
         FASReceipt R;R.Id=S->RunId+(Victory?TEXT(":victory:"):TEXT(":defeat:"))+PS->ProfileId;
         R.Room=Victory?32:S->Room;R.Ward=ASRules::Ward(S->Room);R.Ash=Victory?80:(5+(PS->Build.Talent(10)?8:0));
-        R.Cores=Victory?2:0;R.Points=Victory?1:0;R.bWin=Victory;R.bDeath=!Victory;if(Victory) PS->Record(ASCareer::Wins,1,150);PS->DrainCareer(R);SendReceipt(PS,R);
+        R.Cores=Victory?2:0;R.Points=Victory?1:0;R.bWin=Victory;R.Difficulty=S->Difficulty;R.bDeath=!Victory;if(Victory) PS->Record(ASCareer::Wins,1,150);PS->DrainCareer(R);SendReceipt(PS,R);
     }
 }
 void AASGameMode::BackToHub() {

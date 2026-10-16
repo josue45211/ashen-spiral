@@ -10,6 +10,7 @@ UCLASS() class ASHENSPIRAL_API AASPlayerState : public APlayerState {
 public:
     UPROPERTY(Replicated) FASBuild Build;
     UPROPERTY(Replicated) bool bEndlessUnlocked=false;
+    UPROPERTY(Replicated) int32 ClearedMask=0;
     UPROPERTY(Replicated) int32 EndlessChoices=0;
     UPROPERTY(Replicated) int32 AvailableAsh=0;
     UPROPERTY(Replicated) int32 AvailableScrap=0;

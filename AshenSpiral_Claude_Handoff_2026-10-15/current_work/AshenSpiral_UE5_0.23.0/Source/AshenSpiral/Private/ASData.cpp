@@ -158,7 +158,7 @@ void FASBuild::Sanitize() {
  RelicPool=FMath::Clamp(RelicPool,8,24);TalentMask&=4095&~(1<<9);
 }
 void FASProfileData::Sanitize() {
- BestEndlessWave=FMath::Clamp(BestEndlessWave,0,10000);EndlessChoices=FMath::Clamp(EndlessChoices,0,2);
+ ClearedMask&=7;BestEndlessWave=FMath::Clamp(BestEndlessWave,0,10000);EndlessChoices=FMath::Clamp(EndlessChoices,0,2);
  for(auto& Entry:EndlessRecords) Entry.Sanitize();
  EndlessRecords.Sort([](const FASEndlessRecord& A,const FASEndlessRecord& B){return A.Wave>B.Wave;});
  if(EndlessRecords.Num()>10) EndlessRecords.SetNum(10);

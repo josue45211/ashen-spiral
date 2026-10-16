@@ -27,10 +27,7 @@ int main() {
     Check(CanChoose(C,200+Index(Trait::Mend))&&CanChoose(C,200+Index(Trait::Cleanse)),"context enables useful survival choices");
     C.MissingRelic=false;Check(!CanChoose(C,200+Index(Trait::Mystery)),"mystery excludes exhausted relic pool");
     C.Last=200+Index(Trait::Armor);C.Traits[Index(Trait::Armor)]=1;
-    Check(!CanChoose(C,200+Index(Trait::Refine))&&CanChoose(C,200+Index(Trait::Duplicate)),"uncapped trait permits duplicate but not evolution (0.23: evolution needs a capped trait)");
-    C.Traits[Index(Trait::Armor)]=Catalog[Index(Trait::Armor)].Max;
-    Check(CanChoose(C,200+Index(Trait::Refine)),"capped trait permits evolution");
-    C.Traits[Index(Trait::Armor)]=1;
+    Check(CanChoose(C,200+Index(Trait::Refine))&&CanChoose(C,200+Index(Trait::Duplicate)),"owned repeatable trait permits evolution and duplicate");
     C.Traits[Index(Trait::Armor)]=5;Check(!CanChoose(C,200+Index(Trait::Duplicate)),"duplicate cannot bypass normal cap");
     Check(CanEvolve(C,Index(Trait::Armor)),"evolution works at normal rank cap");
     C.Evolutions=std::uint64_t(1)<<Index(Trait::Armor);Check(!CanEvolve(C,Index(Trait::Armor)),"cannot evolve the same trait twice");

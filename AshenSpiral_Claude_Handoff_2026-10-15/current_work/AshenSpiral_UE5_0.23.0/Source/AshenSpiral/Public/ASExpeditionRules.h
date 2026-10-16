@@ -6,6 +6,12 @@
 // Engine-independent expedition rules. Wave numbers are one-based; wave zero is a normal expedition.
 namespace ASExpedition {
 inline int Difficulty(int D) {return std::clamp(D,0,2);}
+// TUNABLE unlock rules: beating Normal unlocks Hard, beating Hard unlocks Very Hard, and a Normal clear unlocks Endless.
+// Mask bit 0/1/2 = Normal/Hard/Very Hard beaten. Older saves count as Normal-beaten when they have any win.
+inline int ClearedMask(int Wins,int Mask) {return (Mask&7)|(Wins>0?1:0);}
+inline bool DifficultyUnlocked(int D,int Mask) {D=Difficulty(D);return D==0||((Mask>>(D-1))&1)!=0;}
+inline bool EndlessUnlocked(int Mask) {return (Mask&1)!=0;}
+inline const char* UnlockCondition(int D) {return D==1?"Beat Normal to unlock":(D==2?"Beat Hard to unlock":"");}
 inline float Quality(int D) {return 1.f+.25f*Difficulty(D);}
 inline float EnemyHealthScale(int D,int Wave=0,int Tier=0) {
     const float Base[]={1.f,1.5f,2.1f};

@@ -83,7 +83,7 @@ inline constexpr std::array<Definition,Count> Catalog{{
  {"Vengeance Oath","Survive one lethal hit this run at 1 HP with 3 sec of protection; your next three-hit combo finisher deals 5x damage.",1,1,Guard|Weapon,2,511,false},
  {"Cleanse","Remove all Blood Pact curse stacks (+10% incoming damage each). The traded maximum health stays traded.",1,1,Guard,1,511,true},
  {"Blood Pact","Trade 15% maximum health for +45% damage. Gain a removable curse: +10% incoming damage.",1,0,Weapon|Spell,2,511,false},
- {"Emberforge Evolution","Evolve one capped eligible non-instant trait, granting one effective rank above its normal value. Only offered when a capped trait can evolve. Two evolutions per run.",2,2,Echo|Spell,2,511,true},
+ {"Emberforge Evolution","Evolve one owned non-instant trait, granting one effective rank above its normal value. Two evolutions per run.",2,2,Echo|Spell,2,511,true},
  {"Mystery Relic","Gain one random, unowned relic from your unlocked pool. One pick per run.",1,2,Loot|Echo,1,511,true},
  {"Echo of Choice","Repeat your most recent repeatable stat/trait upgrade if eligible. One pick per run.",1,2,Echo,1,511,true},
  {"Battle Conduit","Every 6 primary hits restores 12 Focus and shortens Spiral cooldown by 0.3 sec. Counts at most once per 0.15 sec.",1,2,Weapon|Spell,1,511,false},
@@ -151,7 +151,7 @@ inline constexpr std::array<const char*,Count> Briefs{{
  "Survive lethal; empower your next finisher",
  "Remove Blood Pact curses",
  "Trade maximum health for power",
- "Evolve a capped trait",
+ "Evolve an owned trait",
  "Discover a random unowned relic",
  "Repeat your previous upgrade",
  "Hits restore Focus and cooldown",
@@ -182,7 +182,7 @@ struct Context {
     bool Hurt=false,MissingRelic=true,Endless=false;
 };
 inline bool CanEvolve(const Context& C,int I) {
-    return I>=0&&I<EvolutionLimit&&I!=Index(Trait::Sense)&&I!=Index(Trait::DashCharge)&&!Catalog[I].Instant&&Catalog[I].Max>1&&C.Traits[I]>=Catalog[I].Max&&!Evolved(C.Evolutions,I);
+    return I>=0&&I<EvolutionLimit&&I!=Index(Trait::Sense)&&I!=Index(Trait::DashCharge)&&!Catalog[I].Instant&&Catalog[I].Max>1&&C.Traits[I]>0&&!Evolved(C.Evolutions,I);
 }
 inline bool ScalesEndlessly(int I) {
     if(I<0||I>=Count||Catalog[I].Instant||Catalog[I].Max<=1) return false;

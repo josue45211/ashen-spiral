@@ -164,7 +164,7 @@ void AASPlayerController::PlayerTick(float Delta) {
     if(S->Room!=LastRoom||S->Phase!=LastPhase) {
         if(S->Phase==EASPhase::Defeat) OpenMenu(10);else if(S->Phase==EASPhase::Victory) {CloseMenu();Notify(TEXT("Expedition complete! Permanent rewards are being saved. Enter the teal portal and press E to return together."));}
         else if(S->Phase==EASPhase::Hub && LastPhase!=EASPhase::Hub) {
-            if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice,GI->bRaiseStakes,GI->Profile.TitleChoice,GI->Profile.TitleChoice>=0?ASCareer::Tier(GI->Profile.Career[GI->Profile.TitleChoice],GI->Profile.TitleChoice):0);
+            ResubmitProfile();
             OpenMenu(1);
         } else if(S->Phase==EASPhase::Countdown && (S->Room!=LastRoom||LastPhase==EASPhase::Hub||LastPhase==EASPhase::Reward)) CloseMenu();
         LastRoom=S->Room;LastPhase=S->Phase;
@@ -186,16 +186,18 @@ void AASPlayerController::PlayerTick(float Delta) {
 
 }
 void AASPlayerController::RequestProfile_Implementation() {
-    if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice,GI->bRaiseStakes,GI->Profile.TitleChoice,GI->Profile.TitleChoice>=0?ASCareer::Tier(GI->Profile.Career[GI->Profile.TitleChoice],GI->Profile.TitleChoice):0);
+    ResubmitProfile();
 }
-void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice,bool RaiseStakes,int32 TitleIndex,int32 TitleTier) {
+void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice,bool RaiseStakes,int32 TitleIndex,int32 TitleTier,int32 ClearedMask) {
     if(auto* S=AS::State(this)) if(S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) PS->bWagerVote=RaiseStakes;
     if(Protocol!=ASData::Protocol) {Notify(TEXT("Protocol mismatch. Use the same project build on both PCs."));return;}
-    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience,ColorChoice);
+    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience,ColorChoice,ClearedMask);
     SetCharacterTitle(TitleIndex,TitleTier);
 }
 void AASPlayerController::ResubmitProfile() {
-    if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice,GI->bRaiseStakes,GI->Profile.TitleChoice,GI->Profile.TitleChoice>=0?ASCareer::Tier(GI->Profile.Career[GI->Profile.TitleChoice],GI->Profile.TitleChoice):0);
+    auto* GI=GetGameInstance<UASGameInstance>();if(!GI) return;
+    const auto& P=GI->Profile;
+    SubmitProfile(P.ProfileId,P.Build,ASData::Protocol,P.Experience,P.ColorChoice,GI->bRaiseStakes,P.TitleChoice,P.TitleChoice>=0?ASCareer::Tier(P.Career[P.TitleChoice],P.TitleChoice):0,ASExpedition::ClearedMask(P.Wins,P.ClearedMask));
 }
 void AASPlayerController::ProfileRejected_Implementation() {
     // The server refused the switch; return to the character it still has for us.
@@ -288,7 +290,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
     if(Code==10) {OpenMenu(Index);return;}
     if(Code>=20&&Code<=28) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Permanent loadouts can only be changed in the hub.");return;}
-        if(GI->Purchase(Code-20,Index)) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice,GI->bRaiseStakes,GI->Profile.TitleChoice,GI->Profile.TitleChoice>=0?ASCareer::Tier(GI->Profile.Career[GI->Profile.TitleChoice],GI->Profile.TitleChoice):0);
+        if(GI->Purchase(Code-20,Index)) ResubmitProfile();
         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
     }
     if(Code==30&&PS) SetReady(!PS->bReady);
