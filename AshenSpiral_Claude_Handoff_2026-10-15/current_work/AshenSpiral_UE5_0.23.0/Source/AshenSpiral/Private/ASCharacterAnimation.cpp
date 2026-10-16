@@ -124,6 +124,11 @@ void AASCharacter::Animate(float Delta) {
             Mat->SetScalarParameterValue(TEXT("Emission"),Glow);
         }
     }
+    // Ability cast (F rune / skill) gesture: brief forward thrust of the torso. Cosmetic only.
+    if(!bDowned&&Build.Weapon!=1) {
+        const float Cast=ASAnimation::ReleaseGesture(AbilityGestureAge);
+        if(Cast>0.f) {Parts[0]->AddRelativeRotation(FRotator(-Cast*9.f,0,0));Parts[1]->AddRelativeRotation(FRotator(Cast*4.f,0,0));CapeFlare=FMath::Max(CapeFlare,Cast*.5f);}
+    }
     AnimateCape(Delta,CapeFlare,CapeTwist);
     DamageReactionAge+=Delta;AbilityGestureAge+=Delta;
     HammerShakeAge+=Delta;
