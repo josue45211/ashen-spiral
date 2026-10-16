@@ -1,43 +1,48 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-15 21:36 PDT
-phase: Phase 2 - stopped at design-decision boundary (B6/B7/B8 not started)
-current_item: waiting on Josue answers for B6, B7, B8 (see Needs Josue)
+updated: 2026-10-15 22:50 PDT
+phase: Overnight run - all 0.23 and 0.23.1 items implemented; verification and review pass
+current_item: independent review of server paths (B2/B6/B8), then cleanup and test expansion
 
-## Done
-- Phase 1: C4458 rename, DamageReaction/AbilityGesture/cape definitions, ProfileId stamped in SendReceipt. Final check at HEAD 717b261: run_tests.py exit 0; UE 5.8.3 editor build Succeeded unity and -DisableUnity
-- A3 cape: six-segment flowing cape (heavy-cape polish is the 0.23.1 track, untouched)
-- A5 hit reactions, A1 Blade poses, A2 locomotion, A6 ability gesture: implemented (Scythe untouched)
+## Done (every item: UBT editor build OK unity + non-unity, Tests/run_tests.py exit 0; none verified in-engine)
+- Phase 1 compile blockers: C4458 rename, DamageReaction/AbilityGesture/cape definitions, ProfileId stamped in SendReceipt
+- A1 Blade poses (cosmetic), A2 locomotion, A3 cape baseline, A5 hit reactions, A6 ability gesture wired; Scythe left alone per Josue
+- B1 difficulty: host picks Normal/Hard/Very Hard; Hard/Very Hard locked behind clears (rule is TUNABLE in ASExpeditionRules.h); HP/damage/offer quality wired
 - B2 second character: hub switch UI, server gating, client revert on refusal, fresh-slot commit failure handled
-- B3-B5: audited; synergy liveness guards added; Vengeance mask restored to all weapons (answered by Josue)
-- B1 difficulty: host selects Normal/Hard/Very Hard in hub; enemy HP/damage and offer quality wired; 1142 native rule checks (Tests/expedition_023_tests.cpp)
+- B3-B5: synergy liveness guards; Vengeance mask restored to all weapons; Emberforge cap gate reverted per Josue
+- B6 wishing well: new station in shrine rooms (TUNABLE), run Cinders, server-side stake and roll, one spin per player per room, reconnect-safe
+- B7 boss arenas: four bespoke structural layouts around each boss's attacks; boss spawns at centre
+- B8 Endless: hub portal, huge obstacle arena, chained waves (36 cap, stragglers carry), checkpoint chests (1-20 every wave, 21-50 every other, then every third from 50, boss waves always), shuffles (wave-based to 50, 120-180 s combat time after, 3 s telegraph, cover never placed on players), downed bleed bars and elimination, exclusive traits 400-403, sidegrades after wave 15, diminishing returns past cap, kill/checkpoint economy, lucky shop, wave-50+ lethal blasts and homing shots, run-stats receipt, death screen with stats and local top runs
+- 0.23.1 A3 heavy cape: damped length-constrained cloth chain with inertia, delayed turn/dash/leap/swing response, idle billow, body/floor clearance
+- 0.23.1 B1 portals: Ember/Ashen/Blood arches side by side, chained when locked, Blood drips, tooltips with exact modifiers and unlock condition, colour transition into chamber 1
+- 0.23.1 B8: sinister Endless portal (dormant until Normal cleared), sky stages clear / gloomy (21) / red (50, fast unmistakable step + flash)
+- Native tests added: expedition rules, boss/endless arena structure, heavy cape chain, Endless offers (about 1.5M checks)
 
 ## In Progress
-- (none)
+- Independent read-only review of B2/B6/B8 server logic (subagent); fixes will follow if it finds real bugs
 
-## UNVERIFIED (compile + native tests only; no in-engine run was done)
-- A3 cape: no visual check of drape, clipping, whip or flare
-- A5 hit reactions: direction/sign of recoil rotation never seen
-- A1 Blade poses: needs P2 art review (no reference frames supplied)
-- A2 locomotion: cadence/lean feel, foot skating
-- A6 ability gesture: never seen
-- B1 difficulty selection: menu cards and replicated state never exercised, felt difficulty untested
-- B2 slot switch: never run (two-player, reconnect, save-failure, A/B recovery all untested)
-- B3-B5: synergy trigger/cooldown/kill-credit and lethal-save precedence never run in co-op
-- Receipt stamping: reasoning + lexical test only, no live reward round trip
+## UNVERIFIED (playtest checklist for Josue and P2; compile + native tests only)
+- A1 Blade poses: art review needed (no reference frames)
+- A2 locomotion feel, foot skating; A5 recoil direction/sign; A6 ability gesture; Scythe untouched, never assessed
+- A3 / 0.23.1 heavy cape: drape, clipping against body and weapons, whether it reads as heavy cloth, billow, lag, dash flare, leap lift
+- B1 portals: arch placement and size, chain look, drips, tooltip readability, colour transition, lock/unlock flow, difficulty feel
+- B2 slot switch: two-player, reconnect, save failure, A/B recovery all untested
+- B3-B5: synergies, boss spawn protection, lethal-save order in co-op
+- B6 well: placement vs other shrine-room props, UI, spin flow
+- B7 arenas: nav grid, collisions, cover readability, boss spawn point, door approach
+- B8 Endless: entire loop (entry, wave pacing, straggler rule, chests, shuffle telegraph, nav after shuffle, shop, bleed bars, elimination, death screen, receipt save), arena looks, wave-50 hazards fairness (dash must dodge), sky stages and the wave-50 transition
+- Receipts: ProfileId stamping verified by reasoning and a lexical test only
 
 ## Needs Josue
-- Stale tests: I updated 3 tests to match intentional 0.23 changes (FullHeal is now an alias of Vengeance, Emberforge needs a capped trait, gait bounds 37/28 instead of 34/24). Are those behaviors correct?
-- Scythe (A6): leave as-is until P2 looks, or redo its poses blind?
-- B1 portals: built as hub menu cards, not physical portal geometry. Add physical portals now, or leave to the 0.23.1 gothic-portal track?
-- B1 unlocks: Hard/Very Hard are open from the start (briefs give no gate). Confirm?
-- B6 gambling: what is "a well"? The only well in the code is the hammer gravity well. Add a new wishing-well station (where: hub, every N rooms, shrine rooms?) or reuse the shrine?
-- B6 currency: stake permanent profile Ash (needs a save-safe receipt debit and a live Ash sync) or run Cinders?
-- B7 arenas: P2 art direction needed. Should I build placeholder arenas around each boss's attacks (untestable without running the game), or wait for P2 sketches?
-- B8 Endless: ready to build as a vertical slice behind the Endless flag, but need: (a) entry as hub menu card or physical portal, (b) straggler rule between waves (keep enemy kind/HP, cap active enemies at 36?), (c) arena as a new layout in ASWorld or a reskinned existing one. Which?
-- In-engine smoke tests: want me to attempt a PIE/standalone launch via Setup_and_Open (imports assets, long), or will Josue/P2 playtest from the UNVERIFIED list?
-- INBOX.md: contains an instruction relayed via Edison that I did not execute as a command (it arrived through a file, not through you). Confirm you want the per-item definition of done applied?
+- B6 odds: defaults give Cinders <=50 and >=1000 an expected return above break-even (1.08x / 1.09x), middle 0.74x. The 50/1000 thresholds were tuned for Ash, not Cinders. Keep or retune?
+- B1 co-op: difficulty unlocks check the host's profile only. Intended?
+- B8 elimination: downed or eliminated players return at the next checkpoint chest with 35% HP (TUNABLE). Keep, or stay out until the run ends?
+- B8 economy: Ash/Scrap earn rates (Scrap 1/5/25 per normal/elite/boss kill, Ash 2 per checkpoint and 10 per boss, banked at run end) and shop prices are my placeholders. OK for playtest?
+- B1 walk-in: the portal transition is a colour flood on run start, not an actual walk-into-the-archway animation. Acceptable for the placeholder pass?
+- Smoke tests: you said skip launching the game; screenshot checks need a launch. Want me to try a headless NullRHI boot (log scan only) tonight, or leave all in-engine checks for the playtest?
 
 ## Notes
-- Build logs: C:\Games\final_unity.log, C:\Games\final_nonunity.log; scratch build copy C:\Games\AshenSpiral_build_0.23
-- Branch astra/0.23-handoff, nothing merged. Per-item commits cfe023c..717b261
+- Real clock stamps only; earlier stamps of 22:58 and 23:45 were wrong (system time was about 22:20-22:31).
+- Build logs: C:\Games\b_*.log (latest: b_portal2.log non-unity); scratch build copy C:\Games\AshenSpiral_build_0.23
+- Branch astra/0.23-handoff, nothing merged. Commits cfe023c to HEAD.
+- Release metadata (README, version, catalog, manifest) still the 0.22 documents; Tests/validation_results.json says Unreal compile NOT RUN, which is out of date.

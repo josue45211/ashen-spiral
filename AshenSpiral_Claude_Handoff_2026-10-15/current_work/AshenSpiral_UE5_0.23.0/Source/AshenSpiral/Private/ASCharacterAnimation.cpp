@@ -202,6 +202,6 @@ void AASCharacter::AnimateCape(float Delta,float AttackFlare,float BodyTwist) {
         const float Spread=1.f+.35f*Drive.Wind*T+.30f*Drive.Flare*T+.25f*Drive.Lift*T;
         C->SetRelativeLocation(Node[I]);
         C->SetRelativeRotation(FRotationMatrix::MakeFromZX(-Down,FVector::ForwardVector).Rotator());
-        C->SetRelativeScale3D(FVector(1.f,ASAnimation::CapeWidth(T)*Spread/31.f,Length/55.f*1.08f));
+        C->SetRelativeScale3D(FVector(1.f,ASAnimation::CapeWidth(T)*Spread/36.f /* SM_Cape half-width is 36 */,Length/55.f*1.08f));
     }
 }
