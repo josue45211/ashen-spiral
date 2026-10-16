@@ -1,0 +1,1566 @@
+{
+  "created_utc": "2026-10-16T03:30:40.117466+00:00",
+  "source_version": "0.23.0 WIP including 0.23.1 brief",
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 116,
+      "sha256": "4e765f939e784d70c5f6130f5038d2894588c101bfd88723c35803e1af89f0da"
+    },
+    {
+      "path": "AshenSpiral.uproject",
+      "bytes": 628,
+      "sha256": "7074f9e57914f9b35620500b483e244ec464e672f4723ab5e13cd261f80e8fdb"
+    },
+    {
+      "path": "Collect_Diagnostics.bat",
+      "bytes": 197,
+      "sha256": "e680c400fe08fc493778e413386cf0bf87a9535158339b995ba5b7025f92bada"
+    },
+    {
+      "path": "Config/DefaultEditorPerProjectUserSettings.ini",
+      "bytes": 69,
+      "sha256": "b90ddf672046fe9b8c691b37547cc28241592a704ede9b1ab4a0392adac03fd2"
+    },
+    {
+      "path": "Config/DefaultEngine.ini",
+      "bytes": 1406,
+      "sha256": "9dfa5a3d06ee2979db47534404fea11d41ac0d200af2722be3dd84f14835216e"
+    },
+    {
+      "path": "Config/DefaultGame.ini",
+      "bytes": 659,
+      "sha256": "d8f3b0b7974e3fe3dd8b93b21c39ffa145b8232e925da7c5ff34323bd636b7b1"
+    },
+    {
+      "path": "Config/DefaultInput.ini",
+      "bytes": 2465,
+      "sha256": "f87566f4c45540096687f0b26c8fe879dc0faaca00633f3e13bc22ce78cb12f1"
+    },
+    {
+      "path": "Content/README.txt",
+      "bytes": 316,
+      "sha256": "5f271f275f22a84147da0b10d1a24c648565b27b83afd65bb50abd3bbb3e9c58"
+    },
+    {
+      "path": "Docs/ARCHITECTURE.md",
+      "bytes": 12236,
+      "sha256": "ce159a5befa3fe2027cda39bd09e1b0e0292f49c7b9981f02878d39cd62d8251"
+    },
+    {
+      "path": "Docs/ARCHIVES_0.21_PREVIEW.png",
+      "bytes": 258052,
+      "sha256": "b63ed88c00307317b16643c0a6fc7bf76e19857e987b7b297524a3b18854694c"
+    },
+    {
+      "path": "Docs/ARMOR_0.20_PREVIEW.png",
+      "bytes": 114570,
+      "sha256": "3c0e1274956263155b531ec2a64ce4f93a7f899780953c7443f0365b215fbf0d"
+    },
+    {
+      "path": "Docs/ASHEN_SPIRAL_0.20_EDITABLE_CATALOG.txt",
+      "bytes": 35455,
+      "sha256": "9482a61559478ea954ae427ac7f9f2e55a197a36afaada7d0f7fae835c7536eb"
+    },
+    {
+      "path": "Docs/ASHEN_SPIRAL_0.21_EDITABLE_CATALOG.txt",
+      "bytes": 37761,
+      "sha256": "a1975f80cd120da9ec52b008881062fa58134145e9b554d144c83aa15d8cc0df"
+    },
+    {
+      "path": "Docs/ASHEN_SPIRAL_0.22_EDITABLE_CATALOG.txt",
+      "bytes": 39433,
+      "sha256": "329d69c668247929126745ef6291d2660832939ae1ac16f6a2b3b1436c4230cc"
+    },
+    {
+      "path": "Docs/BUILDCRAFT_0.14_NOTES.md",
+      "bytes": 13077,
+      "sha256": "d5fc916c0e9294f3279a2c82a342991f815c70829011e1214f9df88c07546b44"
+    },
+    {
+      "path": "Docs/CAMERA_0.16.2.md",
+      "bytes": 2900,
+      "sha256": "38d1fa9febfe33b9a4b918159a9f859235ab58d9f2c941b0be015e43a2f5503a"
+    },
+    {
+      "path": "Docs/CHANGELOG.md",
+      "bytes": 17433,
+      "sha256": "e984b969f13a51417a1fcf505b6f1c2932d54a938ea6c8334767efacbf844be5"
+    },
+    {
+      "path": "Docs/COMPILE_HOTFIX_0.16.1.md",
+      "bytes": 1983,
+      "sha256": "9c14140853b41e3f07774f6cde3420d78d84ebd3b42f34d03f83b3cd1d178110"
+    },
+    {
+      "path": "Docs/COMPILE_HOTFIX_0.17.1.md",
+      "bytes": 1673,
+      "sha256": "b830dd4e19ff6806f900f190046631fd1041f4be4d9dae66f5565cad22b0a1ea"
+    },
+    {
+      "path": "Docs/COOP.md",
+      "bytes": 7138,
+      "sha256": "3d6ddb933fd0bcee9d80a7c05d3fffb0d4a7434699b29f1634c389f5ca198298"
+    },
+    {
+      "path": "Docs/CREDITS.md",
+      "bytes": 4124,
+      "sha256": "6143bc2cb85ca89897a2eb7a2082e6bcb68f9c33c4b526d6a21b147e595b8f28"
+    },
+    {
+      "path": "Docs/DESIGN_0.18.md",
+      "bytes": 8381,
+      "sha256": "01c48ccd891df92e37d9ee8551b9b792b2758801ad3d1b96c902364bd96d015f"
+    },
+    {
+      "path": "Docs/DESIGN_0.19.md",
+      "bytes": 10959,
+      "sha256": "d3269f3f7eb86ac41d8835feb5d6505a89006036b9229af07b9e09e05b741f38"
+    },
+    {
+      "path": "Docs/DESIGN_0.20.md",
+      "bytes": 10919,
+      "sha256": "a38789bbd8b58cc92e1b4113f7eff3710963029f6b7090ffe26b21d04135912e"
+    },
+    {
+      "path": "Docs/DESIGN_0.21.md",
+      "bytes": 8996,
+      "sha256": "6855615d0b45c62206966f1a73eaa4df1e963f6623cc6f1f61b581ad2e5a0ea6"
+    },
+    {
+      "path": "Docs/DESIGN_0.22.md",
+      "bytes": 7874,
+      "sha256": "e68e86e9f7046a26960a819c664ded27c67d80b0f4af03ffac6fbd820eb75d1c"
+    },
+    {
+      "path": "Docs/EXPANSION_0.13_NOTES.md",
+      "bytes": 10332,
+      "sha256": "1ec8c2734a00a754b3f5040df7493979ebb8679de34254fbdbcdd0158842548b"
+    },
+    {
+      "path": "Docs/FINISHER_0.21_PREVIEW.png",
+      "bytes": 52804,
+      "sha256": "f3db9ca680ff93d06b761c7b519194fc48206c2c18fbd5705ae7ce8aa9bb38c9"
+    },
+    {
+      "path": "Docs/FIX3_NOTES.md",
+      "bytes": 5065,
+      "sha256": "1426704b4fb4741f1e910f847e0011f0a3a5c420b3865e05dc618a68ac7d3b4b"
+    },
+    {
+      "path": "Docs/FRONTIER_0.15_NOTES.md",
+      "bytes": 10454,
+      "sha256": "790d647518ce2318d300d013f08fde70bed64f2c7a4c66957ffd600275e9a42f"
+    },
+    {
+      "path": "Docs/GAIT_GEOMETRY_PREVIEW.gif",
+      "bytes": 866066,
+      "sha256": "60f45fe15c304af8c1b0c7d33b0908aa141632d2f5edd7c4a05967f8fcc606f2"
+    },
+    {
+      "path": "Docs/GAMEPLAY_0.12_NOTES.md",
+      "bytes": 6178,
+      "sha256": "d5f5cf8a346d8bef78c4a61db727f2f9bf218f1f32ea15986dc417d0cddc548e"
+    },
+    {
+      "path": "Docs/HAMMER_0.22_COMBO.gif",
+      "bytes": 602583,
+      "sha256": "5dad120a8faa49472a9627ad607d7bdf430794634e8bfd657a92321bce4b824d"
+    },
+    {
+      "path": "Docs/HAMMER_0.22_COMBO_PREVIEW.png",
+      "bytes": 119752,
+      "sha256": "f92242e966cc0d5aca4783b4ed007b29f1f41c0a3e1d916d043c42fae5278e17"
+    },
+    {
+      "path": "Docs/HAMMER_0.22_LEAP_PREVIEW.png",
+      "bytes": 86357,
+      "sha256": "41f3a6d63f7fd155f891aa5469a5aac5e3ee0b1df8af1a05e1589a4ab7372e3c"
+    },
+    {
+      "path": "Docs/HAMMER_0.22_SAMPLES.json",
+      "bytes": 269131,
+      "sha256": "e15f8ffd85a643691f4057f6068443f23a167796070f076b7df1626f437217cc"
+    },
+    {
+      "path": "Docs/HUD_0.17_NOTES.md",
+      "bytes": 5479,
+      "sha256": "eed758c066e96a47656f3bf5dd906e4ac2cc51e67dd08af7cd5c1e1a064c8f34"
+    },
+    {
+      "path": "Docs/INPUT_CAPTURE_0.17.md",
+      "bytes": 13187,
+      "sha256": "1108768ae720905379b7855babb6086ad7ec690fdaf01a43c526c1052dc6bd72"
+    },
+    {
+      "path": "Docs/INPUT_PROVENANCE.json",
+      "bytes": 262,
+      "sha256": "c38320e9d380a7af03bb5d07d44f9d50e490d71e5c43e7d9aa18f134de55e091"
+    },
+    {
+      "path": "Docs/LAYOUT_OVERVIEW.png",
+      "bytes": 135681,
+      "sha256": "1c5c62e09e7219324466f461d95c5bf5e690b739dbbf999f2906fec09951958e"
+    },
+    {
+      "path": "Docs/MELEE_0.21_PREVIEW.png",
+      "bytes": 101744,
+      "sha256": "285d89d4022d787df213f2497ff32326165f9ba0dc569a30cc40cc1dcc3a4caa"
+    },
+    {
+      "path": "Docs/MELEE_ARCHIVES_SAMPLES.json",
+      "bytes": 87927,
+      "sha256": "9c30397c7391f20af14d2de973b03fa71483edffd72d778e281a3abc74ea2eec"
+    },
+    {
+      "path": "Docs/PORTING_NOTES.md",
+      "bytes": 4195,
+      "sha256": "932de6270daf93f0a851d566b7ca0a1c2007ecbca8bd7e34eeb60c2caad6d654"
+    },
+    {
+      "path": "Docs/REQUESTED_0.20_DELTA.md",
+      "bytes": 22164,
+      "sha256": "b2134176eeeeb34773625a50582a3ff3f959c8deee402be8b18c258c5488f003"
+    },
+    {
+      "path": "Docs/REQUESTED_0.21_BRIEF.md",
+      "bytes": 2020,
+      "sha256": "6e8b2cb096298bd7aec3f5d0bc0eb5899ffa57cb056edaf95518d041984ae678"
+    },
+    {
+      "path": "Docs/REQUESTED_BUGFIX_DECISIONS.pdf",
+      "bytes": 86275,
+      "sha256": "9225434677bdb214fc083e58dcc45fe0661a9c4d251ad3b79dada8dda96efa40"
+    },
+    {
+      "path": "Docs/RESTORATION_0.16_NOTES.md",
+      "bytes": 12697,
+      "sha256": "f65502c91c956a49c0b6abaf20c52aec3864a1c43347a3295862df4fa1042f6b"
+    },
+    {
+      "path": "Docs/REWARD_CARDS_PREVIEW.png",
+      "bytes": 110178,
+      "sha256": "b601d3e8b8287807f2c95c48f69a1547184f0d525b84a654a62436e6782adeee"
+    },
+    {
+      "path": "Docs/SKILL_CARDS_PREVIEW.png",
+      "bytes": 39399,
+      "sha256": "8ab5fc10d96d324d731cb9e96c02b3b07ae4f5b1da6bab207c4adbffafea4f53"
+    },
+    {
+      "path": "Docs/Source_Content_Tables.json",
+      "bytes": 45580,
+      "sha256": "92cd7c32bf60bf6aef8e92d96338752a387f5537f46bd1e14d754973d61c8d6f"
+    },
+    {
+      "path": "Docs/TROUBLESHOOTING.md",
+      "bytes": 10373,
+      "sha256": "09f25921c1e457d4d2c2864e19d45e8da908a45d606acd04568adbdd16ae30af"
+    },
+    {
+      "path": "Docs/UPDATE_0.17.0.patch",
+      "bytes": 75256,
+      "sha256": "baefdc5c4f208ca593bfab1875ac3267346c3bdd1bc53a574e886767c9b233e6"
+    },
+    {
+      "path": "Docs/UPDATE_0.18_PROVENANCE.json",
+      "bytes": 443,
+      "sha256": "2b0fb2d689a6102ba3d70adbab76718ff47d0143fe20a53b1975804696f84d7c"
+    },
+    {
+      "path": "Docs/UPDATE_0.19_PROVENANCE.json",
+      "bytes": 2617,
+      "sha256": "a2e5a28439746f1c31e9e3b2081e10e4ebe2b27054492398ee77d77fb846af92"
+    },
+    {
+      "path": "Docs/UPDATE_0.20_PROVENANCE.json",
+      "bytes": 3759,
+      "sha256": "625ff2d8e92c8afd023e505a31a43539420a3120a4cc7ffa2f8db53e13783c01"
+    },
+    {
+      "path": "Docs/UPDATE_0.21_PROVENANCE.json",
+      "bytes": 4111,
+      "sha256": "1b34411c780acba2c67b78e2518810881306154f72ba986b01a2cb1ffe6a4d31"
+    },
+    {
+      "path": "Docs/UPDATE_0.22_PROVENANCE.json",
+      "bytes": 3528,
+      "sha256": "960e1519e60a105875ead331b4bfdee14246f5c736a7b4a1b2ce1442d2d8e49f"
+    },
+    {
+      "path": "Docs/UPGRADE_CATALOG.md",
+      "bytes": 10424,
+      "sha256": "fe4d6c4b58f367eb0a4444015539e257246ccf6366368ec4cb4df5756d7ba977"
+    },
+    {
+      "path": "Docs/VALIDATION.md",
+      "bytes": 3714,
+      "sha256": "cfccce1ba8d35bbc315a44388db661fe669e8fa5f495d960f6dc8ec8a988296c"
+    },
+    {
+      "path": "Docs/WEAPON_MODELS.png",
+      "bytes": 122375,
+      "sha256": "5f1795eeb91cb87e17117ba688ed07927660d61a0f51a96ba06e8e58b30f93db"
+    },
+    {
+      "path": "Docs/interface_source.json",
+      "bytes": 35869,
+      "sha256": "fb41a4541f9fb8cb6003e0bbd424f26e45f1c1d52a210034d09eaf59371f2138"
+    },
+    {
+      "path": "Docs/layout_samples.json",
+      "bytes": 1177,
+      "sha256": "c8953d7219f9ab5f6f23a95957fa2e042362a54a1f56abb4d23ba2c8cb38746f"
+    },
+    {
+      "path": "Import_Progress.bat",
+      "bytes": 226,
+      "sha256": "3ca492dc152f59d698ffe0caeba5e6873cf9caec936da66fb3184a3c1b0308c3"
+    },
+    {
+      "path": "Package_Windows.bat",
+      "bytes": 242,
+      "sha256": "5769804eb3b489fb76867958d46198fd32a0cda9f2d63aa1abdb91ca937436a7"
+    },
+    {
+      "path": "Play_Standalone.bat",
+      "bytes": 250,
+      "sha256": "8f39ea1e83ff83c581d5e1266e3bfe8096fe524f4dcc9758f100f28934a95954"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2481,
+      "sha256": "08649a5a86f6c87d4349f17ec799f67cfbc7b8ca211401e595d91b9fafca45fb"
+    },
+    {
+      "path": "RELEASE_MANIFEST.json",
+      "bytes": 30747,
+      "sha256": "3ea24fc2e4cbc0459a9199650557870699130388242173b76c89eb057f144e4b"
+    },
+    {
+      "path": "Reimport_Source_Art.bat",
+      "bytes": 270,
+      "sha256": "e5479e4181c0e98a5ffc4c7c7751325974da13cce7bf09f4b66b8b866656a8ca"
+    },
+    {
+      "path": "START_HERE.md",
+      "bytes": 15784,
+      "sha256": "882bbff00f2b7572082f78ab25181396d3cab5b93890ca1824cf69459b8eb9e8"
+    },
+    {
+      "path": "Setup_and_Open.bat",
+      "bytes": 252,
+      "sha256": "4558c308f817bbd91696199b42d4b6a532261a20e579f8b53ca6592f89f334cc"
+    },
+    {
+      "path": "Source/AshenSpiral/AshenSpiral.Build.cs",
+      "bytes": 407,
+      "sha256": "3d39aa07cd7f7c185485b4119d8baed29237d95170f299eb047199bfe6748f5f"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASAbilities.cpp",
+      "bytes": 6592,
+      "sha256": "0d27e533840693604a194cd94b5d8164f48adb7fe6c27928efe70a1a474678de"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASBreakable.cpp",
+      "bytes": 3800,
+      "sha256": "141468c6b91207a4c7834fa44921de85ee40cdfd78c4c62cbff1a9d5588faaea"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASCharacter.cpp",
+      "bytes": 31830,
+      "sha256": "89c19a6b0bb0a0139ea91ea8c7b9329f52405d201eccf93385e6e0804aad6545"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASCharacterAnimation.cpp",
+      "bytes": 10925,
+      "sha256": "42bd16c7d7f8feaff3b5ec6650428ca2ea2f8090ef6262da88dcf86c53b1d33b"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASCharacterUpgrades.cpp",
+      "bytes": 11957,
+      "sha256": "4adffa3db2c1493d43c70b2642467378ff4728151dbed700106df6314f937f74"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASData.cpp",
+      "bytes": 16656,
+      "sha256": "1f7fa37dd4c412b332e9c467680ff01ee27440c9792a40569fc6b781a9bd741e"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASEnemy.cpp",
+      "bytes": 24339,
+      "sha256": "61aeb78327f95ed6fa763831edfdca17aa8ed2aa814c4a0c12df9ea82237b4a3"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASEnemyAnimation.cpp",
+      "bytes": 1906,
+      "sha256": "984206ec504351ee52213d5eaf0e91c6e0c5c581d951ad6c09d925cffd7dc666"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASGameInstance.cpp",
+      "bytes": 22662,
+      "sha256": "f795aedd576525775e6b6321550572533420a5c74889d8523a11f8a8adf7a14f"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASGameMode.cpp",
+      "bytes": 37798,
+      "sha256": "a8da462dfeb4be5e33be05a422d47c28fb1ecc5fd76b6485b46c3b5db6b574a0"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASGameState.cpp",
+      "bytes": 3676,
+      "sha256": "dd133d69b460dd1254fb1497ac6f40f526f20d054fd7e84eaaafc1687cc3dcf5"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASGameViewportClient.cpp",
+      "bytes": 1670,
+      "sha256": "2424ca0d777926deb14c9f837dfd2cb70ace3d799d96fd0c05193cd3ce730da3"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASHUD.cpp",
+      "bytes": 26509,
+      "sha256": "ec96028126ec4b069c71cba262321abe287c595e064a0413e832687cb7cf2225"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASHammerCombat.cpp",
+      "bytes": 7639,
+      "sha256": "be229ef3bdd60ccea67a6801cc38b5490801efe8db7d66dd6f4f557d99f3b1ff"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASHammerEffects.cpp",
+      "bytes": 2029,
+      "sha256": "634928ff8aa4915686f7fb9e1d7ed2c24a9a8ddb112d94a42ab2375fb73ad40e"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASMeleeCombat.cpp",
+      "bytes": 5904,
+      "sha256": "db734b5edf2975217732ab9430d9d918ac86dc327935b5fa54a22b46d2f4ef8d"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASMovementComponent.cpp",
+      "bytes": 6978,
+      "sha256": "fc697e5481decc2d24f7d4fae231cd4b5ee5402ef1cb2055c200a5d23bf6d4bf"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASPlayerController.cpp",
+      "bytes": 33015,
+      "sha256": "7d8f281f06c258d802eaa85a1d933ce9d34843df384dddcec7cf43bab303e521"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASRouteGuide.cpp",
+      "bytes": 4464,
+      "sha256": "8b500204cd992a74d030cf77dd0753f9e6dd4a8f76326fe1793e904b680b69ab"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASSpell.cpp",
+      "bytes": 30497,
+      "sha256": "1f90d43ed5964496c3dd242ad25c015d8cd206979741b0e2f927e356638670df"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASWorld.cpp",
+      "bytes": 51454,
+      "sha256": "e80e7cfd6cf94e85b04b1da7b11e7fbfa59b7bb81bd4809c895d00f0660b45db"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/ASWorldArchives.cpp",
+      "bytes": 3677,
+      "sha256": "d7c3376949c2c3402dd69f30e6841876dac60676dcac4ef6239721616c1feba7"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/AshenSpiral.cpp",
+      "bytes": 118,
+      "sha256": "5e2efb0a0b32a19ca5353004cfab35425f1d29f99ab80db9535ff5b41a4b62d2"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/SASEffectIcon.h",
+      "bytes": 1526,
+      "sha256": "1a6e6bd82b56bfd74ed664744c6997351737e10e1ad1972f9b20275c56fc48d0"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/SASMenu.cpp",
+      "bytes": 57463,
+      "sha256": "07783f9cab26aee514b3834919f023f501f0495b7f842e13d5145b44156d8c75"
+    },
+    {
+      "path": "Source/AshenSpiral/Private/SASMenu.h",
+      "bytes": 1619,
+      "sha256": "5f9d3c58db6742b7ee19e8246469f10bb063399b7403c80b5897794067d4f9fa"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASAdventureRules.h",
+      "bytes": 1329,
+      "sha256": "6a0130a064fd197444887d53a41f21d6cf3437c3c9ccaec55d2b1ed1b03e334b"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASAnimationRules.h",
+      "bytes": 3005,
+      "sha256": "aa4b6871c84a510e4282f90d2eda4b182c5f6fe48ab8e4cd63b433e8fcdc6a40"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASArchiveRules.h",
+      "bytes": 3049,
+      "sha256": "b9b1719e7e9de38598c55778afc5090294e8eb1550f942ed530105f4f5dde404"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASArsenalRules.h",
+      "bytes": 2450,
+      "sha256": "3bf9608afc290fb7ac773a800a293442534791bdb2ae384f301c6b1989546939"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASBreakable.h",
+      "bytes": 913,
+      "sha256": "c58dcca288e88cc954187b7ee7e5c8648d244b351b42cfd091cb71c5d0f3c5c4"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASBuildRules.h",
+      "bytes": 20186,
+      "sha256": "c54f84c316ae34e71b027692bba8b0d3125d161946f67cc77f1bb03a3c30291f"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASCareerRules.h",
+      "bytes": 3174,
+      "sha256": "046c1449cd77e9d58efc07f5f50432827117033cb38f042dd883c5111ff6f343"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASCharacter.h",
+      "bytes": 10306,
+      "sha256": "fe8e599faf00c496b5eb588eeea46fdaa73078a0dfd3f6cff75a7c381beb8f50"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASData.h",
+      "bytes": 4875,
+      "sha256": "39e0d155452a866be3d8aa82f27a5497455b22664fa1ba664660452676da3795"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASEffectArt.h",
+      "bytes": 3991,
+      "sha256": "8476c9f9a7b5465cae77115c2b2904a17b847468ba62f72f73b77656d50b40a4"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASEnemy.h",
+      "bytes": 3872,
+      "sha256": "b7a8f6a8494274824b4c565f08558b90bedc6d1479be8f7bcd021dbf27624411"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASExpeditionRules.h",
+      "bytes": 4058,
+      "sha256": "c623a39c94f3a870082f8fcd455f4cad992934a4fd56d28f40f5ddb148f0de53"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASGameInstance.h",
+      "bytes": 2025,
+      "sha256": "08feb0f1083e3bc2ad88a94d8a1c13fd4540ba419bf93c51ed504a45d7597ee6"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASGameMode.h",
+      "bytes": 3246,
+      "sha256": "0131b0fa684b35c6bc8adbfec9b8e551888865315c66a41fb7f3e25560ced1c0"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASGameState.h",
+      "bytes": 4754,
+      "sha256": "54906293decd17a8caafabae7a4f0140e7cbd1d39c7ab592530782b8f6f17eba"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASGameViewportClient.h",
+      "bytes": 974,
+      "sha256": "dc73a6e32c898974136950e6847c5ede667f437b59c665565206896851c2ee93"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASHUD.h",
+      "bytes": 1404,
+      "sha256": "87676fe1610030445087881790cdfdd7178dc6be55d067b0707f44612eb78cbe"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASHammerRules.h",
+      "bytes": 5307,
+      "sha256": "6c960905eba0e3670f56c4f7a276cc74fcf1180e20f5208e93784fe7b0211028"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASMeleeRules.h",
+      "bytes": 3031,
+      "sha256": "a1de21b69d5df2cba3e2690429f327bc0889c513685c678d08888dbb43d4ad64"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASMovementComponent.h",
+      "bytes": 2291,
+      "sha256": "f7cbf2858b2214bdeb810b537a5117622324ea24e8509169e368c10d21cf1355"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASNavigationRules.h",
+      "bytes": 2515,
+      "sha256": "001ea30ca0345faceeadcf8629d75b2766d0957f80159c7a6adb0ee17560e1ef"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASPlayerController.h",
+      "bytes": 4086,
+      "sha256": "794c6dc804b57222c5a260a04375b10d329c8f97194798a1308f023547a2d84a"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASPose.h",
+      "bytes": 1176,
+      "sha256": "dd5e39db3291f24eaf99f91c325be18b83d57f35c983219a75f5ec2532efe984"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASPresentationRules.h",
+      "bytes": 1097,
+      "sha256": "48db6d346e1f389e1100a2b050c408ec618a7ed921e8268f401806be7bf0ce55"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASRouteGuide.h",
+      "bytes": 669,
+      "sha256": "cf671e93521694cf50fca19c3eee8820c18a1bea62e67e2c801e8efd77cd2191"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASRules.h",
+      "bytes": 16307,
+      "sha256": "c66ac54542e8fe2204e0d2ea854e649d7ce4cb428c2a7f2173f968f75371a618"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASSpell.h",
+      "bytes": 5835,
+      "sha256": "9060f78a9a841ef798781362c58b3a35c9fbaaf1502565e1be4e90f29d46cc7b"
+    },
+    {
+      "path": "Source/AshenSpiral/Public/ASWorld.h",
+      "bytes": 4890,
+      "sha256": "2b4ab99b8f71eedbdacb9b8a437969e8bcaba64aabd3a07732c6201498fbc50b"
+    },
+    {
+      "path": "Source/AshenSpiral.Target.cs",
+      "bytes": 348,
+      "sha256": "40d40b56991971400485429f04c9a463da5abe18882289f661a963dbf3010e68"
+    },
+    {
+      "path": "Source/AshenSpiralEditor.Target.cs",
+      "bytes": 362,
+      "sha256": "1685b960e47599fdc3fd8bcb3fd9c5013507b5f795b25e41ccf3ea47faacd045"
+    },
+    {
+      "path": "SourceArt/Audio/S_Attack.wav",
+      "bytes": 14156,
+      "sha256": "2365f835df6ab331015317d80396a51be529c38e49794a61738798403000f321"
+    },
+    {
+      "path": "SourceArt/Audio/S_Collapse.wav",
+      "bytes": 39734,
+      "sha256": "38d43029e9163b4e45707f736810ba13354af0a8033d971d3a6f6663e9e9bc87"
+    },
+    {
+      "path": "SourceArt/Audio/S_Dash.wav",
+      "bytes": 20330,
+      "sha256": "e6047254997f56cad08534c1450588a23ab2d8da54822d6a3b93e2a669d070c4"
+    },
+    {
+      "path": "SourceArt/Audio/S_HammerHit.wav",
+      "bytes": 30032,
+      "sha256": "0d5be819c5bd782b6dd63a2a1c831bbf1bd27346c6e0e9391455eab0dff1fb06"
+    },
+    {
+      "path": "SourceArt/Audio/S_HammerLeap.wav",
+      "bytes": 42380,
+      "sha256": "a4eddd9abece42039377ae0fc47d1506c65184e186aec80ad6052438bea3fba1"
+    },
+    {
+      "path": "SourceArt/Audio/S_HammerSmash.wav",
+      "bytes": 68840,
+      "sha256": "8bb9e6d6257738ae09e85dc2f429693684706247d31bf885ba610237e985fe04"
+    },
+    {
+      "path": "SourceArt/Audio/S_HammerSwing.wav",
+      "bytes": 23858,
+      "sha256": "8d24dae45ae149ce71c86c07b118a09b32503c2ad8294b9456187ad56c8add36"
+    },
+    {
+      "path": "SourceArt/Audio/S_Hit.wav",
+      "bytes": 10628,
+      "sha256": "15fee6bf86e72f1ffb09ce499c3eb9e11fa2297aec0b95d9f43396c33fafb83f"
+    },
+    {
+      "path": "SourceArt/Audio/S_ReloadReady.wav",
+      "bytes": 33560,
+      "sha256": "b4cc0ef9250afdb248ea5ee03810625b34f241b07f7bd214cc3320b9d6e0dee7"
+    },
+    {
+      "path": "SourceArt/Audio/S_ReloadStart.wav",
+      "bytes": 22976,
+      "sha256": "e8628f4b82c9f555e08cfb400f45e61fb2b03e073b9357585529ef132de2a1d7"
+    },
+    {
+      "path": "SourceArt/Audio/S_Reward.wav",
+      "bytes": 57374,
+      "sha256": "c22ad246866a5abf3ef068379b41c52874c61290364c29ded74b8c57fe0de275"
+    },
+    {
+      "path": "SourceArt/Audio/S_Spiral.wav",
+      "bytes": 52964,
+      "sha256": "1dcc73209ebf15cb320739078736c2c71569a2b57672a70cd89e64e6af153106"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Arch.obj",
+      "bytes": 83115,
+      "sha256": "85ee097100e831ce39e0b630b9247e69c7c4977516864fa43dee56c0fe18342e"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveDebris.obj",
+      "bytes": 73088,
+      "sha256": "5191a6618660854637aec629f7a75b0e70450efee77b41d923d321b874d18aef"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveDesk.obj",
+      "bytes": 24328,
+      "sha256": "49e7b2d5e47f6ee003ca99b2e104db16a2eda0c36cda897c339edf8125337415"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveDeskBroken.obj",
+      "bytes": 17345,
+      "sha256": "5dac8c0a8a04c7381baea0971a30e44a4a516286080a989bf8c81ecbedcb759d"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveIronwork.obj",
+      "bytes": 49735,
+      "sha256": "03904ced2db2d69b6957c1aedee2fe582a118d69045917a97eda87fdd4469bc7"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveRib.obj",
+      "bytes": 752677,
+      "sha256": "cdde2cbbbd648ae6b79edd637165e001876f12be54d37e56430dae1b91b4287d"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveShelf.obj",
+      "bytes": 92377,
+      "sha256": "db14492eadc51c89b73c83130b368aa60a4be5b7a514572bbb4b283c9c9f1abe"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArchiveShelfBroken.obj",
+      "bytes": 71030,
+      "sha256": "643575884f10c4d21304c57c86cc7c46f6ee5b399bf98dbe1ab68585048b90ab"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Arm.obj",
+      "bytes": 54398,
+      "sha256": "1a09b34e2684b17b0f8808d87cc59954df36a20fa3c96c35f35adc77de17fa9c"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ArmorCore.obj",
+      "bytes": 12503,
+      "sha256": "455c36458d2f0aad09d628365b57261c7e9b689bfc314107e243688bccf68a39"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Arrow.obj",
+      "bytes": 20690,
+      "sha256": "18eb6062aef08bb5852f3114e042d8430bc541fcf9fdc45ae18c7fa7f92dafd8"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_BarrelVault.obj",
+      "bytes": 143886,
+      "sha256": "821e57e519e37ae6c5f515530d6eee686f3529661166acca57384a7f135dabb3"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_BasaltColumn.obj",
+      "bytes": 13833,
+      "sha256": "931f6dcd53287df8dee519bb0a5eb8f55a2269885b3532600b5772b81e03aea3"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Bone.obj",
+      "bytes": 65552,
+      "sha256": "84ebcffb9acf2c713896431142b9a8dd03451d7293eebbe761dadc7883cc2d40"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Book.obj",
+      "bytes": 9392,
+      "sha256": "1f837b64d7a685aac291cee817d79fea28222aae00c88345c76e96696caa4b41"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Boot.obj",
+      "bytes": 55191,
+      "sha256": "dc5be4001fe7a63951acd5b01b9455fbb0af403030a9b45e0266915e668cc3cb"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Brazier.obj",
+      "bytes": 40727,
+      "sha256": "c07ff129cd64b631ab0b0ad048cfdbf228fe2d59e4f53190dfa1989671858b53"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Broodcaller.obj",
+      "bytes": 222580,
+      "sha256": "5e107505ca63fd0ec4f31ec5bbfb59475b4274702a8d1a9352b3fd6de056a2e7"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Brute.obj",
+      "bytes": 46509,
+      "sha256": "3d4df27ecedca807ca53509ad64471ddc2161793c6a1b2bafd6630dd9dc7e906"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Bulwark.obj",
+      "bytes": 89218,
+      "sha256": "32450ae9e1d9e78e14792c925c5236ca303f94c00e7cc9b15766bf23e2277fec"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Canopy.obj",
+      "bytes": 197766,
+      "sha256": "51270eed4b7189753c5f0ce349281cf066896532dfd4d9087c73ca77e1d20978"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Cape.obj",
+      "bytes": 330833,
+      "sha256": "f6d7e2dd265c6418155a581933d8c4627ce79775de2089f8d06385eb73032961"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_CapeLower.obj",
+      "bytes": 331301,
+      "sha256": "7ab03f13c856524fca2bb8d4fc59c5e9dd4c2dbcf10ca634efbbc56815413795"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_CaveRock.obj",
+      "bytes": 21197,
+      "sha256": "bba76a3323586d8165e7c6bfc251929c75a3cecbe40af7320e0cb467b08558ff"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_CaveVault.obj",
+      "bytes": 144453,
+      "sha256": "4ed7a5e8ef033abc151936ea0624865050be169b48093b25d3c7304ab4c3411a"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Chest.obj",
+      "bytes": 23152,
+      "sha256": "14f2f8500782c34d325d8da536c739c5327c84fa780a09fe6d18655a7a8f62bc"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Crystal.obj",
+      "bytes": 20314,
+      "sha256": "b10165f994300af3b563ff1aa309221eb715a1c4b0df099cc2ca030d53ba13a3"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_CrystalCluster.obj",
+      "bytes": 56074,
+      "sha256": "92206cc77eb0300d202a1167e55342dbea57af37f838ed1bc707f6d5ced61848"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_EmberCask.obj",
+      "bytes": 55684,
+      "sha256": "1e0184bf47d62b44327078b4b251748ba64bfe9370a8ef18ada1a60d7810ab4f"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_EmberShaman.obj",
+      "bytes": 71665,
+      "sha256": "f78cdfef0e0c0dcd033b267add7d637822b13a0179db42e5ce8cc9dba69c39c0"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_EnemyCape.obj",
+      "bytes": 331343,
+      "sha256": "aeeb7216519f34738bad63c33ae8ac0b5ff912f5af2ba13e30216f661ee5e363"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_EnemyHelm.obj",
+      "bytes": 217445,
+      "sha256": "b3e913785c0a52862aad9d44e657db12b0d3c5ccc5e9546d5a7ecfc93c2c2ce0"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_EnemyShield.obj",
+      "bytes": 17056,
+      "sha256": "cd7690a389a7466b9e04bab6c63cef3cb3e9cbef040e26bfaabc574d2d2caa8a"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Forearm.obj",
+      "bytes": 61288,
+      "sha256": "264f4795b33a14d7e2015e47d6678418ce02b33080dd6b4ef08305bb8b8a7eca"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Greave.obj",
+      "bytes": 61478,
+      "sha256": "1f9f753a4c1a5251dd06c326222f42b36d8763a35576e85c8c9e447d74282b70"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Hand.obj",
+      "bytes": 120993,
+      "sha256": "c867a3eff43418da6ec64583ff25f34a6310f82d313e5baff0ef75d513eaf0f2"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_HealthPickup.obj",
+      "bytes": 6784,
+      "sha256": "0697ed36716d8e5949f2ef32490440322bcf3c16c928e7ffa3d0c6a45f21185d"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Helmet.obj",
+      "bytes": 192967,
+      "sha256": "6e8af3927cd2770d4714587a904b7670981be6ffadb6c2762f5ea50ec41aac24"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Hood.obj",
+      "bytes": 113515,
+      "sha256": "ff2fbdc22caaa0f8b81442245405516bf2aa18f2a3cbedb77356769932eb1aac"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Lantern.obj",
+      "bytes": 50987,
+      "sha256": "50bed7930b0c81cd4ea32ee63b70c74639e7d60ee233752502992d9c8bca3396"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Leaf.obj",
+      "bytes": 27011,
+      "sha256": "96e8b9cd9e679ff17894ab651a410578896ad254947a86df0fea3ed7487e0282"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Leg.obj",
+      "bytes": 9392,
+      "sha256": "c242e134dcc9ca7c0b215bd686b304d46b0e33d7c676bee02cdba1f89456e8f2"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_LootCrystal.obj",
+      "bytes": 13774,
+      "sha256": "be8c082ff57d3a32ca4b0d02b1d226e778828fb943298ac22df1da733e780a96"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_NaturalFloor.obj",
+      "bytes": 85625,
+      "sha256": "cec4815da4bb9894fdf0d46524fbd4edfccdf55ffa49b0150599fb1e608caf5b"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Obelisk.obj",
+      "bytes": 106431,
+      "sha256": "21698ffd80a6ee234bb9f49a83fea3d3bdfe48f8a5b6e330b38f8125eebced81"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Pauldron.obj",
+      "bytes": 63883,
+      "sha256": "aaf5737666ede2e0fa606bdaf1852541250e08ae6fdf6583142aa6b6995a7acc"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Pelvis.obj",
+      "bytes": 56081,
+      "sha256": "e479c3be339dccf5e3952a4556dd2f451b99de871fc1a822e329c72883f44823"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Pillar.obj",
+      "bytes": 145937,
+      "sha256": "c30d78937a86506fbd33bcbf772cfb266b24caa03d31deb3f8f5d8e3bb408b12"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_RiftLeaper.obj",
+      "bytes": 260265,
+      "sha256": "714b05624597b8fff750df54f18561ab79926a676da3103d49db0b62829835ab"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_RiftSniper.obj",
+      "bytes": 94087,
+      "sha256": "d5eb96daac29defd3022df98a6b210a0c03e388c173fde875cd63df0a9b115ba"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Ring.obj",
+      "bytes": 176611,
+      "sha256": "da9cdb4f06ff56581b0530a674edcbd29a8aafd7efb6e58cdc692f549e1490d6"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Rock.obj",
+      "bytes": 27229,
+      "sha256": "a6417c458b68dcfd15bcc59cf08af9f7700204d0aad61cc45ac1ebc3cf65323e"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_RootLog.obj",
+      "bytes": 42301,
+      "sha256": "265d0a3ef882ec5234f9a29d28eed5112f3b00749a6519ace1feb5a069875845"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_RouteArrow.obj",
+      "bytes": 7930,
+      "sha256": "698649135c0333a750629a97290c573039a79c225ea8645bf5ac0801bcec3422"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_SawDisc.obj",
+      "bytes": 55972,
+      "sha256": "61c99c82c78210478e18b4292b1d56f952ee1eea4e06d2263c324b0e9c265501"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Shelf.obj",
+      "bytes": 32943,
+      "sha256": "4cbe9804996700c7878f791a4d095e949b800801e7861a67492358c67add1443"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_ShieldPickup.obj",
+      "bytes": 5653,
+      "sha256": "1b947c5b2784e6190e13a62f8a38562075182d5ef1bf24a233a35ddc60d0fad4"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Skull.obj",
+      "bytes": 134132,
+      "sha256": "362365973e19efcdfefc67dde971f8540eda2dbceaacdf264dda619fb5e3dc72"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Slash.obj",
+      "bytes": 87341,
+      "sha256": "502e343d52b222b8149d537938fc55c210b942315f71b652391be7ef9dfa266e"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Stalactite.obj",
+      "bytes": 32763,
+      "sha256": "ebf711476131c26b5e3cfadd9ffc608f51f1d541d488fd7ee8ea3a7f0fc33d48"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Stalagmite.obj",
+      "bytes": 32010,
+      "sha256": "5f81d8ab5705db607eb119d2e0cc70aca9bfe948658621483afda9dd26fbc47b"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Thigh.obj",
+      "bytes": 54552,
+      "sha256": "61ba534cbaeafbdc28c8a4569c4c2bdb9d8cab566e6bd512120dddfc514b314d"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Tile.obj",
+      "bytes": 9560,
+      "sha256": "941e263baee8fb9de4749d4c76e18710ad624660ee9620182c4f32e402b7226d"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Torso.obj",
+      "bytes": 204172,
+      "sha256": "04e5e7437f3a237a0fb89e6b52c37c27e5f750f4d018228dd117601c1db7dfc5"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_TrainingDummy.obj",
+      "bytes": 78208,
+      "sha256": "b2c0c24b47cfcc34c6aa126a7def311554d9bb7db9a397d5fa4dcac1252e8ae6"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Tree.obj",
+      "bytes": 130286,
+      "sha256": "7609bc37424c0a4662a628475891a0af7b0ccb10d0738604c0ece77fdb909421"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Visor.obj",
+      "bytes": 8987,
+      "sha256": "6d1b33d82842bffe1aed766c99956c37ab627e16636de077fd59441ecb6382a0"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_WallNozzle.obj",
+      "bytes": 26702,
+      "sha256": "d8e0397263373bfd9505b7a628c63d77f2a0e6eb7275bacbece32946c663380d"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon0.obj",
+      "bytes": 155131,
+      "sha256": "3bb14821da7aff999f5e811d572a3903b279d4f175aae8cd81ca9f8957161d8f"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon1.obj",
+      "bytes": 160045,
+      "sha256": "a1afe658329f94837e32a77e8c714edf81e0ef01aa44b1ae4facc1324cadbd91"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon2.obj",
+      "bytes": 226075,
+      "sha256": "f2d1a7f10429737eef896646b9985a788172586e72bbc860d87c239648be4c11"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon3.obj",
+      "bytes": 154974,
+      "sha256": "5157c4f782f3dbf4de4c143d14fb06bcfd9376acb6c33e21b3a7fd7ae2ac660b"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon4.obj",
+      "bytes": 167352,
+      "sha256": "c40ee833fd7d579e4555594648a99e820d95156c363147e149dd64da0bfa03d9"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon5.obj",
+      "bytes": 145586,
+      "sha256": "64d1b51335a9fd6fa1ed780c7be57eafeb814e8c42ba4c824cfccf9b4eaaded6"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon6.obj",
+      "bytes": 218981,
+      "sha256": "50d8a0a08478e9a3068b80f08d7d7413d7a7fcdc20a8b6abe5ffd932b9e43a3b"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon7.obj",
+      "bytes": 304865,
+      "sha256": "ab8539bf356cca43f244ead0ee496cbd6a9cb4031a2963ae112cc69d3b5cb83e"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Weapon8.obj",
+      "bytes": 202185,
+      "sha256": "ec5e2a693b26a6bc9d66072647a8b73c4a23f7c1bc24ac168228f9ed2be22070"
+    },
+    {
+      "path": "SourceArt/Meshes/SM_Wraith.obj",
+      "bytes": 87989,
+      "sha256": "216c78dd658ee3e1491bb3a083c3d68d121f9b7ba6988eea5ddf5192af7d344a"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveRust.png",
+      "bytes": 127008,
+      "sha256": "d7447c5f2ddb521be5ced1ec83633a351d2af62d09df001691727a6446dd7de8"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveRust_Normal.png",
+      "bytes": 551411,
+      "sha256": "9fab367fbc6a28a926f933f0a4b13b5486ffced077c9276f1131ef9819fa281a"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveRust_Roughness.png",
+      "bytes": 8779,
+      "sha256": "41dd26a6d4345bbbaeccc9b6e8aaf580835600ffda05867b8099c071a3cc6fce"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveStone.png",
+      "bytes": 437563,
+      "sha256": "df3f7d5d5e430763ef513d7ef298fd133a83b035445f3809a17ea6d763883fb4"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveStone_Normal.png",
+      "bytes": 444023,
+      "sha256": "2f24693fbd0d7951db5bc3572f6b96369bdd206acba86c2d2bd03a73d4bfc3ac"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveStone_Roughness.png",
+      "bytes": 65125,
+      "sha256": "8f5ba715c9b205ad260babe610c4849f79c6e5e34dd6bcbff28347ad3aebfeff"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveWood.png",
+      "bytes": 386755,
+      "sha256": "037ccfc76b1611e11efbb9034ffcb0964f9babb3fafe515de2639be3a9dafb50"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveWood_Normal.png",
+      "bytes": 423753,
+      "sha256": "facf0d7098e63b5b73c1bd640b9e9670588dbd597dce0adc7120aa607c167bf1"
+    },
+    {
+      "path": "SourceArt/Textures/T_ArchiveWood_Roughness.png",
+      "bytes": 57103,
+      "sha256": "a62933402509d05c72ddb72ea30f0aa07355bcbd4da08f32222b098cd1fa10de"
+    },
+    {
+      "path": "SourceArt/Textures/T_Normal.png",
+      "bytes": 734203,
+      "sha256": "2eabf032553766d75fd26a49aebc6a2c3b8d9f6aa13b65c26f2d3990938f5dff"
+    },
+    {
+      "path": "SourceArt/Textures/T_Roughness.png",
+      "bytes": 183275,
+      "sha256": "3b7bdba4d3683b07012bd85a06de827e07b75f83c8f5de2034131d3356e2f369"
+    },
+    {
+      "path": "SourceArt/Textures/T_Stone.png",
+      "bytes": 626768,
+      "sha256": "74491f098911554c1805f676eb5a20ba1fa15052a7306df5e56e5d949c256508"
+    },
+    {
+      "path": "SourceArt/mesh_bounds.json",
+      "bytes": 16140,
+      "sha256": "963232a13606341faba9b1a5cd5bde7032fc069d278b730a13ae07dd15b2d940"
+    },
+    {
+      "path": "Test_Two_Players.bat",
+      "bytes": 249,
+      "sha256": "00d3a7d7b5f5129ada54e13fd758241360139b88cc261a21407dd990d033c308"
+    },
+    {
+      "path": "Tests/adventure_results.txt",
+      "bytes": 145,
+      "sha256": "b8abe53a2c637d8eec75d5f9aa97ff0ac1bb2797db5cc370f9b1c773c5a0ea19"
+    },
+    {
+      "path": "Tests/adventure_tests.cpp",
+      "bytes": 5464,
+      "sha256": "f710d0dce85a032a0364bcca44759b5cc4a1d9328cce7e8e848d094e3526d080"
+    },
+    {
+      "path": "Tests/bugfix_020_results.txt",
+      "bytes": 287,
+      "sha256": "32acb824a905f89ea9cb1c1e3c8df46c4630abeb0d8ac8161e6536eb4b947e45"
+    },
+    {
+      "path": "Tests/bugfix_020_tests.cpp",
+      "bytes": 8210,
+      "sha256": "4f33a9c0da5f713c5393be8a34688aebb0530042e5991a0a092d5b4569b2dac6"
+    },
+    {
+      "path": "Tests/buildcraft_results.txt",
+      "bytes": 196,
+      "sha256": "5900be5dd9c768b0d4d1db9610ba31de3adc6e6eec8b876916ae374a6a1da1c4"
+    },
+    {
+      "path": "Tests/buildcraft_tests.cpp",
+      "bytes": 9401,
+      "sha256": "9e74a94ea0356a7e80781d5a9419ae9e441278dcf5b14648a79e3f18ada9b869"
+    },
+    {
+      "path": "Tests/career_results.txt",
+      "bytes": 127,
+      "sha256": "eeb11e9998f80f50f6a1a3511801dff7cd33cfcd055eb6b91078f9f69753765f"
+    },
+    {
+      "path": "Tests/career_tests.cpp",
+      "bytes": 3611,
+      "sha256": "d37e452baca1aa7f79f172b7cf9732844437f77d3560c8e9e88c19a2425229f5"
+    },
+    {
+      "path": "Tests/check_trig_overloads.py",
+      "bytes": 3216,
+      "sha256": "adbc00b6bdc52cf5ebdf1ea99982b31a0ce11319b23872f5d414f20b1a048110"
+    },
+    {
+      "path": "Tests/checkpoint_023_preflight.log",
+      "bytes": 643,
+      "sha256": "81321421b09d5b15681b6992cc1e3be229684173eb0ca1c219a436ed3d3a51c9"
+    },
+    {
+      "path": "Tests/gameplay_results.txt",
+      "bytes": 197,
+      "sha256": "abbc061255bef60f94237f35ebef2be2435c2351141977f702768d84beb70382"
+    },
+    {
+      "path": "Tests/gameplay_tests.cpp",
+      "bytes": 14951,
+      "sha256": "779ca31cbf519392b6776bde88d8544d45355378eb8a7f3126806254767d23ad"
+    },
+    {
+      "path": "Tests/hammer_022_results.txt",
+      "bytes": 268,
+      "sha256": "1dc8637975dabbcc9b8110295879f1d22aa50dd4f6b5438d17e60582dbb98fa2"
+    },
+    {
+      "path": "Tests/hammer_022_tests.cpp",
+      "bytes": 5835,
+      "sha256": "9a45e76c68e26107ac46f6e2e331f3e85a19ad96cebc66b737ac4d2c91e2c022"
+    },
+    {
+      "path": "Tests/interface_arsenal_results.txt",
+      "bytes": 206,
+      "sha256": "5db3fccd85abbc71f316aff7f72863d5634650f0c89586cff86d1c4a21100bea"
+    },
+    {
+      "path": "Tests/interface_arsenal_tests.cpp",
+      "bytes": 3580,
+      "sha256": "28a804de4c960312f46e6d0f4ffdfee808f495723d0d0d78b10cd8802ee4830a"
+    },
+    {
+      "path": "Tests/melee_021_results.txt",
+      "bytes": 220,
+      "sha256": "7510eccae260dcd58c736909504e6df96aeb3c0bac298399b86704f83d1bf6c1"
+    },
+    {
+      "path": "Tests/melee_021_tests.cpp",
+      "bytes": 8918,
+      "sha256": "f501ca31d174e18c579a93430edada9839c66a58612fcfccd502f32bbb3b4463"
+    },
+    {
+      "path": "Tests/native_results.txt",
+      "bytes": 185,
+      "sha256": "df663a4dd6940a689182411a496d452b509d99d8d43cb03efea22de93e2b641b"
+    },
+    {
+      "path": "Tests/protected_0.21_comparison.txt",
+      "bytes": 257,
+      "sha256": "0455cbc1d14e0fd18526649e0b80329272b4be0156d4a628e5f1513941098347"
+    },
+    {
+      "path": "Tests/reload_navigation_results.txt",
+      "bytes": 282,
+      "sha256": "e56b94c1291a875c78ecd47d0ed172579e4be7b13a6be56caea6e06c8df838ec"
+    },
+    {
+      "path": "Tests/reload_navigation_tests.cpp",
+      "bytes": 7932,
+      "sha256": "06ed368b266c1d545239b1c13cc9d5b286b3f9af301bea7945661beebfa49da8"
+    },
+    {
+      "path": "Tests/rules_tests.cpp",
+      "bytes": 7903,
+      "sha256": "3af0a6ab26670f4e3dcbe8ad98761b0f30f690df963b6f70d412b609c6418dee"
+    },
+    {
+      "path": "Tests/run_tests.py",
+      "bytes": 19955,
+      "sha256": "d4c4063098ec7367464a121877831985be3ca8d9fe73c2c25ddbcf0c90503d19"
+    },
+    {
+      "path": "Tests/trig_compile_results.json",
+      "bytes": 298,
+      "sha256": "444df039def48eb03982cecb9a9983d515573a9e36a5f4da68d721586922da91"
+    },
+    {
+      "path": "Tests/validation_0.22_log.txt",
+      "bytes": 3184,
+      "sha256": "be80b25c08b2de6989017940a6947070df14ac61a423ca0f2a8d3a97bf37b090"
+    },
+    {
+      "path": "Tests/validation_results.json",
+      "bytes": 3184,
+      "sha256": "be80b25c08b2de6989017940a6947070df14ac61a423ca0f2a8d3a97bf37b090"
+    },
+    {
+      "path": "Tools/CollectDiagnostics.ps1",
+      "bytes": 2344,
+      "sha256": "61365cb13fd19bc0004c079bd9a9608b49dc1a4d91c0e0a0486689afe5163a3b"
+    },
+    {
+      "path": "Tools/Common.ps1",
+      "bytes": 5032,
+      "sha256": "bb0a0f8c82dc073a463add571177ee2533455b845f4af81ab4ecf7bdff237ba5"
+    },
+    {
+      "path": "Tools/ImportProgress.ps1",
+      "bytes": 1803,
+      "sha256": "05496568eb2e15150c040d39b55f8ed289931ae22113872aea0b97faeea71b45"
+    },
+    {
+      "path": "Tools/Package.ps1",
+      "bytes": 810,
+      "sha256": "cf14c65beccd2b4c1fab39278747f0e7735a85570bdfd338875b81561cede17f"
+    },
+    {
+      "path": "Tools/Setup.ps1",
+      "bytes": 765,
+      "sha256": "ce6e6c75006185cfb0a82d99e6df96ab047ebda21d309c2bbeb1df13df1d2d6c"
+    },
+    {
+      "path": "Tools/TestTwoPlayers.ps1",
+      "bytes": 820,
+      "sha256": "0f03ec0f8e9cdda6f20bb36fecbb691ef7a6f78976449873d1e0c1aad586744d"
+    },
+    {
+      "path": "Tools/bootstrap_unreal.py",
+      "bytes": 12280,
+      "sha256": "295c6fe0d258c61756b1e3646d7bea1397aa46a49c1dc9b733d4ed9246a58b2a"
+    },
+    {
+      "path": "Tools/export_hammer.cpp",
+      "bytes": 775,
+      "sha256": "ec299f13691132c3f03cb0821b157ad4d98ad190eebe669903f7f9a1dff539d5"
+    },
+    {
+      "path": "Tools/export_interface.cpp",
+      "bytes": 1190,
+      "sha256": "9fc6237f4f918da15e2ad2e3fa5fcb52bb589bf493399ce1d28e7d80493f9add"
+    },
+    {
+      "path": "Tools/export_layouts.cpp",
+      "bytes": 1063,
+      "sha256": "5c0467189b0541e7e0a0ed904a263f1946c56c91c89ba35be9f6406b63b61b29"
+    },
+    {
+      "path": "Tools/export_melee.cpp",
+      "bytes": 1290,
+      "sha256": "6ff1764d3b51078bce326d4a73ee02b9dd69a5956d9da4dd8c89474077a8c076"
+    },
+    {
+      "path": "Tools/generate_archive_art.py",
+      "bytes": 6401,
+      "sha256": "ec7bf3f6a8038118569a085515e7bd2e857ce1c9e2e97a55d1b78649d29c40e6"
+    },
+    {
+      "path": "Tools/generate_armor_art.py",
+      "bytes": 7048,
+      "sha256": "7b56cf919487ed8aa1cc288fecf89ebcea789b1c2c1e1d6717c4cfce5ad8d74b"
+    },
+    {
+      "path": "Tools/generate_encounter_art.py",
+      "bytes": 4088,
+      "sha256": "ec7d2cc97b15b8a29a4e60f14c43f1ea45c5e31c5f0e85a47fb508555de638bf"
+    },
+    {
+      "path": "Tools/generate_frontier_art.py",
+      "bytes": 2420,
+      "sha256": "dde8c330f64c1105c9b63907b2395e8e8dbb2ab8ea87e0ecd652c77b2de26848"
+    },
+    {
+      "path": "Tools/generate_hammer_audio.py",
+      "bytes": 1222,
+      "sha256": "43dc734da54c9933a7a84cbe71744a4941bb7426faf0a91d297cd98ba71b9c5f"
+    },
+    {
+      "path": "Tools/generate_reload_audio.py",
+      "bytes": 941,
+      "sha256": "7d415e1b5cf8982f74fac04b16dcbd8232f00e360acfebed6bca5a6fe238e570"
+    },
+    {
+      "path": "Tools/generate_restoration_art.py",
+      "bytes": 3316,
+      "sha256": "2d690203b8ccd7937c6cd00e0107801d88a6e2eafa25be635ed81abff814b238"
+    },
+    {
+      "path": "Tools/generate_source_art.py",
+      "bytes": 7702,
+      "sha256": "5ec881670087bdec14d5f8cfd0411a0d7fb6730eb084767eb719ddb813ef1a2e"
+    },
+    {
+      "path": "Tools/generate_upgrade_catalog.py",
+      "bytes": 17509,
+      "sha256": "174eeb4e10a0ef770860b19177aa591fd932044927478980859e3c0ba1a7ec8d"
+    },
+    {
+      "path": "Tools/generate_weapon_art.py",
+      "bytes": 7771,
+      "sha256": "71c9b2a7741343ee647ddd93612eeb8883b2f3c8b8d35e0c130c95c18620e725"
+    },
+    {
+      "path": "Tools/preview_armor.py",
+      "bytes": 6330,
+      "sha256": "db88ecb02c7003064a136ec56c118979fcab47dc04bba85841c616383e340a21"
+    },
+    {
+      "path": "Tools/preview_hammer.py",
+      "bytes": 4651,
+      "sha256": "e875a34fda18a2cdea81112063bb114670fb34aed36d9f6b77ab37b4363158df"
+    },
+    {
+      "path": "Tools/preview_interface.py",
+      "bytes": 4889,
+      "sha256": "c12221a57eda10399ac591262697f872f4fed4df48ee20e2ca98dfce80ec18c1"
+    },
+    {
+      "path": "Tools/preview_melee_archives.py",
+      "bytes": 5544,
+      "sha256": "54c2abbe6c9970bbf35b6370316eb8abf01d96512a408e940a9c4cfe15f35691"
+    },
+    {
+      "path": "Tools/preview_source.py",
+      "bytes": 3923,
+      "sha256": "9a5286e2d8ccd70ee87dcd034b5a54f085de06657eb942c3ca16da18a4f8d25e"
+    },
+    {
+      "path": "reference/0.22-hammer-prompt.md",
+      "bytes": 5429,
+      "sha256": "6908b8130d2083c34334b8cd2e0e68bcb689496514b034477b4c7228cdb91eed"
+    },
+    {
+      "path": "reference/0.23/0.23-batch-prompt.md",
+      "bytes": 13153,
+      "sha256": "5a1b3e97835b5b50a823e494c373d1841fef4dbb374144bcd15df311a8a107a9"
+    },
+    {
+      "path": "reference/0.23/reference/README.md",
+      "bytes": 2122,
+      "sha256": "5fc61d7efba08579febc133f24a48e5a3f68056f8fdd1641bf0a432a6ded99e7"
+    },
+    {
+      "path": "reference/0.23/reference/archives-book-corridor.png",
+      "bytes": 653288,
+      "sha256": "9e0418c20753c794a6c6e3eace7285390f3c6a60c9e9b5b79da76d992c27078c"
+    },
+    {
+      "path": "reference/0.23/reference/archives-boss-arena-rotunda.png",
+      "bytes": 2667419,
+      "sha256": "6210bb9b515735894c0ac94a298a6098354fc9c8ff5a66f276958bdbf965b4aa"
+    },
+    {
+      "path": "reference/0.23/reference/archives-cobweb-skylight.png",
+      "bytes": 294509,
+      "sha256": "97ababcb37bf567a1f1caa742f5f1be382a9c4e554155b7c551d473d110f43ec"
+    },
+    {
+      "path": "reference/0.23/reference/archives-dark-corridor.png",
+      "bytes": 334092,
+      "sha256": "11b7fbc52919a5a7812a49203f6e9182bc3fda04e03b20daaaf5712b22ebe62a"
+    },
+    {
+      "path": "reference/0.23/reference/archives-dusty-study.png",
+      "bytes": 387410,
+      "sha256": "be6872a8052d63a54d481cb39f7a2c566edd36968284e4248696edb0b02312a4"
+    },
+    {
+      "path": "reference/0.23/reference/archives-old-reading-room.png",
+      "bytes": 359714,
+      "sha256": "7e31a3ba29253226b086233519297b9a8a63a5274d01c40370a74baef0586081"
+    },
+    {
+      "path": "reference/0.23/reference/archives-warped-shelves.png",
+      "bytes": 620435,
+      "sha256": "6f74a1025707768f24fdc33ee20ed1926dbbb965496a43c14489dff5a1859176"
+    },
+    {
+      "path": "reference/0.23/reference/forgotten-archives-gothic-style.png",
+      "bytes": 405012,
+      "sha256": "1de070c72be6820b9f70c2591cbe1b2e7e140c3ffb73069dba4e054cfc74a394"
+    },
+    {
+      "path": "reference/0.23/reference/hammer-combo-3hit-10frame-ref.png",
+      "bytes": 1102053,
+      "sha256": "e3795da664a689dfebd964de43a20eca9c792e55f3af7f933f085cd2e90c9ece"
+    },
+    {
+      "path": "reference/0.23/reference/hammer-leap-RMB-ref.png",
+      "bytes": 1080273,
+      "sha256": "7e59915581e898f9b0f37487767c0c591a1dedc4f8bc6de1828a92dea1f6f2dd"
+    },
+    {
+      "path": "reference/0.23/reference/hammer-swings-8frame-ref.png",
+      "bytes": 1106877,
+      "sha256": "715514e5febbe5efd35125cb35338228b3a1f673022cc2342f857197c816ffe2"
+    },
+    {
+      "path": "reference/0.23.1/0.23.1-batch-prompt.md",
+      "bytes": 4526,
+      "sha256": "7378ac9ac283984ba16d5db897bfb596fa56e42a130c7b351c8e99fdb59e696a"
+    },
+    {
+      "path": "reference/0.23.1/reference/cape-knight-flow.mp4",
+      "bytes": 58826,
+      "sha256": "cff8a837204a047e94def61014de7ff7ce804252f41ab2535a43f61d551d19cf"
+    },
+    {
+      "path": "reference/0.23.1/reference/cape-motion-sketch.gif",
+      "bytes": 213814,
+      "sha256": "7db4de4b73e2a64c07176c363567cd2b55552906293be85e6f124ec5cdc4c965"
+    },
+    {
+      "path": "reference/0.23.1/reference/endless-env-blood-ruin.jpg",
+      "bytes": 388984,
+      "sha256": "62acc641d75e7fcecfdc1ce5c55143c5d81ce61843becee862881272c58c2667"
+    },
+    {
+      "path": "reference/0.23.1/reference/endless-env-clear-lush.png",
+      "bytes": 3894244,
+      "sha256": "24e962b105da3360cd725edbd0c33811d6c33eade50e48b114df50f5663fe848"
+    },
+    {
+      "path": "reference/0.23.1/reference/endless-env-gloomy-dead.png",
+      "bytes": 2982583,
+      "sha256": "200965bc4bd690eb2814fbc022d07a5899e931a748d431e90467ca9c4c025912"
+    },
+    {
+      "path": "reference/0.23.1/reference/portals-ember-ashen-blood.mp4",
+      "bytes": 1715795,
+      "sha256": "708703042d7ad88048616d127a03586aa29a6af7144c7bf4b06e4b6d0e5d01e7"
+    },
+    {
+      "path": "reference/0.23.1/reference/sky-state-blood-red.webp",
+      "bytes": 613676,
+      "sha256": "c9496522cd0e81e4023dcdffcf05ddecf01969cdcfa173be795109b2c3a0f705"
+    },
+    {
+      "path": "reference/0.23.1/reference/sky-state-clear.webp",
+      "bytes": 762370,
+      "sha256": "a4c9ba6aba266851308067e518927cb82429bac38968bb887cfb15a1942d5fa7"
+    },
+    {
+      "path": "reference/0.23.1/reference/sky-state-gloomy.webp",
+      "bytes": 712428,
+      "sha256": "8de942b84bc8c780673ea5ab620c9b1a011d5ac957d05fce74a6f0ec22c1c253"
+    },
+    {
+      "path": "reference/0.23.1/reference/sky-transition.mp4",
+      "bytes": 4075963,
+      "sha256": "1b205b00a9bbf00d6a2c89b5e5b325e89b11a911c3ac32a4a1525b7ac5a1e1c9"
+    },
+    {
+      "path": "reference/hammer-combo-3hit-10frame-ref.png",
+      "bytes": 1102053,
+      "sha256": "e3795da664a689dfebd964de43a20eca9c792e55f3af7f933f085cd2e90c9ece"
+    },
+    {
+      "path": "reference/hammer-leap-RMB-ref.png",
+      "bytes": 1080273,
+      "sha256": "7e59915581e898f9b0f37487767c0c591a1dedc4f8bc6de1828a92dea1f6f2dd"
+    },
+    {
+      "path": "reference/hammer-swings-8frame-ref.png",
+      "bytes": 1106877,
+      "sha256": "715514e5febbe5efd35125cb35338228b3a1f673022cc2342f857197c816ffe2"
+    }
+  ]
+}

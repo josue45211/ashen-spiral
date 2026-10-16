@@ -1,0 +1,15 @@
+EXPORT VALIDATION — not a game release certification
+
+The five completed version ZIPs and original prompt/source ZIPs passed CRC checks.
+Every copied source/input file was compared with its original SHA-256.
+A fresh source preflight was run against the frozen WIP at export.
+Command: python3 Tests/run_tests.py
+Exit code: 1
+Result: see EXPORT_SOURCE_PREFLIGHT.log and VALIDATION_AT_EXPORT.json.
+Known first failure: missing DamageReaction_Implementation.
+AbilityGesture and cape methods also lack definitions at this checkpoint.
+
+No Unreal compilation, importer, gameplay, save roundtrip, or network test ran.
+Existing test output inside the project was copied from 0.22 and is historical.
+Do not treat old validation_results.json or RELEASE_MANIFEST.json as WIP status.
+Final outer ZIP integrity and payload hashes are checked after assembly.

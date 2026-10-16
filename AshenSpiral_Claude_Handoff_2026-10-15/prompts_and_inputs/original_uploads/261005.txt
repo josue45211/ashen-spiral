@@ -1,0 +1,10 @@
+*Ranged attacks need to be more noticeable whether it gives larger projectiles or just more visibility and/or a trail showing the projectile path.
+*Make damage numbers larger or more noticeable.
+*Add windowed full screen capabilities, even if it going to just stretch pixels.
+*Make health drops be a cross (+) so it's clear that it is health drop. If it is a shield, make it shield shaped.
+*When a team mate is downed, make them appear red and visible through walls similar to how modern games handle this. Also show a cross (+) above them showing that they are down.
+*Some monsters still get stuck in certain waves. Make pathing better somehow.
+*Make some enemies capable of jumping over the gap that requires jumping or dashing.
+*Add more monster types and abilities that they can do. Make them look different so that we can distinguish which monster does what and show an animation as they are about to attack.
+*Add more traps like flame traps and bladed spinning traps. Reference Runescape Dragonwilds the game for details.
+*

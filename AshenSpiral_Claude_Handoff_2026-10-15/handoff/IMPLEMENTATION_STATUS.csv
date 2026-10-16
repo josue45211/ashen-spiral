@@ -1,0 +1,20 @@
+item,requirement,status,present_at_export,remaining
+Hygiene,Three reported 0.22 build fixes,Edited; not Unreal-compiled,Unique colors; ASWorld direct include; engine-dir JSON exclusions,Check unity and non-unity UE builds
+A1,Cinder Blade redo,Not completed,Old animation extracted; helper scaffolding,"Poses, fast combo, lunge visuals, P2 art review"
+A2,Locomotion,Scaffolding only,Gait helpers and visual-state fields,"Wire smoothing, planting and lean; preserve physics"
+A3,Cape,Blocked / unimplemented methods,Create/refresh/animate declarations; two calls; reference media,Implement cloth geometry and motion safely
+A4,Enemy animation / sword melee,Partial,Kind2 moved to melee; animation extraction,Finish animations and test all enemy types
+A5,Hit reactions,Partial / missing player RPC,Enemy replicated fields/hooks; player damage call,RPC implementation and visible animation consumption
+A6,Scythe / G review,Not completed,AbilityGesture declaration/calls without implementation,Assess and fix; report actual touched items
+B1,Difficulty portals,Rules/state only,Scaling helpers and difficulty field,"Portal art, transitions, entry authority, UI, scaling/offers"
+B2,Second character slot,Partial / integration blocker,Load/switch/save-slot and import-identity groundwork,"Controller/UI, profile resubmit, receipt identity, failure tests"
+B3,Boss spawn protection,Partial,2sec guard in main hit/control paths,Client-visible spawn and audit indirect status/control paths
+B4,Co-op synergies,Partial,Cross-player markers/cooldown/callouts/area damage,"Liveness guards, co-op tests, visual/balance review"
+B5,Rarity changes,Partial,Vengeance/Phoenix/Evolution/Echo edits,Eligibility/migration/precedence/runtime offer testing
+B6,Well gambling,Not integrated,Odds helper and last-gamble field,"Server transaction, UI, well/run identity, exploit prevention"
+B7,Boss arenas,Not implemented,Rotunda/reference images only,Design four mechanic-aware arenas and navigation
+B8,Endless full loop,Scaffolding / not playable,"Rules, state, records, bleed and trait fields",Mode/waves/chests/shops/arena/shuffle/bosses/stats/UI/economy
+0.23.1-A3,Heavy cape visuals,Reference only,GIF/video imported; no complete cloth implementation,"Lag, billow, settle, combat response and clipping review"
+0.23.1-B1,Gothic difficulty portals,Reference only,Portal video imported,"Side-by-side arches, colors, chains, exact tooltips, walk-in"
+0.23.1-B8,Endless portal / sky,Rules/reference only,Sky-stage helper and supplied media,Portal styling and visible stage transitions; no landscape decay
+Packaging,0.23 release docs/catalog,Not updated,Inherited 0.22 docs/manifest retained,Refresh after implementation and honest validation

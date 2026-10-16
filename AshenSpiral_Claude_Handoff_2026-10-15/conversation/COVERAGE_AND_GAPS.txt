@@ -1,0 +1,36 @@
+CONVERSATION COVERAGE
+
+What is preserved verbatim
+- The human messages still visible in the active chat context, transcribed in
+  AVAILABLE_CHAT_MESSAGES.txt. Their wording is kept exactly, including shorthand.
+- Original uploaded 0.22, 0.23 and 0.23.1 prompt ZIPs and their supplied media.
+- Uploaded 0.20 delta text, bugfix PDF, earlier request notes, build logs and
+  screenshots. Their original bytes are kept in prompts_and_inputs.
+- Earlier request/design/provenance documents present in the delivered projects.
+
+What is summarized
+- The available continuation context describing work before this export, including
+  the partial source changes, decisions, unresolved integration, known constraints,
+  and intended next steps. This is organized in handoff/ and CONTEXT_SUMMARY.txt.
+- Relevant earlier Ashen Spiral context returned by conversation retrieval, in
+  RECOVERED_PRIOR_CONTEXT.txt. Those entries are retrieval summaries, NOT quotes.
+- Most historical game discussion before the visible messages is represented by
+  project documents, catalog changes and the summaries rather than full chat turns.
+
+What is unavailable
+- A complete verbatim transcript of this entire long chat, including earlier turns
+  omitted from current context, has not been exposed to the exporting assistant.
+- Full past message timestamps, any unseen attachments and any decisions never
+  stored in the accessible context/files cannot be reconstructed exactly.
+- No invented dialogue or claims that unavailable chat history was exported.
+
+How to fill the gap if exact wording becomes necessary
+The user can supply a ChatGPT conversation/account export or copied missing turns
+to the receiving agent. This archive is sufficient to inspect the actual source,
+read the original current briefs, compare versions and continue the known work;
+it is not a substitute for a complete platform chat export.
+
+This package includes all accessible game-related inputs identified in this
+workspace and all known current prompts. It excludes account credentials, private
+file-transfer tooling, generated build/cache directories and unrelated personal
+context. Original build logs may retain the local paths supplied by the user.

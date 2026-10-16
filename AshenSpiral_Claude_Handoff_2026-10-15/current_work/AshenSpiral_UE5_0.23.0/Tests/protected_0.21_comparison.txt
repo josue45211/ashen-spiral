@@ -1,0 +1,1 @@
+PASS: 404 Blade/Scythe pose samples identical to 0.21. All non-hammer weapon meshes, arsenal tuning, build/trait rules, enemy/boss source, original spell/well source and Archives rules are byte-identical. Non-hammer content tables and all prices unchanged.

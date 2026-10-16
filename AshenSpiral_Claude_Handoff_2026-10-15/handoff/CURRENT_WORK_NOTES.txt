@@ -1,0 +1,164 @@
+ASHEN SPIRAL 0.23 / 0.23.1 — TECHNICAL CHECKPOINT
+Status: frozen unfinished work. Paths below are relative to the WIP project.
+This document combines a source inventory with the continuation summary available
+at export. Items explicitly called plans are not implemented.
+
+BASELINE AND PROVENANCE
+The WIP was copied from the delivered 0.22.0 project. It retains existing source
+art, setup/build helpers, and older documentation. Source changes are in the
+accompanying diff and machine-readable change list. The 0.23 and 0.23.1 prompt
+packs were extracted into reference/0.23 and reference/0.23.1. No completed
+0.23 or 0.23.1 release exists. Background work was interrupted; the frozen files,
+not any worker intention or progress estimate, are the source of truth.
+
+CHANGES PRESENT IN CODE
+
+Build hygiene
+- ASHUD.cpp color symbols renamed ASHudPurple/Gold/Teal/Muted/Red.
+- SASMenu.cpp color symbols renamed ASMenuGold/Muted/Ink.
+- ASWorld.cpp hub color locals renamed ASWorldHubGold/Teal.
+- ASHammerEffects.cpp directly includes ASWorld.h.
+- Tests/run_tests.py skips Saved, Intermediate, Binaries, DerivedDataCache,
+  .vs and Build when validating JSON.
+- Protocol constant is 2300; connection rejection text and TestTwoPlayers helper
+  updated. Project-wide docs/config/version metadata have not yet been reconciled.
+
+Animation scaffolding (NOT a completed animation pass)
+- Character Animate was extracted to ASCharacterAnimation.cpp; enemy AnimateArmor
+  was extracted to ASEnemyAnimation.cpp. These largely retain the previous motion.
+- ASAnimationRules.h has gait/contact/stride/reaction/release/cape helper math.
+- Character constructor calls CreateCape and RefreshLook calls RefreshCape.
+  CreateCape, RefreshCape and AnimateCape have declarations but NO definitions.
+- DamageReaction and AbilityGesture RPCs are declared and called but their
+  _Implementation methods are missing. This is the first preflight failure.
+- Added visual velocity/foot placement/turn/reaction fields are scaffolding.
+- Enemy AttackReleaseTime, HitReactionTime/Strength/Direction are replicated;
+  BeginHitReaction exists. Animation still needs to consume these fields fully.
+- No new finished cloth mesh/rig or Blade/Scythe animation art was produced.
+
+ASExpeditionRules.h (new engine-independent helper header)
+- Difficulty 0..2. HP factors 1 / 1.5 / 2.1; damage 1 / 1.3 / 1.6;
+  quality 1 + .25*difficulty. These are implementation defaults, not all wired.
+- Endless W=wave-1, K=max(W-38,0). Tier rate normal=1, elite=1.25, boss=1.875.
+  HP multiplier 1 + rate*(W*.09 + K*K*.008).
+  Damage multiplier 1 + rate*(W*.035 + K*K*.003).
+- Boss each 10 waves. Reward each wave <=20; even waves 21..50; (wave-50)%3==0
+  thereafter; every boss wave also rewards. Sky 1..20 clear,21..49 gloom,50+ red.
+- Anger speed starts 1.12 after 50 and caps 1.3; enemy count capped at36.
+- TraitPower retains full strength through normal cap, then five-rank blocks
+  at .8,.7,... down to .1. Pick count clamped to10000 as an implementation bound.
+- ChoiceCount=3+rank; upgrade costs150,750. Bleed duration25sec pauses if revived.
+- Wave shuffle distribution {1,2,3,3,4,4,4,5,5,6,7} averages4.
+  Time shuffle120..180sec; lucky shop15% at wave>=10.
+- Gambling buckets by available Ash: <=50 loss/refund/x2/x5/x10 =45/25/24/5/1%;
+  >=1000 =50/20/22/7/1%; middle =60/20/17/2/1%. Multipliers include stake return.
+  These odds are code defaults; UI/server transaction flow is not present.
+- Synergy numeric kinds Burn2/Poison3/Frost4/Shock8: Burn+Shock=Lightning Blast,
+  Frost+Shock=Stormbreak, Burn+Poison=Wildfire. Base60/45/50 * max(1,power)
+  plus 3.5% boss maxHP. Needs balance/co-op tests.
+- Exclusive offer IDs400..403: Bloodroot (.35 maxHP/kill/rank), Close Quarters
+  (close kill3HP+2Scrap/rank), First Blood (first-hit-to-kill<1s:3Scrap/rank),
+  Unbound Fury (8% primary damage/rank). These are proposed runtime rules only.
+- This new header has no completed 0.23-specific regression suite.
+
+New replicated state (ASGameState.h/cpp)
+- Player: Endless unlock/choice count, available Ash/Scrap, run damage/damage
+  taken/kills, shop claim flag, last gambling room.
+- Game: difficulty, Endless mode/wave/highest cleared wave, lucky/rare shop flags,
+  shuffle deadline. Fields are registered for replication; mode transitions and
+  UI are still the prior normal-run implementation.
+
+Save/profile work (ASData, ASGameInstance)
+- FASEndlessRecord: run id, highest cleared wave, local/partner damage/kills/
+  damage taken, ended UTC; sanitization added.
+- Profile: BestEndlessWave, EndlessChoices0..2, up to10 sanitized/sorted records.
+  Existing profile schema/migration remains schema1/migration20.
+- Receipt: profile id, Endless flags/wave/end record, AshCost/ScrapCost/Scrap.
+- ActiveCharacterSlot, BaseSlot, LoadCharacter and SwitchCharacterSlot added.
+  Slot2 uses base save name + _Character2. Selection is stored per base slot in
+  local config. Old A/B revision selection and legacy import logic retained.
+- Switching only in Hub and refuses while ANY player has pending saves; attempts
+  rollback on blocked target load. No controller/UI action is yet connected.
+- Review fresh-slot Commit failure handling: inherited load logic may ignore
+  failure to create a fresh save. Do not claim slot isolation tested.
+- Purchase category9/index0 buys choice-rank for150/750; UI not connected.
+- Receive rejects a mismatched ReceiptProfileId, uses existing receipt IDs for
+  deduplication, debits costs, credits Scrap/Ash, records Endless results.
+- CRITICAL: GameMode SendReceipt does not yet stamp the profile id. Existing
+  normal rewards can therefore be rejected by the modified Receive path.
+- PreviewImport rejects importing the other slot's profile identity.
+- GameMode ProfileArrived still blocks changed profile IDs; permit safe Hub
+  switching only and update cached/reconnect state. Do not permit combat swaps.
+
+Boss protection / synergies / damage
+- Boss BeginPlay authority starts2sec SpawnProtectedUntil; field replicated.
+- Character CanDamage, Enemy Hit/Control/CommitAttack respect protection.
+- Protected authority enemy Tick stops movement and shows a tell. Clients do not
+  yet get a complete visible spawn sequence. Audit every damage/status path.
+- Kind2 sword enemy no longer uses the ranged attack branch and closes to melee.
+- Enemy Hit credits source damage, sets first engagement time, triggers reaction.
+- Hero accepted damage credits run damage taken; challenge damage is multiplied
+  by the new difficulty/Endless scaling rules, with default normal unchanged.
+- Cross-player element markers are per enemy,3sec window,3sec global cooldown;
+  consuming a synergy clears markers. Same-player combinations do not trigger.
+- Synergy sends callouts to both participants, emits colored radius470 effect,
+  applies area damage with line-of-sight, avoids protected targets and direct
+  recursive elemental proc chains. Stormbreak also slows for2sec.
+- Review ApplyElement after RegisterCoopElement: synergy may kill the current
+  target before the rest of ApplyElement continues. Add/review liveness guards.
+- Audit direct well SlowUntil/PulledUntil mutations so boss protection also
+  prevents status/control, not just primary damage.
+- Generic VFX/callouts are preliminary, not P2-approved bespoke synergy visuals.
+
+Legendaries and upgrades
+- Stable trait ID56 renamed Vengeance; FullHeal alias retained for compatibility.
+- Vengeance lethal save:1HP,3sec protection, sets next finisher ready; melee hit3
+  consumes ready flag and multiplies the whole finisher's base damage by5.
+- Weapon mask narrowed to Blade/Hammer (3) because they have three-hit finishers.
+  This was an implementation decision, NOT explicitly approved by the user;
+  review wording, offer eligibility and migration behavior for other weapons.
+- Phoenix adds burn nova to35%HP/2sec survival. Nova uses no further proc recursion.
+- Existing Mercy/SecondWind precedence still comes before these lethal effects;
+  test stacking so the intended ability is not silently lost.
+- Removed former instant-full-heal choice behavior. Echo rarity lowered to1.
+- Emberforge eligibility checks a capped trait; Blood Pact untouched.
+- Build Context gained Difficulty/EndlessWave/Endless; offer/weight/repeat logic
+  partially added. Runtime context construction, actual floating trait values,
+  stack caps and offer application need integration/audit.
+
+Downed / Endless character scaffolding
+- BleedRemaining25, bEliminated and EndlessRanks added/replicated/reset.
+- In Endless only: bleed timer pauses with an active eligible reviver; expiration
+  marks eliminated and prevents revival; successful revive resets state.
+- No above-character bleed bar or completed team wipe/death/leaderboard flow yet.
+- EndlessValue helper exists, but kill rewards and offer effects are not wired.
+
+MAJOR SYSTEMS NOT IMPLEMENTED END-TO-END
+Portals and transition; controller/profile slot UI; secure gambling; bespoke
+boss arenas; Endless entry/waves/carry-over/chests/shops/shuffles/late boss hazards;
+sky stage rendering; economy/stat/leaderboard UI; heavy cape motion; proper
+Blade/Scythe/G review. Many helper fields are unused until those integrations land.
+
+SOURCE / ENGINE ARCHITECTURE FOR CONTINUATION
+- Public headers and Private cpp live under Source/AshenSpiral.
+- Procedural modular armor, NOT a skeletal animation/mocap pipeline.
+- Character armor indexes:0torso,1helmet,2pelvis,3leftarm,4leftforearm,5rightarm,
+  6rightforearm,7leftthigh,8leftgreave,9rightthigh,10rightgreave,11leftboot,
+  12rightboot,13/14shoulders,15cape,16visor,17/18hands,19capelower,20core.
+  Figure scale(.82,.70,1), local Z=-88; arms42+42,legs38+38.
+  ASPose::Limb provides clamped IK. Weapon attaches right hand except bow left.
+- Existing cape is rigid modular pieces. Use proper flowing geometry/segments
+  with body/weapon clearance, delayed weight and slow settling; avoid thin boards.
+- GameMode owns profile admission, run/room lifecycle, waves, rewards, receipts,
+  reconnect snapshots and hub reset. New fields alone do not implement a mode.
+- PlayerController owns profile submission, input, UI actions and receipt ack.
+- SASMenu handles Slate menu pages/reward cards; ASHUD in-world/HUD feedback.
+- World uses replicated FASLayoutConfig and generated HISM geometry; it needs
+  explicit mode/wave/difficulty and special arena/portal/sky support.
+- New/changed generated art must update mesh bounds/import bootstrap/provenance.
+
+KNOWN VALIDATION LIMIT
+Existing Tests/checkpoint_023_preflight.log fails at missing
+DamageReaction_Implementation. The export verification independently checks
+archive integrity/source copies and missing methods. Historical passing results
+copied from0.22 are not 0.23 evidence. An actual Unreal build is still required.

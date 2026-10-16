@@ -1,0 +1,6 @@
+Two existing local ZIP copies were incomplete at export time. The complete
+saved originals were recovered and validated before this archive was assembled:
+- completed_versions/AshenSpiral_UE5_0.19.0.zip
+- prompts_and_inputs/original_uploads/Ashen_Spiral_v0.10.1_HOTFIX(1).zip
+Their authoritative full bytes are included. The incomplete local fragments are
+not included. See COMPLETED_VERSIONS.json and INPUT_INVENTORY.json for hashes.

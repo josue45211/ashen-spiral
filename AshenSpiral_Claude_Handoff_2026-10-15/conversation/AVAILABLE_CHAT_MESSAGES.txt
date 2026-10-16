@@ -1,0 +1,43 @@
+VISIBLE HUMAN MESSAGES — verbatim, in their accessible order
+Earlier full turns are not available. Do not treat this as the complete transcript.
+
+USER:
+I am not seeing downloadable files
+
+USER:
+Prompt this, we have a 0.23.1 coming just need to use up data before reset
+
+USER:
+Here's the second part of this update to include. Is there a way that you can export what you have right before running out of 5hour limit credits and I send that to Claude to finish up the workflow?
+
+USER:
+I'll give you a heads up when we are at about 20% usage left so that you can export it plus everything that has been talked about in this whole chat section including the latest 5 game versions and our prompts. Everything in a single zip file
+
+USER:
+We're at 50% usage, start extracting whatever you have now
+
+USER:
+Start exporting now
+
+VISIBLE ASSISTANT RESPONSES DURING EXPORT — verbatim
+These record the export commitment, not evidence of additional completed code.
+
+ASSISTANT:
+Your 20% heads-up will be the export trigger. I’ll bundle the latest five completed versions, current work, prompts, references, and available chat history into one ZIP with a Claude handoff. Any gaps in earlier chat history will be clearly marked. I’m continuing the update now.
+
+ASSISTANT:
+I’m stopping implementation and building the ZIP now. It will include versions 0.18–0.22, the unfinished 0.23/0.23.1 work, prompts and references, available chat context, and a Claude handoff with completed work, known issues, and next steps. I’m using the Library skill to make the ZIP downloadable.
+
+ASSISTANT:
+I’m also using the Personal Context skill to recover earlier Ashen Spiral decisions for the handoff. The archive will distinguish original messages from summaries so Claude can see what’s exact and what’s reconstructed.
+
+ASSISTANT:
+The export is underway. I’ve frozen the current source and located all five completed version ZIPs. The unfinished build will be clearly labeled, including the missing animation implementations and gameplay/UI integration that Claude still needs to complete.
+
+ASSISTANT:
+The source snapshot includes the known build blocker: `DamageReaction`, `AbilityGesture`, and the cape methods are declared or called but not implemented. I’m preserving it as-is and documenting those gaps. The original prompt packs, reference media, catalogs, and earlier build reports are included too.
+
+ATTACHMENTS VISIBLE IN CURRENT CONTEXT
+0.23.1-batch-prompt-pack.zip. Its complete original bytes and the previously
+uploaded 0.23/0.22 packs are included. Internal attachment reference IDs and
+account/tool instructions are not part of the game conversation and are omitted.

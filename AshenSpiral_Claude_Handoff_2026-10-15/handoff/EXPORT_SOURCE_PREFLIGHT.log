@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/workspace/scratch/b99750a0357f/ue-restoration/AshenSpiral_UE5_0.23.0/Tests/run_tests.py", line 269, in <module>
+    raise SystemExit(validate())
+                     ^^^^^^^^^^
+  File "/workspace/scratch/b99750a0357f/ue-restoration/AshenSpiral_UE5_0.23.0/Tests/run_tests.py", line 69, in validate
+    check(name+'_Implementation(' in class_sources,f'{name}: RPC implementation exists')
+  File "/workspace/scratch/b99750a0357f/ue-restoration/AshenSpiral_UE5_0.23.0/Tests/run_tests.py", line 23, in check
+    raise AssertionError(description)
+AssertionError: DamageReaction: RPC implementation exists

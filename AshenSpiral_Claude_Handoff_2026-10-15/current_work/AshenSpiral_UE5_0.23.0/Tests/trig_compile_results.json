@@ -1,0 +1,10 @@
+{
+  "status": "PASS",
+  "expressions_from_runtime": [
+    "FMath::Cos(static_cast<float>(J))",
+    "FMath::Sin(static_cast<float>(J))"
+  ],
+  "positions_checked": 7,
+  "compiler": "g++",
+  "scope": "Extracted expressions with diagnostic-matched overload stand-ins; not an Unreal module compile."
+}

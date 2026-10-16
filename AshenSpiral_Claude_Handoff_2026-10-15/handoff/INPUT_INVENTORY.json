@@ -1,0 +1,186 @@
+[
+  {
+    "path": "prompts_and_inputs/original_uploads/0.20-bugfix-decisions.pdf",
+    "bytes": 86275,
+    "sha256": "9225434677bdb214fc083e58dcc45fe0661a9c4d251ad3b79dada8dda96efa40",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/0.22-hammer-prompt-pack.zip",
+    "bytes": 3287526,
+    "sha256": "b908496f0a6a0246011578154acdeba4dde1a8654fbd733125102c8fc4ba66df",
+    "source": "original uploaded file",
+    "crc": "passed"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/0.23-batch-prompt-pack.zip",
+    "bytes": 9011251,
+    "sha256": "8f253aad6be6c18d37ead2924ad056e17bc1a86ebe5a43682726f7268f2f962a",
+    "source": "original uploaded file",
+    "crc": "passed"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/0.23.1-batch-prompt-pack.zip",
+    "bytes": 15397447,
+    "sha256": "e5b807c3b4dad1869ff9e886fbe0c19f51ce1fb3ee46f01ab8f5f224958bda32",
+    "source": "original uploaded file",
+    "crc": "passed"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/261005.txt",
+    "bytes": 1040,
+    "sha256": "4c5b02e4b0627da9c4aea421ce0577e8f78a8d602617cda0b6d8419c7c4beda4",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/Ashen_Spiral_v0.10.1_HOTFIX(1).zip",
+    "bytes": 163922099,
+    "sha256": "b68771d5e66bf83a2f5ec1779c383a74ca0c231a988ce0527b8b3ff905cfbbea",
+    "source": "original uploaded file",
+    "crc": "passed"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/Bootstrap.log",
+    "bytes": 134086,
+    "sha256": "30e042132b100d2983269fbf78d5eeb7e6e2adf24948918fd8092aa2c855dcce",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/Build-Editor(2).log",
+    "bytes": 50676,
+    "sha256": "f5940a36dd8ba981c7282331ce7eb4cb18adb623ee293b8df3408d62376ad5ba",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/Build-Editor(3).log",
+    "bytes": 56598,
+    "sha256": "47a288c15ca50076c056e8d901ea525008cd5381ad5470f01da21f9ec3f2b8ba",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/Build-Editor.log",
+    "bytes": 52514,
+    "sha256": "291a7c39dc9a6525f094baade99edb6a2a122f1a410ac319819993e34eb30a5b",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/Pasted markdown.md",
+    "bytes": 22382,
+    "sha256": "8cabf0b35e57e6a1e6ec779f036f0789d3d66871bcb3fe6594defa8b3a481c91",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/TROUBLESHOOTING.md",
+    "bytes": 5042,
+    "sha256": "fa74a33795cc75ec71fb7c73dd59350743519f26df1e4316d41c72c57d1cc2c0",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(1).png",
+    "bytes": 84904,
+    "sha256": "d95213bfa4b9f728a2c2697302b338b368a34c7f11363dd5e8da0f88d7ebce90",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(2).png",
+    "bytes": 29345,
+    "sha256": "38b2ed7f5704f14b8ad6686ed2baeec02f881991bf3d8a01fc9924e65729638e",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261007-001622).png",
+    "bytes": 17151,
+    "sha256": "fc28f0dc62e42a7f8f72fb6c4107516b8f2e599d74d14c76ea08c2e5734e019d",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261007-001751).png",
+    "bytes": 17151,
+    "sha256": "fc28f0dc62e42a7f8f72fb6c4107516b8f2e599d74d14c76ea08c2e5734e019d",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261007-004357).png",
+    "bytes": 75680,
+    "sha256": "c9e789ab22ae9b34947314792c9a38e6a4ddc5c998c2feff44bda4d1a3bdf2bd",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261008-233843).png",
+    "bytes": 3287380,
+    "sha256": "814f681c206e1743825fabf1cfd02d4e92b56b82449735940e4bb273883ff805",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261008-234610).png",
+    "bytes": 2763715,
+    "sha256": "5de38d1733a99828c20ad057c5f467a622df9e76dc4a29cac2564379779fefa9",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261008-234742).png",
+    "bytes": 1980177,
+    "sha256": "c4efbfe1d3ea9850784174fbb1074fda7e2dd67cd8712c3f0eadd0052e3c8a26",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261011-213136).png",
+    "bytes": 15660,
+    "sha256": "7944aed4ac00d0a9d9d1cb8033fe178b688d298edbbb43481a4f3f77179e5200",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(20261011-230233).png",
+    "bytes": 143124,
+    "sha256": "0ce3d43695529068cea04cdda6ae3ae747592d634630a3079c49a4af297561b6",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(3).png",
+    "bytes": 468873,
+    "sha256": "02fddf46fdd080025ecd24aa32c0da389c220c98d00715589a7e902a0fe09172",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(4).png",
+    "bytes": 1780433,
+    "sha256": "cfa8cbbbd91acf5fb8b51c7d509e6d4e83ba3c53f423c8f82ba720c2ef04a947",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(5).png",
+    "bytes": 468873,
+    "sha256": "02fddf46fdd080025ecd24aa32c0da389c220c98d00715589a7e902a0fe09172",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(7).png",
+    "bytes": 2181585,
+    "sha256": "8ba335cf271c2e0fe674f7e4a6ba99aaa6ea2330f234415feeb8f6ec6f101b57",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(8).png",
+    "bytes": 1628305,
+    "sha256": "9d2b1405299e595283d4e1ba9243b45f7a5fe162fa38182d03860745c9b4307c",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image(9).png",
+    "bytes": 453125,
+    "sha256": "d7fbd578b539c7ca5b211f3f5d2b7e018fc509493a1b60aed2434f0e4ca51843",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/original_uploads/image.png",
+    "bytes": 16210,
+    "sha256": "c35019d20539973fb40ed25a74603496d3a0f5e8759d73cbc280075a1fbd24d3",
+    "source": "original uploaded file"
+  },
+  {
+    "path": "prompts_and_inputs/other_attachments/57d9a4e4-f088-4ddd-bdcd-4d9c21f2041b/image.png",
+    "bytes": 17151,
+    "sha256": "fc28f0dc62e42a7f8f72fb6c4107516b8f2e599d74d14c76ea08c2e5734e019d",
+    "source": "additional existing attachment"
+  }
+]

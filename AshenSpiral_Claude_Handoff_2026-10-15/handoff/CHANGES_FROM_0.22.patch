@@ -1,0 +1,2140 @@
+--- a/Source/AshenSpiral/Private/ASAbilities.cpp
++++ b/Source/AshenSpiral/Private/ASAbilities.cpp
+@@ -14,6 +14,7 @@
+     const bool Nova=TraitValue(ASBuild::Trait::RuneNova)>0;
+     const bool Active=S->Phase==EASPhase::Hub||CombatBenefits();const float Cost=ASAdventure::AbilityCost(Ability);
+     if(Active&&Focus<Cost) {if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(TEXT("Not enough Focus. It regenerates during combat and in the lobby."));return;}
++    AbilityGesture();
+     if(Active) Focus-=Cost;
+     NextRune=S->SimTime+ASAdventure::AbilityCooldown(Ability,SpiralCooldown()/3.3f);
+     const FVector Start=MuzzleLocation(),Dir=(AimPoint-Start).GetSafeNormal();FVector End=Start+Dir*1500.f;
+--- a/Source/AshenSpiral/Private/ASCharacter.cpp
++++ b/Source/AshenSpiral/Private/ASCharacter.cpp
+@@ -40,6 +40,7 @@
+         auto* C=CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("ArmorPart%02d"),I));C->SetupAttachment(Figure);
+         C->SetCollisionEnabled(ECollisionEnabled::NoCollision);Parts.Add(C);
+     }
++    CreateCape();
+     // The hand is the grip pivot. Attaching to the forearm previously inherited
+     // its large negative pitch and drove the blade back through the body.
+     WeaponMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon"));WeaponMesh->SetupAttachment(Parts[18]);
+@@ -57,7 +58,7 @@
+         &&Super::CanJumpInternal_Implementation();
+ }
+ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
++    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASCharacter,bVengeanceUsed);DOREPLIFETIME(AASCharacter,bVengeanceFinisherReady);DOREPLIFETIME(AASCharacter,BleedRemaining);DOREPLIFETIME(AASCharacter,bEliminated);DOREPLIFETIME(AASCharacter,EndlessRanks);
+     DOREPLIFETIME(AASCharacter,WarCryUntil);DOREPLIFETIME(AASCharacter,Build);DOREPLIFETIME(AASCharacter,RelicMask);DOREPLIFETIME(AASCharacter,Health);
+     DOREPLIFETIME(AASCharacter,MaxHealth);DOREPLIFETIME(AASCharacter,Shield);DOREPLIFETIME(AASCharacter,ChargeStart);
+     DOREPLIFETIME(AASCharacter,Ammo);DOREPLIFETIME(AASCharacter,ReloadStart);DOREPLIFETIME(AASCharacter,ReloadEnd);
+@@ -76,7 +77,7 @@
+     if(!HasAuthority()) return;Build=V;Build.Sanitize();
+     if(auto* PS=GetPlayerState<AASPlayerState>()) {ColorIndex=PS->PlayerIndex;ColorChoice=PS->ColorChoice;}
+     if(Fresh) {
+-        ResetTraits();
++        ResetTraits();bVengeanceUsed=bVengeanceFinisherReady=bEliminated=false;BleedRemaining=25.f;EndlessRanks.Init(0,4);
+         RunRanks.Init(0,ASRules::RunUpgradeCount);
+         MaxHealth=ASRules::StartingHealth(Rank(0),0);Health=MaxHealth;Shield=Rank(1)*5;RelicMask=0;
+         bDowned=false;bMercyUsed=false;bSecondWindUsed=false;bNextCritical=false;bReviving=false;ReviveProgress=0;
+@@ -95,6 +96,7 @@
+         ASAssets::Armor(Parts[I],Meshes[I],bDowned?FLinearColor(.3f,.02f,.025f):C,Fabric?0.f:.8f,Glow?4.f:0.f,Fabric?.95f:.42f);
+         Parts[I]->SetRelativeLocation(Positions[I]);Parts[I]->SetRelativeScale3D(FVector(1));
+     }
++    RefreshCape();
+     Parts[1]->SetRelativeScale3D(FVector(.95f,1.f,.85f));
+     Parts[16]->AttachToComponent(Parts[1],FAttachmentTransformRules::KeepRelativeTransform);
+     Parts[19]->AttachToComponent(Parts[15],FAttachmentTransformRules::KeepRelativeTransform);
+@@ -125,124 +127,6 @@
+         else UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.25f);
+     }
+ }
+-void AASCharacter::Animate(float Delta) {
+-    if(Parts.Num()!=21) return;
+-    const float Now=AS::Time(this),Speed=GetVelocity().Size2D();const bool Airborne=GetCharacterMovement()->IsFalling();
+-    const bool Dashing=Movement()->DashRemaining>0;
+-    const bool Planted=Build.Weapon==1&&(HammerCommitted()||HammerLeapState==1||HammerLeapState==3);
+-    LocomotionWeight=FMath::Lerp(LocomotionWeight,FMath::Clamp(Planted?0.f:Speed/RunningSpeed(),0.f,1.f),ASAnimation::Blend(Delta,12.f));
+-    AirWeight=FMath::Lerp(AirWeight,Airborne?1.f:0.f,ASAnimation::Blend(Delta,13.f));
+-    if(bWasAirborne&&!Airborne) LandingAge=0;else LandingAge+=Delta;bWasAirborne=Airborne;
+-    const float Landing=FMath::Exp(-LandingAge*9.f)*FMath::Sin(FMath::Min(LandingAge*18.f,UE_PI));
+-    if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/230.f*UE_TWO_PI;
+-    const float Step=FMath::Sin(WalkPhase)*LocomotionWeight*(1.f-AirWeight);
+-    const FVector LocalMove=GetActorTransform().InverseTransformVectorNoScale(GetVelocity()).GetSafeNormal2D();
+-    const float LeapPhase=ASMelee::Phase(Now,HammerLeapStarted,ASHammer::Startup);
+-    const float HammerCrouch=Build.Weapon==1?(HammerLeapState==1?-16.f*ASMelee::Smooth(LeapPhase):(HammerLeapState==2?-16.f*(1.f-ASMelee::Smooth((Now-HammerLeapStarted-ASHammer::Startup)/(ASHammer::Flight*.28f))):0.f)):0.f;
+-    const float BodyDrop=-4.f*LocomotionWeight-7.f*Landing+HammerCrouch;
+-    Figure->SetRelativeLocation(FVector(0,0,bDowned?-117.f:-88.f+BodyDrop+FMath::Abs(Step)*1.5f));
+-    Figure->SetRelativeRotation(FRotator(bDowned?65.f:0.f,0,0));
+-    const float Breath=FMath::Sin(Now*2.2f)*.6f;
+-    Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f));
+-    Parts[0]->SetRelativeLocation(FVector(0,0,111+Breath));Parts[2]->SetRelativeRotation(FRotator(0,-Step*4.f,Step*2.f));
+-    Parts[1]->SetRelativeLocation(FVector(0,0,165+Breath));Parts[1]->SetRelativeRotation(FRotator(-Landing*3.f,Step,0));
+-    for(int32 Side=0;Side<2;++Side) {
+-        const float Sign=Side==0?-1.f:1.f;const auto F=ASAnimation::Foot(WalkPhase+Side*UE_PI,LocomotionWeight);
+-        FVector Foot=FVector(6,Sign*16,12)+LocalMove*F.Forward+FVector(0,0,F.Lift);
+-        Foot=FMath::Lerp(Foot,FVector(Side==0?15.f:-10.f,Sign*16,30.f),AirWeight);
+-        if(Planted) Foot=FVector(Side==0?24.f:-12.f,Sign*24.f,12.f-HammerCrouch);
+-        if(Dashing) Foot=FVector(-22.f+Side*10.f,Sign*16,22.f);
+-        if(!Airborne&&!Dashing) {
+-            const FVector WorldFoot=Figure->GetComponentTransform().TransformPosition(Foot);FHitResult Floor;
+-            if(GetWorld()->LineTraceSingleByObjectType(Floor,WorldFoot+FVector(0,0,30),WorldFoot-FVector(0,0,45),FCollisionObjectQueryParams(ECC_WorldStatic)))
+-                Foot.Z+=FMath::Clamp(float(Floor.ImpactPoint.Z+10.f-WorldFoot.Z),0.f,20.f);
+-        }
+-        const FVector Hip(0,Sign*16,79),KneePole(70,Sign*19,47);
+-        const FVector Ankle=ASPose::Limb(Parts[7+Side*2],Parts[8+Side*2],Hip,Foot,KneePole,38.f,38.f,38.f,38.f);
+-        Parts[11+Side]->SetRelativeLocation(Ankle+FVector(3,0,-2));Parts[11+Side]->SetRelativeRotation(FRotator(F.Pitch*(1.f-AirWeight),0,0));
+-    }
+-    PoseAge+=Delta;auto Pose=ASRules::WeaponGripPose(PoseAge,AttackPoseDuration,Step,Build.Weapon);
+-    if(Build.Weapon>=6) {Pose.X-=30.f;Pose.Y=25.f;}
+-    if(Build.Weapon==2) Pose.X-=8.f;
+-    const bool Reloading=IsReloading();const float ReloadMotion=Reloading?FMath::Sin(ReloadProgress()*UE_PI):0.f;
+-    FVector Grip=FVector(Pose.X,Pose.Y,Pose.Z)+FVector(-8,8,-18)*ReloadMotion;
+-    FVector LeftShoulder(0,-34,133),RightShoulder(0,34,133);
+-    const FVector LeftPole(-8,-78,96),RightPole(-8,78,96);
+-    FQuat WeaponRotation(FVector::RightVector,Pose.ForwardAngle+.28f*ReloadMotion);
+-    if(ASMelee::IsMelee(Build.Weapon)) {
+-        // A stable grip is the foundation; the same pose clock drives full swings.
+-        const bool Active=Now>=AttackPoseStarted&&Now<AttackPoseStarted+AttackPoseDuration;
+-        auto M=ASMelee::Swing(Build.Weapon,MeleeStep,ASMelee::Phase(Now,AttackPoseStarted,AttackPoseDuration),Active);
+-        ASHammer::Frame HammerFrame{};if(Build.Weapon==1) AnimateHammer(Now,M,HammerFrame);
+-        const float Rad=UE_PI/180.f;
+-        WeaponRotation=FQuat(FVector::UpVector,M.Yaw*Rad)*FQuat(FVector::RightVector,M.Pitch*Rad)*FQuat(FVector::ForwardVector,M.Roll*Rad);
+-        if(Build.Weapon==1) WeaponRotation=FRotationMatrix::MakeFromZY(FVector(HammerFrame.Z.X,HammerFrame.Z.Y,HammerFrame.Z.Z),FVector(HammerFrame.Y.X,HammerFrame.Y.Y,HammerFrame.Y.Z)).ToQuat();
+-        if(Build.Weapon==1) {
+-            const auto L=ASHammer::BodyPoint(M,{0,-34,133}),R=ASHammer::BodyPoint(M,{0,34,133});
+-            LeftShoulder=FVector(L.X,L.Y,L.Z);RightShoulder=FVector(R.X,R.Y,R.Z);
+-            Parts[13]->SetRelativeLocation(LeftShoulder+FVector(0,0,2));Parts[14]->SetRelativeLocation(RightShoulder+FVector(0,0,2));
+-            Parts[13]->SetRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));Parts[14]->SetRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));
+-            Parts[1]->SetRelativeRotation(FRotator(-M.BodyPitch*.3f,M.BodyYaw*.35f,0));
+-        }
+-        Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,FVector(M.X,M.Y,M.Z),RightPole);Parts[18]->SetRelativeLocation(Grip);
+-        const FVector Support=Build.Weapon==0?FVector(12+Step*12,-39,86):Grip+WeaponRotation.RotateVector(FVector(0,0,ASMelee::SupportHeight(Build.Weapon)));
+-        Parts[17]->SetRelativeLocation(ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole));
+-        Parts[0]->AddRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));Parts[2]->AddRelativeRotation(FRotator(0,M.BodyYaw*.35f,0));
+-    } else if(Build.Weapon==2) {
+-        Grip=ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Grip,LeftPole);
+-        const FVector Draw=ASPose::Limb(Parts[5],Parts[6],RightShoulder,FVector(42+Pose.Swing*10-15*ReloadMotion,-5,Grip.Z-30*ReloadMotion),RightPole);
+-        Parts[17]->SetRelativeLocation(Grip);Parts[18]->SetRelativeLocation(Draw);
+-        for(int32 I=0;I<2;++I) {
+-            const FVector Tip=Grip+FVector(-24,0,I==0?73:-73),V=Draw-Tip;
+-            BowStrings[I]->SetRelativeLocation((Tip+Draw)*.5f);BowStrings[I]->SetRelativeRotation(FQuat::FindBetweenNormals(FVector::UpVector,V.GetSafeNormal()));
+-            BowStrings[I]->SetRelativeScale3D(FVector(.009f,.009f,V.Size()/100.f));
+-        }
+-        ArrowMesh->SetRelativeLocation(Draw+FVector(33,0,0));ArrowMesh->SetRelativeRotation(FRotator::ZeroRotator);ArrowMesh->SetVisibility(!Reloading&&PoseAge>AttackPoseDuration*.55f);
+-    } else {
+-        Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,Grip,RightPole);Parts[18]->SetRelativeLocation(Grip);
+-        FVector Support=Build.Weapon>=6?Grip+FVector(22,-30,14)+FVector(-25,-8,-36)*ReloadMotion:FVector(15+Step*12+30*ReloadMotion,-38+32*ReloadMotion,68+20*ReloadMotion);
+-        if(bCharging) Support=FVector(40,-27,111);
+-        Support=ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole);Parts[17]->SetRelativeLocation(Support);
+-    }
+-    Parts[17]->SetRelativeRotation(ASMelee::IsMelee(Build.Weapon)&&Build.Weapon!=0?WeaponRotation:FQuat::Identity);
+-    Parts[18]->SetRelativeRotation(ASMelee::IsMelee(Build.Weapon)?WeaponRotation:FQuat::Identity);
+-    WeaponMesh->SetRelativeRotation(ASMelee::IsMelee(Build.Weapon)?FQuat::Identity:WeaponRotation);
+-    if(Build.Weapon==1) {
+-        // A square head is symmetric under a half-turn. Do not pass tangent-axis
+-        // sign changes into the wrists: hands use continuous anatomical roll.
+-        ASHammer::Pose HP;ASHammer::Frame HF;AnimateHammer(Now,HP,HF);const float R=UE_PI/180.f;
+-        const FQuat HandRotation=FQuat(FVector::UpVector,HP.Yaw*R)*FQuat(FVector::RightVector,HP.Pitch*R)*FQuat(FVector::UpVector,HP.Roll*R);
+-        Parts[17]->SetRelativeRotation(HandRotation);Parts[18]->SetRelativeRotation(HandRotation);
+-        WeaponMesh->SetRelativeRotation(HandRotation.Inverse()*WeaponRotation);
+-    }
+-    CapeLean=FMath::Lerp(CapeLean,LocomotionWeight*26.f+(Dashing?24.f:0.f)+AirWeight*9.f,ASAnimation::Blend(Delta,5.f));
+-    Parts[15]->SetRelativeRotation(FRotator(-4.f-CapeLean,Step*1.5f,FMath::Sin(Now*2.7f)*1.5f));
+-    Parts[19]->SetRelativeRotation(FRotator(-CapeLean*.4f+FMath::Sin(Now*3.1f)*3.f,Step*2.f,FMath::Sin(Now*2.1f)*2.f));
+-    if(Build.Weapon==1&&!bDowned) {
+-        ASHammer::Pose HP;ASHammer::Frame HF;AnimateHammer(Now,HP,HF);
+-        Parts[15]->AddRelativeRotation(FRotator(-FMath::Abs(HP.BodyPitch)*.45f,-HP.BodyYaw*.45f,HP.BodyYaw*.16f));
+-        Parts[19]->AddRelativeRotation(FRotator(-FMath::Abs(HP.BodyPitch)*.35f,-HP.BodyYaw*.25f,HP.BodyYaw*.22f));
+-        if(auto* Mat=Cast<UMaterialInstanceDynamic>(WeaponMesh->GetMaterial(0))) {
+-            const bool Active=AttackPoseStarted>=0&&Now<AttackPoseStarted+AttackPoseDuration;
+-            const float Glow=HammerLeapState?2.8f:(Active?.35f+MeleeStep*.6f+ASMelee::Phase(Now,AttackPoseStarted,AttackPoseDuration)*.6f:.15f);
+-            Mat->SetScalarParameterValue(TEXT("Emission"),Glow);
+-        }
+-    }
+-    HammerShakeAge+=Delta;
+-    if(IsLocallyControlled()) if(auto* GI=GetGameInstance<UASGameInstance>()) {
+-        const bool Shake=Build.Weapon==1&&!GI->bReduceMotion&&HammerShakeAge<.28f;
+-        const float Envelope=Shake?HammerShakeStrength*FMath::Square(1.f-HammerShakeAge/.28f):0.f;
+-        Camera->SetRelativeLocation(FVector(0,FMath::Sin(HammerShakeAge*83.f)*Envelope,FMath::Sin(HammerShakeAge*107.f)*Envelope*.6f));
+-    }
+-    const int32 WispCount=FMath::Min(3,TraitValue(ASBuild::Trait::Orbit));
+-    for(int32 I=0;I<Wisps.Num();++I) {const float A=Now*2.f+I*UE_TWO_PI/FMath::Max(1,WispCount);Wisps[I]->SetVisibility(I<WispCount&&!bDowned);Wisps[I]->SetRelativeLocation(FVector(FMath::Cos(A)*135,FMath::Sin(A)*135,35));}
+-    ChargeMesh->SetVisibility(bCharging&&!bDowned);ChargeMesh->SetRelativeScale3D(FVector(.15f+FMath::Clamp(Now-ChargeStart,0.f,1.4f)*.28f));
+-    Boom->TargetArmLength=FMath::FInterpTo(Boom->TargetArmLength,CameraZoom,Delta,10.f);
+-    const bool HideSelf=IsLocallyControlled()&&FVector::DistSquared(Camera->GetComponentLocation(),GetActorLocation()+FVector(0,0,45))<190.f*190.f;
+-    for(auto Part:Parts) Part->SetOwnerNoSee(HideSelf);
+-    WeaponMesh->SetOwnerNoSee(HideSelf);ArrowMesh->SetOwnerNoSee(HideSelf);ChargeMesh->SetOwnerNoSee(HideSelf);
+-    for(auto Part:BowStrings) Part->SetOwnerNoSee(HideSelf);for(auto Part:Wisps) Part->SetOwnerNoSee(HideSelf);
+-}
+ void AASCharacter::Tick(float Delta) {
+     Super::Tick(Delta);auto* S=AS::State(this);if(!S || S->Frozen()) return;
+     if(GetNetMode()!=NM_DedicatedServer) Animate(Delta);
+@@ -256,9 +140,11 @@
+         for(auto W:S->Heroes) if(auto* Other=W.Get()) if(Other->bReviving&&Other->CanRevive(this)) {Helper=Other;break;}
+         // Only the downed pawn advances its replicated timer. It no longer
+         // depends on which player's Tick happens first, and works in Reward too.
++        if(S->bEndless) {BleedRemaining=ASExpedition::Bleed(BleedRemaining,Delta,Helper!=nullptr&&!bEliminated);if(BleedRemaining<=0) bEliminated=true;}
++        if(bEliminated) {ReviveProgress=0;return;}
+         ReviveProgress=ASRules::AdvanceRevive(ReviveProgress,Delta,Helper!=nullptr);
+         if(ReviveProgress>=ASRules::ReviveSeconds) {
+-            bDowned=false;Health=MaxHealth*.45f;InvulnerableUntil=Now+2.f;ReviveProgress=0;
++            bDowned=false;BleedRemaining=25.f;Health=MaxHealth*.45f;InvulnerableUntil=Now+2.f;ReviveProgress=0;
+             GetCharacterMovement()->StopMovementImmediately();
+             if(GetCharacterMovement()->MovementMode==MOVE_Custom||GetCharacterMovement()->MovementMode==MOVE_None)
+                 GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+@@ -286,13 +172,13 @@
+     const auto* S=AS::State(this);return S&&!S->Frozen()&&!bDowned&&ASRules::CanGainCombatBenefits(int(S->Phase));
+ }
+ bool AASCharacter::CanDamage(const AASEnemy* Enemy) const {
+-    const auto* S=AS::State(this);return IsValid(Enemy)&&S&&!S->Frozen()&&!bDowned&&ASRules::CanDamageTarget(int(S->Phase),Enemy->bTrainingDummy,false);
++    const auto* S=AS::State(this);return IsValid(Enemy)&&!Enemy->SpawnProtected()&&S&&!S->Frozen()&&!bDowned&&ASRules::CanDamageTarget(int(S->Phase),Enemy->bTrainingDummy,false);
+ }
+ void AASCharacter::ResetInput(bool Force) {CancelMelee(Force);if(Force) CancelHammerLeap();RotaryHeat=0;bAttackHeld=false;bCharging=false;bReviving=false;StopJumping();Movement()->bWantsDash=false;}
+ bool AASCharacter::CanRevive(const AASCharacter* Target) const {
+     const auto* S=AS::State(this);
+     if(!S||S->Frozen()||!(S->Fighting()||S->Phase==EASPhase::Reward)||bDowned||Health<=0
+-        ||!IsValid(Target)||Target==this||!Target->bDowned||!GetCharacterMovement()->IsMovingOnGround()) return false;
++        ||!IsValid(Target)||Target==this||!Target->bDowned||Target->bEliminated||!GetCharacterMovement()->IsMovingOnGround()) return false;
+     const FVector A=GetActorLocation(),B=Target->GetActorLocation();
+     return ASRules::ReviveInReach(FVector::DistSquared2D(A,B),A.Z-B.Z)&&AS::ClearSight(GetWorld(),A,B);
+ }
+@@ -381,6 +267,7 @@
+     FHitResult Ground;
+     if(!GetWorld()->LineTraceSingleByObjectType(Ground,Place+FVector(0,0,350),Place-FVector(0,0,700),FCollisionObjectQueryParams(ECC_WorldStatic))) Place=GetActorLocation()-FVector(0,0,80);
+     else Place=Ground.ImpactPoint+FVector(0,0,10);
++    AbilityGesture();
+     AASWell::Plant(this,Place,Perfect);
+     if((Relic(8)&&Perfect)||Build.Style==6) AASWell::Plant(this,Place+FVector(-Dir.Y,Dir.X,0)*240,false,.72f);
+     if(CombatBenefits()&&Relic(9)) Shield=ASRules::GrantShield(Shield,10.f,60.f);
+@@ -411,6 +298,7 @@
+     if(Critical) Amount*=CriticalPower();
+     E->LastHitter=this;E->LastHitTime=S->SimTime;
+     const FVector At=E->GetActorLocation();const bool Pulled=E->PulledUntil>S->SimTime;const bool ShowNumber=Critical||ApplyElement||E->NextDamageNumber<=S->SimTime;if(ShowNumber) E->NextDamageNumber=S->SimTime+.14f;const float Before=E->Health;const bool Killed=E->Hit(Amount,this);const float Dealt=Killed?Before:Before-E->Health;
++    if(!Killed&&Kind==EASHitKind::Shock) E->RegisterCoopElement(Kind,this,DamageScale(false));
+     if(!Killed&&ApplyElement) E->ApplyElement(Kind,this,DamageScale(true));
+     if(ShowNumber) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At+FVector(0,0,80),Dealt,Critical,Kind);
+     if(ApplyElement&&AllowProcs) HitProcs(Killed?nullptr:E,At,Dealt);
+@@ -430,7 +318,7 @@
+     float Reduction=ASBuild::DamageReduction(TraitValue(ASBuild::Trait::Armor),TraitValue(ASBuild::Trait::Defiance),S->SimTime-LastDamageAt<3.f);
+     if(Talent(1)) Reduction+=Health<MaxHealth*.4f?.12f:.08f;
+     Amount*=1.f-FMath::Min(.65f,Reduction);Amount*=1.f+.10f*CurseStacks;
+-    if(Source||EnemyAttack) Amount*=ASBuild::ChallengeDamage(S->Challenge);
++    if(Source||EnemyAttack) Amount*=ASBuild::ChallengeDamage(S->Challenge)*ASExpedition::EnemyDamageScale(S->Difficulty,S->bEndless?S->EndlessWave:0,Source?(Source->Boss()?2:(Source->Elite()?1:0)):0);
+     LastDamageAt=S->SimTime;if(auto* PS=GetPlayerState<AASPlayerState>()) PS->bRoomDamaged=true;
+     if(S->PlayerArray.Num()==2) Amount*=1.1f;
+     if(CombatBenefits()&&Talent(3)&&S->SimTime>=UnbrokenUntil&&Health-FMath::Max(0.f,Amount-Shield)<MaxHealth*.25f) {Shield+=MaxHealth*.2f;UnbrokenUntil=S->SimTime+12;}
+@@ -440,13 +328,20 @@
+         if(Absorb>0) PC->DamageNumber(GetActorLocation(),Absorb,false,EASHitKind::Shield);
+         if(Before>Health) PC->DamageNumber(GetActorLocation(),Before-Health,false,EASHitKind::Received);
+     }
++    DamageReaction(IsValid(Source)?(GetActorLocation()-Source->GetActorLocation()).GetSafeNormal2D():-GetActorForwardVector(),FMath::Clamp(Amount/MaxHealth*3.f,.2f,1.f));
++    if(auto* Player=GetPlayerState<AASPlayerState>()) Player->RunDamageTaken=FMath::Min(1.e12f,Player->RunDamageTaken+Before-Health+Absorb);
+     S->Effect(5,GetActorLocation(),GetActorForwardVector(),FLinearColor(1,.12f,.08f),38);
+     if(Health<=0) {
+         if(Rank(3)&&!bMercyUsed) {bMercyUsed=true;Health=MaxHealth*.25f;InvulnerableUntil=S->SimTime+2;}
+         else if(Talent(2)&&!bSecondWindUsed) {bSecondWindUsed=true;Health=MaxHealth*.3f;InvulnerableUntil=S->SimTime+2;}
+-        else if(TraitValue(ASBuild::Trait::Phoenix)>0&&!bPhoenixUsed) {bPhoenixUsed=true;Health=MaxHealth*.35f;InvulnerableUntil=S->SimTime+2.f;}
++        else if(TraitValue(ASBuild::Trait::Vengeance)>0&&!bVengeanceUsed) {bVengeanceUsed=true;bVengeanceFinisherReady=true;Health=1.f;InvulnerableUntil=S->SimTime+ASBuild::VengeanceProtection;if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(TEXT("VENGEANCE OATH / next finisher x5"));}
++        else if(TraitValue(ASBuild::Trait::Phoenix)>0&&!bPhoenixUsed) {
++            bPhoenixUsed=true;Health=MaxHealth*ASBuild::PhoenixHealthFraction;InvulnerableUntil=S->SimTime+ASBuild::PhoenixProtection;
++            S->Effect(8,GetActorLocation(),FVector::UpVector,FLinearColor(1,.25f,.03f),ASBuild::PhoenixNovaRadius);
++            const auto Targets=S->Enemies;for(auto W:Targets) if(auto* E=W.Get()) if(CanDamage(E)&&FVector::DistSquared2D(GetActorLocation(),E->GetActorLocation())<FMath::Square(ASBuild::PhoenixNovaRadius)&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) HitEnemy(E,ASBuild::PhoenixNovaDamage,false,EASHitKind::Burn,true,false);
++        }
+         else {
+-            bDowned=true;ReviveProgress=0;ReloadStart=ReloadEnd=0;ResetInput(true);Movement()->bWantsDash=false;Movement()->DashRemaining=0;
++            bDowned=true;BleedRemaining=25.f;bEliminated=false;ReviveProgress=0;ReloadStart=ReloadEnd=0;ResetInput(true);Movement()->bWantsDash=false;Movement()->DashRemaining=0;
+             GetCharacterMovement()->StopMovementImmediately();
+             if(GetCharacterMovement()->MovementMode==MOVE_Custom) GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+             RefreshLook();ForceNetUpdate();
+--- /dev/null
++++ b/Source/AshenSpiral/Private/ASCharacterAnimation.cpp
+@@ -0,0 +1,132 @@
++#include "ASCharacter.h"
++#include "ASAnimationRules.h"
++#include "ASPose.h"
++#include "ASMovementComponent.h"
++#include "ASGameState.h"
++#include "ASGameInstance.h"
++#include "ASWorld.h"
++#include "Camera/CameraComponent.h"
++#include "GameFramework/SpringArmComponent.h"
++#include "Components/StaticMeshComponent.h"
++#include "Components/SceneComponent.h"
++#include "Materials/MaterialInstanceDynamic.h"
++#include "Math/RotationMatrix.h"
++#include "Engine/World.h"
++void AASCharacter::Animate(float Delta) {
++    if(Parts.Num()!=21) return;
++    const float Now=AS::Time(this),Speed=GetVelocity().Size2D();const bool Airborne=GetCharacterMovement()->IsFalling();
++    const bool Dashing=Movement()->DashRemaining>0;
++    const bool Planted=Build.Weapon==1&&(HammerCommitted()||HammerLeapState==1||HammerLeapState==3);
++    LocomotionWeight=FMath::Lerp(LocomotionWeight,FMath::Clamp(Planted?0.f:Speed/RunningSpeed(),0.f,1.f),ASAnimation::Blend(Delta,12.f));
++    AirWeight=FMath::Lerp(AirWeight,Airborne?1.f:0.f,ASAnimation::Blend(Delta,13.f));
++    if(bWasAirborne&&!Airborne) LandingAge=0;else LandingAge+=Delta;bWasAirborne=Airborne;
++    const float Landing=FMath::Exp(-LandingAge*9.f)*FMath::Sin(FMath::Min(LandingAge*18.f,UE_PI));
++    if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/230.f*UE_TWO_PI;
++    const float Step=FMath::Sin(WalkPhase)*LocomotionWeight*(1.f-AirWeight);
++    const FVector LocalMove=GetActorTransform().InverseTransformVectorNoScale(GetVelocity()).GetSafeNormal2D();
++    const float LeapPhase=ASMelee::Phase(Now,HammerLeapStarted,ASHammer::Startup);
++    const float HammerCrouch=Build.Weapon==1?(HammerLeapState==1?-16.f*ASMelee::Smooth(LeapPhase):(HammerLeapState==2?-16.f*(1.f-ASMelee::Smooth((Now-HammerLeapStarted-ASHammer::Startup)/(ASHammer::Flight*.28f))):0.f)):0.f;
++    const float BodyDrop=-4.f*LocomotionWeight-7.f*Landing+HammerCrouch;
++    Figure->SetRelativeLocation(FVector(0,0,bDowned?-117.f:-88.f+BodyDrop+FMath::Abs(Step)*1.5f));
++    Figure->SetRelativeRotation(FRotator(bDowned?65.f:0.f,0,0));
++    const float Breath=FMath::Sin(Now*2.2f)*.6f;
++    Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f));
++    Parts[0]->SetRelativeLocation(FVector(0,0,111+Breath));Parts[2]->SetRelativeRotation(FRotator(0,-Step*4.f,Step*2.f));
++    Parts[1]->SetRelativeLocation(FVector(0,0,165+Breath));Parts[1]->SetRelativeRotation(FRotator(-Landing*3.f,Step,0));
++    for(int32 Side=0;Side<2;++Side) {
++        const float Sign=Side==0?-1.f:1.f;const auto F=ASAnimation::Foot(WalkPhase+Side*UE_PI,LocomotionWeight);
++        FVector Foot=FVector(6,Sign*16,12)+LocalMove*F.Forward+FVector(0,0,F.Lift);
++        Foot=FMath::Lerp(Foot,FVector(Side==0?15.f:-10.f,Sign*16,30.f),AirWeight);
++        if(Planted) Foot=FVector(Side==0?24.f:-12.f,Sign*24.f,12.f-HammerCrouch);
++        if(Dashing) Foot=FVector(-22.f+Side*10.f,Sign*16,22.f);
++        if(!Airborne&&!Dashing) {
++            const FVector WorldFoot=Figure->GetComponentTransform().TransformPosition(Foot);FHitResult Floor;
++            if(GetWorld()->LineTraceSingleByObjectType(Floor,WorldFoot+FVector(0,0,30),WorldFoot-FVector(0,0,45),FCollisionObjectQueryParams(ECC_WorldStatic)))
++                Foot.Z+=FMath::Clamp(float(Floor.ImpactPoint.Z+10.f-WorldFoot.Z),0.f,20.f);
++        }
++        const FVector Hip(0,Sign*16,79),KneePole(70,Sign*19,47);
++        const FVector Ankle=ASPose::Limb(Parts[7+Side*2],Parts[8+Side*2],Hip,Foot,KneePole,38.f,38.f,38.f,38.f);
++        Parts[11+Side]->SetRelativeLocation(Ankle+FVector(3,0,-2));Parts[11+Side]->SetRelativeRotation(FRotator(F.Pitch*(1.f-AirWeight),0,0));
++    }
++    PoseAge+=Delta;auto Pose=ASRules::WeaponGripPose(PoseAge,AttackPoseDuration,Step,Build.Weapon);
++    if(Build.Weapon>=6) {Pose.X-=30.f;Pose.Y=25.f;}
++    if(Build.Weapon==2) Pose.X-=8.f;
++    const bool Reloading=IsReloading();const float ReloadMotion=Reloading?FMath::Sin(ReloadProgress()*UE_PI):0.f;
++    FVector Grip=FVector(Pose.X,Pose.Y,Pose.Z)+FVector(-8,8,-18)*ReloadMotion;
++    FVector LeftShoulder(0,-34,133),RightShoulder(0,34,133);
++    const FVector LeftPole(-8,-78,96),RightPole(-8,78,96);
++    FQuat WeaponRotation(FVector::RightVector,Pose.ForwardAngle+.28f*ReloadMotion);
++    if(ASMelee::IsMelee(Build.Weapon)) {
++        // A stable grip is the foundation; the same pose clock drives full swings.
++        const bool Active=Now>=AttackPoseStarted&&Now<AttackPoseStarted+AttackPoseDuration;
++        auto M=ASMelee::Swing(Build.Weapon,MeleeStep,ASMelee::Phase(Now,AttackPoseStarted,AttackPoseDuration),Active);
++        ASHammer::Frame HammerFrame{};if(Build.Weapon==1) AnimateHammer(Now,M,HammerFrame);
++        const float Rad=UE_PI/180.f;
++        WeaponRotation=FQuat(FVector::UpVector,M.Yaw*Rad)*FQuat(FVector::RightVector,M.Pitch*Rad)*FQuat(FVector::ForwardVector,M.Roll*Rad);
++        if(Build.Weapon==1) WeaponRotation=FRotationMatrix::MakeFromZY(FVector(HammerFrame.Z.X,HammerFrame.Z.Y,HammerFrame.Z.Z),FVector(HammerFrame.Y.X,HammerFrame.Y.Y,HammerFrame.Y.Z)).ToQuat();
++        if(Build.Weapon==1) {
++            const auto L=ASHammer::BodyPoint(M,{0,-34,133}),R=ASHammer::BodyPoint(M,{0,34,133});
++            LeftShoulder=FVector(L.X,L.Y,L.Z);RightShoulder=FVector(R.X,R.Y,R.Z);
++            Parts[13]->SetRelativeLocation(LeftShoulder+FVector(0,0,2));Parts[14]->SetRelativeLocation(RightShoulder+FVector(0,0,2));
++            Parts[13]->SetRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));Parts[14]->SetRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));
++            Parts[1]->SetRelativeRotation(FRotator(-M.BodyPitch*.3f,M.BodyYaw*.35f,0));
++        }
++        Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,FVector(M.X,M.Y,M.Z),RightPole);Parts[18]->SetRelativeLocation(Grip);
++        const FVector Support=Build.Weapon==0?FVector(12+Step*12,-39,86):Grip+WeaponRotation.RotateVector(FVector(0,0,ASMelee::SupportHeight(Build.Weapon)));
++        Parts[17]->SetRelativeLocation(ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole));
++        Parts[0]->AddRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));Parts[2]->AddRelativeRotation(FRotator(0,M.BodyYaw*.35f,0));
++    } else if(Build.Weapon==2) {
++        Grip=ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Grip,LeftPole);
++        const FVector Draw=ASPose::Limb(Parts[5],Parts[6],RightShoulder,FVector(42+Pose.Swing*10-15*ReloadMotion,-5,Grip.Z-30*ReloadMotion),RightPole);
++        Parts[17]->SetRelativeLocation(Grip);Parts[18]->SetRelativeLocation(Draw);
++        for(int32 I=0;I<2;++I) {
++            const FVector Tip=Grip+FVector(-24,0,I==0?73:-73),V=Draw-Tip;
++            BowStrings[I]->SetRelativeLocation((Tip+Draw)*.5f);BowStrings[I]->SetRelativeRotation(FQuat::FindBetweenNormals(FVector::UpVector,V.GetSafeNormal()));
++            BowStrings[I]->SetRelativeScale3D(FVector(.009f,.009f,V.Size()/100.f));
++        }
++        ArrowMesh->SetRelativeLocation(Draw+FVector(33,0,0));ArrowMesh->SetRelativeRotation(FRotator::ZeroRotator);ArrowMesh->SetVisibility(!Reloading&&PoseAge>AttackPoseDuration*.55f);
++    } else {
++        Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,Grip,RightPole);Parts[18]->SetRelativeLocation(Grip);
++        FVector Support=Build.Weapon>=6?Grip+FVector(22,-30,14)+FVector(-25,-8,-36)*ReloadMotion:FVector(15+Step*12+30*ReloadMotion,-38+32*ReloadMotion,68+20*ReloadMotion);
++        if(bCharging) Support=FVector(40,-27,111);
++        Support=ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole);Parts[17]->SetRelativeLocation(Support);
++    }
++    Parts[17]->SetRelativeRotation(ASMelee::IsMelee(Build.Weapon)&&Build.Weapon!=0?WeaponRotation:FQuat::Identity);
++    Parts[18]->SetRelativeRotation(ASMelee::IsMelee(Build.Weapon)?WeaponRotation:FQuat::Identity);
++    WeaponMesh->SetRelativeRotation(ASMelee::IsMelee(Build.Weapon)?FQuat::Identity:WeaponRotation);
++    if(Build.Weapon==1) {
++        // A square head is symmetric under a half-turn. Do not pass tangent-axis
++        // sign changes into the wrists: hands use continuous anatomical roll.
++        ASHammer::Pose HP;ASHammer::Frame HF;AnimateHammer(Now,HP,HF);const float R=UE_PI/180.f;
++        const FQuat HandRotation=FQuat(FVector::UpVector,HP.Yaw*R)*FQuat(FVector::RightVector,HP.Pitch*R)*FQuat(FVector::UpVector,HP.Roll*R);
++        Parts[17]->SetRelativeRotation(HandRotation);Parts[18]->SetRelativeRotation(HandRotation);
++        WeaponMesh->SetRelativeRotation(HandRotation.Inverse()*WeaponRotation);
++    }
++    CapeLean=FMath::Lerp(CapeLean,LocomotionWeight*26.f+(Dashing?24.f:0.f)+AirWeight*9.f,ASAnimation::Blend(Delta,5.f));
++    Parts[15]->SetRelativeRotation(FRotator(-4.f-CapeLean,Step*1.5f,FMath::Sin(Now*2.7f)*1.5f));
++    Parts[19]->SetRelativeRotation(FRotator(-CapeLean*.4f+FMath::Sin(Now*3.1f)*3.f,Step*2.f,FMath::Sin(Now*2.1f)*2.f));
++    if(Build.Weapon==1&&!bDowned) {
++        ASHammer::Pose HP;ASHammer::Frame HF;AnimateHammer(Now,HP,HF);
++        Parts[15]->AddRelativeRotation(FRotator(-FMath::Abs(HP.BodyPitch)*.45f,-HP.BodyYaw*.45f,HP.BodyYaw*.16f));
++        Parts[19]->AddRelativeRotation(FRotator(-FMath::Abs(HP.BodyPitch)*.35f,-HP.BodyYaw*.25f,HP.BodyYaw*.22f));
++        if(auto* Mat=Cast<UMaterialInstanceDynamic>(WeaponMesh->GetMaterial(0))) {
++            const bool Active=AttackPoseStarted>=0&&Now<AttackPoseStarted+AttackPoseDuration;
++            const float Glow=HammerLeapState?2.8f:(Active?.35f+MeleeStep*.6f+ASMelee::Phase(Now,AttackPoseStarted,AttackPoseDuration)*.6f:.15f);
++            Mat->SetScalarParameterValue(TEXT("Emission"),Glow);
++        }
++    }
++    HammerShakeAge+=Delta;
++    if(IsLocallyControlled()) if(auto* GI=GetGameInstance<UASGameInstance>()) {
++        const bool Shake=Build.Weapon==1&&!GI->bReduceMotion&&HammerShakeAge<.28f;
++        const float Envelope=Shake?HammerShakeStrength*FMath::Square(1.f-HammerShakeAge/.28f):0.f;
++        Camera->SetRelativeLocation(FVector(0,FMath::Sin(HammerShakeAge*83.f)*Envelope,FMath::Sin(HammerShakeAge*107.f)*Envelope*.6f));
++    }
++    const int32 WispCount=FMath::Min(3,TraitValue(ASBuild::Trait::Orbit));
++    for(int32 I=0;I<Wisps.Num();++I) {const float A=Now*2.f+I*UE_TWO_PI/FMath::Max(1,WispCount);Wisps[I]->SetVisibility(I<WispCount&&!bDowned);Wisps[I]->SetRelativeLocation(FVector(FMath::Cos(A)*135,FMath::Sin(A)*135,35));}
++    ChargeMesh->SetVisibility(bCharging&&!bDowned);ChargeMesh->SetRelativeScale3D(FVector(.15f+FMath::Clamp(Now-ChargeStart,0.f,1.4f)*.28f));
++    Boom->TargetArmLength=FMath::FInterpTo(Boom->TargetArmLength,CameraZoom,Delta,10.f);
++    const bool HideSelf=IsLocallyControlled()&&FVector::DistSquared(Camera->GetComponentLocation(),GetActorLocation()+FVector(0,0,45))<190.f*190.f;
++    for(auto Part:Parts) Part->SetOwnerNoSee(HideSelf);
++    WeaponMesh->SetOwnerNoSee(HideSelf);ArrowMesh->SetOwnerNoSee(HideSelf);ChargeMesh->SetOwnerNoSee(HideSelf);
++    for(auto Part:BowStrings) Part->SetOwnerNoSee(HideSelf);for(auto Part:Wisps) Part->SetOwnerNoSee(HideSelf);
++}
+--- a/Source/AshenSpiral/Private/ASCharacterUpgrades.cpp
++++ b/Source/AshenSpiral/Private/ASCharacterUpgrades.cpp
+@@ -37,7 +37,7 @@
+     TraitRanks.SetNumZeroed(ASBuild::Count);++TraitRanks[I];
+     if(T==Trait::Magazine) Ammo=FMath::Min(MagazineCapacity(),Ammo+MagazineCapacity()-OldMagazine);
+     if(T==Trait::Mend) Heal(MaxHealth*.35f);
+-    if(T==Trait::FullHeal) Heal(MaxHealth);
++
+     if(T==Trait::Barrier) Shield=ASRules::GrantShield(Shield,12.f,MaxHealth);
+     if(T==Trait::Reroll) Rerolls=FMath::Min(9,Rerolls+1);
+     if(T==Trait::Cleanse) CurseStacks=0;
+@@ -88,6 +88,7 @@
+     if(!HasAuthority()||!CanDamage(E)||E->Health<=0||Amount<=0) return;
+     const FVector At=E->GetActorLocation()+FVector(0,0,80);const float Before=E->Health;
+     const bool Killed=E->Hit(Amount,this);const float Dealt=Killed?Before:Before-E->Health;
++    if(!Killed&&Kind==EASHitKind::Shock) E->RegisterCoopElement(Kind,this,DamageScale(false));
+     if(Dealt>0) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At,Dealt,false,Kind);
+ }
+ void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
+--- a/Source/AshenSpiral/Private/ASData.cpp
++++ b/Source/AshenSpiral/Private/ASData.cpp
+@@ -158,6 +158,10 @@
+  RelicPool=FMath::Clamp(RelicPool,8,24);TalentMask&=4095&~(1<<9);
+ }
+ void FASProfileData::Sanitize() {
++ BestEndlessWave=FMath::Clamp(BestEndlessWave,0,10000);EndlessChoices=FMath::Clamp(EndlessChoices,0,2);
++ for(auto& Entry:EndlessRecords) Entry.Sanitize();
++ EndlessRecords.Sort([](const FASEndlessRecord& A,const FASEndlessRecord& B){return A.Wave>B.Wave;});
++ if(EndlessRecords.Num()>10) EndlessRecords.SetNum(10);
+  Schema=1;ColorChoice=FMath::Clamp(ColorChoice,-1,7);Materials.SetNumZeroed(5);
+  ASRules::RetireUnusedProgress(Build.TalentMask,SkillPoints,Materials[0],Materials[2],Materials[3]);Build.Sanitize();
+  MigrationVersion=20;
+@@ -178,3 +182,9 @@
+  }
+  if(TitleChoice<0||TitleChoice>=ASCareer::Count||ASCareer::Tier(Career[TitleChoice],TitleChoice)==0) TitleChoice=-1;
+ }
++
++void FASEndlessRecord::Sanitize() {
++    RunId=RunId.Left(64);Wave=FMath::Clamp(Wave,0,10000);Kills=FMath::Clamp(Kills,0,10000000);PartnerKills=FMath::Clamp(PartnerKills,0,10000000);
++    for(float* Value:{&Damage,&DamageTaken,&PartnerDamage,&PartnerDamageTaken}) *Value=FMath::IsFinite(*Value)?FMath::Clamp(*Value,0.f,1.e12f):0.f;
++    EndedUtc=EndedUtc.Left(64);
++}
+--- a/Source/AshenSpiral/Private/ASEnemy.cpp
++++ b/Source/AshenSpiral/Private/ASEnemy.cpp
+@@ -1,5 +1,6 @@
+ #include "ASEnemy.h"
+ #include "ASMeleeRules.h"
++#include "ASExpeditionRules.h"
+ #include "ASCharacter.h"
+ #include "ASGameState.h"
+ #include "ASGameMode.h"
+@@ -34,10 +35,10 @@
+     Beam=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SniperSight"));Beam->SetupAttachment(RootComponent);
+     Aura=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ElementAura"));Aura->SetupAttachment(RootComponent);
+ }
+-void AASEnemy::BeginPlay() {Super::BeginPlay();if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();}
++void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnProtectedUntil=AS::Time(this)+2.f;if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();}
+ void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
+ void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
++    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
+     DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);
+ }
+ void AASEnemy::RefreshLook() {
+@@ -77,24 +78,6 @@
+     GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));RefreshStatus();
+ }
+ 
+-void AASEnemy::AnimateArmor(float Delta,float Windup) {
+-    if(bTrainingDummy||Kind==5||Kind==9) return;
+-    const float Speed=GetVelocity().Size2D(),Weight=FMath::Clamp(Speed/400.f,0.f,1.f);
+-    GaitPhase+=Delta*Speed/190.f*UE_TWO_PI;const float Step=FMath::Sin(GaitPhase)*Weight;
+-    ArmorParts[0]->SetRelativeRotation(FRotator(-5.f-Weight*4.f-Windup*10.f,Step*3.f,0));
+-    ArmorParts[1]->SetRelativeRotation(FRotator(5.f-Windup*12.f,-Step*2.f,0));
+-    for(int32 Side=0;Side<2;++Side) {
+-        const float Sign=Side==0?-1.f:1.f;const auto F=ASAnimation::Foot(GaitPhase+Side*UE_PI,Weight);
+-        const FVector Foot=ASPose::Limb(ArmorParts[7+Side*2],ArmorParts[8+Side*2],FVector(0,Sign*16,79),FVector(6+F.Forward,Sign*16,12+F.Lift),FVector(70,Sign*20,45),38,38,38,38);
+-        ArmorParts[11+Side]->SetRelativeLocation(Foot+FVector(3,0,-2));ArmorParts[11+Side]->SetRelativeRotation(FRotator(F.Pitch,0,0));
+-        const bool Gun=Kind==8;FVector Hand=Gun?FVector(Side==0?76:54,Side==0?-5:25,Side==0?133:119):FVector(24+(Side==0?-Step:Step)*12.f+Windup*28.f,Sign*45,74+Windup*40.f);
+-        Hand=ASPose::Limb(ArmorParts[Side==0?3:5],ArmorParts[Side==0?4:6],FVector(0,Sign*34,133),Hand,FVector(-8,Sign*75,92));ArmorParts[17+Side]->SetRelativeLocation(Hand);
+-    }
+-    ArmorWeapon->SetRelativeRotation(FRotator(Kind==8?0.f:-Windup*65.f,0,0));
+-    ArmorParts[15]->SetRelativeRotation(FRotator(-8.f-Weight*18.f,Step*2.f,0));
+-    ArmorParts[19]->SetRelativeRotation(FRotator(-Weight*8.f+FMath::Sin(AS::Time(this)*3.f)*3.f,0,Step*2.f));
+-}
+-
+ void AASEnemy::RefreshStatus() {
+     const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
+     ASAssets::Style(Aura,TEXT("SM_Ring"),ASData::HitColor(Type),0,3);
+@@ -103,6 +86,7 @@
+ }
+ void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
+     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
++    RegisterCoopElement(Type,Source,Power);
+     if(Type==EASHitKind::Frost&&Power<=0) Elements.Frost=FMath::Max(Elements.Frost,12.f);
+     else Elements.Apply(int(Type),Power,Boss(),ASBuild::StatusDuration(Source->TraitValue(ASBuild::Trait::Duration)));
+     if(Type==EASHitKind::Burn) BurnSource=Source;if(Type==EASHitKind::Poison) PoisonSource=Source;if(Type==EASHitKind::Bleed) BleedSource=Source;
+@@ -139,6 +123,7 @@
+         if(bWinding) {Tell->SetRelativeRotation(FRotator(0,S->SimTime*100,0));if(auto* M=Cast<UMaterialInstanceDynamic>(Tell->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+T*6);}
+     }
+     if(!HasAuthority()||Health<=0) return;
++    if(SpawnProtected()) {GetCharacterMovement()->StopMovementImmediately();Tell->SetVisibility(true);Tell->SetRelativeScale3D(FVector(10,10,1));return;}
+     const bool Active=ASRules::CanDamageTarget(int(S->Phase),bTrainingDummy,false);
+     if(!Active) {
+         Elements=ASRules::ElementState();BurnPending=PoisonPending=BleedPending=0;
+@@ -164,8 +149,8 @@
+         if(Best<200*200 && S->SimTime>LastContact&&AS::ClearSight(GetWorld(),GetActorLocation(),Target->GetActorLocation())) {LastContact=S->SimTime+.5f;Target->Hurt(Kind==6?20:28,this);}return;
+     }
+     if(bWinding) {StuckFor=0;LastRoutePosition=GetActorLocation();GetCharacterMovement()->StopMovementImmediately();if(S->SimTime>=WindupEnd) {bWinding=false;CommitAttack();NextAttack=S->SimTime+(Boss()?2.f:1.8f);}return;}
+-    const float Range=Kind==8?1700.f:((Kind==1||Kind==2||Kind==7||Kind==9||Boss())?1300.f:(Kind==5||Kind==6?650.f:180.f));
+-    GetCharacterMovement()->MaxWalkSpeed=(Boss()?235.f:(Kind==5?390.f:(Kind==6?230.f:(Kind==0?340.f:275.f))))*ASArsenal::EnemySpeedScale(Elite()||Boss())*ASMelee::ApproachScale(FMath::Sqrt(Best),Range,Boss())*(SlowUntil>S->SimTime?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f));
++    const float Range=Kind==8?1700.f:((Kind==1||Kind==7||Kind==9||Boss())?1300.f:(Kind==5||Kind==6?650.f:180.f));
++    GetCharacterMovement()->MaxWalkSpeed=(Boss()?235.f:(Kind==5?390.f:(Kind==6?230.f:(Kind==0?340.f:275.f))))*ASArsenal::EnemySpeedScale(Elite()||Boss())*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f)*ASMelee::ApproachScale(FMath::Sqrt(Best),Range,Boss())*(SlowUntil>S->SimTime?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f));
+     const bool Sight=AS::ClearSight(GetWorld(),GetActorLocation(),Target->GetActorLocation());
+     if(Best<FMath::Square(Range) && S->SimTime>=NextAttack && Sight&&((Kind!=5&&Kind!=6)||!S->Arena||S->Arena->CanWalkDirectly(GetActorLocation(),Target->GetActorLocation()))) {
+         Aim=(Target->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();WindupStart=S->SimTime;WindupEnd=S->SimTime+(Kind==8?1.5f:(Kind==9?1.4f:(Boss()||Kind==6?1.1f:.85f)));bWinding=true;SetActorRotation(Aim.Rotation());return;
+@@ -208,7 +193,7 @@
+ 
+ }
+ void AASEnemy::CommitAttack() {
+-    auto* S=AS::State(this);if(!S) return;++Pattern;
++    auto* S=AS::State(this);if(!S||SpawnProtected()) return;++Pattern;AttackReleaseTime=S->SimTime;ForceNetUpdate();
+     auto Shot=[&](const FVector& D,int32 Type,float Damage){auto* P=AASProjectile::Fire(GetWorld(),GetActorLocation()+D*75+FVector(0,0,15),D,nullptr,Type,Damage,true);if(P) P->EnemySource=this;};
+     auto Blast=[&](const FVector& P,float R,float Damage,float Delay){auto* F=AASField::Spawn(GetWorld(),0,P,R,Damage,Delay,Delay+.4f);if(F) F->EnemySource=this;};
+     if(Kind==5) {GetCharacterMovement()->MaxWalkSpeed=1100;LaunchCharacter(Aim*620+FVector(0,0,280),true,true);LeapUntil=S->SimTime+.65f;return;}
+@@ -234,7 +219,7 @@
+             const int32 Count=PhaseTwo?18:12;
+             for(int32 I=0;I<Count;++I) Shot(FRotator(0,I*360.f/Count,0).Vector(),2,20);
+         }
+-    } else if(Kind==1||Kind==2) {
++    } else if(Kind==1) {
+         for(int32 I=0;I<(Kind==2?3:1);++I) Shot(Aim.RotateAngleAxis((I-(Kind==2?1:0))*13,FVector::UpVector),2,14);
+     } else {
+         S->Effect(1,GetActorLocation()-FVector(0,0,40),Aim,FLinearColor(1,.1f,.02f),Elite()?340:210);
+@@ -242,8 +227,11 @@
+     }
+ }
+ bool AASEnemy::Hit(float Damage,AASCharacter* Source) {
+-    if(!HasAuthority()||Health<=0||!FMath::IsFinite(Damage)||Damage<=0) return false;
++    if(!HasAuthority()||SpawnProtected()||Health<=0||!FMath::IsFinite(Damage)||Damage<=0) return false;
+     if(Kind==6&&IsValid(Source)&&FVector::DotProduct(GetActorForwardVector(),(Source->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>.35f) Damage*=.5f;
++    if(FirstEngagedAt<0) FirstEngagedAt=AS::Time(this);
++    if(IsValid(Source)&&!bTrainingDummy) if(auto* Player=Source->GetPlayerState<AASPlayerState>()) Player->RunDamage=FMath::Min(1.e12f,Player->RunDamage+FMath::Min(Damage,Health));
++    BeginHitReaction(IsValid(Source)?Source->GetActorLocation():GetActorLocation()-GetActorForwardVector(),Damage>=MaxHealth*.12f);
+     LastDamageTime=AS::Time(this);Health=FMath::Max(bTrainingDummy?1.f:0.f,Health-Damage);ForceNetUpdate();
+     if(Health<=0) {
+         if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->EnemyKilled(this,Source);
+@@ -253,9 +241,40 @@
+ }
+ 
+ void AASEnemy::Control(int32 Type,const FVector& Direction,float Strength) {
+-    if(!HasAuthority()||Boss()||bTrainingDummy||Health<=0) return;
++    if(!HasAuthority()||SpawnProtected()||bTrainingDummy||Health<=0) return;
+     const float Now=AS::Time(this);
++    if(Type==0&&Strength>=700.f) BeginHitReaction(GetActorLocation()-Direction,true);
++    if(Boss()) return;
+     if(Type==0) LaunchCharacter(Direction.GetSafeNormal2D()*Strength*(Elite()?.5f:1.f),true,false);
+     if(Type==1&&Now>=StunImmuneUntil) {StunUntil=Now+.4f;StunImmuneUntil=Now+2.f;bWinding=false;}
+     if(Type==2&&Now>=RootImmuneUntil) {RootUntil=Now+.8f;RootImmuneUntil=Now+3.f;}
+ }
++
++bool AASEnemy::SpawnProtected() const {return Boss()&&AS::Time(this)<SpawnProtectedUntil;}
++void AASEnemy::BeginHitReaction(const FVector& SourceLocation,bool Heavy) {
++    if(!HasAuthority()||SpawnProtected()) return;
++    HitReactionTime=AS::Time(this);HitReactionStrength=Heavy?1.f:.45f;
++    HitReactionDirection=(GetActorLocation()-SourceLocation).GetSafeNormal2D();ForceNetUpdate();
++}
++void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Power) {
++    if(!HasAuthority()||!IsValid(Source)||SpawnProtected()||Health<=0||bTrainingDummy) return;
++    auto* State=AS::State(this);if(!State||State->Phase!=EASPhase::Combat) return;
++    const int32 Element=int32(Type);if(Element!=2&&Element!=3&&Element!=4&&Element!=8) return;
++    const float Now=State->SimTime;int32 Trigger=-1;
++    for(int32 I=0;I<9;++I) if(SynergySources[I].IsValid()&&SynergySources[I].Get()!=Source&&Now-SynergyTimes[I]<=3.f) {
++        Trigger=ASExpedition::Synergy(I,Element);if(Trigger>=0) break;
++    }
++    SynergySources[Element]=Source;SynergyTimes[Element]=Now;
++    if(Trigger<0||Now<NextSynergy) return;
++    NextSynergy=Now+3.f;for(int32 I=0;I<9;++I) {SynergySources[I].Reset();SynergyTimes[I]=-100.f;}
++    const TCHAR* Names[]={TEXT("SYNERGY: Lightning Blast"),TEXT("SYNERGY: Stormbreak"),TEXT("SYNERGY: Wildfire")};
++    const FLinearColor Colors[]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
++    const FVector At=GetActorLocation();State->Effect(8,At,FVector::UpVector,Colors[Trigger],470.f);
++    for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* Controller=Cast<AASPlayerController>(Player->GetOwner())) Controller->Notify(Names[Trigger]);
++    const auto Targets=State->Enemies;
++    for(auto W:Targets) if(auto* Target=W.Get()) if(!Target->SpawnProtected()&&Target->Health>0&&FVector::DistSquared2D(At,Target->GetActorLocation())<470.f*470.f&&AS::ClearSight(GetWorld(),At,Target->GetActorLocation())) {
++        Target->BeginHitReaction(Source->GetActorLocation(),true);
++        if(Trigger==1) Target->SlowUntil=FMath::Max(Target->SlowUntil,Now+2.f);
++        Target->Hit(ASExpedition::SynergyDamage(Trigger,Target->MaxHealth,Power,Target->Boss()),Source);
++    }
++}
+--- /dev/null
++++ b/Source/AshenSpiral/Private/ASEnemyAnimation.cpp
+@@ -0,0 +1,30 @@
++#include "ASEnemy.h"
++#include "ASCharacter.h"
++#include "ASAnimationRules.h"
++#include "ASMeleeRules.h"
++#include "ASPose.h"
++#include "ASGameState.h"
++#include "ASWorld.h"
++#include "Components/StaticMeshComponent.h"
++#include "Components/SceneComponent.h"
++#include "Components/CapsuleComponent.h"
++#include "GameFramework/CharacterMovementComponent.h"
++#include "Engine/World.h"
++void AASEnemy::AnimateArmor(float Delta,float Windup) {
++    if(bTrainingDummy||Kind==5||Kind==9) return;
++    const float Speed=GetVelocity().Size2D(),Weight=FMath::Clamp(Speed/400.f,0.f,1.f);
++    GaitPhase+=Delta*Speed/190.f*UE_TWO_PI;const float Step=FMath::Sin(GaitPhase)*Weight;
++    ArmorParts[0]->SetRelativeRotation(FRotator(-5.f-Weight*4.f-Windup*10.f,Step*3.f,0));
++    ArmorParts[1]->SetRelativeRotation(FRotator(5.f-Windup*12.f,-Step*2.f,0));
++    for(int32 Side=0;Side<2;++Side) {
++        const float Sign=Side==0?-1.f:1.f;const auto F=ASAnimation::Foot(GaitPhase+Side*UE_PI,Weight);
++        const FVector Foot=ASPose::Limb(ArmorParts[7+Side*2],ArmorParts[8+Side*2],FVector(0,Sign*16,79),FVector(6+F.Forward,Sign*16,12+F.Lift),FVector(70,Sign*20,45),38,38,38,38);
++        ArmorParts[11+Side]->SetRelativeLocation(Foot+FVector(3,0,-2));ArmorParts[11+Side]->SetRelativeRotation(FRotator(F.Pitch,0,0));
++        const bool Gun=Kind==8;FVector Hand=Gun?FVector(Side==0?76:54,Side==0?-5:25,Side==0?133:119):FVector(24+(Side==0?-Step:Step)*12.f+Windup*28.f,Sign*45,74+Windup*40.f);
++        Hand=ASPose::Limb(ArmorParts[Side==0?3:5],ArmorParts[Side==0?4:6],FVector(0,Sign*34,133),Hand,FVector(-8,Sign*75,92));ArmorParts[17+Side]->SetRelativeLocation(Hand);
++    }
++    ArmorWeapon->SetRelativeRotation(FRotator(Kind==8?0.f:-Windup*65.f,0,0));
++    ArmorParts[15]->SetRelativeRotation(FRotator(-8.f-Weight*18.f,Step*2.f,0));
++    ArmorParts[19]->SetRelativeRotation(FRotator(-Weight*8.f+FMath::Sin(AS::Time(this)*3.f)*3.f,0,Step*2.f));
++}
++
+--- a/Source/AshenSpiral/Private/ASGameInstance.cpp
++++ b/Source/AshenSpiral/Private/ASGameInstance.cpp
+@@ -1,5 +1,8 @@
+ #include "ASGameInstance.h"
+ #include "ASRules.h"
++#include "ASExpeditionRules.h"
++#include "ASGameState.h"
++#include "ASPlayerController.h"
+ #include "Kismet/GameplayStatics.h"
+ #include "GameFramework/GameUserSettings.h"
+ #include "Engine/Engine.h"
+@@ -51,31 +54,11 @@
+ #if WITH_EDITOR
+     else if(GetWorldContext() && GetWorldContext()->PIEInstance>=0) Slot+=FString::Printf(TEXT("_PIE%d"),GetWorldContext()->PIEInstance);
+ #endif
+-    bool Loaded=false,FoundStored=false,FoundLegacy=false,LegacyLoaded=false;
+-    // This folder is independent of the extracted project/version directory.
+-    for(const TCHAR* Suffix:{TEXT("_A.sav"),TEXT("_B.sav")}) {
+-        FoundStored|=IFileManager::Get().FileExists(*FPaths::Combine(ProgressDirectory(),Slot+Suffix));
+-        if(auto* Save=ReadProgressFile(FPaths::Combine(ProgressDirectory(),Slot+Suffix))) if(!Loaded||Save->Revision>Revision) {
+-            Profile=Save->Data;Revision=Save->Revision;Loaded=true;
+-        }
+-    }
+-    if(!Loaded) {
+-        // First-use migration when old SaveGames were copied alongside this build.
+-        for(const TCHAR* Suffix:{TEXT("_A"),TEXT("_B")}) {
+-            FoundLegacy|=UGameplayStatics::DoesSaveGameExist(Slot+Suffix,0);
+-            auto* Save=Cast<UASSaveData>(UGameplayStatics::LoadGameFromSlot(Slot+Suffix,0));
+-            if(ValidProgress(Save)&&Save->Revision>=Revision) {
+-                Profile=Save->Data;Revision=Save->Revision;LegacyLoaded=true;
+-            }
+-        }
+-        Profile.Sanitize();
+-        if((FoundStored||FoundLegacy)&&!LegacyLoaded) {bProgressBlocked=true;LastMessage=TEXT("Saved progress could not be read. Existing files have been preserved. Restore a backup from the Progress page.");}
+-        else Commit(Profile);
+-    } else {
+-        FASProfileData Migrated=Profile;Migrated.Sanitize();
+-        if(Profile.MigrationVersion<20) {if(!Commit(Migrated)) bProgressBlocked=true;}
+-        else Profile=Migrated;
+-    }
++    BaseSlot=Slot;
++    GConfig->GetInt(TEXT("AshenSpiral"),*(BaseSlot+TEXT("_Character")),ActiveCharacterSlot,GGameUserSettingsIni);
++    ActiveCharacterSlot=FMath::Clamp(ActiveCharacterSlot,0,1);
++    if(ActiveCharacterSlot==1) Slot+=TEXT("_Character2");
++    LoadCharacter();
+     GConfig->GetInt(TEXT("AshenSpiral"),TEXT("Quality"),Quality,GGameUserSettingsIni);
+     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("Sensitivity"),Sensitivity,GGameUserSettingsIni);
+     GConfig->GetBool(TEXT("AshenSpiral"),TEXT("RaiseStakes"),bRaiseStakes,GGameUserSettingsIni);
+@@ -181,6 +164,8 @@
+     else if(Clean.EndsWith(TEXT("_B.sav"))) Companion=Clean.LeftChop(6)+TEXT("_A.sav");
+     else if(Clean==DefaultImportPath()) Companion=FPaths::Combine(FPaths::GetPath(Clean),TEXT("SelectedProgress_Companion.sav"));
+     if(!Companion.IsEmpty()) if(auto* Other=ReadProgressFile(Companion)) if(Other->Data.ProfileId==Save->Data.ProfileId&&Other->Revision>Save->Revision) {Save=Other;Clean=Companion;}
++    const FString OtherSlot=BaseSlot+(ActiveCharacterSlot==0?TEXT("_Character2"):TEXT(""));
++    for(const TCHAR* Suffix:{TEXT("_A.sav"),TEXT("_B.sav")}) if(auto* Other=ReadProgressFile(FPaths::Combine(ProgressDirectory(),OtherSlot+Suffix))) if(Other->Data.ProfileId==Save->Data.ProfileId) {LastMessage=TEXT("This export belongs to your other character. Switch to that character before restoring it.");return false;}
+     ImportSourcePath=Clean;ImportPreview=Save->Data;ImportPreview.Sanitize();bImportReady=true;LastMessage=TEXT("Review the progress to restore. A backup of your current profile will be created first.");return true;
+ }
+ bool UASGameInstance::RestoreImport() {
+@@ -220,14 +205,25 @@
+         int32 Spent=0;for(int32 J=0;J<12;++J) if(C.Build.Talent(J) && ASData::Talents[J].Branch==ASData::Talents[I].Branch) Spent+=ASData::Talents[J].Cost;
+         if(Spent>=ASData::Talents[I].Required && ASRules::Spend(C.SkillPoints,ASData::Talents[I].Cost)) {C.Build.TalentMask|=1<<I;Valid=true;}
+     }
++    if(Category==9&&I==0&&C.EndlessChoices<2&&ASRules::Spend(C.Ash,ASExpedition::ChoiceCost(C.EndlessChoices))) {++C.EndlessChoices;Valid=true;}
+     if(!Valid || !Commit(C)) return false;
+     LastMessage=TEXT("Saved. Your next expedition will use this loadout.");return true;
+ }
+ bool UASGameInstance::Receive(const FASReceipt& R) {
+-    if(R.Id.IsEmpty() || R.Id.Len()>128 || R.Room<0 || R.Room>32) return false;
++    if(R.ProfileId!=Profile.ProfileId||R.Id.IsEmpty() || R.Id.Len()>128 || R.Room<0 || R.Room>32) return false;
+     if(Profile.Receipts.Contains(R.Id)) return true;
+     FASProfileData C=Profile;
+-    C.Ash=ASRules::Credit(C.Ash,FMath::Clamp(R.Ash,0,1000));
++    if(R.AshCost<0||R.ScrapCost<0||R.AshCost>C.Ash||R.ScrapCost>C.Materials[0]) {LastMessage=TEXT("Receipt funds do not match this character. No change saved.");return false;}
++    C.Ash-=R.AshCost;C.Materials[0]-=R.ScrapCost;
++    C.Materials[0]=ASRules::Credit(C.Materials[0],FMath::Clamp(R.Scrap,0,10000));
++    if(R.bEndless) {
++        C.BestEndlessWave=FMath::Max(C.BestEndlessWave,FMath::Clamp(R.EndlessWave,0,10000));
++        if(R.bRunEnded&&!R.EndlessRecord.RunId.IsEmpty()) {
++            C.EndlessRecords.RemoveAll([&R](const FASEndlessRecord& Entry){return Entry.RunId==R.EndlessRecord.RunId;});
++            C.EndlessRecords.Add(R.EndlessRecord);
++        }
++    }
++    C.Ash=ASRules::Credit(C.Ash,FMath::Clamp(R.Ash,0,10000));
+     C.RelicEmbers=ASRules::Credit(C.RelicEmbers,FMath::Clamp(R.Embers,0,10));
+     C.Tablets=ASRules::Credit(C.Tablets,FMath::Clamp(R.Tablets,0,10));
+     C.SkillPoints=ASRules::Credit(C.SkillPoints,FMath::Clamp(R.Points,0,10));
+@@ -275,3 +271,45 @@
+         }));
+     }
+ }
++
++bool UASGameInstance::LoadCharacter() {
++    Profile=FASProfileData();Revision=0;bProgressBlocked=false;
++    bool Loaded=false,FoundStored=false,FoundLegacy=false,LegacyLoaded=false;
++    // This folder is independent of the extracted project/version directory.
++    for(const TCHAR* Suffix:{TEXT("_A.sav"),TEXT("_B.sav")}) {
++        FoundStored|=IFileManager::Get().FileExists(*FPaths::Combine(ProgressDirectory(),Slot+Suffix));
++        if(auto* Save=ReadProgressFile(FPaths::Combine(ProgressDirectory(),Slot+Suffix))) if(!Loaded||Save->Revision>Revision) {
++            Profile=Save->Data;Revision=Save->Revision;Loaded=true;
++        }
++    }
++    if(!Loaded) {
++        // First-use migration when old SaveGames were copied alongside this build.
++        for(const TCHAR* Suffix:{TEXT("_A"),TEXT("_B")}) {
++            FoundLegacy|=UGameplayStatics::DoesSaveGameExist(Slot+Suffix,0);
++            auto* Save=Cast<UASSaveData>(UGameplayStatics::LoadGameFromSlot(Slot+Suffix,0));
++            if(ValidProgress(Save)&&Save->Revision>=Revision) {
++                Profile=Save->Data;Revision=Save->Revision;LegacyLoaded=true;
++            }
++        }
++        Profile.Sanitize();
++        if((FoundStored||FoundLegacy)&&!LegacyLoaded) {bProgressBlocked=true;LastMessage=TEXT("Saved progress could not be read. Existing files have been preserved. Restore a backup from the Progress page.");}
++        else Commit(Profile);
++    } else {
++        FASProfileData Migrated=Profile;Migrated.Sanitize();
++        if(Profile.MigrationVersion<20) {if(!Commit(Migrated)) bProgressBlocked=true;}
++        else Profile=Migrated;
++    }
++    return !bProgressBlocked;
++}
++bool UASGameInstance::SwitchCharacterSlot(int32 Index) {
++    auto* State=AS::State(this);
++    if(Index<0||Index>1||!State||State->Phase!=EASPhase::Hub) {LastMessage=TEXT("Switch characters in the hub.");return false;}
++    for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(Player->bSavePending) {LastMessage=TEXT("Wait for pending saves before switching.");return false;}
++    if(Index==ActiveCharacterSlot) return true;
++    const auto OldProfile=Profile;const auto OldSlot=Slot;const int32 OldRevision=Revision;const bool OldBlocked=bProgressBlocked;
++    Slot=BaseSlot+(Index==1?TEXT("_Character2"):TEXT(""));
++    if(!LoadCharacter()) {const auto Error=LastMessage;Profile=OldProfile;Slot=OldSlot;Revision=OldRevision;bProgressBlocked=OldBlocked;LastMessage=Error;return false;}
++    ActiveCharacterSlot=Index;bImportReady=false;ImportSourcePath.Empty();
++    GConfig->SetInt(TEXT("AshenSpiral"),*(BaseSlot+TEXT("_Character")),Index,GGameUserSettingsIni);GConfig->Flush(false,GGameUserSettingsIni);
++    LastMessage=FString::Printf(TEXT("Character %d loaded. Progress is independent."),Index+1);return true;
++}
+--- a/Source/AshenSpiral/Private/ASGameMode.cpp
++++ b/Source/AshenSpiral/Private/ASGameMode.cpp
+@@ -57,7 +57,7 @@
+ #endif
+     const FString ID=UGameplayStatics::ParseOption(Options,TEXT("Profile"));
+     if(!EditorTest) {
+-        if(UGameplayStatics::GetIntOption(Options,TEXT("Protocol"),0)!=ASData::Protocol) {Error=TEXT("Both players need Ashen Spiral UE 0.22.0 (protocol 2200).");return;}
++        if(UGameplayStatics::GetIntOption(Options,TEXT("Protocol"),0)!=ASData::Protocol) {Error=TEXT("Both players need Ashen Spiral UE 0.23.0 (protocol 2300).");return;}
+         if(UGameplayStatics::ParseOption(Options,TEXT("Code")).ToUpper()!=S->SessionCode) {Error=TEXT("Session code does not match the host.");return;}
+         if(S->Phase!=EASPhase::Hub && !Disconnected.Contains(ID)) {Error=TEXT("An expedition is already running. Join in the hub.");return;}
+     }
+--- a/Source/AshenSpiral/Private/ASGameState.cpp
++++ b/Source/AshenSpiral/Private/ASGameState.cpp
+@@ -9,6 +9,7 @@
+ void AASGameState::Tick(float Delta) {Super::Tick(Delta);if(!Frozen()) SimTime+=Delta;if(Arena) Arena->UpdateVaultAppearance();}
+ void AASGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
++    DOREPLIFETIME(AASGameState,Difficulty);DOREPLIFETIME(AASGameState,bEndless);DOREPLIFETIME(AASGameState,EndlessWave);DOREPLIFETIME(AASGameState,ClearedEndlessWave);DOREPLIFETIME(AASGameState,bLuckyShop);DOREPLIFETIME(AASGameState,bRareShop);DOREPLIFETIME(AASGameState,ShuffleAt);
+     DOREPLIFETIME(AASGameState,Phase);DOREPLIFETIME(AASGameState,bPartyPaused);DOREPLIFETIME(AASGameState,bConnectionHold);
+     DOREPLIFETIME(AASGameState,ReconnectRemaining);DOREPLIFETIME(AASGameState,SimTime);DOREPLIFETIME(AASGameState,CountdownEnd);
+     DOREPLIFETIME(AASGameState,Challenge);DOREPLIFETIME(AASGameState,VaultMask);DOREPLIFETIME(AASGameState,bVaultClaimed);
+@@ -18,6 +19,7 @@
+ }
+ void AASPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
++    DOREPLIFETIME(AASPlayerState,bEndlessUnlocked);DOREPLIFETIME(AASPlayerState,EndlessChoices);DOREPLIFETIME(AASPlayerState,AvailableAsh);DOREPLIFETIME(AASPlayerState,AvailableScrap);DOREPLIFETIME(AASPlayerState,RunDamage);DOREPLIFETIME(AASPlayerState,RunDamageTaken);DOREPLIFETIME(AASPlayerState,RunKills);DOREPLIFETIME(AASPlayerState,bShopClaimed);DOREPLIFETIME(AASPlayerState,LastGambleRoom);
+     DOREPLIFETIME(AASPlayerState,ColorChoice);DOREPLIFETIME(AASPlayerState,CharacterLevel);DOREPLIFETIME(AASPlayerState,TitleIndex);DOREPLIFETIME(AASPlayerState,TitleTier);DOREPLIFETIME(AASPlayerState,Build);DOREPLIFETIME(AASPlayerState,PlayerIndex);DOREPLIFETIME(AASPlayerState,bReady);DOREPLIFETIME(AASPlayerState,bWagerVote);DOREPLIFETIME(AASPlayerState,bShrineUsed);
+     DOREPLIFETIME(AASPlayerState,bProfileReady);DOREPLIFETIME(AASPlayerState,bRewardClaimed);DOREPLIFETIME(AASPlayerState,bSavePending);
+     DOREPLIFETIME(AASPlayerState,ProfileId);DOREPLIFETIME_CONDITION(AASPlayerState,Offers,COND_OwnerOnly);
+--- a/Source/AshenSpiral/Private/ASHUD.cpp
++++ b/Source/AshenSpiral/Private/ASHUD.cpp
+@@ -17,7 +17,7 @@
+ #include "Engine/Engine.h"
+ #include "Engine/World.h"
+ #include "ASRules.h"
+-namespace {const FLinearColor Purple(.72f,.24f,1.f),Gold(1,.65f,.22f),Teal(.15f,.87f,.74f),Muted(.70f,.75f,.80f),Red(1,.15f,.16f);}
++namespace {const FLinearColor ASHudPurple(.72f,.24f,1.f),ASHudGold(1,.65f,.22f),ASHudTeal(.15f,.87f,.74f),ASHudMuted(.70f,.75f,.80f),ASHudRed(1,.15f,.16f);}
+ // Keep all dynamic text in Slate. Canvas remains responsible for bars/lines only.
+ class SASHUDText : public SLeafWidget {
+ public:
+@@ -62,22 +62,22 @@
+     auto XY=[&](const FVector& P){return FVector2D(MidX+(P.Y-MapCenter.Y)/WorldSpan*Size,MidY-(P.X-MapCenter.X)/WorldSpan*Size);};
+     if(S->Phase==EASPhase::Hub) {
+         Box(MidX-73,MidY-73,146,146,FLinearColor(.12f,.16f,.19f,.85f));
+-        for(const auto& Station:A->Stations) {const FVector2D P=XY(Station.Position);Box(P.X-3,P.Y-3,6,6,Gold);}
++        for(const auto& Station:A->Stations) {const FVector2D P=XY(Station.Position);Box(P.X-3,P.Y-3,6,6,ASHudGold);}
+     } else {
+         for(auto E:A->Layout.Edges) {
+             const FVector2D P=XY(A->CellPosition(E.A)),Q=XY(A->CellPosition(E.B));
+-            Line(P.X,P.Y,Q.X,Q.Y,E.Gap?Gold:FLinearColor(.26f,.33f,.38f),E.Gap?1.4f:3.f);
++            Line(P.X,P.Y,Q.X,Q.Y,E.Gap?ASHudGold:FLinearColor(.26f,.33f,.38f),E.Gap?1.4f:3.f);
+         }
+         for(int32 I=0;I<int32(A->Layout.Cells.size());++I) {auto P=XY(A->CellPosition(I));const auto Half=A->CellHalfSize(I);const float W=Half.Y*2/WorldSpan*Size,H=Half.X*2/WorldSpan*Size;Box(P.X-W*.5f,P.Y-H*.5f,W,H,FLinearColor(.16f,.20f,.24f,.97f));}
+-        auto Chest=XY(A->ExitPoint());Box(Chest.X-4,Chest.Y-4,8,8,Gold);
++        auto Chest=XY(A->ExitPoint());Box(Chest.X-4,Chest.Y-4,8,8,ASHudGold);
+         int32 Index=0;for(const FVector& Warning:S->SpawnWarnings) {
+             const auto P=XY(Warning);const bool Large=ASRules::Boss(S->Room)||(ASRules::Elite(S->Room)&&S->Wave==2&&Index==S->SpawnWarnings.Num()-1);++Index;
+             const float R=Large?5.f:3.f;const float Pulse=.65f+.35f*FMath::Sin(S->SimTime*8.f);
+-            Box(P.X-R-2,P.Y-R-2,(R+2)*2,(R+2)*2,FLinearColor(1,.12f,.12f,Pulse*.5f));Box(P.X-R,P.Y-R,R*2,R*2,Red);
++            Box(P.X-R-2,P.Y-R-2,(R+2)*2,(R+2)*2,FLinearColor(1,.12f,.12f,Pulse*.5f));Box(P.X-R,P.Y-R,R*2,R*2,ASHudRed);
+         }
+         for(auto W:S->Enemies) if(auto* E=W.Get()) if(!E->bTrainingDummy&&E->Health>0) {
+             const auto P=XY(E->GetActorLocation());const float R=E->Boss()?5.f:(E->Elite()?4.f:2.4f);
+-            Box(P.X-R,P.Y-R,R*2,R*2,Red);
++            Box(P.X-R,P.Y-R,R*2,R*2,ASHudRed);
+         }
+     }
+     for(auto W:S->Heroes) if(auto* H=W.Get()) {
+@@ -86,7 +86,7 @@
+         if(H->bDowned) {Line(P.X-6,P.Y,P.X+6,P.Y,C,2);Line(P.X,P.Y-6,P.X,P.Y+6,C,2);}const FVector Dir=H->GetActorForwardVector();
+         Line(P.X,P.Y,P.X+Dir.Y*10,P.Y-Dir.X*10,C,2.f);
+     }
+-    Text(S->Phase==EASPhase::Hub?TEXT("EMBER NEXUS"):FString::Printf(TEXT("%d ROOMS"),int32(A->Layout.Cells.size())),12,192,Muted,.65f);
++    Text(S->Phase==EASPhase::Hub?TEXT("EMBER NEXUS"):FString::Printf(TEXT("%d ROOMS"),int32(A->Layout.Cells.size())),12,192,ASHudMuted,.65f);
+     Box(159,197,5,5,ASData::MapPlayerColor(0));Box(173,197,5,5,ASData::MapPlayerColor(1));
+ }
+ void AASHUD::DrawHUD() {
+@@ -105,32 +105,32 @@
+     const auto* Preferences=PC->GetGameInstance<UASGameInstance>();
+     const float UI=Preferences?ASPresentation::HUDScale(Preferences->HUDScale):1.f;
+     const float Delta=GetWorld()->GetDeltaSeconds(),Now=GetWorld()->GetTimeSeconds();
+-    Group(24,24,UI);Box(0,0,2,82,Teal);
+-    Text(S->Phase==EASPhase::Hub?TEXT("EMBER NEXUS"):ASData::Biomes[ASAdventure::Biome(S->Room)],14,10,Gold,.83f);
+-    Text(S->Phase==EASPhase::Hub?TEXT("EXPEDITION HUB"):FString::Printf(TEXT("CHAMBER %02d / 32     WAVE %d / %d"),S->Room+1,S->Wave+1,ASRules::WaveCount(S->Room)),14,36,Muted,.65f);
+-    if(S->Phase==EASPhase::Hub&&Preferences) Text(FString::Printf(TEXT("LEVEL %d    ASH %d    EMBERS %d"),ASCareer::Level(Preferences->Profile.Experience),Preferences->Profile.Ash,Preferences->Profile.RelicEmbers),14,58,Muted,.65f);
+-    else Text(FString::Printf(TEXT("%d FOES    %d CINDERS%s"),S->LivingEnemies+S->PendingSpawns,S->Cinders,S->Challenge>0?*FString::Printf(TEXT("    WAGER %d"),S->Challenge):TEXT("")),14,58,Muted,.65f);
++    Group(24,24,UI);Box(0,0,2,82,ASHudTeal);
++    Text(S->Phase==EASPhase::Hub?TEXT("EMBER NEXUS"):ASData::Biomes[ASAdventure::Biome(S->Room)],14,10,ASHudGold,.83f);
++    Text(S->Phase==EASPhase::Hub?TEXT("EXPEDITION HUB"):FString::Printf(TEXT("CHAMBER %02d / 32     WAVE %d / %d"),S->Room+1,S->Wave+1,ASRules::WaveCount(S->Room)),14,36,ASHudMuted,.65f);
++    if(S->Phase==EASPhase::Hub&&Preferences) Text(FString::Printf(TEXT("LEVEL %d    ASH %d    EMBERS %d"),ASCareer::Level(Preferences->Profile.Experience),Preferences->Profile.Ash,Preferences->Profile.RelicEmbers),14,58,ASHudMuted,.65f);
++    else Text(FString::Printf(TEXT("%d FOES    %d CINDERS%s"),S->LivingEnemies+S->PendingSpawns,S->Cinders,S->Challenge>0?*FString::Printf(TEXT("    WAGER %d"),S->Challenge):TEXT("")),14,58,ASHudMuted,.65f);
+     Group(Width-24-192*UI,24,UI);Map(S,H);Group();
+     if(S->Phase==EASPhase::Hub&&Preferences) {
+         const auto& Profile=Preferences->Profile;
+         Group(Width-24-292*UI,24+229*UI,UI);
+-        Text(FString::Printf(TEXT("TABLETS %d"),Profile.Tablets),12,8,Gold,.60f);
+-        Text(FString::Printf(TEXT("SKILL POINTS %d"),Profile.SkillPoints),12,30,Gold,.60f);
+-        int32 Row=0;for(int32 I:{0,1,4}) Text(FString::Printf(TEXT("%s  %d"),ASData::Materials[I],Profile.Materials.IsValidIndex(I)?Profile.Materials[I]:0),12,58+Row++*19,Muted,.6f);
++        Text(FString::Printf(TEXT("TABLETS %d"),Profile.Tablets),12,8,ASHudGold,.60f);
++        Text(FString::Printf(TEXT("SKILL POINTS %d"),Profile.SkillPoints),12,30,ASHudGold,.60f);
++        int32 Row=0;for(int32 I:{0,1,4}) Text(FString::Printf(TEXT("%s  %d"),ASData::Materials[I],Profile.Materials.IsValidIndex(I)?Profile.Materials[I]:0),12,58+Row++*19,ASHudMuted,.6f);
+         Group();
+     }
+     const float HP=H->Health/FMath::Max(1.f,H->MaxHealth);
+     TrailingHealth=HP>=TrailingHealth?HP:FMath::FInterpTo(TrailingHealth,HP,Delta,4.f);
+-    Group(24,Height-24-100*UI,UI);Box(0,0,2,100,Teal);
++    Group(24,Height-24-100*UI,UI);Box(0,0,2,100,ASHudTeal);
+     Text(ASData::Weapons[H->Build.Weapon].Name,14,10,FLinearColor::White,.85f);
+     if(ASMelee::IsMelee(H->Build.Weapon)) {
+         const bool Swing=S->SimTime<H->AttackPoseStarted+H->AttackPoseDuration;
+-        if(ASMelee::ComboLength(H->Build.Weapon)==3) for(int32 I=0;I<3;++I) Box(14+I*29,46,22,4,Swing&&I==H->MeleeStep?(I==2?Gold:Teal):Muted*.35f);
+-        Text(Swing&&H->MeleeStep==2?TEXT("FINISHER"):TEXT("MELEE"),110,38,Muted,.60f);
+-    } else Text(FString::Printf(TEXT("%02d / %02d  %s"),H->Ammo,H->MagazineCapacity(),H->IsReloading()?TEXT("RELOADING"):TEXT("")),14,38,H->IsReloading()?Gold:Muted,.72f);
+-    if(H->IsReloading()) {Bar(14,-10,302,3,H->ReloadProgress(),Gold);Text(FString::Printf(TEXT("%.1fs"),FMath::Max(0.f,H->ReloadEnd-S->SimTime)),263,-32,Gold,.65f);}
++        if(ASMelee::ComboLength(H->Build.Weapon)==3) for(int32 I=0;I<3;++I) Box(14+I*29,46,22,4,Swing&&I==H->MeleeStep?(I==2?ASHudGold:ASHudTeal):ASHudMuted*.35f);
++        Text(Swing&&H->MeleeStep==2?TEXT("FINISHER"):TEXT("MELEE"),110,38,ASHudMuted,.60f);
++    } else Text(FString::Printf(TEXT("%02d / %02d  %s"),H->Ammo,H->MagazineCapacity(),H->IsReloading()?TEXT("RELOADING"):TEXT("")),14,38,H->IsReloading()?ASHudGold:ASHudMuted,.72f);
++    if(H->IsReloading()) {Bar(14,-10,302,3,H->ReloadProgress(),ASHudGold);Text(FString::Printf(TEXT("%.1fs"),FMath::Max(0.f,H->ReloadEnd-S->SimTime)),263,-32,ASHudGold,.65f);}
+     Text(FString::Printf(TEXT("%.0f / %.0f"),H->Health,H->MaxHealth),205,38,FLinearColor::White,.72f);
+-    Box(14,63,302,10,FLinearColor(.09f,.12f,.16f,.95f));Box(14,63,302*TrailingHealth,10,FLinearColor(.94f,.39f,.28f,.72f));Box(14,63,302*HP,10,Teal);
++    Box(14,63,302,10,FLinearColor(.09f,.12f,.16f,.95f));Box(14,63,302*TrailingHealth,10,FLinearColor(.94f,.39f,.28f,.72f));Box(14,63,302*HP,10,ASHudTeal);
+     if(H->Shield>0) {Bar(14,82,235,4,H->Shield/FMath::Max(60.f,H->MaxHealth),ASData::HitColor(EASHitKind::Shield));Text(FString::Printf(TEXT("+%.0f"),H->Shield),266,76,ASData::HitColor(EASHitKind::Shield),.60f);}
+     Group();
+     if(S->SimTime-PC->LastHurtAt<.25f) {const float Alpha=(.25f-S->SimTime+PC->LastHurtAt)*2;Box(0,0,Width,4,FLinearColor(1,.15f,.2f,Alpha));Box(0,Height-4,Width,4,FLinearColor(1,.15f,.2f,Alpha));}
+@@ -139,26 +139,26 @@
+     if(H->Build.Weapon==1) {
+         const float Leap=FMath::Max(0.f,H->NextHammerLeap-S->SimTime);
+         Group(Width-24-384*UI,Height-24-112*UI,UI);
+-        Text(FString::Printf(TEXT("%s  LEAP  %s"),*Key("Spiral"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Leap<=.02f?Gold:Muted,.62f);
+-        Bar(12,24,358,2,1.f-Leap/ASHammer::Cooldown,Gold);Group();
++        Text(FString::Printf(TEXT("%s  LEAP  %s"),*Key("Spiral"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Leap<=.02f?ASHudGold:ASHudMuted,.62f);
++        Bar(12,24,358,2,1.f-Leap/ASHammer::Cooldown,ASHudGold);Group();
+     }
+     Group(Width-24-384*UI,Height-24-76*UI,UI);
+     for(int32 I=1;I<3;++I) Box(I*128,12,1,52,FLinearColor(.22f,.31f,.34f,.65f));
+-    Text(TEXT("DASH"),12,10,Muted,.65f);Text(Key("Dash"),68,10,Gold,.6f);
+-    Text(Dash<=.02f?TEXT("READY"):FString::Printf(TEXT("%.1fs"),Dash),12,30,Dash<=.02f?Gold:Muted,.85f);
+-    Text(FString::Printf(TEXT("%d / %d CHARGES"),H->Movement()->DashCharges,H->MaxDashCharges()),12,56,Muted,.55f);
+-    Text(TEXT("SPIRAL"),140,10,Muted,.65f);Text(Key(H->Build.Weapon==1?"HammerAlt":"Spiral"),206,10,Teal,.6f);
+-    Text(Spiral<=.02f?TEXT("READY"):FString::Printf(TEXT("%.1fs"),Spiral),140,30,Spiral<=.02f?Teal:Muted,.85f);
+-    Bar(140,61,102,3,1.f-Spiral/FMath::Max(.1f,H->SpiralCooldown()),Teal);
+-    Text(FString(ASData::Abilities[H->Build.Ability].Name).Left(14),268,10,Muted,.60f);
+-    Text(Rune<=.02f?FString::Printf(TEXT("[%s] READY"),*Key("Rune")):FString::Printf(TEXT("%.1fs"),Rune),268,30,Rune<=.02f?Teal:Muted,.75f);
++    Text(TEXT("DASH"),12,10,ASHudMuted,.65f);Text(Key("Dash"),68,10,ASHudGold,.6f);
++    Text(Dash<=.02f?TEXT("READY"):FString::Printf(TEXT("%.1fs"),Dash),12,30,Dash<=.02f?ASHudGold:ASHudMuted,.85f);
++    Text(FString::Printf(TEXT("%d / %d CHARGES"),H->Movement()->DashCharges,H->MaxDashCharges()),12,56,ASHudMuted,.55f);
++    Text(TEXT("SPIRAL"),140,10,ASHudMuted,.65f);Text(Key(H->Build.Weapon==1?"HammerAlt":"Spiral"),206,10,ASHudTeal,.6f);
++    Text(Spiral<=.02f?TEXT("READY"):FString::Printf(TEXT("%.1fs"),Spiral),140,30,Spiral<=.02f?ASHudTeal:ASHudMuted,.85f);
++    Bar(140,61,102,3,1.f-Spiral/FMath::Max(.1f,H->SpiralCooldown()),ASHudTeal);
++    Text(FString(ASData::Abilities[H->Build.Ability].Name).Left(14),268,10,ASHudMuted,.60f);
++    Text(Rune<=.02f?FString::Printf(TEXT("[%s] READY"),*Key("Rune")):FString::Printf(TEXT("%.1fs"),Rune),268,30,Rune<=.02f?ASHudTeal:ASHudMuted,.75f);
+     Bar(268,61,102,3,H->Focus/H->MaxFocus(),FLinearColor(.3f,.55f,1));Group();
+     if(H->bCharging) {
+         const float Held=S->SimTime-H->ChargeStart,Bonus=H->Rank(6)*.025f+(H->Relic(19)?.08f:0.f),Start=(.7f-Bonus)/1.4f,End=(.92f+Bonus)/1.4f;
+         const bool Perfect=ASRules::Perfect(Held,H->Rank(6),H->Relic(19));
+         Group(Width*.5f-160*UI,Height-210*UI,UI);
+-        Text(Perfect?TEXT("RELEASE / PERFECT SPIRAL"):TEXT("RELEASE IN THE GOLD WINDOW"),12,8,Perfect?Gold:Muted,.66f);
+-        Box(12,37,296,5,FLinearColor(.18f,.22f,.26f));Box(12+Start*296,34,(End-Start)*296,11,Gold);
++        Text(Perfect?TEXT("RELEASE / PERFECT SPIRAL"):TEXT("RELEASE IN THE GOLD WINDOW"),12,8,Perfect?ASHudGold:ASHudMuted,.66f);
++        Box(12,37,296,5,FLinearColor(.18f,.22f,.26f));Box(12+Start*296,34,(End-Start)*296,11,ASHudGold);
+         Box(12+FMath::Clamp(Held/1.4f,0.f,1.f)*292,31,3,17,FLinearColor::White);Group();
+     }
+     PC->Notifications.RemoveAll([Now](const FASNotice& Entry){return Now-Entry.Born>=ASPresentation::NoticeLife;});
+@@ -178,7 +178,7 @@
+         Group();
+     }
+     const float CX=Width*.5f,CY=Height*.5f;
+-    if(RouteGuide&&RouteGuide->JumpAhead) {Group(CX-130*UI,Height-230*UI,UI);Text(TEXT("JUMP + AIR DASH / GOLD ARC"),0,0,Gold,.68f);Group();}
++    if(RouteGuide&&RouteGuide->JumpAhead) {Group(CX-130*UI,Height-230*UI,UI);Text(TEXT("JUMP + AIR DASH / GOLD ARC"),0,0,ASHudGold,.68f);Group();}
+     const auto* Settings=PC->GetGameInstance<UASGameInstance>();
+     const float AimScale=Settings?Settings->CrosshairScale:1.f,R=10.f*AimScale,Gap=4.f*AimScale;
+     const int32 Shape=Settings?Settings->CrosshairStyle:0;
+@@ -195,22 +195,22 @@
+     }
+     if(PC->bAimBlocked) {
+         FVector2D Impact;if(PC->ProjectWorldLocationToScreen(PC->ShotImpact,Impact)) {
+-            const float X=Impact.X/Scale,Y=Impact.Y/Scale;Line(X-7,Y-7,X+7,Y+7,Red,2);Line(X+7,Y-7,X-7,Y+7,Red,2);
+-        }
+-        Text(TEXT("COVER BLOCKS SHOT"),CX-95,CY+26,Gold,.65f);
++            const float X=Impact.X/Scale,Y=Impact.Y/Scale;Line(X-7,Y-7,X+7,Y+7,ASHudRed,2);Line(X+7,Y-7,X-7,Y+7,ASHudRed,2);
++        }
++        Text(TEXT("COVER BLOCKS SHOT"),CX-95,CY+26,ASHudGold,.65f);
+     }
+     FString Objective;
+     if(S->Phase==EASPhase::Countdown) Objective=FString::Printf(TEXT("WAVE IN %.0f / WATCH RED MARKERS"),FMath::CeilToFloat(S->CountdownEnd-S->SimTime));
+     else if(S->Phase==EASPhase::Victory) Objective=TEXT("EXPEDITION COMPLETE / RETURN PORTAL");
+     else if(S->Phase==EASPhase::Reward) Objective=TEXT("CLEARED / FOLLOW THE GOLD PATH");
+-    if(!Objective.IsEmpty()) {Group(CX-230*UI,24,UI);Text(Objective,14,10,Gold,.68f);Group();}
++    if(!Objective.IsEmpty()) {Group(CX-230*UI,24,UI);Text(Objective,14,10,ASHudGold,.68f);Group();}
+     for(auto W:S->Enemies) if(auto* Enemy=W.Get()) if(Enemy->Boss()) {
+-        Group(CX-230*UI,24,UI);Text(ASData::Bosses[Enemy->Ward],14,8,Gold,.8f);Bar(14,39,432,4,Enemy->Health/Enemy->MaxHealth,Red);Group();break;
++        Group(CX-230*UI,24,UI);Text(ASData::Bosses[Enemy->Ward],14,8,ASHudGold,.8f);Bar(14,39,432,4,Enemy->Health/Enemy->MaxHealth,ASHudRed);Group();break;
+     }
+     float PartnerY=24+130*UI;for(auto W:S->Heroes) if(auto* Partner=W.Get()) if(Partner!=H) {
+         Group(24,PartnerY,UI);
+-        Text(Partner->bDowned?TEXT("PARTNER DOWN / HOLD REVIVE"):TEXT("PARTNER"),12,8,Partner->bDowned?Red:Teal,.65f);
+-        Bar(12,35,220,4,Partner->Health/Partner->MaxHealth,Teal);Group();PartnerY+=60*UI;
++        Text(Partner->bDowned?TEXT("PARTNER DOWN / HOLD REVIVE"):TEXT("PARTNER"),12,8,Partner->bDowned?ASHudRed:ASHudTeal,.65f);
++        Bar(12,35,220,4,Partner->Health/Partner->MaxHealth,ASHudTeal);Group();PartnerY+=60*UI;
+         if(Partner->bDowned) {
+             FVector CameraAt;FRotator CameraRotation;PC->GetPlayerViewPoint(CameraAt,CameraRotation);
+             const bool Occluded=!AS::ClearSight(GetWorld(),CameraAt,Partner->GetActorLocation());
+@@ -221,29 +221,29 @@
+                 for(const auto& Bone:Bones) if(Points.IsValidIndex(Bone[1])&&Visible[Bone[0]]&&Visible[Bone[1]]) {
+                     const auto A=Points[Bone[0]],B=Points[Bone[1]];Line(A.X,A.Y,B.X,B.Y,FLinearColor(.15f,0,0,.9f),10);Line(A.X,A.Y,B.X,B.Y,FLinearColor(1,.05f,.06f,.9f),6);
+                 }
+-                if(Points.Num()>0&&Visible[0]) Box(Points[0].X-6,Points[0].Y-6,12,12,Red);
++                if(Points.Num()>0&&Visible[0]) Box(Points[0].X-6,Points[0].Y-6,12,12,ASHudRed);
+             }
+             FVector2D CrossPoint;const bool Front=PC->ProjectWorldLocationToScreen(Partner->GetActorLocation()+FVector(0,0,165),CrossPoint);
+             if(Front) CrossPoint/=Scale;else {const FVector D=(Partner->GetActorLocation()-CameraAt).GetSafeNormal();CrossPoint=FVector2D(FVector::DotProduct(D,FRotationMatrix(CameraRotation).GetUnitAxis(EAxis::Y))>0?Width-40:40,Height*.5f);}
+             CrossPoint.X=FMath::Clamp(float(CrossPoint.X),40.f,Width-40);CrossPoint.Y=FMath::Clamp(float(CrossPoint.Y),50.f,Height-255);
+-            Box(CrossPoint.X-4,CrossPoint.Y-14,8,28,Red);Box(CrossPoint.X-14,CrossPoint.Y-4,28,8,Red);
+-            Text(FString::Printf(TEXT("%.0f m"),FVector::Dist(H->GetActorLocation(),Partner->GetActorLocation())/100.f),CrossPoint.X-19,CrossPoint.Y-40,Red,.65f);
++            Box(CrossPoint.X-4,CrossPoint.Y-14,8,28,ASHudRed);Box(CrossPoint.X-14,CrossPoint.Y-4,28,8,ASHudRed);
++            Text(FString::Printf(TEXT("%.0f m"),FVector::Dist(H->GetActorLocation(),Partner->GetActorLocation())/100.f),CrossPoint.X-19,CrossPoint.Y-40,ASHudRed,.65f);
+             FVector2D P;if(PC->ProjectWorldLocationToScreen(Partner->GetActorLocation()+FVector(0,0,120),P)) {
+             const bool CanHelp=H->CanRevive(Partner);
+-            Text(CanHelp?FString::Printf(TEXT("HOLD %s TO REVIVE"),*PC->BoundKey("Revive").GetDisplayName().ToString()):TEXT("MOVE CLOSER / CLEAR PATH TO ALLY"),P.X/Scale-125,P.Y/Scale,Teal,.66f);
+-            Bar(P.X/Scale-70,P.Y/Scale+24,140,7,Partner->ReviveProgress/ASRules::ReviveSeconds,Teal);
++            Text(CanHelp?FString::Printf(TEXT("HOLD %s TO REVIVE"),*PC->BoundKey("Revive").GetDisplayName().ToString()):TEXT("MOVE CLOSER / CLEAR PATH TO ALLY"),P.X/Scale-125,P.Y/Scale,ASHudTeal,.66f);
++            Bar(P.X/Scale-70,P.Y/Scale+24,140,7,Partner->ReviveProgress/ASRules::ReviveSeconds,ASHudTeal);
+         }
+         if(H->CanRevive(Partner)) {
+             Group(CX-225*UI,Height*.62f,UI);
+             Text(Partner->ReviveProgress>0?FString::Printf(TEXT("REVIVING ALLY  /  %.0f%%"),Partner->ReviveProgress/ASRules::ReviveSeconds*100.f):
+-                FString::Printf(TEXT("HOLD %s FOR 2 SECONDS TO REVIVE"),*PC->BoundKey("Revive").GetDisplayName().ToString()),14,12,Teal,.72f);
+-            Bar(14,50,422,5,Partner->ReviveProgress/ASRules::ReviveSeconds,Teal);Group();
++                FString::Printf(TEXT("HOLD %s FOR 2 SECONDS TO REVIVE"),*PC->BoundKey("Revive").GetDisplayName().ToString()),14,12,ASHudTeal,.72f);
++            Bar(14,50,422,5,Partner->ReviveProgress/ASRules::ReviveSeconds,ASHudTeal);Group();
+         }}
+     }
+     if(H->bDowned) {
+         Group(CX-255*UI,Height*.5f+100*UI,UI);
+-        Text(H->ReviveProgress>0?TEXT("YOUR PARTNER IS REVIVING YOU"):TEXT("DOWNED  /  YOUR PARTNER CAN REVIVE YOU"),14,12,H->ReviveProgress>0?Teal:Red,.8f);
+-        Bar(14,55,482,5,H->ReviveProgress/ASRules::ReviveSeconds,Teal);Group();
++        Text(H->ReviveProgress>0?TEXT("YOUR PARTNER IS REVIVING YOU"):TEXT("DOWNED  /  YOUR PARTNER CAN REVIVE YOU"),14,12,H->ReviveProgress>0?ASHudTeal:ASHudRed,.8f);
++        Bar(14,55,482,5,H->ReviveProgress/ASRules::ReviveSeconds,ASHudTeal);Group();
+     }
+     FString Station;const int32 Near=S->Arena?S->Arena->StationAt(H->GetActorLocation(),&Station):-1;
+     const int32 StationId=PC->FocusedInteraction>0?PC->FocusedInteraction:Near;
+@@ -257,7 +257,7 @@
+         else if(StationId==9) Station=S->Phase==EASPhase::Victory?TEXT("RETURN TO HUB / BOTH PLAYERS"):TEXT("REWARD CHEST / NEXT ROOM");
+         else if(StationId>=100&&StationId<100+ASRules::WeaponCount) Station=ASData::Weapons[StationId-100].Name;
+         else for(const auto& Item:S->Arena->Stations) if(Item.Menu==StationId) Station=Item.Name.Replace(TEXT("\n"),TEXT(" / "));
+-        const auto Color=Done?Teal:(Reach?Gold:Muted);FVector2D Mark;
++        const auto Color=Done?ASHudTeal:(Reach?ASHudGold:ASHudMuted);FVector2D Mark;
+         if(PC->ProjectWorldLocationToScreen(At,Mark)) {
+             const float X=Mark.X/Scale,Y=Mark.Y/Scale,MarkerRadius=PC->FocusedInteraction==StationId?30.f:22.f;
+             for(int32 Sign:{-1,1}) {Line(X+Sign*MarkerRadius,Y-MarkerRadius,X+Sign*MarkerRadius,Y-MarkerRadius+10,Color,2);Line(X+Sign*MarkerRadius,Y+MarkerRadius-10,X+Sign*MarkerRadius,Y+MarkerRadius,Color,2);Line(X+Sign*(MarkerRadius-10),Y-MarkerRadius,X+Sign*MarkerRadius,Y-MarkerRadius,Color,2);Line(X+Sign*(MarkerRadius-10),Y+MarkerRadius,X+Sign*MarkerRadius,Y+MarkerRadius,Color,2);}
+@@ -267,7 +267,7 @@
+     }
+     if(H->Movement()->IsFalling()) {
+         const int32 Left=FMath::Min(H->Movement()->DashCharges,FMath::Max(0,H->MaxDashCharges()-H->Movement()->AirDashesUsed));
+-        Group(CX-150*UI,Height-58*UI,UI);Text(Left>0?FString::Printf(TEXT("AIR DASH %d / %d"),Left,H->MaxDashCharges()):TEXT("AIR DASH EMPTY / LAND TO RESET"),0,0,Muted,.65f);Group();
++        Group(CX-150*UI,Height-58*UI,UI);Text(Left>0?FString::Printf(TEXT("AIR DASH %d / %d"),Left,H->MaxDashCharges()):TEXT("AIR DASH EMPTY / LAND TO RESET"),0,0,ASHudMuted,.65f);Group();
+     }
+     for(auto W:S->Enemies) if(auto* E=W.Get()) if(!E->Boss()) {
+         const float Alpha=E->bTrainingDummy?1.f:ASRules::HealthBarAlpha(S->SimTime-E->LastDamageTime);
+@@ -279,7 +279,7 @@
+         Box(X-WBar*.5f-2,Y-2,WBar+4,9,FLinearColor(.012f,.019f,.026f,Alpha*.9f));
+         Box(X-WBar*.5f,Y,WBar*FMath::Clamp(E->Health/E->MaxHealth,0.f,1.f),5,FLinearColor(.95f,.30f,.32f,Alpha));
+         for(int32 I=0;I<4;++I) if(E->StatusBits&(I==3?16:1<<I)) {auto Color=ASData::HitColor(I==3?EASHitKind::Bleed:EASHitKind(I+2));Color.A=Alpha;Box(X-9+I*7,Y+11,5,3,Color);}
+-        if(E->bTrainingDummy) Text(TEXT("PRACTICE / RESETS AFTER 5s"),X-80,Y-25,Muted,.48f);
++        if(E->bTrainingDummy) Text(TEXT("PRACTICE / RESETS AFTER 5s"),X-80,Y-25,ASHudMuted,.48f);
+     }
+     for(const auto& N:PC->DamageNumbers) {
+         const float Age=1.25f-(N.Expires-S->SimTime);const bool Incoming=N.Kind==EASHitKind::Received||N.Kind==EASHitKind::Shield;
+@@ -302,14 +302,14 @@
+     }
+     if(S->Frozen()) {
+         Group(CX-380*UI,CY-45*UI,UI);
+-        Text(S->bConnectionHold?FString::Printf(TEXT("PARTNER DISCONNECTED  /  REJOIN WINDOW %.0fs"),S->ReconnectRemaining):TEXT("PARTY PAUSED  /  PRESS ESC TO RESUME"),20,15,Gold,.85f);
+-        if(S->bConnectionHold) Text(TEXT("Host: Escape > Continue alone, or wait for the same profile to rejoin."),20,50,Muted,.7f);Group();
+-    }
+-    if(auto* PS=PC->GetPlayerState<AASPlayerState>()) if(PS->bSavePending) Text(TEXT("VERIFYING REWARD SAVE..."),Width-290,Height-80,Gold,.7f);
++        Text(S->bConnectionHold?FString::Printf(TEXT("PARTNER DISCONNECTED  /  REJOIN WINDOW %.0fs"),S->ReconnectRemaining):TEXT("PARTY PAUSED  /  PRESS ESC TO RESUME"),20,15,ASHudGold,.85f);
++        if(S->bConnectionHold) Text(TEXT("Host: Escape > Continue alone, or wait for the same profile to rejoin."),20,50,ASHudMuted,.7f);Group();
++    }
++    if(auto* PS=PC->GetPlayerState<AASPlayerState>()) if(PS->bSavePending) Text(TEXT("VERIFYING REWARD SAVE..."),Width-290,Height-80,ASHudGold,.7f);
+     if(PC->bShowStats) {
+-        Text(FString::Printf(TEXT("%.0f FPS  /  %.2f ms FRAME"),1.f/FMath::Max(.0001f,SmoothedDelta),SmoothedDelta*1000),40,PartnerY+26,Gold,.8f);
+-        Text(FString::Printf(TEXT("Enemies %d/%d  |  Projectiles %d/%d"),S->Enemies.Num(),ASRules::MaxEnemies,S->Projectiles.Num(),ASRules::MaxProjectiles),40,PartnerY+57,Muted,.67f);
+-        Text(TEXT("F9 hide  /  console: stat unit"),40,PartnerY+82,Muted,.65f);
++        Text(FString::Printf(TEXT("%.0f FPS  /  %.2f ms FRAME"),1.f/FMath::Max(.0001f,SmoothedDelta),SmoothedDelta*1000),40,PartnerY+26,ASHudGold,.8f);
++        Text(FString::Printf(TEXT("Enemies %d/%d  |  Projectiles %d/%d"),S->Enemies.Num(),ASRules::MaxEnemies,S->Projectiles.Num(),ASRules::MaxProjectiles),40,PartnerY+57,ASHudMuted,.67f);
++        Text(TEXT("F9 hide  /  console: stat unit"),40,PartnerY+82,ASHudMuted,.65f);
+     }
+ 
+ }
+--- a/Source/AshenSpiral/Private/ASHammerEffects.cpp
++++ b/Source/AshenSpiral/Private/ASHammerEffects.cpp
+@@ -1,5 +1,6 @@
+ #include "ASSpell.h"
+ #include "ASGameState.h"
++#include "ASWorld.h"
+ #include "Components/SceneComponent.h"
+ #include "Components/StaticMeshComponent.h"
+ AASHammerDebris::AASHammerDebris() {
+--- a/Source/AshenSpiral/Private/ASMeleeCombat.cpp
++++ b/Source/AshenSpiral/Private/ASMeleeCombat.cpp
+@@ -56,7 +56,9 @@
+     auto* S=AS::State(this);if(!HasAuthority()||!S||!CanUseWeapons()||PendingMeleeWeapon!=Build.Weapon) return;
+     const bool Slam=Build.Weapon==1&&MeleeStep==2;
+     const float Reach=Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==0&&MeleeStep==2?320.f:280.f));
+-    const float Damage=ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASMelee::DamageScale(Build.Weapon,MeleeStep);
++    const float Oath=MeleeStep==2&&bVengeanceFinisherReady?ASBuild::VengeanceFinisherMultiplier:1.f;
++    if(Oath>1.f) bVengeanceFinisherReady=false;
++    const float Damage=Oath*ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASMelee::DamageScale(Build.Weapon,MeleeStep);
+     FVector Forward=(AimPoint-GetActorLocation()).GetSafeNormal2D();if(Forward.IsNearlyZero()) Forward=GetActorForwardVector();
+     bool Contact=false;
+     const auto Targets=S->Enemies;
+--- a/Source/AshenSpiral/Private/ASWorld.cpp
++++ b/Source/AshenSpiral/Private/ASWorld.cpp
+@@ -149,7 +149,7 @@
+     L->SetLightColor(Color);L->SetIntensity(Intensity);L->SetAttenuationRadius(Radius);L->SetCastShadows(false);LocalLights.Add(A);
+ }
+ void AASWorld::MakeHub() {
+-    const FLinearColor Stone(.16f,.18f,.21f),Trim(.30f,.23f,.12f),Gold(1,.56f,.13f),Teal(.12f,.75f,.63f);
++    const FLinearColor Stone(.16f,.18f,.21f),Trim(.30f,.23f,.12f),ASWorldHubGold(1,.56f,.13f),ASWorldHubTeal(.12f,.75f,.63f);
+     Add(TEXT("Cube"),TEXT("HubFoundation"),FVector(0,0,-180),FVector(34,34,3.6f),Stone);
+     for(int32 X=-5;X<=5;++X) for(int32 Y=-5;Y<=5;++Y)
+         Add(TEXT("SM_Tile"),TEXT("HubTile"),FVector(X*300,Y*300,0),FVector(1),FLinearColor(.32f,.30f,.26f),false);
+@@ -171,17 +171,17 @@
+               {FVector(-1100,-100,0),5,TEXT("IONE'S WORKBENCH\nCraft and remember")}};
+     for(const auto& S:Stations) {
+         const float Yaw=(-S.Position).Rotation().Yaw;
+-        Add(TEXT("SM_Ring"),TEXT("HubGlow"),S.Position+FVector(0,0,15),FVector(3.4f,3.4f,1),Gold,false,0,3);
++        Add(TEXT("SM_Ring"),TEXT("HubGlow"),S.Position+FVector(0,0,15),FVector(3.4f,3.4f,1),ASWorldHubGold,false,0,3);
+         Text(S.Name,S.Position+FVector(0,0,280),Yaw,27);
+         if(S.Menu!=1 && S.Menu!=4) Add(TEXT("SM_Brazier"),TEXT("HubBrazier"),S.Position,FVector(1.3f),Trim);
+-        Add(TEXT("Sphere"),TEXT("HubFlame"),S.Position+FVector(0,0,S.Menu==4?380:185),FVector(.6f,.6f,1.1f),Gold,false,0,8);
+-        Light(S.Position+FVector(0,0,210),Gold,850,800);
++        Add(TEXT("Sphere"),TEXT("HubFlame"),S.Position+FVector(0,0,S.Menu==4?380:185),FVector(.6f,.6f,1.1f),ASWorldHubGold,false,0,8);
++        Light(S.Position+FVector(0,0,210),ASWorldHubGold,850,800);
+     }
+     Add(TEXT("SM_Arch"),TEXT("HubPortal"),FVector(1180,0,0),FVector(1.5f),Stone,true);
+-    Add(TEXT("Sphere"),TEXT("PortalLens"),FVector(1200,0,245),FVector(.12f,4.7f,5.3f),Teal,false,0,2);
++    Add(TEXT("Sphere"),TEXT("PortalLens"),FVector(1200,0,245),FVector(.12f,4.7f,5.3f),ASWorldHubTeal,false,0,2);
+     for(int32 I=0;I<10;++I) {
+         const FVector P(-1400,-1250+I*280.f,0);Add(TEXT("SM_Shelf"),TEXT("HubShelf"),P,FVector(1),FLinearColor(.24f,.13f,.055f));
+-        for(int32 J=0;J<12;++J) Add(TEXT("SM_Book"),FString::Printf(TEXT("Book%d"),J%3),P+FVector(10,(J%4-1.5f)*47,43+(J/4)*70),FVector(1),J%3==0?Teal:Trim,false,90);
++        for(int32 J=0;J<12;++J) Add(TEXT("SM_Book"),FString::Printf(TEXT("Book%d"),J%3),P+FVector(10,(J%4-1.5f)*47,43+(J/4)*70),FVector(1),J%3==0?ASWorldHubTeal:Trim,false,90);
+     }
+     for(int32 I=0;I<ASRules::WeaponCount;++I) {
+         const FVector P=WeaponStand(I);const auto Color=ASData::HitColor(ASData::WeaponElement(I));
+@@ -192,7 +192,7 @@
+         if(I==2) Add(TEXT("Cylinder"),TEXT("DisplayString"),P+FVector(0,-24,165),FVector(.009f,.009f,1.46f),FLinearColor(.8f,.75f,.6f),false);
+         Text(FString::Printf(TEXT("%02d"),I+1),P+FVector(0,0,90),90,18);
+     }
+-    Add(TEXT("SM_Ring"),TEXT("PracticeRing"),DummyPoint()-FVector(0,0,93),FVector(5,5,1),Teal,false,0,1);
++    Add(TEXT("SM_Ring"),TEXT("PracticeRing"),DummyPoint()-FVector(0,0,93),FVector(5,5,1),ASWorldHubTeal,false,0,1);
+     Text(TEXT("PRACTICE TARGET\nWeapons + Spiral + active ability / no rewards"),DummyPoint()+FVector(0,0,200),-130,23);
+     Text(TEXT("ASHEN SPIRAL"),FVector(1550,0,750),180,70);
+     Text(TEXT("THE EMBER NEXUS"),FVector(1550,0,650),180,30);
+--- a/Source/AshenSpiral/Private/SASMenu.cpp
++++ b/Source/AshenSpiral/Private/SASMenu.cpp
+@@ -23,7 +23,7 @@
+ #include "InputCoreTypes.h"
+ 
+ namespace {
+-const FLinearColor Gold(.98f,.64f,.25f),Muted(.67f,.73f,.79f),Ink(.018f,.024f,.035f,.97f);
++const FLinearColor ASMenuGold(.98f,.64f,.25f),ASMenuMuted(.67f,.73f,.79f),ASMenuInk(.018f,.024f,.035f,.97f);
+ // Fixed design-space widths are known before Slate's prepass. AutoWrapText
+ // inside a ScaleBox can report an unwrapped desired size on its first frame.
+ // Leave room for the scroll bar, border padding, and button style padding.
+@@ -85,9 +85,9 @@
+         [SNew(SHorizontalBox)
+             +SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).Padding(0,0,18,0)
+                 [SNew(SVerticalBox)
+-                    +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Title)).Font(Font(19,true)).ColorAndOpacity(Gold)
++                    +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Title)).Font(Font(19,true)).ColorAndOpacity(ASMenuGold)
+                         .WrapTextAt(CardTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]
+-                    +SVerticalBox::Slot().AutoHeight().Padding(0,6,0,0)[SNew(STextBlock).Text(Txt(Description)).Font(Font(14)).ColorAndOpacity(Muted)
++                    +SVerticalBox::Slot().AutoHeight().Padding(0,6,0,0)[SNew(STextBlock).Text(Txt(Description)).Font(Font(14)).ColorAndOpacity(ASMenuMuted)
+                         .WrapTextAt(CardTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]]
+             +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+                 [SNew(SBox).WidthOverride(ButtonWidth).IsEnabled(Enabled)[Button(Label,Code,Index)]]]];
+@@ -104,7 +104,7 @@
+     const auto Weak=PC;const FKey Current=PC.IsValid()?PC->BoundKey(Binding):EKeys::Invalid;
+     Body->AddSlot().AutoHeight().Padding(4,6)
+         [SNew(SHorizontalBox)
+-            +SHorizontalBox::Slot().FillWidth(1)[SNew(STextBlock).Text(Txt(Label)).Font(Font(16)).ColorAndOpacity(Muted).WrapTextAt(CardTextWidth)]
++            +SHorizontalBox::Slot().FillWidth(1)[SNew(STextBlock).Text(Txt(Label)).Font(Font(16)).ColorAndOpacity(ASMenuMuted).WrapTextAt(CardTextWidth)]
+             +SHorizontalBox::Slot().AutoWidth()[SNew(SBox).WidthOverride(240)
+                 [SNew(SInputKeySelector).SelectedKey(FInputChord(Current)).AllowGamepadKeys(true).AllowModifierKeys(false).EscapeCancelsSelection(true)
+                     .KeySelectionText(Txt(TEXT("Press a key..."))).Font(Font(14))
+@@ -117,11 +117,11 @@
+     Body->AddSlot().AutoHeight().Padding(4,6)
+         [SNew(SVerticalBox)
+             +SVerticalBox::Slot().AutoHeight().Padding(0,0,0,7)
+-                [SNew(STextBlock).Font(Font(16)).ColorAndOpacity(Muted).WrapTextAt(BodyTextWidth)
++                [SNew(STextBlock).Font(Font(16)).ColorAndOpacity(ASMenuMuted).WrapTextAt(BodyTextWidth)
+                     .Text_Lambda([Label,Unit,Value](){return Txt(FString::Printf(TEXT("%s   %s%s"),*Label,*FString::SanitizeFloat(Value()),*Unit));})]
+             +SVerticalBox::Slot().AutoHeight()
+                 [SNew(SSlider).MinValue(Min).MaxValue(Max).StepSize(Step).MouseUsesStep(true)
+-                    .Value_Lambda(Value).SliderHandleColor(Gold)
++                    .Value_Lambda(Value).SliderHandleColor(ASMenuGold)
+                     .OnValueChanged_Lambda([Weak,Setting,Min,Max,Step](float V) {
+                         if(auto* C=Weak.Get()) if(auto* GI=C->GetGameInstance<UASGameInstance>()) {
+                             GI->*Setting=FMath::Clamp(FMath::RoundToInt(V/Step)*Step,Min,Max);C->ApplyCameraSettings();
+@@ -139,24 +139,24 @@
+     [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(0,0,0,.28f)).Padding(24)
+         [SNew(SScaleBox).Stretch(EStretch::ScaleToFit).StretchDirection(EStretchDirection::DownOnly).HAlign(HAlign_Center).VAlign(VAlign_Center)
+             [SNew(SBox).WidthOverride(PanelWidth).HeightOverride(PanelHeight)
+-                [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(Ink).Padding(FMargin(32,28))
++                [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(ASMenuInk).Padding(FMargin(32,28))
+                     [SNew(SVerticalBox)
+                         +SVerticalBox::Slot().AutoHeight()
+                             [SNew(SHorizontalBox)
+                                 +SHorizontalBox::Slot().FillWidth(1).Padding(0,0,16,0)
+                                     [SNew(SVerticalBox)
+-                                        +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("A S H E N   S P I R A L"))).Font(Font(12,true)).ColorAndOpacity(Gold)]
++                                        +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("A S H E N   S P I R A L"))).Font(Font(12,true)).ColorAndOpacity(ASMenuGold)]
+                                         +SVerticalBox::Slot().AutoHeight().Padding(0,8,0,8)[SNew(STextBlock).Text(Txt(Title)).Font(Font(29,true)).ColorAndOpacity(FLinearColor::White)
+                                             .WrapTextAt(HeaderTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]]
+                                 +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Button(TEXT("CLOSE   /   ESC"),0)]]
+                         +SVerticalBox::Slot().AutoHeight().Padding(0,5,0,15)
+-                            [SNew(STextBlock).Font(Font(13)).ColorAndOpacity(Muted).WrapTextAt(BodyTextWidth).Text_Lambda([Weak](){
++                            [SNew(STextBlock).Font(Font(13)).ColorAndOpacity(ASMenuMuted).WrapTextAt(BodyTextWidth).Text_Lambda([Weak](){
+                                 auto* P=Weak.Get();auto* G=P?P->GetGameInstance<UASGameInstance>():nullptr;if(!G) return Txt(TEXT("Loading profile..."));
+                                 const auto& D=G->Profile;return Txt(FString::Printf(TEXT("ASH  %d     RELIC EMBERS  %d     TABLETS  %d     SKILL POINTS  %d"),D.Ash,D.RelicEmbers,D.Tablets,D.SkillPoints));})]
+                         +SVerticalBox::Slot().FillHeight(1)
+                             [SAssignNew(Scroll,SScrollBox)+SScrollBox::Slot().Padding(0,0,12,0)[SAssignNew(Body,SVerticalBox)]]
+                         +SVerticalBox::Slot().AutoHeight().Padding(0,14,0,10)
+-                            [SNew(STextBlock).Font(Font(13)).ColorAndOpacity(Gold).WrapTextAt(BodyTextWidth)
++                            [SNew(STextBlock).Font(Font(13)).ColorAndOpacity(ASMenuGold).WrapTextAt(BodyTextWidth)
+                                 .WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping).Text_Lambda([Weak](){auto* P=Weak.Get();return Txt(P?P->Notice:TEXT(""));})]
+                         +SVerticalBox::Slot().AutoHeight()
+                             [SNew(SHorizontalBox)
+@@ -164,7 +164,7 @@
+                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("CONTROLS"),10,11)]
+                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("SETTINGS"),10,8)]
+                                 +SHorizontalBox::Slot().FillWidth(1).HAlign(HAlign_Right).VAlign(VAlign_Center)
+-                                    [SNew(STextBlock).Text(Txt(TEXT("ASHEN SPIRAL  0.22.0"))).Font(Font(11)).ColorAndOpacity(Muted)]]]]]]];
++                                    [SNew(STextBlock).Text(Txt(TEXT("ASHEN SPIRAL  0.22.0"))).Font(Font(11)).ColorAndOpacity(ASMenuMuted)]]]]]]];
+     if(!GI||!S) {Text(TEXT("Loading the world and personal profile..."));return;}
+     const auto& P=GI->Profile;
+     const auto* Hero=Cast<AASCharacter>(C->GetPawn());
+@@ -173,7 +173,7 @@
+     const auto& ActiveRun=!Hub&&Hero?Hero->RunRanks:EmptyRun;
+     if(Page==19) {
+         const int32 Level=ASCareer::Level(P.Experience);
+-        Text(FString::Printf(TEXT("LEVEL %d / %d of %d XP toward the next level"),Level,ASCareer::Progress(P.Experience),ASCareer::Cost(Level)),23,Gold);
++        Text(FString::Printf(TEXT("LEVEL %d / %d of %d XP toward the next level"),Level,ASCareer::Progress(P.Experience),ASCareer::Cost(Level)),23,ASMenuGold);
+         Text(TEXT("Every achievement tier grants 1 Relic Ember; tier III also grants 1 Tablet. Every 5 levels grants 1 Ember; every 10 also grants 1 Tablet. Earned milestones on older profiles receive these rewards once. Achievement tiers also unlock equipable titles shown to your partner. No stat or damage bonuses. Progress saves with receipts; practice never counts."));
+         for(int32 I=0;I<ASCareer::Count;++I) {
+             const auto& D=ASCareer::Achievements[I];const int32 Value=P.Career.IsValidIndex(I)?P.Career[I]:0,Tier=ASCareer::Tier(Value,I);
+@@ -181,7 +181,7 @@
+             Card(FString::Printf(TEXT("%s / %d of 3 tiers"),UTF8_TO_TCHAR(D.Name),Tier),FString(UTF8_TO_TCHAR(D.Description))+FString::Printf(TEXT("\nMilestones: %d / %d / %d. %s"),D.Goals[0],D.Goals[1],D.Goals[2],*State),P.TitleChoice==I?TEXT("TITLE EQUIPPED"):(Tier>0?TEXT("EQUIP TITLE"):TEXT("TRACKED")),64,I,Tier>0&&P.TitleChoice!=I);
+         }
+     } else if(Page==0) {
+-        Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,Gold);
++        Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
+         Text(Hub?TEXT("An ember survives. Choose your weapon, shape your gravity, then descend together."):TEXT("The expedition is paused only when the shared pause indicator is shown. Escape resumes."));
+         Card(TEXT("Expedition"),TEXT("Four wards. Eight rooms per ward. Automatic waves and personal rewards; either player can continue once both have chosen."),Hub?TEXT("PREPARE"):TEXT("RESUME"),Hub?10:0,1);
+         if(Hub) {Card(TEXT("Armory and Sanctum"),TEXT("Walk to a displayed weapon and press E to try or buy it. Test weapons and Spiral on the practice target. Purchases save immediately."),TEXT("LOADOUT"),10,2);
+@@ -196,8 +196,8 @@
+         Card(TEXT("Leave session"),TEXT("Return to an offline hub. If you are the host, this ends the other player's connection."),TEXT("REVIEW"),10,13);
+     } else if(Page==1) {
+         Text(TEXT("Space jumps. Shift dashes on the ground or in the air. Hold Spiral and release in the gold window for a perfect well. Base Spiral cooldown is 3.3 seconds; cooldown upgrades reduce it."));
+-        Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,Gold);
+-        Body->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Font(Font(16,true)).ColorAndOpacity(Gold).WrapTextAt(BodyTextWidth).Text_Lambda([Weak](){
++        Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
++        Body->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Font(Font(16,true)).ColorAndOpacity(ASMenuGold).WrapTextAt(BodyTextWidth).Text_Lambda([Weak](){
+             FString Status;auto* Local=Weak.Get();auto* State=Local?AS::State(Local):nullptr;if(!State) return Txt(TEXT("Waiting for host..."));
+             for(auto V:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(V)) Status+=FString::Printf(TEXT("PLAYER %d / LEVEL %d / %s\n%s   |   %s\n"),Player->PlayerIndex+1,Player->CharacterLevel,*ASData::CareerTitle(Player->TitleIndex,Player->TitleTier),Player->bProfileReady?(Player->bReady?TEXT("READY"):TEXT("NOT READY")):TEXT("LOADING PROFILE"),ASData::Weapons[Player->Build.Weapon].Name);
+             return Txt(Status);})];
+@@ -217,15 +217,15 @@
+         Text(TEXT("Trade current health for a random build-compatible upgrade. This is optional and can be used once per player in each shrine room."));
+         const float Cost=Hero?ASAdventure::ShrineCost(Hero->MaxHealth):0.f;
+         Card(TEXT("Offer an ember of vitality"),FString::Printf(TEXT("Cost: %.0f current HP (12%% of max HP). Gain one non-instant trait or core stat upgrade. Cannot kill you, and does not lower maximum HP."),Cost),TEXT("MAKE OFFERING"),62,0,Hero&&!Hero->bDowned&&PS&&!PS->bShrineUsed&&ASAdventure::CanSacrifice(Hero->Health,Hero->MaxHealth));
+-        if(PS&&PS->bShrineUsed) Text(TEXT("You have already used this shrine."),18,Gold);
++        if(PS&&PS->bShrineUsed) Text(TEXT("You have already used this shrine."),18,ASMenuGold);
+     } else if(Page==17) {
+         Card(TEXT("Lifetime feats"),TEXT("View your cosmetic character level and achievement milestones."),TEXT("ACHIEVEMENTS"),10,19);
+-        Text(FString::Printf(TEXT("%s  /  %s  /  %s"),ASData::Weapons[ActiveBuild.Weapon].Name,ASData::Styles[ActiveBuild.Style].Name,ASData::Abilities[ActiveBuild.Ability].Name),20,Gold);
+-        Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,Gold);
++        Text(FString::Printf(TEXT("%s  /  %s  /  %s"),ASData::Weapons[ActiveBuild.Weapon].Name,ASData::Styles[ActiveBuild.Style].Name,ASData::Abilities[ActiveBuild.Ability].Name),20,ASMenuGold);
++        Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
+         Text(TEXT("Traits reset each expedition. Evolution adds one effective rank to an owned repeatable trait; its normal pick cap stays the same. Damage, survival and modifier choices are mixed, with up to twice the weight for existing synergies."));
+-        if(Hero) Text(FString::Printf(TEXT("Focus %.0f / %.0f  |  Crit damage %.0f%%  |  Personal rerolls %d  |  Curse stacks %d"),Hero->Focus,Hero->MaxFocus(),Hero->CriticalPower()*100.f,Hero->Rerolls,Hero->CurseStacks),17,Gold);
++        if(Hero) Text(FString::Printf(TEXT("Focus %.0f / %.0f  |  Crit damage %.0f%%  |  Personal rerolls %d  |  Curse stacks %d"),Hero->Focus,Hero->MaxFocus(),Hero->CriticalPower()*100.f,Hero->Rerolls,Hero->CurseStacks),17,ASMenuGold);
+         if(Hero) {
+-            for(int32 I=0;I<ASRules::RunUpgradeCount;++I) if(Hero->RunRank(I)>0) Text(FString::Printf(TEXT("%s  /  run rank %d"),ASData::RunUpgrades[I].Name,Hero->RunRank(I)),17,Gold);
++            for(int32 I=0;I<ASRules::RunUpgradeCount;++I) if(Hero->RunRank(I)>0) Text(FString::Printf(TEXT("%s  /  run rank %d"),ASData::RunUpgrades[I].Name,Hero->RunRank(I)),17,ASMenuGold);
+             for(int32 I=0;I<24;++I) if(Hero->Relic(I)) Card(ASData::Relics[I].Name,ASData::Relics[I].Desc,TEXT("RELIC"),0,0,false);
+             for(int32 I=0;I<ASRules::HearthCount;++I) if(Hero->Rank(I)>0) Text(FString::Printf(TEXT("Permanent: %s  /  rank %d"),ASData::Hearth[I].Name,Hero->Rank(I)),15);
+             for(int32 I=0;I<12;++I) if(Hero->Talent(I)) Text(FString::Printf(TEXT("Talent: %s / %s"),ASData::Talents[I].Name,ASData::Talents[I].Desc),15);
+@@ -237,7 +237,7 @@
+         }
+     } else if(Page==15) {
+         Text(TEXT("Ash, relic embers, tablets, materials, unlocks and permanent upgrades now save outside the extracted game folder. Future 0.13+ builds use this same location automatically. Cinders and chest stat ranks remain run-only."));
+-        Text(FString::Printf(TEXT("Ash: %d   Relic embers: %d   Tablets: %d   Skill points: %d"),P.Ash,P.RelicEmbers,P.Tablets,P.SkillPoints),18,Gold);
++        Text(FString::Printf(TEXT("Ash: %d   Relic embers: %d   Tablets: %d   Skill points: %d"),P.Ash,P.RelicEmbers,P.Tablets,P.SkillPoints),18,ASMenuGold);
+         Text(GI->ProgressDirectory(),13);
+         Card(TEXT("Portable progress backup"),TEXT("Create a separate verified export. Copy it to another PC or keep it before changing versions."),TEXT("EXPORT"),50);
+         Card(TEXT("Find your saves and exports"),TEXT("Opens the progress folder in your file browser."),TEXT("OPEN FOLDER"),49);
+@@ -249,7 +249,7 @@
+         if(!GI->bImportReady) {Text(TEXT("Choose a supported save on the Progress page first."));Card(TEXT("Progress"),TEXT("Select a file to review."),TEXT("BACK"),10,15);return;}
+         const auto& Import=GI->ImportPreview;Text(TEXT("Selected save: ")+GI->ImportSourcePath,13);
+         Text(TEXT("This restores the selected profile, replacing the currently loaded progression. A separate backup of the current profile is created first. The offline hub then reloads."));
+-        Text(FString::Printf(TEXT("ASH: %d -> %d\nRELIC EMBERS: %d -> %d\nTABLETS: %d -> %d\nSKILL POINTS: %d -> %d\nBEST ROOM: %d -> %d"),P.Ash,Import.Ash,P.RelicEmbers,Import.RelicEmbers,P.Tablets,Import.Tablets,P.SkillPoints,Import.SkillPoints,P.BestRoom,Import.BestRoom),19,Gold);
++        Text(FString::Printf(TEXT("ASH: %d -> %d\nRELIC EMBERS: %d -> %d\nTABLETS: %d -> %d\nSKILL POINTS: %d -> %d\nBEST ROOM: %d -> %d"),P.Ash,Import.Ash,P.RelicEmbers,Import.RelicEmbers,P.Tablets,Import.Tablets,P.SkillPoints,Import.SkillPoints,P.BestRoom,Import.BestRoom),19,ASMenuGold);
+         for(int32 I:{0,1,4}) Text(FString::Printf(TEXT("%s: %d -> %d"),ASData::Materials[I],P.Materials[I],Import.Materials[I]),15);
+         Card(TEXT("Restore this progress"),TEXT("Creates a backup, restores the selected profile, and reloads the hub."),TEXT("RESTORE"),48,0,Hub&&C->GetNetMode()==NM_Standalone);
+         Card(TEXT("Keep current progress"),TEXT("Return without applying the import."),TEXT("CANCEL"),10,15);
+@@ -266,7 +266,7 @@
+         Card(TEXT("Expedition loadout"),TEXT("Purchase or equip this weapon for future expeditions. This selection is saved."),
+             P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
+     } else if(Page==3) {
+-        Text(TEXT("ACTIVE ABILITIES / F OR RIGHT TRIGGER"),22,Gold);
++        Text(TEXT("ACTIVE ABILITIES / F OR RIGHT TRIGGER"),22,ASMenuGold);
+         Text(TEXT("Choose one active ability alongside Spiral. All six are free to equip and test on the lobby dummy. Selection is saved. Ability cooldown upgrades shorten these cooldowns too."));
+         TSharedPtr<SWrapBox> Skills;
+         Body->AddSlot().AutoHeight()[SAssignNew(Skills,SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(10,10))];
+@@ -274,13 +274,13 @@
+         const TCHAR* Briefs[]={TEXT("Pierce with runic power"),TEXT("Freeze a cone of foes"),TEXT("Arc through four targets"),TEXT("Plant a poison field"),TEXT("Shield and melee boost"),TEXT("Set an explosive rune")};
+         for(int32 I=0;I<ASAdventure::AbilityCount;++I) Skills->AddSlot()[ChoiceTile(ASData::Abilities[I].Name,Briefs[I],ASData::Abilities[I].Desc,TEXT("ACTIVE SKILL"),Icons[I],1,P.Build.Ability==I?TEXT("EQUIPPED"):TEXT("EQUIP + TEST"),28,I,Hub&&P.Build.Ability!=I,232.f)];
+         Body->AddSlot().AutoHeight().Padding(0,12)[DetailStrip()];
+-        Text(TEXT("SPIRAL STYLES / RIGHT MOUSE"),22,Gold);
++        Text(TEXT("SPIRAL STYLES / RIGHT MOUSE"),22,ASMenuGold);
+         for(int32 I=0;I<P.Build.StylePool;++I) Card(ASData::Styles[I].Name,ASData::Styles[I].Desc,P.Build.Style==I?TEXT("EQUIPPED"):TEXT("EQUIP"),21,I,Hub&&P.Build.Style!=I);
+         Card(TEXT("Recover a lost style"),FString::Printf(TEXT("%d of 10 styles discovered. One tablet discovers the next style."),P.Build.StylePool),TEXT("1 TABLET"),24,0,Hub&&P.Build.StylePool<10&&P.Tablets>=1);
+     } else if(Page==4) {
+         Text(TEXT("Permanent upgrades carry into every run. Room-chest upgrades stack for the current run only. Costs increase with each rank; purchases keep your scroll position."));
+-        Text(BuildSummary(P.Build,EmptyRun),14,Gold);
+-        Text(TEXT("CORE BUILD UPGRADES"),19,Gold);
++        Text(BuildSummary(P.Build,EmptyRun),14,ASMenuGold);
++        Text(TEXT("CORE BUILD UPGRADES"),19,ASMenuGold);
+         for(int32 Stat=0;Stat<ASRules::RunUpgradeCount;++Stat) {
+             const int32 I=PermanentStatIndex(Stat);const auto& N=ASData::Hearth[I];
+             const int32 Rank=P.Build.Rank(I),Cost=ASRules::Cost(N.Cost,Rank,N.MaxRank);
+@@ -290,13 +290,13 @@
+         FString Branch;
+         for(int32 I=0;I<ASRules::HearthCount;++I) {
+             if(I==0||I==14||I>=16) continue;
+-            const auto& N=ASData::Hearth[I];if(Branch!=N.Branch) {Branch=N.Branch;Text(Branch.ToUpper(),19,Gold);}
++            const auto& N=ASData::Hearth[I];if(Branch!=N.Branch) {Branch=N.Branch;Text(Branch.ToUpper(),19,ASMenuGold);}
+             const int32 Rank=P.Build.Rank(I),Cost=ASRules::Cost(N.Cost,Rank,N.MaxRank);
+             Card(FString::Printf(TEXT("%s   %d / %d"),N.Name,Rank,N.MaxRank),N.Desc,Cost<0?TEXT("MAX RANK"):FString::Printf(TEXT("%d ASH"),Cost),22,I,Hub&&Cost>=0&&P.Ash>=Cost);
+         }
+         Card(TEXT("Constellations"),TEXT("Spend permanent skill points on Survivor, Tactician, and Scavenger talents."),TEXT("OPEN TREE"),10,6);
+     } else if(Page==5) {
+-        FString Materials;for(int32 I:{0,1,4}) Materials+=FString::Printf(TEXT("%s: %d%s"),ASData::Materials[I],P.Materials[I],I==4?TEXT(""):TEXT("    "));Text(Materials,15,Gold);
++        FString Materials;for(int32 I:{0,1,4}) Materials+=FString::Printf(TEXT("%s: %d%s"),ASData::Materials[I],P.Materials[I],I==4?TEXT(""):TEXT("    "));Text(Materials,15,ASMenuGold);
+         Card(TEXT("Ember Refinement"),TEXT("ONE purchase per profile. Exchange 15 Scrap and 8 Bone Dust for 40 Ash. This recipe does not grant a skill point."),P.bRefinementBought?TEXT("ALREADY CRAFTED"):TEXT("REFINE ONCE"),25,0,Hub&&!P.bRefinementBought&&P.Materials[0]>=15&&P.Materials[1]>=8);
+         Card(TEXT("Memory Point"),TEXT("Repeatable. Every successful craft spends 3 Spiral Cores and 12 Bone Dust and grants one permanent skill point."),TEXT("CRAFT +1 POINT"),26,0,Hub&&P.Materials[4]>=3&&P.Materials[1]>=12);
+         Card(TEXT("Relic discovery"),FString::Printf(TEXT("%d of 24 relics in your drop pool. Four relic embers discover the next four."),P.Build.RelicPool),TEXT("4 RELIC EMBERS"),23,0,Hub&&P.Build.RelicPool<24&&P.RelicEmbers>=4);
+@@ -306,7 +306,7 @@
+         const TCHAR* Names[]={TEXT("SURVIVOR"),TEXT("TACTICIAN"),TEXT("SCAVENGER")};
+         for(int32 B=0;B<3;++B) {
+             int32 Spent=0;for(int32 I=0;I<12;++I) if(ASData::Talents[I].Branch==B&&P.Build.Talent(I)) Spent+=ASData::Talents[I].Cost;
+-            Text(FString::Printf(TEXT("%s  /  %d points invested"),Names[B],Spent),19,Gold);
++            Text(FString::Printf(TEXT("%s  /  %d points invested"),Names[B],Spent),19,ASMenuGold);
+             for(int32 I=0;I<12;++I) if(I!=9&&ASData::Talents[I].Branch==B) {
+                 const auto& T=ASData::Talents[I];const bool Bought=P.Build.Talent(I);
+                 Card(T.Name,FString(T.Desc)+FString::Printf(TEXT(" Requires %d points invested in this branch."),T.Required),Bought?TEXT("ACQUIRED"):FString::Printf(TEXT("%d SKILL POINTS"),T.Cost),27,I,Hub&&!Bought&&P.SkillPoints>=T.Cost&&Spent>=T.Required);
+@@ -314,13 +314,13 @@
+         }
+     } else if(Page==7) {
+         Text(TEXT("This is direct-IP co-op, not a matchmaking service. Both PCs need the same build. On different networks, use a trusted private VPN or a deliberately configured UDP 24567 route. The host must stay in the game."));
+-        Text(FString::Printf(TEXT("Mode: %s     Session code: %s"),C->GetNetMode()==NM_ListenServer?TEXT("HOSTING"):(C->GetNetMode()==NM_Client?TEXT("CLIENT"):TEXT("OFFLINE")),*S->SessionCode),20,Gold);
++        Text(FString::Printf(TEXT("Mode: %s     Session code: %s"),C->GetNetMode()==NM_ListenServer?TEXT("HOSTING"):(C->GetNetMode()==NM_Client?TEXT("CLIENT"):TEXT("OFFLINE")),*S->SessionCode),20,ASMenuGold);
+         Card(TEXT("Host a private party"),TEXT("Restarts this hub as a listen server. The new session code appears here; share that code plus your host IP."),TEXT("HOST"),35,0,Hub&&C->GetNetMode()!=NM_Client);
+         Input(TEXT("Host IP or hostname (optional :24567)"),0);Input(TEXT("Host session code"),1);
+         Card(TEXT("Join the host"),TEXT("Use your existing profile. A partner can rejoin a held expedition with the same profile within 90 seconds."),TEXT("JOIN"),36,0,Hub&&C->GetNetMode()!=NM_ListenServer);
+         Card(TEXT("Local two-window test"),TEXT("Use Test_Two_Players.bat. It assigns different profile slots and joins over 127.0.0.1; no VPN or router changes are required."),TEXT("CLOSE"),0);
+     } else if(Page==8) {
+-        Text(TEXT("INTERFACE SIZE"),22,Gold);
++        Text(TEXT("INTERFACE SIZE"),22,ASMenuGold);
+         Text(FString::Printf(TEXT("HUD: %.0f%%. Corner panels and interaction prompts scale together; aiming and damage numbers have their own controls."),GI->HUDScale*100.f),14);
+         Body->AddSlot().AutoHeight().Padding(0,5,0,16)
+             [SNew(SHorizontalBox)
+@@ -328,7 +328,7 @@
+                 +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(GI->HUDScale==.5f?TEXT("50%  /  ACTIVE"):TEXT("50%"),59,1)]
+                 +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(GI->HUDScale==.75f?TEXT("75%  /  ACTIVE"):TEXT("75%"),59,2)]
+                 +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(GI->HUDScale==1.f?TEXT("100%  /  ACTIVE"):TEXT("100%"),59,3)]];
+-        Text(TEXT("CROSSHAIR & DAMAGE NUMBERS"),22,Gold);
++        Text(TEXT("CROSSHAIR & DAMAGE NUMBERS"),22,ASMenuGold);
+         Card(TEXT("Crosshair shape"),FString::Printf(TEXT("Current: %s. The aim point stays at the screen center."),ASData::CrosshairStyles[GI->CrosshairStyle]),TEXT("NEXT SHAPE"),55);
+         Card(TEXT("Crosshair color"),FString::Printf(TEXT("Current: %s. A dark outline keeps it visible on bright backgrounds."),ASData::CrosshairColorNames[GI->CrosshairColorIndex]),TEXT("NEXT COLOR"),56);
+         CameraSlider(TEXT("Crosshair size (1 = 100%)"),&UASGameInstance::CrosshairScale,.5f,2.f,.1f,TEXT(" x"));
+@@ -341,10 +341,10 @@
+                 +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("120%"),52,2)]
+                 +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("140%"),52,3)]
+                 +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("160%"),52,4)]];
+-        Text(FString::Printf(TEXT("Selected damage-number size: %.0f%%"),GI->NumberScale*100.f),14,Gold);
++        Text(FString::Printf(TEXT("Selected damage-number size: %.0f%%"),GI->NumberScale*100.f),14,ASMenuGold);
+         const int32 NextColor=(GI->Profile.ColorChoice+1)%8;
+         Card(TEXT("Character color"),FString::Printf(TEXT("Current: %s. Visible to both players and saved with your profile. P1 is always cyan and P2 white on the minimap."),GI->Profile.ColorChoice<0?TEXT("PLAYER DEFAULT"):ASData::ArmorColorNames[GI->Profile.ColorChoice]),FString::Printf(TEXT("TRY %s"),ASData::ArmorColorNames[NextColor]),58,NextColor);
+-        Text(TEXT("CAMERA POSITION & ANGLE"),22,Gold);
++        Text(TEXT("CAMERA POSITION & ANGLE"),22,ASMenuGold);
+         Text(TEXT("Drag a slider to adjust your view. Changes apply immediately and save when you release the slider or leave Settings. Close the menu to check your aim. These settings affect only your own camera."),14);
+         CameraSlider(TEXT("Tilt / pitch (negative = look down)"),&UASGameInstance::CameraPitch,-30.f,20.f,1.f,TEXT(" degrees"));
+         CameraSlider(TEXT("Camera height (higher = above your character)"),&UASGameInstance::CameraHeight,20.f,200.f,5.f,TEXT(" cm"));
+@@ -365,9 +365,9 @@
+     } else if(Page==9) {
+         Text(TEXT("Loading reward choices..."));
+     } else if(Page==10) {
+-        Text(S->Phase==EASPhase::Victory?TEXT("The fourth sovereign falls. The Spiral remembers your victory."):TEXT("The ember dims, but what you recovered remains."),23,Gold);
++        Text(S->Phase==EASPhase::Victory?TEXT("The fourth sovereign falls. The Spiral remembers your victory."):TEXT("The ember dims, but what you recovered remains."),23,ASMenuGold);
+         Text(FString::Printf(TEXT("Reached room %d / 32. Best cleared room: %d. Victories: %d. Defeats: %d."),S->Room+1,P.BestRoom,P.Wins,P.Deaths));
+-        Body->AddSlot().AutoHeight()[SNew(STextBlock).Font(Font(16)).ColorAndOpacity(Gold).Text_Lambda([Weak](){auto* V=Weak.Get();auto* State=V?V->GetPlayerState<AASPlayerState>():nullptr;return Txt(State&&State->bSavePending?TEXT("Waiting for verified reward save..."):TEXT("Your reward save has been acknowledged."));})];
++        Body->AddSlot().AutoHeight()[SNew(STextBlock).Font(Font(16)).ColorAndOpacity(ASMenuGold).Text_Lambda([Weak](){auto* V=Weak.Get();auto* State=V?V->GetPlayerState<AASPlayerState>():nullptr;return Txt(State&&State->bSavePending?TEXT("Waiting for verified reward save..."):TEXT("Your reward save has been acknowledged."));})];
+         Card(TEXT("Return together"),TEXT("The host returns both connected players to the same hub. This does not disconnect the party."),TEXT("RETURN TO HUB"),33,0,PS&&PS->PlayerIndex==0);
+     } else if(Page==11) {
+         Text(TEXT("Mouse wheel: zoom in / out. Q: switch shoulder. Tab: inspect acquired upgrades and equipped abilities."));
+@@ -432,7 +432,7 @@
+             +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Type+TEXT(" / ")+Grade)).Font(Font(12,true)).ColorAndOpacity(Rim).WrapTextAt(TileWidth-30)]
+             +SVerticalBox::Slot().AutoHeight().Padding(0,8,0,4)[SNew(SBox).HeightOverride(82)[SNew(SASEffectIcon).Kind(Icon).Color(Rim).Size(82)]]
+             +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Title)).Font(Font(18,true)).ColorAndOpacity(FLinearColor::White).WrapTextAt(TileWidth-32)]
+-            +SVerticalBox::Slot().AutoHeight().Padding(0,7,0,10)[SNew(STextBlock).Text(Txt(Brief)).Font(Font(14)).ColorAndOpacity(Muted).WrapTextAt(TileWidth-28)]
++            +SVerticalBox::Slot().AutoHeight().Padding(0,7,0,10)[SNew(STextBlock).Text(Txt(Brief)).Font(Font(14)).ColorAndOpacity(ASMenuMuted).WrapTextAt(TileWidth-28)]
+             +SVerticalBox::Slot().FillHeight(1).VAlign(VAlign_Bottom)[SNew(STextBlock).Text(Txt(Label)).Font(Font(13,true)).ColorAndOpacity(Rim).Justification(ETextJustify::Right)]];
+     return SNew(SBox).WidthOverride(TileWidth).MinDesiredHeight(368)
+         [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(Rim).Padding(Skill?3.f:1.f)
+@@ -458,7 +458,7 @@
+                         [SNew(SHorizontalBox)
+                             +SHorizontalBox::Slot().FillWidth(1)[SNew(SVerticalBox)
+                                 +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("CLAIM YOUR REWARD"))).Font(Font(29,true)).ColorAndOpacity(FLinearColor::White)]
+-                                +SVerticalBox::Slot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(Txt(TEXT("Choose one. Shape the next fight."))).Font(Font(15)).ColorAndOpacity(Gold)]]
++                                +SVerticalBox::Slot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(Txt(TEXT("Choose one. Shape the next fight."))).Font(Font(15)).ColorAndOpacity(ASMenuGold)]]
+                             +SHorizontalBox::Slot().AutoWidth()[Button(TEXT("CLOSE / ESC"),0)]]
+                     +SVerticalBox::Slot().AutoHeight()[SAssignNew(Choices,SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(12,12))]
+                     +SVerticalBox::Slot().AutoHeight().Padding(0,12,0,0)[DetailStrip()]
+@@ -471,19 +471,19 @@
+                                     .IsChecked_Lambda([Weak](){auto* C=Weak.Get();auto* GI=C?C->GetGameInstance<UASGameInstance>():nullptr;return GI&&GI->bRaiseStakes?ECheckBoxState::Checked:ECheckBoxState::Unchecked;})
+                                     .OnCheckStateChanged_Lambda([Weak](ECheckBoxState){if(auto* C=Weak.Get()) C->Action(61);})
+                                     [SNew(SHorizontalBox)
+-                                        +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SASEffectIcon).Kind(ASEffectArt::Dice).Color(Gold).Size(46)]
++                                        +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SASEffectIcon).Kind(ASEffectArt::Dice).Color(ASMenuGold).Size(46)]
+                                         +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center).Padding(9,0)[SNew(SVerticalBox)
+-                                            +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("RAISE THE STAKES"))).Font(Font(17,true)).ColorAndOpacity(Gold)]
+-                                            +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("Harder chamber. Better rare rewards. Stays checked."))).Font(Font(13)).ColorAndOpacity(Muted)]]]]
+-                            +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(STextBlock).Font(Font(15,true)).ColorAndOpacity(Gold)
++                                            +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("RAISE THE STAKES"))).Font(Font(17,true)).ColorAndOpacity(ASMenuGold)]
++                                            +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("Harder chamber. Better rare rewards. Stays checked."))).Font(Font(13)).ColorAndOpacity(ASMenuMuted)]]]]
++                            +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(STextBlock).Font(Font(15,true)).ColorAndOpacity(ASMenuGold)
+                                 .Text_Lambda([Weak](){auto* C=Weak.Get();auto* S=C?AS::State(C):nullptr;return Txt(S?FString::Printf(TEXT("%d CINDERS"),S->Cinders):TEXT(""));})]]
+-                    +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Font(Font(13)).ColorAndOpacity(Muted).WrapTextAt(1100)
++                    +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Font(Font(13)).ColorAndOpacity(ASMenuMuted).WrapTextAt(1100)
+                         .Text_Lambda([Weak](){auto* C=Weak.Get();auto* S=C?AS::State(C):nullptr;if(!S) return Txt(TEXT(""));int32 Votes=0;for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(PS->bWagerVote) ++Votes;
+                             const int32 Tier=ASBuild::ChallengeTier(S->Challenge,S->PlayerArray.Num(),Votes);
+                             if(FSlateApplication::Get().GetModifierKeys().IsShiftDown()) return Txt(FString::Printf(TEXT("NEXT TIER %d / Per tier: +20%% enemy HP, +12%% damage, +3 Ash, +15 Cinders. After clearing: rare weight +12%%, legendary +20%%. Both players must opt in."),Tier));
+                             return Txt(FString::Printf(TEXT("%d/%d STAKES VOTES   /   NEXT CHAMBER: %s   /   Hold SHIFT for stakes details"),Votes,S->PlayerArray.Num(),Tier>0?*FString::Printf(TEXT("TIER %d"),Tier):TEXT("NORMAL")));})]]]]];
+     if(!State||!Me||!Hero||State->Phase!=EASPhase::Reward) return;
+-    if(Me->bRewardClaimed) {Choices->AddSlot()[SNew(STextBlock).Text(Txt(TEXT("REWARD CLAIMED / Close and use E at the chest when both players are ready."))).Font(Font(22)).ColorAndOpacity(Gold)];return;}
++    if(Me->bRewardClaimed) {Choices->AddSlot()[SNew(STextBlock).Text(Txt(TEXT("REWARD CLAIMED / Close and use E at the chest when both players are ready."))).Font(Font(22)).ColorAndOpacity(ASMenuGold)];return;}
+     for(int32 Slot=0;Slot<Me->Offers.Num();++Slot) {
+         const int32 Offer=Me->Offers[Slot];const bool Style=State->ChestKind==2;
+         FString Name,Brief,Detail,Type=TEXT("TRAIT");int32 Icon=ASEffectArt::Star,Rarity=0;
+--- a/Source/AshenSpiral/Public/ASAnimationRules.h
++++ b/Source/AshenSpiral/Public/ASAnimationRules.h
+@@ -11,12 +11,42 @@
+     const float A=(Upper*Upper-Lower*Lower+D*D)/(2.f*D);
+     return {A,std::sqrt(std::max(0.f,Upper*Upper-A*A)),D};
+ }
++// Visual gait follows actual travel. Contact feet are held in world space by
++// ASPose::Plant; neither this phase nor the spring alters movement velocity.
++inline float UnitPhase(float Phase) {float P=std::fmod(Phase/(2.f*Pi),1.f);return P<0?P+1.f:P;}
++inline float StanceFraction(float Weight) {return .58f-.24f*std::clamp(Weight,0.f,1.f);}
++inline bool FootContact(float Phase,float Weight) {return UnitPhase(Phase)<StanceFraction(Weight);}
++inline float StrideDistance(float Weight) {return 165.f+95.f*std::clamp(Weight,0.f,1.f);}
+ struct Step {float Forward=0,Lift=0,Pitch=0;};
+ inline Step Foot(float Phase,float Weight) {
+-    float P=std::fmod(Phase/(2.f*Pi),1.f);if(P<0) P+=1.f;
+-    Weight=std::clamp(Weight,0.f,1.f);const float Stride=34.f*Weight;
+-    if(P<.58f) {const float T=P/.58f;return {Stride*(1.f-2.f*T),0.f,(-8.f+16.f*T)*Weight};}
+-    const float T=(P-.58f)/.42f,S=T*T*(3.f-2.f*T);
+-    return {-Stride+2.f*Stride*S,24.f*Weight*std::sin(T*Pi),-18.f*Weight*std::sin(T*Pi)};
++    const float P=UnitPhase(Phase),Stance=StanceFraction(Weight);
++    Weight=std::clamp(Weight,0.f,1.f);const float Stride=37.f*Weight;
++    if(P<Stance) {const float T=P/Stance;return {Stride*(1.f-2.f*T),0.f,(-7.f+13.f*T)*Weight};}
++    const float T=(P-Stance)/(1.f-Stance),S=T*T*(3.f-2.f*T);
++    return {-Stride+2.f*Stride*S,(14.f+14.f*Weight)*Weight*std::sin(T*Pi),-24.f*Weight*std::sin(T*Pi)};
+ }
++inline float Reaction(float Age,float Strength,bool Player=false) {
++    const float Length=Player?.23f:(Strength>.7f?.48f:.23f);
++    if(Age<0.f||Age>=Length) return 0.f;
++    const float T=Age/Length;
++    // Immediate readable recoil; no gameplay stun and no movement lock.
++    return std::clamp(Strength,0.f,1.f)*std::sin(std::min(1.f,T/.16f)*Pi*.5f)*std::pow(1.f-T,2.f);
+ }
++inline float ReleaseGesture(float Age) {
++    if(Age<0.f||Age>=.42f) return 0.f;
++    const float T=Age/.42f;return std::sin(std::min(T/.22f,1.f)*Pi*.5f)*std::pow(1.f-T,1.4f);
++}
++struct ClothPoint {float X,Y,Z;};
++// Continuous six-link cloth centerline. X is always behind the torso/backplate.
++// Independent traveling waves, inertia and attack lift replace the rigid board.
++inline ClothPoint CapePoint(int Node,float Time,float Speed,float Turn,float Flare) {
++    const float T=std::clamp(float(Node)/6.f,0.f,1.f);
++    Speed=std::clamp(Speed,0.f,1.5f);Turn=std::clamp(Turn,-1.f,1.f);Flare=std::clamp(Flare,0.f,1.f);
++    const float Stream=std::clamp(Speed*.68f+Flare*.36f,0.f,.95f);
++    const float Ripple=std::sin(Time*5.5f-T*8.f)*(1.2f+Speed*4.f)*T;
++    return {-27.f-T*(8.f+76.f*Stream)-std::abs(Ripple)*.7f,
++        T*T*(-Turn*28.f)+std::sin(Time*3.7f-T*6.5f)*(1.f+Speed*3.f)*T,
++        141.f-126.f*T+45.f*Stream*T*T+Ripple};
++}
++inline float CapeWidth(float T) {return 27.f+19.f*std::clamp(T,0.f,1.f);}
++}
+--- a/Source/AshenSpiral/Public/ASBuildRules.h
++++ b/Source/AshenSpiral/Public/ASBuildRules.h
+@@ -10,7 +10,7 @@
+     LongDash,DashCharge,ChillAura,Knockback,Stun,Root,Gravity,Repulse,
+     Greed,Fortune,Reroll,MendingCoin,RoomBlessing,DashStrike,Chain,Stillness,
+     Momentum,Berserk,KillFlow,EchoShot,Volley,Area,Duration,ManaReserve,
+-    ManaRegen,RuneNova,Orbit,Sense,FullHeal,Cleanse,BloodPact,Refine,
++    ManaRegen,RuneNova,Orbit,Sense,Vengeance,FullHeal=Vengeance,Cleanse,BloodPact,Refine,
+     Mystery,Duplicate,Conduit,Magazine,Reload,Precision,Count
+ };
+ constexpr int Count=int(Trait::Count),OfferBase=200;
+@@ -19,6 +19,8 @@
+ static_assert(EvolutionLimit<=64,"Legacy evolution flags must fit in uint64.");
+ enum Tag : int {Weapon=1,Element=2,Projectile=4,Guard=8,Dash=16,Spell=32,Echo=64,Loot=128};
+ struct Definition {const char* Name;const char* Description;int Max,Category,Tags,Rarity,WeaponMask;bool Instant;};
++constexpr float VengeanceProtection=3.f,VengeanceFinisherMultiplier=5.f;
++constexpr float PhoenixProtection=2.f,PhoenixHealthFraction=.35f,PhoenixNovaRadius=520.f,PhoenixNovaDamage=80.f;
+ // Categories: 0 damage, 1 survival, 2 modifier. Rarity: 0 common, 1 rare, 2 legendary.
+ // Weapon masks: sword/hammer/scythe=35, bow/glaive=12, staff=16, guns=448, all=511.
+ inline constexpr std::array<Definition,Count> Catalog{{
+@@ -47,7 +49,7 @@
+  {"Renewing Barrier","+12 regenerating shield capacity per rank; restores 2 shield/sec/rank after 5 sec without a hit in combat.",3,1,Guard,1,511,false},
+  {"Elusive","4% evasion chance per rank, capped at 20% before evolution.",5,1,Guard|Dash,0,511,false},
+  {"Briar Mail","Return 4 damage per rank to the attacker on a damaging hit; 0.3 sec internal cooldown.",4,1,Guard|Echo,0,511,false},
+- {"Phoenix Oath","Survive one lethal hit this run at 35% health with 2 sec of protection.",1,1,Guard,2,511,false},
++ {"Phoenix Oath","Survive one lethal hit this run at 35% health with 2 sec of protection; erupt in a 520 cm nova for 80 base damage and burn.",1,1,Guard,2,511,false},
+  {"Regrowth","Regenerate 1 HP/sec per rank in combat after 3 sec without damage.",3,1,Guard,1,511,false},
+  {"Afterimage","+0.08 sec invulnerability after taking damage per rank.",3,1,Guard|Dash,0,511,false},
+  {"Longstride","Dash distance +12% per rank; dash invulnerability +0.03 sec per rank.",3,2,Dash,0,511,false},
+@@ -78,12 +80,12 @@
+  {"Rune Nova","Evolve any active skill: Lance and Storm impacts gain a 300 cm blast; Winter Fan gains a 300 cm impact bloom. War Cry, Venom Bloom and Cinder Mine gain 300 cm base radius. Damage per hit is unchanged; area upgrades apply once.",1,2,Spell|Echo,1,511,false},
+  {"Orbiting Ember","Gain an orbiting wisp per rank (max 3), each dealing 4 damage every 0.5 sec to a nearby enemy.",3,2,Echo|Spell,1,511,false},
+  {"Vault Sense","Show trap positions and timing on the HUD and minimap, plus the optional vault cache.",1,2,Loot|Guard,0,511,false},
+- {"Second Dawn","Immediately heal to full. One pick per run.",1,1,Guard,2,511,true},
++ {"Vengeance Oath","Survive one lethal hit this run at 1 HP with 3 sec of protection; your next three-hit combo finisher deals 5x damage.",1,1,Guard|Weapon,2,3,false},
+  {"Cleanse","Remove all Blood Pact curse stacks (+10% incoming damage each). The traded maximum health stays traded.",1,1,Guard,1,511,true},
+  {"Blood Pact","Trade 15% maximum health for +45% damage. Gain a removable curse: +10% incoming damage.",1,0,Weapon|Spell,2,511,false},
+- {"Emberforge Evolution","Evolve one owned non-instant trait, granting one effective rank above its normal value. Two evolutions per run.",2,2,Echo|Spell,2,511,true},
++ {"Emberforge Evolution","Evolve one capped eligible non-instant trait, granting one effective rank above its normal value. Only offered when a capped trait can evolve. Two evolutions per run.",2,2,Echo|Spell,2,511,true},
+  {"Mystery Relic","Gain one random, unowned relic from your unlocked pool. One pick per run.",1,2,Loot|Echo,1,511,true},
+- {"Echo of Choice","Repeat your most recent repeatable stat/trait upgrade if it is not capped. One pick per run.",1,2,Echo,2,511,true},
++ {"Echo of Choice","Repeat your most recent repeatable stat/trait upgrade if eligible. One pick per run.",1,2,Echo,1,511,true},
+  {"Battle Conduit","Every 6 primary hits restores 12 Focus and shortens Spiral cooldown by 0.3 sec. Counts at most once per 0.15 sec.",1,2,Weapon|Spell,1,511,false},
+  {"Deep Magazine","Add 20% of base ammunition/charge capacity per rank, rounding each rank up to whole rounds. Five ranks. Every pick adds at least one round; applies to ranged weapons only. Melee has no reload. Cannot evolve.",5,2,Weapon,0,476,false},
+  {"Quick Hands","+15% reload speed per rank. Reload time = base time / (1 + 0.15 x rank). Ranged weapons only. Five ranks; cannot evolve.",5,2,Weapon,0,476,false},
+@@ -115,7 +117,7 @@
+  "Gain a regenerating shield",
+  "Chance to dodge incoming hits",
+  "Reflect damage at attackers",
+- "Survive a lethal hit",
++ "Survive lethal; erupt in a burn nova",
+  "Regenerate after avoiding damage",
+  "Longer protection after a hit",
+  "Dash farther and safer",
+@@ -146,10 +148,10 @@
+  "Give your active skill area impact",
+  "Summon a damaging orbiting wisp",
+  "Retired reward",
+- "Restore all health now",
++ "Survive lethal; empower your next finisher",
+  "Remove Blood Pact curses",
+  "Trade maximum health for power",
+- "Evolve an owned trait",
++ "Evolve a capped trait",
+  "Discover a random unowned relic",
+  "Repeat your previous upgrade",
+  "Hits restore Focus and cooldown",
+@@ -176,22 +178,34 @@
+     std::array<int,Count> Traits{};
+     std::uint64_t Evolutions=0;
+     int Weapon=0,Room=0,Challenge=0,Last=-1,Curse=0,PermanentCooldown=0,PermanentCritical=0;
+-    bool Hurt=false,MissingRelic=true;
++    int Difficulty=0,EndlessWave=0;
++    bool Hurt=false,MissingRelic=true,Endless=false;
+ };
+ inline bool CanEvolve(const Context& C,int I) {
+-    return I>=0&&I<EvolutionLimit&&I!=Index(Trait::Sense)&&I!=Index(Trait::DashCharge)&&!Catalog[I].Instant&&Catalog[I].Max>1&&C.Traits[I]>0&&!Evolved(C.Evolutions,I);
++    return I>=0&&I<EvolutionLimit&&I!=Index(Trait::Sense)&&I!=Index(Trait::DashCharge)&&!Catalog[I].Instant&&Catalog[I].Max>1&&C.Traits[I]>=Catalog[I].Max&&!Evolved(C.Evolutions,I);
++}
++inline bool ScalesEndlessly(int I) {
++    if(I<0||I>=Count||Catalog[I].Instant||Catalog[I].Max<=1) return false;
++    // Fixed movement and projectile-count ceilings are retained in endless mode.
++    const Trait T=Trait(I);
++    return T!=Trait::Sense&&T!=Trait::DashCharge&&T!=Trait::LongDash&&T!=Trait::Precision&&
++        T!=Trait::Magazine&&T!=Trait::Reload&&T!=Trait::Deadeye&&T!=Trait::Evasion&&T!=Trait::Grace&&
++        T!=Trait::Pierce&&T!=Trait::Ricochet&&T!=Trait::Split&&T!=Trait::Volley&&T!=Trait::Chain&&
++        T!=Trait::Orbit&&T!=Trait::Burn&&T!=Trait::Poison&&T!=Trait::Bleed&&T!=Trait::Shock&&
++        T!=Trait::Frost&&T!=Trait::Stun&&T!=Trait::Root&&T!=Trait::Duration;
+ }
+ inline bool CanChoose(const Context& C,int Offer,bool AllowSpecial=true) {
+     if(ASRules::IsRunUpgradeOffer(Offer)) {
+         const int I=Offer-ASRules::RunUpgradeOfferBase;
++        if(C.Endless&&(I==1||I==2||I==3)) return C.Stats[I]<10000;
+         return ASRules::CanUpgradeRunStat(I,C.Stats[I],I==0?C.PermanentCooldown:(I==5?C.PermanentCritical:0));
+     }
+     if(!IsTrait(Offer)) return false;
+     const int I=Offer-OfferBase;const auto& D=Catalog[I];
+-    if(C.Weapon<0||C.Weapon>=ASRules::WeaponCount||!(D.WeaponMask&(1<<C.Weapon))||C.Traits[I]>=D.Max) return false;
++    if(C.Weapon<0||C.Weapon>=ASRules::WeaponCount||!(D.WeaponMask&(1<<C.Weapon))||C.Traits[I]>=(C.Endless&&ScalesEndlessly(I)?10000:D.Max)) return false;
+     const auto T=Trait(I);
+     if(T==Trait::Sense) return false; // Retired reward ID; preserve all other IDs.
+-    if((T==Trait::Mend||T==Trait::FullHeal)&&!C.Hurt) return false;
++    if(T==Trait::Mend&&!C.Hurt) return false;
+     if(T==Trait::Cleanse&&C.Curse<=0) return false;
+     if(T==Trait::Mystery&&!C.MissingRelic) return false;
+     if(T==Trait::Refine) {if(!AllowSpecial) return false;for(int J=0;J<Count;++J) if(CanEvolve(C,J)) return true;return false;}
+@@ -219,7 +233,8 @@
+     // Reward quality is earned by clearing the current challenge, never by toggling a future vote.
+     const int Rarity=IsTrait(Offer)?Catalog[Offer-OfferBase].Rarity:0;
+     const int Bonus=(Rarity==2?20:(Rarity==1?12:0))*std::clamp(C.Challenge,0,3);
+-    return (W*(100+Bonus)+99)/100;
++    const int Quality=Rarity>0?25*std::clamp(C.Difficulty,0,2):0;
++    return ((W*(100+Bonus)+99)/100*(100+Quality)+99)/100;
+ }
+ inline std::vector<int> Offers(const Context& C,std::uint32_t Seed,int CountWanted=3) {
+     ASRules::Random R(Seed);std::vector<int> Pool,Result;
+--- a/Source/AshenSpiral/Public/ASCharacter.h
++++ b/Source/AshenSpiral/Public/ASCharacter.h
+@@ -4,6 +4,7 @@
+ #include "ASData.h"
+ #include "ASArsenalRules.h"
+ #include "ASMeleeRules.h"
++#include "ASExpeditionRules.h"
+ #include "ASCharacter.generated.h"
+ class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;
+ UCLASS() class ASHENSPIRAL_API AASCharacter : public ACharacter {
+@@ -33,6 +34,8 @@
+     UPROPERTY(Replicated) float ReloadEnd=0;
+     UFUNCTION(Server,Reliable) void RequestReload();
+     UFUNCTION(NetMulticast,Reliable) void ReloadCue(bool Complete);
++    UFUNCTION(NetMulticast,Unreliable) void DamageReaction(FVector_NetQuantizeNormal Direction,float Strength);
++    UFUNCTION(NetMulticast,Unreliable) void AbilityGesture();
+     UFUNCTION(NetMulticast,Reliable) void MeleeTravel(bool Slam,FVector_NetQuantize Destination,float Duration);
+     int32 MagazineCapacity() const {return ASArsenal::Capacity(Build.Weapon,TraitRank(ASBuild::Trait::Magazine));}
+     float ReloadDuration() const {return ASArsenal::ReloadSeconds(Build.Weapon,TraitRank(ASBuild::Trait::Reload));}
+@@ -73,6 +76,13 @@
+     UPROPERTY(Replicated) float NextRune=0;
+     UPROPERTY(Replicated) int32 ConduitHits=0;
+     UPROPERTY(Replicated) bool bPhoenixUsed=false;
++    UPROPERTY(Replicated) bool bVengeanceUsed=false;
++    UPROPERTY(Replicated) bool bVengeanceFinisherReady=false;
++    UPROPERTY(Replicated) float BleedRemaining=25.f;
++    UPROPERTY(Replicated) bool bEliminated=false;
++    UPROPERTY(Replicated) TArray<int32> EndlessRanks;
++    float EndlessValue(int32 Index) const {return EndlessRanks.IsValidIndex(Index)?ASExpedition::TraitPower(EndlessRanks[Index],5):0.f;}
++
+     UPROPERTY(Replicated) float WarCryUntil=0;
+     float CameraZoom=528.f;
+     FVector MuzzleLocation() const;
+@@ -136,6 +146,10 @@
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> ArrowMesh;
+     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> BowStrings;
+     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Wisps;
++    UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> FlowingCape;
++    void CreateCape();
++    void RefreshCape();
++    void AnimateCape(float Delta,float AttackFlare,float BodyTwist);
+     TSet<TWeakObjectPtr<AASEnemy>> DashVictims;
+     FVector DashTraceStart=FVector::ZeroVector;
+     bool bDashTraceActive=false;
+@@ -153,6 +167,13 @@
+     float PoseAge=10,WalkPhase=0,ResonanceAt=0,AllyHealAt=0;
+     float LocomotionWeight=0,LandingAge=10,AirWeight=0,CapeLean=0;
+     bool bWasAirborne=false;
++    FVector AnimationVelocity=FVector::ZeroVector,PreviousVisualVelocity=FVector::ZeroVector;
++    FVector FootAnchors[2]={FVector::ZeroVector,FVector::ZeroVector};
++    bool bFootPlanted[2]={false,false};
++    float TurnVelocity=0,PreviousVisualYaw=0,CapeTurn=0;
++    bool bVisualInitialized=false;
++    float DamageReactionAge=10,DamageReactionStrength=0,AbilityGestureAge=10;
++    FVector DamageReactionDirection=FVector::ZeroVector;
+     FVector AimPoint=FVector(1000,0,100);
+     void Attack();
+     void ResolveMelee();
+--- a/Source/AshenSpiral/Public/ASData.h
++++ b/Source/AshenSpiral/Public/ASData.h
+@@ -22,6 +22,19 @@
+     bool Talent(int32 I) const { return (TalentMask&(1<<I))!=0; }
+     void Sanitize();
+ };
++USTRUCT() struct FASEndlessRecord {
++    GENERATED_BODY()
++    UPROPERTY() FString RunId;
++    UPROPERTY() int32 Wave=0;
++    UPROPERTY() float Damage=0;
++    UPROPERTY() int32 Kills=0;
++    UPROPERTY() float DamageTaken=0;
++    UPROPERTY() float PartnerDamage=0;
++    UPROPERTY() int32 PartnerKills=0;
++    UPROPERTY() float PartnerDamageTaken=0;
++    UPROPERTY() FString EndedUtc;
++    void Sanitize();
++};
+ USTRUCT() struct FASProfileData {
+     GENERATED_BODY()
+     UPROPERTY() int32 Schema=1;
+@@ -41,6 +54,9 @@
+     UPROPERTY() int32 BestRoom=0;
+     UPROPERTY() int32 Wins=0;
+     UPROPERTY() int32 Deaths=0;
++    UPROPERTY() int32 BestEndlessWave=0;
++    UPROPERTY() int32 EndlessChoices=0;
++    UPROPERTY() TArray<FASEndlessRecord> EndlessRecords;
+     UPROPERTY() TArray<int32> Materials;
+     UPROPERTY() bool bRefinementBought=false;
+     UPROPERTY() FASBuild Build;
+@@ -53,6 +69,15 @@
+     UPROPERTY() int32 Experience=0;
+     UPROPERTY() TArray<int32> Career;
+     UPROPERTY() FString Id;
++    // Every economic receipt is bound to the owning character, never the host slot.
++    UPROPERTY() FString ProfileId;
++    UPROPERTY() bool bEndless=false;
++    UPROPERTY() int32 EndlessWave=0;
++    UPROPERTY() bool bRunEnded=false;
++    UPROPERTY() FASEndlessRecord EndlessRecord;
++    UPROPERTY() int32 AshCost=0;
++    UPROPERTY() int32 ScrapCost=0;
++    UPROPERTY() int32 Scrap=0;
+     UPROPERTY() int32 Ash=0;
+     UPROPERTY() int32 Embers=0;
+     UPROPERTY() int32 Tablets=0;
+@@ -94,5 +119,5 @@
+     extern const TCHAR* CrosshairColorNames[8];
+     extern const TCHAR* CrosshairStyles[4];
+     FLinearColor BiomeColor(int32 Index);
+-    constexpr int32 Protocol=2200;
++    constexpr int32 Protocol=2300;
+ }
+--- a/Source/AshenSpiral/Public/ASEnemy.h
++++ b/Source/AshenSpiral/Public/ASEnemy.h
+@@ -28,6 +28,16 @@
+     float LastHitTime=-10,NextDamageNumber=0;
+     TWeakObjectPtr<AASCharacter> LastHitter;
+     bool Hit(float Damage,AASCharacter* Source);
++    UPROPERTY(Replicated) float SpawnProtectedUntil=0;
++    float FirstEngagedAt=-1;
++    bool SpawnProtected() const;
++    void RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Power);
++
++    UPROPERTY(Replicated) float AttackReleaseTime=-100.f;
++    UPROPERTY(Replicated) float HitReactionTime=-100.f;
++    UPROPERTY(Replicated) float HitReactionStrength=0.f;
++    UPROPERTY(Replicated) FVector_NetQuantizeNormal HitReactionDirection=FVector::BackwardVector;
++    void BeginHitReaction(const FVector& SourceLocation,bool Heavy);
+     void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power);
+     void Control(int32 Type,const FVector& Direction,float Strength);
+     UFUNCTION() void RefreshStatus();
+@@ -39,7 +49,11 @@
+     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> ArmorParts;
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> ArmorWeapon;
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> ArmorShield;
+-    float GaitPhase=0;
++    float GaitPhase=0,VisualMovementWeight=0,VisualTurn=0,PreviousVisualYaw=0;
++    FVector VisualVelocity=FVector::ZeroVector;
++    FVector FootAnchors[2]={FVector::ZeroVector,FVector::ZeroVector};
++    bool bFootPlanted[2]={false,false};
++    bool bVisualInitialized=false;
+     void AnimateArmor(float Delta,float Windup);
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> Eye;
+@@ -48,6 +62,10 @@
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> Aura;
+     UPROPERTY() TObjectPtr<UStaticMeshComponent> Beam;
+     ASRules::ElementState Elements;
++    TWeakObjectPtr<AASCharacter> SynergySources[9];
++    float SynergyTimes[9]={-100,-100,-100,-100,-100,-100,-100,-100,-100};
++    float NextSynergy=0;
++
+     TWeakObjectPtr<AASCharacter> BurnSource,PoisonSource,BleedSource;
+     float BurnPending=0,PoisonPending=0,BleedPending=0,NextStatusDamage=0;
+     bool TickElements(float Delta);
+--- /dev/null
++++ b/Source/AshenSpiral/Public/ASExpeditionRules.h
+@@ -0,0 +1,69 @@
++#pragma once
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <cstdint>
++// Engine-independent expedition rules. Wave numbers are one-based; wave zero is a normal expedition.
++namespace ASExpedition {
++inline int Difficulty(int D) {return std::clamp(D,0,2);}
++inline float Quality(int D) {return 1.f+.25f*Difficulty(D);}
++inline float EnemyHealthScale(int D,int Wave=0,int Tier=0) {
++    const float Base[]={1.f,1.5f,2.1f};
++    if(Wave<=0) return Base[Difficulty(D)];
++    const float W=float(std::clamp(Wave,1,10000)-1),K=std::max(0.f,W-38.f);
++    const float Rate=Tier==2?1.875f:(Tier==1?1.25f:1.f);
++    return Base[Difficulty(D)]*(1.f+Rate*(W*.09f+K*K*.008f));
++}
++inline float EnemyDamageScale(int D,int Wave=0,int Tier=0) {
++    const float Base[]={1.f,1.3f,1.6f};
++    if(Wave<=0) return Base[Difficulty(D)];
++    const float W=float(std::clamp(Wave,1,10000)-1),K=std::max(0.f,W-38.f);
++    const float Rate=Tier==2?1.875f:(Tier==1?1.25f:1.f);
++    return Base[Difficulty(D)]*(1.f+Rate*(W*.035f+K*K*.003f));
++}
++inline bool BossWave(int W) {return W>0&&W%10==0;}
++inline bool RewardWave(int W) {return W>0&&(W<=20||BossWave(W)||(W<=50?W%2==0:(W-50)%3==0));}
++inline int SkyStage(int W) {return W>=50?2:(W>=21?1:0);}
++inline float AngerSpeed(int W) {return W<50?1.f:std::min(1.3f,1.12f+.003f*(W-50));}
++inline int EnemyCount(int W,int Players) {return std::clamp(7+W/2+(Players>1?4:0),8,36);}
++inline float TraitPower(int Picks,int Cap) {
++    Picks=std::clamp(Picks,0,10000);Cap=std::max(1,Cap);float Power=float(std::min(Picks,Cap));
++    for(int Extra=std::max(0,Picks-Cap),Block=0;Extra>0;++Block) {
++        const int N=std::min(5,Extra);Power+=N*std::max(.1f,.8f-.1f*Block);Extra-=N;
++    }
++    return Power;
++}
++inline int ChoiceCount(int Rank) {return 3+std::clamp(Rank,0,2);}
++inline int ChoiceCost(int Rank) {return Rank==0?150:(Rank==1?750:-1);}
++inline bool CanBleed(float Remaining,bool Reviving) {return Remaining>0.f&&!Reviving;}
++inline float Bleed(float Remaining,float Delta,bool Reviving) {return std::max(0.f,Remaining-(CanBleed(Remaining,Reviving)?std::max(0.f,Delta):0.f));}
++inline int ShuffleWaves(std::uint32_t Roll) {
++    // Symmetric discrete distribution: range 1..7, mean four, mode four.
++    constexpr int Choices[]={1,2,3,3,4,4,4,5,5,6,7};return Choices[Roll%11];
++}
++inline float ShuffleSeconds(float Roll) {return 120.f+60.f*std::clamp(Roll,0.f,1.f);}
++inline bool ShopAppears(int Wave,float Roll) {return Wave>=10&&Roll<.15f;}
++struct GambleOdds {int Loss,Refund,Double,Five,Ten;};
++inline GambleOdds Odds(int Ash) {return Ash<=50?GambleOdds{45,25,24,5,1}:(Ash>=1000?GambleOdds{50,20,22,7,1}:GambleOdds{60,20,17,2,1});}
++inline int GambleMultiplier(int Roll,int Ash) {
++    const auto O=Odds(Ash);Roll=std::clamp(Roll,0,99);
++    if(Roll<O.Loss) return 0;Roll-=O.Loss;if(Roll<O.Refund) return 1;Roll-=O.Refund;
++    if(Roll<O.Double) return 2;Roll-=O.Double;return Roll<O.Five?5:10;
++}
++inline int Synergy(int A,int B) {
++    // EASHitKind numeric ABI: Burn2, Poison3, Frost4, Shock8. Physical never marks.
++    if(A>B) std::swap(A,B);
++    if(A==2&&B==8) return 0;if(A==4&&B==8) return 1;if(A==2&&B==3) return 2;return -1;
++}
++inline float SynergyDamage(int Kind,float MaxHP,float Power,bool Boss) {
++    const float Base=Kind==0?60.f:(Kind==1?45.f:50.f);
++    return Base*std::max(1.f,Power)+(Boss?std::max(0.f,MaxHP)*.035f:0.f);
++}
++constexpr int ExclusiveBase=400,ExclusiveCount=4;
++inline bool Exclusive(int Id) {return Id>=ExclusiveBase&&Id<ExclusiveBase+ExclusiveCount;}
++inline const char* ExclusiveName(int Id) {const char* Names[]={"Bloodroot","Close Quarters","First Blood","Unbound Fury"};return Names[std::clamp(Id-ExclusiveBase,0,3)];}
++inline const char* ExclusiveDescription(int Id) {
++    const char* Text[]={"Each kill adds 0.35 max HP per effective rank, healing that amount.","Kills within 350 cm restore 3 HP and grant 2 Scrap per rank.","Kills within 1 second of first engagement grant 3 Scrap per rank.","An endlessly stacking 8% primary attack damage bonus per effective rank."};
++    return Text[std::clamp(Id-ExclusiveBase,0,3)];
++}
++}
+--- a/Source/AshenSpiral/Public/ASGameInstance.h
++++ b/Source/AshenSpiral/Public/ASGameInstance.h
+@@ -17,6 +17,8 @@
+     virtual void Shutdown() override;
+     UPROPERTY() FASProfileData Profile;
+     FString LastMessage;
++    int32 ActiveCharacterSlot=0;
++    bool SwitchCharacterSlot(int32 Index);
+     bool Commit(const FASProfileData& Candidate);
+     bool Purchase(int32 Category,int32 Index);
+     bool Receive(const FASReceipt& Receipt);
+@@ -51,7 +53,8 @@
+     bool bReduceMotion=false;
+     bool bRaiseStakes=false;
+ private:
+-    FString Slot;
++    FString Slot,BaseSlot;
++    bool LoadCharacter();
+     int32 Revision=0;
+     bool bProgressBlocked=false;
+     FDelegateHandle FailureHandle;
+--- a/Source/AshenSpiral/Public/ASGameState.h
++++ b/Source/AshenSpiral/Public/ASGameState.h
+@@ -9,6 +9,15 @@
+     GENERATED_BODY()
+ public:
+     UPROPERTY(Replicated) FASBuild Build;
++    UPROPERTY(Replicated) bool bEndlessUnlocked=false;
++    UPROPERTY(Replicated) int32 EndlessChoices=0;
++    UPROPERTY(Replicated) int32 AvailableAsh=0;
++    UPROPERTY(Replicated) int32 AvailableScrap=0;
++    UPROPERTY(Replicated) float RunDamage=0;
++    UPROPERTY(Replicated) float RunDamageTaken=0;
++    UPROPERTY(Replicated) int32 RunKills=0;
++    UPROPERTY(Replicated) bool bShopClaimed=false;
++    UPROPERTY(Replicated) int32 LastGambleRoom=-100;
+     UPROPERTY(Replicated) int32 CharacterLevel=1;
+     UPROPERTY(Replicated) int32 TitleIndex=-1;
+     UPROPERTY(Replicated) int32 TitleTier=0;
+@@ -47,6 +56,13 @@
+     UPROPERTY(Replicated) float ReconnectRemaining=0;
+     UPROPERTY(Replicated) float SimTime=0;
+     UPROPERTY(Replicated) float CountdownEnd=0;
++    UPROPERTY(Replicated) int32 Difficulty=0;
++    UPROPERTY(Replicated) bool bEndless=false;
++    UPROPERTY(Replicated) int32 EndlessWave=0;
++    UPROPERTY(Replicated) int32 ClearedEndlessWave=0;
++    UPROPERTY(Replicated) bool bLuckyShop=false;
++    UPROPERTY(Replicated) bool bRareShop=false;
++    UPROPERTY(Replicated) float ShuffleAt=0;
+     UPROPERTY(Replicated) int32 Challenge=0;
+     UPROPERTY(Replicated) int32 VaultMask=0;
+     UPROPERTY(Replicated) bool bVaultClaimed=false;
+--- /dev/null
++++ b/Tests/checkpoint_023_preflight.log
+@@ -0,0 +1,9 @@
++Traceback (most recent call last):
++  File "/workspace/scratch/b99750a0357f/ue-restoration/AshenSpiral_UE5_0.23.0/Tests/run_tests.py", line 269, in <module>
++    raise SystemExit(validate())
++                     ^^^^^^^^^^
++  File "/workspace/scratch/b99750a0357f/ue-restoration/AshenSpiral_UE5_0.23.0/Tests/run_tests.py", line 69, in validate
++    check(name+'_Implementation(' in class_sources,f'{name}: RPC implementation exists')
++  File "/workspace/scratch/b99750a0357f/ue-restoration/AshenSpiral_UE5_0.23.0/Tests/run_tests.py", line 23, in check
++    raise AssertionError(description)
++AssertionError: DamageReaction: RPC implementation exists
+--- a/Tests/run_tests.py
++++ b/Tests/run_tests.py
+@@ -26,7 +26,10 @@
+ def validate():
+     project=json.loads((ROOT/'AshenSpiral.uproject').read_text())
+     check(project['EngineAssociation']=='5.8', 'Engine association is UE 5.8 (minimum hotfix 5.8.3 in setup script)')
++    generated_dirs = {'saved', 'intermediate', 'binaries', 'deriveddatacache', '.vs', 'build'}
+     for p in ROOT.rglob('*.json'):
++        if any(part.lower() in generated_dirs for part in p.relative_to(ROOT).parts[:-1]):
++            continue
+         json.loads(p.read_text())
+     check(True, 'All JSON files parse')
+     pyfiles=list((ROOT/'Tools').glob('*.py'))+[Path(__file__)]
+--- a/Tools/TestTwoPlayers.ps1
++++ b/Tools/TestTwoPlayers.ps1
+@@ -6,7 +6,7 @@
+     Start-GameProcess $Engine @('/Game/Maps/AshenSpiral?listen?Session=LOCAL2','-game','-windowed','-ResX=1000','-ResY=700','-WinX=10','-WinY=30','-ProfileSlot=90','-log')
+     Write-Host 'When the host window reaches the hub, press Enter here to launch the second player.'
+     Read-Host | Out-Null
+-    Start-GameProcess $Engine @('127.0.0.1:24567?Code=LOCAL2?Protocol=2200','-game','-windowed','-ResX=1000','-ResY=700','-WinX=1020','-WinY=30','-ProfileSlot=91','-log')
++    Start-GameProcess $Engine @('127.0.0.1:24567?Code=LOCAL2?Protocol=2300','-game','-windowed','-ResX=1000','-ResY=700','-WinX=1020','-WinY=30','-ProfileSlot=91','-log')
+     Write-Host 'Use the Expedition panel in each window to ready up. Test slots 90 and 91 do not replace your normal profile.'
+     exit 0
+ } catch { Write-Host $_.Exception.Message -ForegroundColor Red; exit 1 }
+--- /dev/null
++++ b/reference/0.23.1/0.23.1-batch-prompt.md
+@@ -0,0 +1,87 @@
++# Ashen Spiral v0.23.1 — Astra prompt (visuals round)
++
++Three items. This is the 0.23.1 visuals round, scoped 2026-10-15 by Josue + P2.
++Everything else from the walkthrough is deferred to later 0.23.x rounds.
++
++## A3. Cape movement (references attached)
++
++Player 2's cloth references are in `reference/`:
++- `cape-motion-sketch.gif` — the line-art sketch: how the cape lifts, billows,
++  and resettles. The silhouette language to match.
++- `cape-knight-flow.mp4` — the knight on the wall: heavy cloth in wind, the way
++  it catches, spreads, and falls back. The weight and drama target.
++
++Directives:
++- The cape must read as heavy cloth with weight, not a stiff plane or a
++  weightless ribbon. It lags behind movement, catches on direction changes,
++  and settles with a beat of delay.
++- In wind/idle: the knight-video behavior — broad billow, slow resettle.
++- In combat: the cape reacts to dashes, leaps, and swings (lift on the RMB leap,
++  flare on dash), but never clips through the body or weapons.
++- P2 owns feel and signs off.
++
++## B1. Difficulty portal looks (P2 art-directs — info protocol below)
++
++Three portals at run start: Ember (Normal), Ashen (Hard), Blood (Very Hard).
++P2 art-directs all three. Reference: `reference/portals-ember-ashen-blood.mp4` —
++gothic stone archways, Ember burning orange, Ashen pale grey/white, Blood dark
++blood-red. The Blood Portal should feel like the endless portal's little brother
++— inviting and wrong: the blood is FRESH AND DRIPPING, the portal is hungry now.
++(Endless portal reference: sinister, bloody, "many entered, none came back whole"
++— see B8.)
++
++Stepping through: a generic walk-into-the-portal transition animation, then spawn
++into chamber 1 when it ends. Placeholder quality is fine for now ("AI slop"
++acceptable) — better details come in a later version.
++
++Visual spec (from Josue, 2026-10-15): gothic stone archways per the video ref;
++locked = chained across the archway; Blood = fresh and dripping; step-through =
++generic walk-in transition (placeholder quality OK). Ember/Ashen distinctive
++stonework detailing is deferred — P2 is giving it thought for a later round.
++
++If further visual questions arise during implementation: ask Josue and P2 ALWAYS
++one question at a time. Never batch questions.
++
++What we know: hub placement side by side (Normal → Hard → Very Hard), hover
++shows the exact modifiers. Locked portals are CHAINED — heavy chains across the
++archway, with the unlock condition in the tooltip.
++
++## B8. Endless visuals (text spec — P2 refs pending, art-direct as specced)
++
++The endless portal:
++- Sinister, bloody. It must look like what it is: a place adventurers enter and
++  don't come back whole. Old blood, scratch marks, trophies of the failed —
++  P2's detailing instincts apply.
++- Gated: only active after beating normal mode once. Inactive state should read
++  as dormant/dark, not broken.
++
++The endless arena (separate visual identity from the Archives):
++- ~3x boss-arena size, lots of scattered obstacles.
++- The SKY is the difficulty telegraph, in three states:
++  1. Waves 1–20: clear sky.
++  2. Waves 21–50: slightly gloomier.
++  3. Wave 50+: red, bloody gloom — and enemies look/feel faster and angrier.
++- The sky transition at wave 50 must be unmistakable. It IS the checkpoint
++  message, delivered visually.
++- FUTURE DIRECTION (P2, refs filed): full environmental decay, not just the sky.
++  `reference/endless-env-clear-lush.png` → `reference/endless-env-gloomy-dead.png`
++  → `reference/endless-env-blood-ruin.jpg`: the landscape itself dies in stages —
++  lush green → withered grey wasteland → ruined castle with a river of blood.
++  Current round keeps the sky-transition approach; the decay version is the
++  reference for a later pass.
++
++Constraints: these are looks only. No mechanics changes in this round — the
++endless systems (B8 in 0.23) are untouched.
++
++---
++
++## Global constraints (same as 0.23)
++
++- UE 5.8.3, native C++. Protocol stays compatible with 0.23.0 (no protocol bump
++  for a visuals round unless unavoidable — flag it if so).
++- Don't touch: ranged weapons, Cinder Blade, boss attacks, prices, the 0.21
++  Archives pass, rarity weights, trait/upgrade numbers.
++- Build hygiene from 0.22.0 (do not ship again): unique per-file names for file-scope
++  constants (unity-build collisions); test harness must skip engine-generated dirs
++  (Saved, Intermediate, Binaries, DerivedDataCache, .vs, Build) in JSON validation;
++  every .cpp includes the headers for what it uses even if the unity build masks it.
+--- /dev/null
++++ b/reference/0.23/0.23-batch-prompt.md
+@@ -0,0 +1,157 @@
++# ASTRA PROMPT — v0.23.0: The Big Batch (14 items, two tracks)
++
++> For Astra. One round, fourteen items, two tracks. Everything below is decided unless marked [DEFAULT — override if you disagree]. The economics: this round is authorized up to ~300% of the 5-hour budget — pack it all in, but keep every item complete. Do not half-finish an item to fit more in; fourteen done beats seventeen started.
++
++## Context
++Ashen Spiral, UE5, native C++. v0.22.0 redid the Grav Hammer (poses → 3-hit combo → RMB leap → feel layer) via the single-prompt method — that method works, use it per item. v0.23 finishes the animation overhaul and ships the deferred systems backlog.
++
++## Sequencing
++- **Track A (animation):** A1 first (poses before combo animation, per the 0.22 lesson). Then A2 → A3 (cape reacts to locomotion, so locomotion first). A4, A5, A6 in any order after A1.
++- **Track B (systems):** all independent — any order, but B3 (anti-cheese) and B4 (synergies) both touch boss fights, so implement them together and test together.
++- No cross-track dependencies. Both tracks can be worked in parallel.
++
++
++## TRACK A — Animation (P2 art-directs)
++
++### A1. Cinder Blade animation redo
++The sword was judged as harshly as the hammer ("a joke"). Same treatment the hammer got in 0.22:
++- Pose foundation first: correct sword grip (the 0.21 grip fix was hammer-focused).
++- Then the 3-hit combo animation: fast horizontal swings, 3rd hit lunges forward (the lunge is the Blade's identity — swift, smooth, mobility weapon).
++- Weight opposite to the hammer: fast wind-up, snappy strikes, minimal follow-through. It should read *fast*, not heavy.
++- [NEEDS P2'S FRAMES: P2 is generating Blade reference sheets like the hammer's 10-frame set. If they arrive with this prompt, use them; if not, work from the hammer's pattern (poses → combo → feel) and the design spec, and flag the Blade as needing P2's art pass in a later round.]
++- Acceptance: 3-hit combo reads clean at full speed; lunge connects visually; no joke poses.
++
++### A2. Locomotion overhaul
++Characters move stiff/robotic. Target: fluid, weighty movement — steal Helldivers 2 (P2's reference): natural acceleration/deceleration, body lean into movement, foot placement that doesn't skate.
++- Applies to both players, all weapons.
++- Must not change movement *speeds* or game feel numbers — this is visual only.
++- Acceptance: sprinting, strafing, and direction changes look natural, not robotic.
++
++### A3. Cape movement
++The cape is a stiff board. It should flow with movement and attacks (Helldivers 2 steal).
++- Reacts to locomotion (A2): streams behind when sprinting, whips on direction change, settles at idle.
++- Reacts to attacks: flares on the hammer slam and the Blade lunge.
++- Acceptance: cape never clips through the body visibly; motion reads as cloth, not cardboard.
++
++### A4. Enemy animation pass
++Enemies are stiff; sword enemies wrongly shoot projectiles (melee enemies should melee).
++- Fluid attack/move animations for all enemy types.
++- Sword enemies: melee swing attacks, not projectiles. (If a ranged enemy type needs projectiles, that's a design question — default: sword = melee.)
++- Acceptance: no enemy looks robotic; sword enemies close distance and swing.
++
++### A5. Hit reactions
++- Enemies: visible hit reactions — flinch on light hits, stagger on heavy (hammer finisher, leap landing).
++- Players: brief, readable feedback on taking damage (no long stunlock — roguelike fairness).
++- Knockback already specced per-weapon (hammer: small/small/large) — make it read visually.
++- Acceptance: every damage event has a visible reaction; heavy hits feel heavy on both ends.
++
++### A6. Rift Scythe + G-ability animation check
++- Assess: does the Rift Scythe have the same "joke" problem as the hammer/sword had? If yes, apply the A1 treatment (poses → combo animation). If no, leave it.
++- G-ability (the remapped old right-click): does its animation need the redo? Assess and fix if yes.
++- Acceptance: no melee weapon looks wrong; report which ones were touched.
++
++
++## TRACK B — Systems (Josue)
++
++### B1. Difficulty portals
++Portals offering Normal / Hard / Very Hard at run start (from the direction answers).
++- Must be a real choice: Very Hard meaningfully harder (enemy damage/HP scaling), Normal the current baseline.
++- Rewards scale with difficulty — harder portal, better drops. [DEFAULT: +25% / +50% drop quality on Hard / Very Hard]
++- Acceptance: all three portals work, difficulty is felt within the first chambers, rewards differ.
++
++### B2. Fresh character slot
++Second character slot so a maxed-out player can test the early game fresh.
++- Fully independent progression (its own Hearth upgrades, talents, unlocks).
++- Acceptance: new slot starts at zero, old slot untouched, switching works.
++
++### B3. Boss anti-cheese
++In 0.20–0.21, every boss but the first died on spawn to portal+hammer ("kill this boss on command").
++- Bosses need spawn protection: brief invulnerability or a spawn animation that can't be burst through. [DEFAULT: 2s spawn protection + spawn animation]
++- This is not a boss *redesign* — just close the spawn-kill exploit. Full boss rework stays deferred.
++- Acceptance: no boss dies during its spawn; the portal+hammer opener is strong but not a kill.
++
++### B4. Co-op synergies v1
++Bosses were the playtest lowlight; synergies are the aimed fix.
++- Implement the flagship: fire + lightning = lightning blast, bigger than the sum of its parts.
++- Usable vs regular enemies, but tuned to matter most vs bosses.
++- VFX + message callout when a synergy triggers ("SYNERGY: Lightning Blast") — players must *know* it happened.
++- [DEFAULT: start with 3 synergies — fire+lightning, and two more of your design following the same pattern: combined > sum, callout, boss-relevant]
++- Acceptance: synergies trigger reliably in co-op, the callout fires, bosses feel the difference.
++
++### B5. Rarity rebalance
++Legendaries currently feel weak — rarity must mean power. Concrete per-trait changes (decided 2026-10-15, Josue):
++- **Second Dawn → Vengeance Oath** (replaces the dud): when saved from lethal damage, go invulnerable 3s and your next 3-hit finisher deals 5x. Same survival genre, stronger alternative.
++- **Phoenix Oath, spiced up:** keep the cheat-death (survive lethal at 35% HP + 2s protection) and add a radial burn nova eruption on proc — it punishes whatever almost killed you. Future niche: refine further when one-shot boss mechanics arrive (revive scales with 1-hit death danger).
++- **Emberforge Evolution, gated:** only triggers/is offered when the player already has at least one trait at cap — never a dead draw.
++- **Echo of Choice, demoted:** fine trait, but rare or epic — not legendary-tier.
++- Blood Pact stays as is (good tradeoff design).
++- General rule going forward: legendaries get unique effects, not just stat bumps — build-defining, not marginal.
++- Acceptance: a legendary drop is an event; players can feel the tier difference.
++
++
++### B6. Well gambling
++The U-shaped risk appetite: players gamble when desperate or dominant.
++- At any well, stake ash for a spin — outcomes scale with the stake; big wins and total losses both possible.
++- Odds tuned so it's tempting at both ends: nothing-to-lose when desperate, house-money when dominant. The middle (comfortable but not rich) should feel like the sucker's bet.
++- [DEFAULT: one gamble per well per run — no farming the same well]
++- Acceptance: the gamble UI is clear about stakes and possible outcomes; no exploit loops.
++
++### B7. Boss arenas that serve the fight
++No more resized wave maps. Each boss gets an arena designed around its mechanics — the rotunda reference (filed in `reference/`) is the starting point.
++- P2 art-directs; arenas should telegraph the boss's identity before the fight starts.
++- Arena features must interact with the boss's attack patterns (cover that matters, hazards that sync with phases).
++- Acceptance: every boss arena feels bespoke; players can tell which boss lives there on sight.
++
++---
++### B8. Endless mode v1
++The second game mode. Fully spec'd 2026-10-15 (Josue interrogation). P2 art-directs the portal and arena.
++
++**Entry:** A sinister PORTAL (not a menu), active only after beating normal mode at least once. Bloody, foreboding — "many adventurers entered, none came back whole."
++
++**Run start:** Fresh character, but permanent skill-tree buffs carry in.
++
++**The arena:** One large arena, ~3x boss-arena size, LOTS of scattered obstacles. Its own visual identity (not Archives stone): the SKY tracks the reward checkpoints — clear sky for waves 1–20, slightly gloomier for 21–50, then a red bloody gloom from wave 50 on, with enemies looking and feeling faster and angrier.
++
++**Wave flow:** Waves chain directly (stragglers get absorbed into the next wave — no hunting). Reward chest cadence: EVERY wave for 1–20, every OTHER wave for 21–50, every 3 waves after 50 (anchored 50, 53, 56, 59, 62…). At each checkpoint transition, a clear message warns: difficulty up, rewards sparser. Revisit cadence after playtesting.
++
++**Boss waves:** Every 10 waves. Boss waves ALWAYS grant a chest on top of the cadence (59 cadence, 60 boss bonus, 62 cadence).
++
++**Scaling:** Elites scale ~1.25x the regular rate; bosses ~1.5x the elite rate. Bosses are the main run-killers; late regular waves still lethal. Knee at ~wave 40 (starts feeling unfair); after wave 50, bosses gain one-shot mechanics — telegraphed area attacks and homing projectiles dodgeable only with a well-timed dash, and they must LOOK obviously lethal.
++
++**Between waves:** Chest spawns → both players pick → either player presses E → next wave. No AFK timer; waits forever. (Timer only if randoms matchmaking ever exists.)
++
++**Downed state:** A player can revive the other within a 20–30s bleed-out window. A bar above the downed character, visible to both players, shows bleed-out progress. Actively reviving PAUSES the bar (does not reset it) — if the revive isn't completed, the bar resumes.
++
++**Arena shuffle (anti-camp):** Cover/hazard layouts reshuffle on RANDOM timing — average every 3–5 waves, range 1–7 (min 1 wave grace after a shift). After wave 50, switches to TIME-based: average every 2–3 minutes, can trigger mid-wave. The timer pauses while no enemies are out (chest phase).
++
++**Chest:** 3 choices base per player. Skill-tree upgrades: 3→4 choices for ~150 ash, 4→5 for ~750 ash.
++
++**Power curve:** Repeat picks at full strength up to the normal-mode cap; each 5-block past the cap steps down (~80%, ~70%…, exact curve tunable at implementation).
++
++**Sidegrades:** After ~wave 15, up to half the chest shifts to utility/mobility/sustain. (Implementer's judgment; tune after playtest.)
++
++**Endless-exclusive traits:** Rare stacking max-HP-per-kill (Crab Champions style), close-range kill bonuses, speed-kill rewards (kill within 1s of engaging), rare infinitely-scaling attack buffs appearing from time to time.
++
++**Economy:** Earn ash and scrap during the run. "Lucky" shop event: ~15% chance after selecting a chest, never before wave 10. Shop stock costs scrap; very rare strong upgrades cost ash.
++
++**Death screen:** Leaderboard (highest cleared wave) + full run stats — damage, kills, damage taken — for both players.
++
++**Acceptance:** A full loop is playable co-op: portal entry → waves → chests → boss waves → shuffle events → lucky shop → death screen with leaderboard and stats. The wave-40 knee and wave-50 shift are felt, not just numbered.
++
++---
++
++## Global constraints
++- Keep all 0.22 numbers unless an item changes them (hammer: 62/62/161.2, 0.72/0.72/1.188s, leap ~100 base / 7–8s / no ash).
++- Animation items are visual-only unless stated — no speed, damage, or timing changes smuggled in.
++- Co-op: everything works for both players; protocol bump (will be 2300).
++- Explicitly NOT in 0.23: weapon mastery, biome passes for wards 2–4, full boss redesign (only anti-cheese), P2's future second mobility attack (frames pending)).
++- Build hygiene (three real bugs found building 0.22.0 — do not ship again): (1) color constants named Gold/Teal/Muted in anonymous namespaces across ASHUD.cpp/SASMenu.cpp plus function-local copies in ASWorld.cpp collide under UE unity builds (C4459/C2374/C2086) — keep per-file names unique; (2) Tests/run_tests.py must skip engine-generated dirs (Saved, Intermediate, Binaries, DerivedDataCache, .vs, Build) when validating JSON — Unreal's own AutoSDKInfo logs are malformed and broke the suite before it ran; (3) every .cpp must include the headers for what it uses even if the unity build masks it — ASHammerEffects.cpp used ASAssets::Style without ASWorld.h and only failed on non-unity builds.
++
++## Global acceptance (for our playtest)
++- [ ] Blade combo looks as clean as the hammer's; no joke poses on any melee weapon.
++- [ ] Movement and cape look fluid; enemies animate and react.
++- [ ] All three difficulty portals work and feel distinct.
++- [ ] Fresh slot starts at zero; old slot untouched.
++- [ ] No boss dies on spawn.
++- [ ] At least one synergy triggers with callout in a co-op boss fight.
++- [ ] A legendary drop feels like an event.
+--- /dev/null
++++ b/reference/0.23/reference/README.md
+@@ -0,0 +1,16 @@
++
++## Forgotten Archives reference pack (Player 2, 2026-10-14 playtest)
++- `forgotten-archives-gothic-style.png` — Cologne Cathedral at night: gothic verticality, dark stone, dramatic uplighting. The overall style target.
++- `archives-dark-corridor.png`, `archives-book-corridor.png` — shelf-lined corridors done right: shelves face the walkway, dense, aged.
++- `archives-old-reading-room.png` — decayed grandeur: peeling paint, worn floors, furniture with history.
++- `archives-warped-shelves.png` — what "unopened for centuries" looks like: warped wood, sagging shelves, decay.
++- `archives-dusty-study.png` — dust, debris, a chair no one has sat in for decades.
++- `archives-cobweb-skylight.png` — moonlight + cobwebs + scattered glowing books; the "abandoned magic" beat.
++- `archives-boss-arena-rotunda.png` — BOSS ARENA candidate: circular tiered rotunda, reads as a final exam.
++Direction notes: shelves must face like real bookshelves; textures need age (not flat concrete); add dust, broken furniture, decay/corrosion.
++
++## Hammer animation references (P2, 2026-10-14 playtest review)
++- `hammer-combo-3hit-10frame-ref.png` — THE left-click 3-hit combo, frame by frame: frames 1–5 = horizontal swings (hits 1–2, left/right with motion arcs), frames 6–10 = overhead raise into a planted slam with ground debris burst (3rd hit — the heavy finisher, NO jump per the redesign). This is the target for the combo redo.
++- `hammer-swings-8frame-ref.png` — general two-handed hammer swing reference: wind-up posture, full-body commitment, motion blur arcs. Note the grip and how the head stays parallel to the swing arc (ties to the head-orientation fix).
++
++- `hammer-leap-RMB-ref.png` — THE right-click mobility leap (hammer, melee only): crouch-launch, full arc with hammer raised overhead, landing with dust burst. Reference for the leap's trajectory feel and the raised-hammer pose mid-flight. Note: per the redesign the RMB leap is mobility (dash-plus: ~50% higher, a little further than a dash) — the landing impact here reads heavier than the spec, use for the arc/pose, tune the landing to match.

@@ -1,0 +1,98 @@
+ORDERED CONTINUATION PLAN — suggestions, not completed work
+
+1. Establish a coherent baseline that compiles.
+   Read the exact prompt packs and diff. Implement missing animation RPC/cape
+   methods properly; inspect direct includes/UHT declarations. Re-run source
+   preflight. Retain 0.22 unchanged as a comparison, never modify the archived ZIP.
+
+2. Repair save/economy/profile integration before exposing new UI.
+   Stamp ReceiptProfileId in SendReceipt. Define server-side currency accounting,
+   cost validation, replay/idempotency and acknowledgment rules. Ensure debits are
+   applied once; failed/pending saves must block unsafe slot swaps and transitions.
+   Extend profile submission with Ash/Scrap/Wins/choice-rank or a dedicated Hub
+   sync RPC. Allow changed profile id only for a safe Hub slot switch. Refresh the
+   character and rebuild UI afterward. Include added fields in reconnect snapshots.
+   Test both slots, A/B recovery, import rejection, reconnect and save-failure rollback.
+
+3. Complete boss protection, synergies, legendaries and sword melee.
+   Ensure both clients see protected boss entry. Audit all damage/status/control
+   entry points, including direct well effects. Guard post-synergy target liveness.
+   Test same-player/no-trigger, cross-player/trigger, cooldown, simultaneous effects,
+   protected bosses, kill credit and no recursive nova/synergy loops. Verify Oath
+   precedence, once-per-run flags, finisher consumption, rarity and capped eligibility.
+
+4. Integrate normal difficulty portals, then the Endless lifecycle.
+   Extend World config and GameMode entry with difficulty/mode. Keep normal0
+   baseline and preserve the normal32-chamber flow. Host/ready/coop authority rules
+   remain server-owned. Add side-by-side Ember/Normal, Ashen/Hard, Blood/VeryHard
+   gothic arches, exact modifier hover, chained locks with their actual conditions,
+   and generic walk-in transition before spawning in chamber1. The briefs do not
+   specify Hard/VeryHard unlock rules; do not invent restrictive progression gates.
+   Endless unlock is explicitly a Normal clear. Use dormant dark locked styling.
+
+5. Build one full co-op Endless loop before embellishment.
+   Fresh run stats with permanent bonuses; large distinct arena; wave counter;
+   scaling tiers; boss every10; checkpoint cadence; both players choose, either E
+   advances, no timer. Chest always on bosses. Stragglers carry into next wave.
+   Proposed design (not implemented): retain surviving enemy kind/ward/HP between
+   waves; no reward for despawning; require boss dead to finish boss waves. Limit
+   total active enemies safely. A timed/few-survivor finish policy needs explicit
+   tuning; avoid deleting enemies for free rewards or unbounded accumulation.
+
+6. Finish Endless progression/economy and failure states.
+   Wire actual trait effectiveness/diminishing returns,3/4/5 choices, utility mix
+   after15, IDs400..403 and kill/first-engagement rewards. Add bleed bar and
+   eliminated/wipe handling; highest CLEARED wave stats for both players. Local
+   leaderboard supported by current profile fields; online leaderboard not promised.
+   Earn Ash/Scrap,15% shop after chest from10, Scrap stock and rare Ash items.
+   Validate all transactions server-side with save-safe receipts.
+
+7. Add shuffle events and wave50 danger.
+   Random1..7-wave interval averaging3..5, at least1 wave grace; after50 use
+   120..180 active-combat seconds, pause without enemies. Telegraph3sec or another
+   readable delay and never place new cover on a player. Implement obvious lethal
+   boss AoEs and dash-dodge homing shots only for the specified late Endless scope.
+   Clear sky1..20,gloom21..49,red50+ with unmistakable transition at50. Full
+   landscape decay stays deferred, despite supplied environmental concept images.
+
+8. Implement well gambling and boss arenas.
+   A per-player/per-well/per-run consumed key must survive reconnects. Show stake,
+   odds, possible payout and total loss; never trust client balance/roll. Only consume
+   a transaction once. Do not allow profile switches or retry acknowledgments to
+   repeat a spin. Review the current default odds before showing them to players.
+   Build each ward boss arena around its actual attacks. Suggested first sketch:
+   radial/projectile boss gets rotunda cover; charge boss gets staggered lanes;
+   well/inversion boss gets clear navigable zones; blast/pull boss gets rings/alcoves.
+   These sketches are not completed designs and must be checked against the source.
+   No full boss redesign or unrelated biome pass.
+
+9. Complete animation in the prompt's order.
+   Blade poses before combo; fluid locomotion before cape. Preserve physical speed,
+   damage and timing. Visual smoothing/lean and foot planting need teleport resets.
+   Heavy cape: body-safe drape, delayed turn/dash/leap/swing response, broad billow,
+   slow resettle. All enemy silhouettes attack clearly. Make reactions visible,
+   brief, with no player stunlock. Assess Scythe/G and report what changed. Blade
+   still needs P2 review because the requested reference frames were not included.
+
+10. UI, tests, docs, real build and package.
+   Connect menus, reward card names/icons, portals/tooltips, gameplay prompts,
+   slots, purchases, shop/gambling, run HUD, death stats and leaderboard.
+   Add meaningful native tests for the new rules and state transactions.
+   Run python3 Tests/run_tests.py after missing definitions/integration are fixed.
+   Compile UE unity AND non-unity; run setup/import and local/listen/client tests
+   if possible. Check no changes to protected hammer tuning/movement baseline.
+   Update README/config/version/catalog/changelog/provenance/manifest and package.
+
+USEFUL EXISTING ENTRY POINTS
+ASGameMode: ProfileArrived, BeginRun, EnterRoom, QueueWave, Tick, EnemyKilled,
+SendReceipt, FinishRoom, Reward, Interact, RollOffers, BackToHub.
+ASGameInstance: LoadCharacter, SwitchCharacterSlot, Purchase, Receive, PreviewImport.
+ASPlayerController: SubmitProfile RPC, action dispatch, interaction, menu pages,
+client phase tracking and receipt acknowledgment.
+ASWorld: Configure/Rebuild/Layout/StationAt/InteractionPoint/HasVault/HasShrine.
+ASCharacter: ApplyBuild, Hurt, Tick/revive, HitEnemy, CanDamage, Animate.
+ASCharacterUpgrades and ASBuildRules: runtime trait effects and offer eligibility.
+
+The proposed action numbers/pages in the prior working notes were only possible
+allocations; inspect existing dispatch before choosing IDs. Do not assume new
+slot, gambling, shop or portal UI actions have already been added.

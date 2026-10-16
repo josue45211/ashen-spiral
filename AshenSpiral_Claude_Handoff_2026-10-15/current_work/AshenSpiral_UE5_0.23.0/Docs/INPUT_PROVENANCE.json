@@ -1,0 +1,8 @@
+{
+  "input_filename": "Ashen_Spiral_v0.10.1_HOTFIX(1).zip",
+  "input_sha256": "b68771d5e66bf83a2f5ec1779c383a74ca0c231a988ce0527b8b3ff905cfbbea",
+  "output_version": "0.11.0",
+  "engine_target": "5.8.3",
+  "original_modified": false,
+  "save_migration": false
+}

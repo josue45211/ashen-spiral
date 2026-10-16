@@ -1,0 +1,18 @@
+RETRIEVED HISTORICAL CONTEXT — summaries, not verbatim chat
+Retrieved for this export. Relative age labels are those of the retrieval service;
+use the explicit dates if needed. Historical assistant test claims were not rerun.
+Opaque c0/c1/c2 labels identify retrieval fragments, not an exported full transcript.
+
+[convo search]
+- [USER_CONSTRAINT] [c0] U@2026-09-25T03:58:28Z, -21d: Ashen Spiral UE5 remake; newest UE5, improved graphics, third-person; co-op project.
+- [USER_CONSTRAINT] [c0] U@2026-10-14T04:52:35Z, -1d: include PDF bug fixes; PDF reverses Treasure Sense (remove/refund), converts Crystal Shards/Vine Fiber to Scrap, makes Rune Nova work with every active ability; defer balance/new unlocks.
+- [PRIOR_ASSISTANT_OUTPUT] [c0] A@2026-10-14T13:25:04Z, -1d: 0.20 ZIP delivered; includes UI, reload, vault, navigation, armor/animation, PDF fixes, editable catalog; eight native suites passed, Unreal compilation/live playtesting pending, including seed-6767 routing.
+
+- [USER_FACT] [c1] U@2026-09-23T23:47:52Z, -22d: Ashen Spiral UE5/co-op handoff context includes versions through v0.10.0 here; user requires playable future builds targeting at least 60 FPS.
+- [USER_CONSTRAINT] [c1] U@2026-09-23T23:47:52Z, -22d: Ember Refinement must be one-time unless repeat purchases grant multiple permanent skill points; Hearth purchases must preserve scroll position; optimize unplayable lag without sacrificing 60 FPS.
+- [PRIOR_ASSISTANT_OUTPUT] [c1] A@2026-09-23T19:07:34Z, -23d: v0.10.0 ZIP included seeded branching maps, gravity-well combat, six weapons, 24 relics, 16 Hearth upgrades, co-op fixes; 210 checks passed, but 24-hour human playtest remained outstanding.
+
+- [USER_FACT] [c2] U@2026-10-14T01:14:08Z, -2d: Ashen Spiral is an active UE5 action-roguelite project; latest named package was AshenSpiral_UE5_0.19.0.zip (Oct 13, 2026), reportedly with reload systems, reward UI, traits, achievement/progression, enlarged maps, and HUD improvements; source/native checks passed, but full Unreal compilation/live gameplay were unverified.
+- [USER_FACT] [c2] U@2026-10-14T01:14:08Z, -2d: Project scope includes co-op, varied biomes, third-person combat, weapons/elements, air dash, procedural maps, persistent currencies/upgrades, shops, testing dummies, enemy AI, damage numbers, minimaps, HUD customization, traps, vaults, achievements, and optimization.
+- [USER_PREFERENCE] [c2] U@2026-10-14T01:14:08Z, -2d: Prefers modern interfaces, visually varied maps, responsive movement/combat, effective third-person aiming, broad satisfying weapons, and balanced build-defining upgrades inspired by Crab Champions, RuneScape Dragonwilds, and Ember Knights while preserving Ashen Spiral’s identity.
+

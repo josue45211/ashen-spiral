@@ -1,0 +1,15 @@
+{
+  "created_utc": "2026-10-16T03:30:40.117466+00:00",
+  "source_preflight_command": "python3 Tests/run_tests.py",
+  "source_preflight_exit_code": 1,
+  "first_failure": "DamageReaction: RPC implementation exists",
+  "unreal_compilation": "not run; unavailable",
+  "unreal_asset_import": "not run",
+  "runtime_and_two_player_tests": "not run",
+  "historical_test_outputs": "Inherited 0.22 output; not proof of current WIP",
+  "completed_version_zip_crc_checks": "all five passed",
+  "original_input_zip_crc_checks": "all passed",
+  "frozen_source_copy_hashes": "all matched",
+  "changes_count": 50,
+  "new_0_23_specific_native_tests": "none completed"
+}

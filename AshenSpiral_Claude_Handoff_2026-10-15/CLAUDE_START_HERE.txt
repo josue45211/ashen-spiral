@@ -1,0 +1,62 @@
+Continue the Ashen Spiral UE5 native C++ project from this archive.
+
+The user wants the full 0.23.0 fourteen-item batch plus the 0.23.1 visual round.
+Implementation was interrupted for an export; the current folder is incomplete.
+Do the work, preserve the existing game, and finish coherent features before
+claiming completion. Do not treat proposed implementation notes as completed code.
+
+READ IN THIS ORDER
+1. README_FIRST.txt and conversation/COVERAGE_AND_GAPS.txt.
+2. handoff/IMPLEMENTATION_STATUS.csv, CURRENT_WORK_NOTES.txt, NEXT_STEPS.txt.
+3. current_work/AshenSpiral_UE5_0.23.0/reference/0.23/0.23-batch-prompt.md.
+4. current_work/AshenSpiral_UE5_0.23.0/reference/0.23.1/0.23.1-batch-prompt.md.
+5. The attached references, then existing project architecture/design documents.
+6. Inspect the actual source and CHANGES_FROM_0.22.patch before making edits.
+
+AUTHORITATIVE REQUEST
+Track A: Blade poses/three-hit combo, fluid locomotion, heavy flowing cape,
+enemy animation and sword melee, player/enemy hit reactions, Scythe/G assessment.
+Track B: difficulty portals; independent second character; two-second boss spawn
+protection; three cross-player elemental synergies; specified legendary changes;
+well gambling; bespoke boss arenas; a full co-op Endless mode.
+0.23.1 adds heavy-cape references, gothic Ember/Ashen/Blood portals and transitions,
+and sinister Endless entry with clear/gloom/red sky stages (red starts at wave 50).
+Full landscape decay is future reference only.
+
+NON-NEGOTIABLE CONSTRAINTS
+- Target as supplied: UE 5.8.3, native C++; protocol 2300 for this combined work.
+- Preserve hammer 62 / 62 / 161.2 damage and 0.72 / 0.72 / 1.188-second cycles.
+  Leap: 100 base damage, 7.5-second cooldown, no ash cost. Preserve existing timing.
+- Animation work is cosmetic unless the main prompt explicitly says otherwise.
+- 0.23.1 changes looks only; it must not undo 0.23 gameplay requirements.
+- No weapon mastery, full boss redesign, other biome passes, or second mobility
+  attack. Preserve the existing Archives work. Do not silently rebalance ranged
+  weapons, prices, or unrelated trait values.
+- Both players must work. Save slots must stay isolated and receipt handling
+  must be idempotent. Check authority, reconnects, slot identity and save failures.
+- Keep file-scope/local color names unique for UE unity builds, include direct
+  headers, and skip engine-generated directories in JSON validation.
+- P2 art-directs. If genuinely necessary, ask visual questions one at a time.
+- Blade reference frames were not supplied; flag the eventual P2 art review.
+- Clearly distinguish source/native checks from Unreal/live-play validation.
+
+FIRST IMPLEMENTATION PRIORITY
+Repair the known compile/preflight holes and receipt/profile integration before
+adding further scope. Definitions missing at export include DamageReaction and
+AbilityGesture RPC implementations and CreateCape/RefreshCape/AnimateCape. The
+new Receive() path requires ReceiptProfileId, but the sender is not yet updated.
+Second-character switching is not connected to controller/UI/profile resubmission.
+New mode fields/rules exist, but the main Endless, portal, arena, gambling and shop
+flows are not integrated. This is not a finished release with a few visual bugs.
+
+DELIVERABLE EXPECTATIONS
+Finish the requested update, update version/readme/catalog/provenance honestly,
+run meaningful source/native tests, and run real Unreal/build/two-player tests if
+your environment permits. If not, state the limits. Supply actual downloadable
+source/package artifacts; the user previously reported missing downloadable links.
+Do not claim an automatic quota-triggered export or monitoring that is unavailable.
+
+The original inputs and all available context are in this ZIP. Do not invent a
+missing earlier transcript. Use the exact prompts over this paraphrase if they
+differ. If an unavoidable blocker remains, describe the concrete blocker and
+preserve the work in a reviewable handoff.

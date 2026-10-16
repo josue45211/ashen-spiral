@@ -1,0 +1,32 @@
+Original upload files are listed in INPUT_INVENTORY.json.
+The following project documents preserve requests, design history and validation.
+Older docs describe their own versions; the two newest prompt packs govern new work.
+
+current_work/AshenSpiral_UE5_0.23.0/Docs/ARCHITECTURE.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/ASHEN_SPIRAL_0.20_EDITABLE_CATALOG.txt
+current_work/AshenSpiral_UE5_0.23.0/Docs/ASHEN_SPIRAL_0.21_EDITABLE_CATALOG.txt
+current_work/AshenSpiral_UE5_0.23.0/Docs/ASHEN_SPIRAL_0.22_EDITABLE_CATALOG.txt
+current_work/AshenSpiral_UE5_0.23.0/Docs/CHANGELOG.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/COOP.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/DESIGN_0.18.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/DESIGN_0.19.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/DESIGN_0.20.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/DESIGN_0.21.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/DESIGN_0.22.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/INPUT_CAPTURE_0.17.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/INPUT_PROVENANCE.json
+current_work/AshenSpiral_UE5_0.23.0/Docs/REQUESTED_0.20_DELTA.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/REQUESTED_0.21_BRIEF.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/REQUESTED_BUGFIX_DECISIONS.pdf
+current_work/AshenSpiral_UE5_0.23.0/Docs/UPDATE_0.18_PROVENANCE.json
+current_work/AshenSpiral_UE5_0.23.0/Docs/UPDATE_0.19_PROVENANCE.json
+current_work/AshenSpiral_UE5_0.23.0/Docs/UPDATE_0.20_PROVENANCE.json
+current_work/AshenSpiral_UE5_0.23.0/Docs/UPDATE_0.21_PROVENANCE.json
+current_work/AshenSpiral_UE5_0.23.0/Docs/UPDATE_0.22_PROVENANCE.json
+current_work/AshenSpiral_UE5_0.23.0/Docs/UPGRADE_CATALOG.md
+current_work/AshenSpiral_UE5_0.23.0/Docs/VALIDATION.md
+current_work/AshenSpiral_UE5_0.23.0/Tests/validation_0.22_log.txt
+current_work/AshenSpiral_UE5_0.23.0/Tests/validation_results.json
+current_work/AshenSpiral_UE5_0.23.0/reference/0.22-hammer-prompt.md
+current_work/AshenSpiral_UE5_0.23.0/reference/0.23/0.23-batch-prompt.md
+current_work/AshenSpiral_UE5_0.23.0/reference/0.23.1/0.23.1-batch-prompt.md

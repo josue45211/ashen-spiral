@@ -1,0 +1,103 @@
+ASHEN SPIRAL — AVAILABLE CONTINUATION CONTEXT
+This is a reconstructed summary of accessible project context, not a transcript.
+
+PROJECT AND COLLABORATION
+Ashen Spiral is a native C++ Unreal Engine third-person co-op action roguelite.
+The supplied briefs target UE5.8.3. Josue owns systems direction; Player2/P2
+art-directs. The user expects actual downloadable files, readable progress and
+honest tests, with eventual usable co-op builds and a60FPS performance target.
+The current environment has source/native tooling but no callable Unreal editor,
+importer, compiler or live two-player environment. Earlier delivery claims must
+be read alongside their source-only validation limits.
+
+RECENT RELEASE CHAIN
+0.18 and0.19 design/features are documented in their respective delivered projects.
+0.19 included reload/reward/build/progression/HUD work, with full Unreal runtime
+validation still pending. 0.20 incorporated the editable delta and bugfix PDF;
+the PDF overrides Treasure Sense(remove/refund), old materials convert to Scrap,
+Rune Nova works with all active abilities. Older deferrals apply only until a
+later explicit prompt brings that work into scope.
+0.21 added melee/Archives work. 0.22 focused on Grav Hammer using the approved
+poses→combo→leap→feel sequence. Latest completed source package is0.22.0.
+Its main tuning:62/62/161.2 and.72/.72/1.188sec, RMB leap100base/7.5sec/noAsh;
+hammer old Spiral moved toG/controllerLT; original Archives and unrelated weapon
+behavior preserved. Exact design/validation/provenance remains in the files.
+
+CURRENT 0.23 REQUEST
+Original full text is in the0.23 prompt pack and extracted reference directory.
+Fourteen items, two tracks; do not confuse helper scaffolding with completed work.
+Animation: swift three-hit Blade with third-hit lunge; visual-only fluid movement;
+cape responding to movement and attacks; enemy animation/sword-melee correction;
+brief readable hit reactions; assess Scythe andG and report what changed.
+Systems: Normal/Hard/VeryHard portals; independent slot2;2sec boss spawn protection;
+three co-op elemental synergies; legendary rebalance; Ash gambling at wells;
+bespoke boss arenas; complete co-op Endless mode.
+Baseline tuning stays unless a listed item changes it. No mastery, unrelated biome
+passes, full boss redesign or second mobility attack. Protocol2300.
+Three reported real0.22 build problems must be corrected: unity color-name clashes,
+generated engine JSON included in tests, and missing directASWorld include.
+
+ENDLESS DECISIONS
+Unlock by clearing Normal once; sinister portal; fresh run with permanent buffs.
+Huge arena about3x boss size, cover, identity distinct from Archives.
+Chest cadence every wave1–20, alternating21–50,then50,53,56,59,62...; every10th
+boss always adds chest. Stragglers carry forward. Both pick,either pressesE,
+no chest timer. Growth tiers normal,elite1.25x,boss1.5xelite; knee about40;
+after50 clearly telegraphed lethal boss mechanics/dash-dodge homing shots.
+Bleed-out20–30sec; chosen implementation25sec, pauses during active revive.
+Cover shuffle random1–7wave intervals(avg3–5),grace1wave; after50 uses2–3min
+active combat timer. Choices3,upgrades4for150Ash/5for750Ash. Diminishing repeats
+after normal cap in five-pick blocks. Utility offers from~15. Four exclusive trait
+types:HP/kill,closekill,speedkillunder1sec,rare unbounded attack progression.
+Ash/Scrap economy;15% lucky shop after chest from10;Scrap stock,rareAsh items.
+Death screen highest CLEARED wave leaderboard and both players'damage/kills/taken.
+
+LEGENDARY DECISIONS
+Second Dawn replaced with Vengeance Oath: lethal survival3sec invulnerability,
+next three-hit finisher5x. Phoenix keeps35%HP+2sec and gains burn nova.
+Emberforge only available when at least one trait at cap. Echo demoted to rare/epic.
+Blood Pact unchanged. Unique effects should justify legendary rarity.
+
+0.23.1 ADDITIONAL VISUAL REQUEST
+Heavy cloth, broad billow, delayed inertia and slow resettle; respond to dash/leap/
+swing, no obvious body/weapon clipping. P2 signs off. Gothic side-by-side portals:
+Emberorange Normal, Ashenpale Hard, Bloodfresh-red/dripping VeryHard. Heavy chains
+for actual locks, exact modifier/unlock tooltip, generic walk-through transition.
+Endless portal old blood/scratches/failed-adventurer trophies; dormant when locked.
+Clear sky1–20,gloom21–49,red50+. Original wording overlaps50; resolved working
+interpretation makes the explicit wave50 red transition take priority.
+Landscape deterioration images are FUTURE reference only, not current scope.
+This visuals brief does not cancel the original0.23 systems or Blade work.
+
+REFERENCES / OPEN ART QUESTIONS
+No Blade frame sheet arrived; implement from design and flag laterP2 art pass.
+Rotunda concept included for boss arenas.0.23.1 includes capeGIF/video, gothic
+portal video, sky stills/transition and future environment concepts. Before export,
+some video frames were inspected. The cape video filename/content may not match
+its written description: inspect both assets rather than relying on filenames.
+No full finished0.23 art pass or Unreal capture exists. Prior preview art is
+procedural source geometry, not proof of in-engine visual results.
+
+IMPLEMENTATION STATE
+Initial agents were assigned animation/combat/progression tracks. A background
+worker hit workspace credits; no workers were active at export. Root continued
+partial foundation work. Exactly what exists is listed in handoff and the diff.
+Build-hygiene edits, rules/data/save scaffolding, preliminary protection/synergies,
+trait changes and some damage hooks exist. Animation methods still missing;
+normal receipts can reject until sender stamps profileID. Main new modes, arena,
+portal, UI, economy, and animation integration are unfinished. A prior progress
+estimate around20% was informal, not an acceptance metric. No new claim of completion.
+
+EXPORT DECISION
+User first requested export before the five-hour limit, then offered a20%remaining
+heads-up. No reliable live quota/automatic-before-limit hook was available; user
+would provide the trigger. User then explicitly asked at50%remaining to start
+exporting immediately. That newer request overrides waiting for20%.
+Archive must contain latest5completed versions, currentWIP, prompts/references,
+all accessible context, clear gaps, and Claude continuation instructions.
+
+RECIPIENT GUIDANCE
+Use complete original briefs over this abbreviated summary. Preserve older
+working features and explicit exclusions. Do not infer arbitrary new portal unlock
+rules. Ask genuine visual questions one at a time. Keep claims of tests precise.
+If more chat becomes available, reconcile it without rewriting original evidence.
