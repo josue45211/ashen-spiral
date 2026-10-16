@@ -130,6 +130,7 @@ void AASPlayerController::Interact() {
     if(Page==9&&S->Phase==EASPhase::Victory) {InteractServer(9);return;}
     if(Page==220) {OpenMenu(18);return;}
     if(Page==221) {OpenMenu(21);return;}
+    if(Page>=31&&Page<=33) {SetDifficulty(Page-31);return;}
     if(Page==222) {OpenMenu(23);return;}
     if(Page>=201&&Page<=203) {InteractServer(Page);return;}
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}

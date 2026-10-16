@@ -18,6 +18,8 @@ private:
     UPROPERTY() TObjectPtr<AASRouteGuide> RouteGuide;
     float Scale=1.f,Width=1920,Height=1080,SmoothedDelta=.0167f,TrailingHealth=1.f;
     float GroupScale=1.f;
+    // Portal walk-in fade (run start) and sky-stage flash, both client-side and cosmetic.
+    float TransitionStart=-10.f,StageFlashStart=-10.f;int32 LastHudPhase=-1,LastHudStage=0,TransitionTier=0;bool bTransitionEndless=false;
     FVector2D GroupOrigin=FVector2D::ZeroVector;
     void Group(float X=0,float Y=0,float Size=1.f) {GroupOrigin=FVector2D(X,Y);GroupScale=Size;}
     void Text(const FString& Value,float X,float Y,FLinearColor Color=FLinearColor::White,float Size=1.f);

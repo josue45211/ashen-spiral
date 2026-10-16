@@ -2,6 +2,8 @@
 #include "../Source/AshenSpiral/Public/ASExpeditionRules.h"
 #include <cstdlib>
 #include <iostream>
+#include <string>
+#include <cstdio>
 static int Checks=0;
 static void Check(bool OK,const char* What) {++Checks;if(!OK) {std::cerr<<"FAILED: "<<What<<"\n";std::exit(1);}}
 static bool Near(float A,float B,float E=.0005f) {return std::abs(A-B)<E;}
@@ -56,5 +58,20 @@ int main() {
     for(int I=0;I<ShopCount;++I) Check((ShopStock(I).Scrap>0)!=(ShopStock(I).Ash>0),"every shop item costs exactly one currency");
     Check(BloodrootGain(0)==0.f&&BloodrootGain(-4)==0.f&&Near(BloodrootGain(2),.7f),"Bloodroot gain is .35 HP per effective rank and never negative");
     Check(KillScrap(false,false)==1&&KillScrap(true,false)==5&&KillScrap(true,true)==25&&CheckpointAsh(10)==10&&CheckpointAsh(7)==2&&CheckpointAsh(0)==0,"Endless earnings table");
+    // 0.23.1 looks: sky stages darken then redden, the wave-50 step is fast, portal text matches the numbers.
+    Check(SkyLookFor(0).SunIntensity==4.5f&&SkyLookFor(0).Vignette==.20f&&SkyLookFor(0).FogDensity==.018f,"clear stage equals the existing lighting rig");
+    Check(SkyLookFor(1).SunIntensity<SkyLookFor(0).SunIntensity&&SkyLookFor(1).Saturation<SkyLookFor(0).Saturation&&SkyLookFor(1).FogDensity>SkyLookFor(0).FogDensity,"gloomy stage is darker, greyer and foggier than clear");
+    Check(SkyLookFor(2).SunG<.25f&&SkyLookFor(2).FogR>SkyLookFor(2).FogG*5.f&&SkyLookFor(2).GainR>SkyLookFor(2).GainG*1.5f,"red stage is unmistakably red in sun, fog and grade");
+    Check(SkyLookFor(-3).SunIntensity==SkyLookFor(0).SunIntensity&&SkyLookFor(9).SunIntensity==SkyLookFor(2).SunIntensity,"sky stage index is clamped");
+    Check(EndlessSkyStage(true,true,20)==0&&EndlessSkyStage(true,true,21)==1&&EndlessSkyStage(true,true,49)==1&&EndlessSkyStage(true,true,50)==2&&EndlessSkyStage(true,true,90)==2,"stage thresholds 21 and 50");
+    Check(EndlessSkyStage(false,true,90)==0&&EndlessSkyStage(true,false,90)==0,"normal runs and the hub always keep the clear sky");
+    Check(SkyBlendRate(1,2)>SkyBlendRate(0,1)*3.f&&SkyBlendRate(0,1)==SkyBlendRate(1,0),"the step into red is fast; other changes drift slowly");
+    {const auto Mid=LerpSky(SkyLookFor(0),SkyLookFor(2),.5f);Check(Near(Mid.SunIntensity,(4.5f+2.4f)*.5f)&&Near(LerpSky(SkyLookFor(0),SkyLookFor(2),-1).SunIntensity,4.5f)&&Near(LerpSky(SkyLookFor(0),SkyLookFor(2),2).SunIntensity,2.4f),"sky look interpolation is clamped and linear");}
+    for(int D=0;D<3;++D) {
+        char Buffer[96];std::snprintf(Buffer,sizeof Buffer,"Enemy health x%.1f, damage x%.1f, reward quality +%d%%",EnemyHealthScale(D),EnemyDamageScale(D),int(std::lround((Quality(D)-1.f)*100.f)));
+        Check(std::string(PortalModifiers(D))==Buffer,"portal tooltip text matches the live scaling numbers");
+    }
+    Check(std::string(PortalName(0))=="EMBER"&&std::string(PortalName(1))=="ASHEN"&&std::string(PortalName(2))=="BLOOD","portals are Ember, Ashen, Blood");
+    Check(std::string(UnlockCondition(0)).empty()&&!std::string(UnlockCondition(1)).empty()&&!std::string(UnlockCondition(2)).empty(),"locked portals state their unlock condition; Ember has none");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

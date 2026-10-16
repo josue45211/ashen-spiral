@@ -99,6 +99,30 @@ inline float BloodrootGain(float EffectiveRank) {return .35f*std::max(0.f,Effect
 // TUNABLE Endless earnings: Scrap for kills (normal / elite / boss) and Ash for checkpoints and bosses.
 inline int KillScrap(bool Elite,bool Boss) {return Boss?25:(Elite?5:1);}
 inline int CheckpointAsh(int Wave) {return BossWave(Wave)?10:(Wave>0?2:0);}
+// ---- 0.23.1 portal text and Endless sky stages (looks only; the numbers mirror the 0.23 rules above).
+inline const char* PortalName(int D) {return D==1?"ASHEN":(D==2?"BLOOD":"EMBER");}
+inline const char* PortalDifficultyName(int D) {return D==1?"HARD":(D==2?"VERY HARD":"NORMAL");}
+inline const char* PortalModifiers(int D) {
+    static const char* Text[3]={"Enemy health x1.0, damage x1.0, reward quality +0%","Enemy health x1.5, damage x1.3, reward quality +25%","Enemy health x2.1, damage x1.6, reward quality +50%"};
+    return Text[Difficulty(D)];
+}
+struct SkyLook {float SunIntensity,SunR,SunG,SunB,FogDensity,FogR,FogG,FogB,SkyLight,Vignette,Saturation,GainR,GainG,GainB;};
+// Stage 0 equals the existing lighting rig: clear sky (waves 1-20). Stage 1 gloomier (21-49). Stage 2 red, bloody gloom (50+).
+inline SkyLook SkyLookFor(int Stage) {
+    static const SkyLook Looks[3]={
+        {4.5f,1.f,.83f,.65f,.018f,.10f,.12f,.18f,.65f,.20f,1.f,1.f,1.f,1.f},
+        {1.7f,.72f,.76f,.85f,.032f,.20f,.21f,.24f,.42f,.32f,.78f,.95f,.97f,1.f},
+        {2.4f,1.f,.16f,.10f,.045f,.50f,.035f,.03f,.50f,.50f,.90f,1.25f,.62f,.58f}};
+    return Looks[std::clamp(Stage,0,2)];
+}
+inline SkyLook LerpSky(const SkyLook& A,const SkyLook& B,float T) {
+    T=std::clamp(T,0.f,1.f);const float* X=&A.SunIntensity;const float* Y=&B.SunIntensity;SkyLook R{};float* O=&R.SunIntensity;
+    for(int I=0;I<14;++I) O[I]=X[I]+(Y[I]-X[I])*T;
+    return R;
+}
+// The step into the red stage is fast so wave 50 is unmistakable; the other changes drift in slowly.
+inline float SkyBlendRate(int From,int To) {return To==2&&From<2?1.4f:.35f;}
+inline int EndlessSkyStage(bool Endless,bool InRun,int Wave) {return Endless&&InRun?SkyStage(Wave):0;}
 inline bool Exclusive(int Id) {return Id>=ExclusiveBase&&Id<ExclusiveBase+ExclusiveCount;}
 inline const char* ExclusiveName(int Id) {const char* Names[]={"Bloodroot","Close Quarters","First Blood","Unbound Fury"};return Names[std::clamp(Id-ExclusiveBase,0,3)];}
 inline const char* ExclusiveDescription(int Id) {

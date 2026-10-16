@@ -1,4 +1,5 @@
 #include "ASGameMode.h"
+#include "ASPortal.h"
 #include "ASPlayerController.h"
 #include "ASGameState.h"
 #include "ASCharacter.h"
@@ -36,6 +37,11 @@ void AASGameMode::BeginPlay() {
     S->SessionCode=UGameplayStatics::ParseOption(OptionsString,TEXT("Session")).Left(12).ToUpper();
     if(S->SessionCode.IsEmpty()) S->SessionCode=FGuid::NewGuid().ToString(EGuidFormats::Digits).Left(6).ToUpper();
     S->Arena=GetWorld()->SpawnActor<AASWorld>();S->Arena->Configure(-1,1103);SpawnPracticeDummy();
+    // Hub portals: Ember (Normal), Ashen (Hard), Blood (Very Hard), side by side, plus the Endless portal.
+    {
+        const FTransform Places[4]={FTransform(FRotator(0,0,0),FVector(1180,-620,0)),FTransform(FRotator(0,0,0),FVector(1180,0,0)),FTransform(FRotator(0,0,0),FVector(1180,620,0)),FTransform(FRotator(0,-90,0),FVector(-300,1330,0))};
+        for(int32 K=0;K<4;++K) if(auto* Portal=GetWorld()->SpawnActorDeferred<AASPortal>(AASPortal::StaticClass(),Places[K])) {Portal->Kind=K;Portal->FinishSpawning(Places[K]);}
+    }
     for(auto W:S->Heroes) if(auto* H=W.Get()) {H->SetActorLocation(S->Arena->SpawnPoint(H->ColorIndex));H->LastSafe=H->GetActorLocation();}
 }
 void AASGameMode::SpawnPracticeDummy() {
@@ -163,6 +169,7 @@ void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
     const auto* HostState=PC->GetPlayerState<AASPlayerState>();
     if(!HostState||!ASExpedition::DifficultyUnlocked(Difficulty,HostState->ClearedMask)) {PC->Notify(TEXT("That difficulty is locked."));return;}
     S->Difficulty=ASExpedition::Difficulty(Difficulty);S->ForceNetUpdate();
+    PC->Notify(FString::Printf(TEXT("%s portal chosen: %s. %s."),UTF8_TO_TCHAR(ASExpedition::PortalName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(S->Difficulty))));
 }
 void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;

@@ -45,7 +45,7 @@ void Style(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float 
     C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);
 }
 }
-AASWorld::AASWorld() {bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));RootComponent->SetMobility(EComponentMobility::Static);}
+AASWorld::AASWorld() {PrimaryActorTick.bCanEverTick=true;bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));RootComponent->SetMobility(EComponentMobility::Static);}
 void AASWorld::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASWorld,Config);}
 void AASWorld::ConfigureEndless(int32 Seed,int32 Shuffle,const TArray<FVector>& Keep) {
     if(!HasAuthority()) return;
@@ -79,13 +79,14 @@ void AASWorld::BeginPlay() {
     }
     GetWorld()->SpawnActor<ASkyAtmosphere>();
     auto* Fog=GetWorld()->SpawnActor<AExponentialHeightFog>();
+    SunLight=Sun;FogActor=Fog;
     if(Fog) {
         Fog->GetComponent()->SetMobility(EComponentMobility::Movable);
         Fog->SetActorLocation(FVector(0,0,-450));
         Fog->GetComponent()->SetFogDensity(.018f);Fog->GetComponent()->SetFogHeightFalloff(.25f);
         Fog->GetComponent()->SetFogInscatteringColor(FLinearColor(.10f,.12f,.18f));Fog->GetComponent()->bEnableVolumetricFog=true;
     }
-    auto* Sky=GetWorld()->SpawnActor<ASkyLight>();
+    auto* Sky=GetWorld()->SpawnActor<ASkyLight>();SkyLightActor=Sky;
     if(Sky) {
         auto* L=Sky->GetLightComponent();L->SetMobility(EComponentMobility::Movable);
         L->SetIntensity(.65f);
@@ -93,7 +94,7 @@ void AASWorld::BeginPlay() {
         // direct assignment of bRealTimeCapture after registration did not notify the renderer.
         L->SetRealTimeCaptureEnabled(false);L->RecaptureSky();
     }
-    auto* Post=GetWorld()->SpawnActor<APostProcessVolume>();
+    auto* Post=GetWorld()->SpawnActor<APostProcessVolume>();PostVolume=Post;
     if(Post) {
         Post->bUnbound=true;
         Post->Settings.bOverride_BloomIntensity=true;Post->Settings.BloomIntensity=.4f;
@@ -108,6 +109,25 @@ void AASWorld::BeginPlay() {
     UE_LOG(LogTemp,Display,TEXT("AshenVisual 0.22.0: sun=%s rotation=%s fill=%s sky=%s exposureVolume=%s"),
         *GetNameSafe(Sun),Sun?*Sun->GetActorRotation().ToString():TEXT("MISSING"),
         *GetNameSafe(Fill),*GetNameSafe(Sky),*GetNameSafe(Post));
+}
+void AASWorld::Tick(float Delta) {
+    Super::Tick(Delta);
+    if(GetNetMode()==NM_DedicatedServer) return;
+    const auto* S=AS::State(this);if(!S) return;
+    // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
+    const int32 Stage=ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave);
+    if(Stage!=SkyTo) {SkyFrom=SkyTo;SkyTo=Stage;SkyBlendT=0.f;}
+    if(SkyBlendT>=1.f&&SkyTo==SkyFrom&&SkyTo==0&&!SunLight) return;
+    SkyBlendT=FMath::Min(1.f,SkyBlendT+Delta*ASExpedition::SkyBlendRate(SkyFrom,SkyTo));
+    const auto Look=ASExpedition::LerpSky(ASExpedition::SkyLookFor(SkyFrom),ASExpedition::SkyLookFor(SkyTo),SkyBlendT);
+    if(SunLight) if(auto* D=Cast<UDirectionalLightComponent>(SunLight->GetLightComponent())) {D->SetIntensity(Look.SunIntensity);D->SetLightColor(FLinearColor(Look.SunR,Look.SunG,Look.SunB));}
+    if(FogActor) {FogActor->GetComponent()->SetFogDensity(Look.FogDensity);FogActor->GetComponent()->SetFogInscatteringColor(FLinearColor(Look.FogR,Look.FogG,Look.FogB));}
+    if(SkyLightActor) if(auto* L=SkyLightActor->GetLightComponent()) L->SetIntensity(Look.SkyLight);
+    if(PostVolume) {
+        PostVolume->Settings.bOverride_VignetteIntensity=true;PostVolume->Settings.VignetteIntensity=Look.Vignette;
+        PostVolume->Settings.bOverride_ColorSaturation=true;PostVolume->Settings.ColorSaturation=FVector4(Look.Saturation,Look.Saturation,Look.Saturation,1.f);
+        PostVolume->Settings.bOverride_ColorGain=true;PostVolume->Settings.ColorGain=FVector4(Look.GainR,Look.GainG,Look.GainB,1.f);
+    }
 }
 void AASWorld::Rebuild() {
     if(BuiltGeneration==Config.Generation) return;BuiltGeneration=Config.Generation;bVaultDimmed=false;
@@ -171,25 +191,24 @@ void AASWorld::MakeHub() {
     Add(TEXT("SM_Ring"),TEXT("HubInlay"),FVector(0,0,12),FVector(14,14,1),Trim,false,0,.3f,.6f);
     Add(TEXT("SM_Ring"),TEXT("HubInlay"),FVector(0,0,12),FVector(7,7,1),Trim,false,0,.3f,.6f);
     Add(TEXT("SM_Obelisk"),TEXT("Hearth"),FVector(-600,800,0),FVector(1.1f),Stone);
-    Stations={{FVector(1100,0,0),1,TEXT("THE SPIRAL\nExpedition / Ready")},
+    Stations={{FVector(700,0,0),1,TEXT("THE SPIRAL\nExpedition / Ready")},
               {FVector(0,-650,0),2,TEXT("THE ARMORY\nWalk up to a weapon / E")},
               {FVector(350,1000,0),3,TEXT("ABILITY SANCTUM\n6 active abilities + Spiral styles")},
               {FVector(-600,800,0),4,TEXT("ASHEN HEARTH\nPermanent ranks")},
               {FVector(-1100,-100,0),5,TEXT("IONE'S WORKBENCH\nCraft and remember")},
-              {FVector(-300,1250,0),22,TEXT("ENDLESS PORTAL\nEnter / E")}};
+              {FVector(-300,1250,0),22,TEXT("ENDLESS PORTAL\nEnter / E")},
+              {FVector(1000,-620,0),31,TEXT("EMBER PORTAL\nNormal / E to choose")},
+              {FVector(1000,0,0),32,TEXT("ASHEN PORTAL\nHard / E to choose")},
+              {FVector(1000,620,0),33,TEXT("BLOOD PORTAL\nVery Hard / E to choose")}};
     for(const auto& S:Stations) {
         const float Yaw=(-S.Position).Rotation().Yaw;
         Add(TEXT("SM_Ring"),TEXT("HubGlow"),S.Position+FVector(0,0,15),FVector(3.4f,3.4f,1),ASWorldHubGold,false,0,3);
         Text(S.Name,S.Position+FVector(0,0,280),Yaw,27);
-        if(S.Menu!=1 && S.Menu!=4) Add(TEXT("SM_Brazier"),TEXT("HubBrazier"),S.Position,FVector(1.3f),Trim);
+        if(S.Menu!=1 && S.Menu!=4 && S.Menu<22) Add(TEXT("SM_Brazier"),TEXT("HubBrazier"),S.Position,FVector(1.3f),Trim);
         Add(TEXT("Sphere"),TEXT("HubFlame"),S.Position+FVector(0,0,S.Menu==4?380:185),FVector(.6f,.6f,1.1f),ASWorldHubGold,false,0,8);
         Light(S.Position+FVector(0,0,210),ASWorldHubGold,850,800);
     }
-    // Endless portal: functional placeholder, dark and dormant-looking. The sinister look is the 0.23.1 B8 item.
-    Add(TEXT("SM_Arch"),TEXT("EndlessPortalArch"),FVector(-300,1330,0),FVector(1.5f),FLinearColor(.08f,.07f,.08f),true,-90.f);
-    Add(TEXT("Sphere"),TEXT("EndlessPortalLens"),FVector(-300,1350,245),FVector(4.7f,.12f,5.3f),FLinearColor(.35f,.03f,.03f),false,0,1.2f);
-    Add(TEXT("SM_Arch"),TEXT("HubPortal"),FVector(1180,0,0),FVector(1.5f),Stone,true);
-    Add(TEXT("Sphere"),TEXT("PortalLens"),FVector(1200,0,245),FVector(.12f,4.7f,5.3f),ASWorldHubTeal,false,0,2);
+    // The difficulty portals (Ember / Ashen / Blood) and the Endless portal are AASPortal actors spawned by the game mode.
     for(int32 I=0;I<10;++I) {
         const FVector P(-1400,-1250+I*280.f,0);Add(TEXT("SM_Shelf"),TEXT("HubShelf"),P,FVector(1),FLinearColor(.24f,.13f,.055f));
         for(int32 J=0;J<12;++J) Add(TEXT("SM_Book"),FString::Printf(TEXT("Book%d"),J%3),P+FVector(10,(J%4-1.5f)*47,43+(J/4)*70),FVector(1),J%3==0?ASWorldHubTeal:Trim,false,90);

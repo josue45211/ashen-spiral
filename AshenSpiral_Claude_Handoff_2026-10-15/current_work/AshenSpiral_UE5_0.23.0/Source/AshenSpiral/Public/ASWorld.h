@@ -4,7 +4,7 @@
 #include "ASRules.h"
 #include "ASAdventureRules.h"
 #include "ASWorld.generated.h"
-class UHierarchicalInstancedStaticMeshComponent;class UMaterialInstanceDynamic;class UStaticMesh;class UStaticMeshComponent;
+class ADirectionalLight;class AExponentialHeightFog;class ASkyLight;class APostProcessVolume;class UHierarchicalInstancedStaticMeshComponent;class UMaterialInstanceDynamic;class UStaticMesh;class UStaticMeshComponent;
 USTRUCT() struct FASLayoutConfig {
     GENERATED_BODY()
     UPROPERTY() int32 Room=-1;
@@ -27,6 +27,7 @@ UCLASS() class ASHENSPIRAL_API AASWorld : public AActor {
 public:
     AASWorld();
     virtual void BeginPlay() override;
+    virtual void Tick(float Delta) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UPROPERTY(ReplicatedUsing=Rebuild) FASLayoutConfig Config;
     UFUNCTION() void Rebuild();
@@ -81,6 +82,12 @@ private:
     UPROPERTY() TArray<TObjectPtr<UActorComponent>> Labels;
     UPROPERTY() TArray<TObjectPtr<AActor>> LocalLights;
     int32 BuiltGeneration=-1;
+    // Sky stages (Endless): lights and fog are driven toward the current stage's look on clients.
+    UPROPERTY() TObjectPtr<ADirectionalLight> SunLight;
+    UPROPERTY() TObjectPtr<AExponentialHeightFog> FogActor;
+    UPROPERTY() TObjectPtr<ASkyLight> SkyLightActor;
+    UPROPERTY() TObjectPtr<APostProcessVolume> PostVolume;
+    float SkyBlendT=1.f;int32 SkyFrom=0,SkyTo=0;
     bool bVaultDimmed=false;
     bool bGuideNavigationReady=false;
     int32 GuideBreakableCount=-1;

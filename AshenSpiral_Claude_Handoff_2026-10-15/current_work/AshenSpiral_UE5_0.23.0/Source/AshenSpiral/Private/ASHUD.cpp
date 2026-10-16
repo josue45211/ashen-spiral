@@ -101,6 +101,23 @@ void AASHUD::DrawHUD() {
     SmoothedDelta=FMath::Lerp(SmoothedDelta,GetWorld()->GetDeltaSeconds(),.08f);
     Group();
     if(!IsValid(RouteGuide)&&PC->IsLocalController()) {RouteGuide=GetWorld()->SpawnActor<AASRouteGuide>();if(RouteGuide) RouteGuide->SetOwner(PC);}
+    {
+        // Entering a run: the chosen portal's colour floods the screen and fades out over the first seconds in chamber 1.
+        const float Time=GetWorld()->GetTimeSeconds();const int32 PhaseNow=int32(S->Phase);
+        if(LastHudPhase==int32(EASPhase::Hub)&&S->Phase==EASPhase::Countdown) {TransitionStart=Time;TransitionTier=S->Difficulty;bTransitionEndless=S->bEndless;}
+        LastHudPhase=PhaseNow;
+        const int32 StageNow=ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave);
+        if(StageNow==2&&LastHudStage<2) StageFlashStart=Time;
+        LastHudStage=StageNow;
+        const float Age=Time-TransitionStart;
+        if(Age>=0.f&&Age<2.2f) {
+            const FLinearColor Tint=bTransitionEndless?FLinearColor(.45f,.02f,.02f):(TransitionTier==1?FLinearColor(.80f,.82f,.86f):(TransitionTier==2?FLinearColor(.40f,.01f,.02f):FLinearColor(1.f,.45f,.08f)));
+            const float Alpha=Age<.35f?1.f:FMath::Pow(1.f-(Age-.35f)/1.85f,1.6f);
+            Group();Box(0,0,Width,Height,FLinearColor(Tint.R,Tint.G,Tint.B,Alpha));
+        }
+        const float Flash=Time-StageFlashStart;
+        if(Flash>=0.f&&Flash<2.5f) {Group();Box(0,0,Width,Height,FLinearColor(.8f,.02f,.02f,.55f*FMath::Pow(1.f-Flash/2.5f,1.4f)));Text(TEXT("THE SKY BLEEDS"),Width*.5f-130,Height*.28f,FLinearColor(1.f,.25f,.2f,1.f-Flash/2.5f),1.4f);}
+    }
     if(PC->MenuOpen()) return;
     const auto* Preferences=PC->GetGameInstance<UASGameInstance>();
     const float UI=Preferences?ASPresentation::HUDScale(Preferences->HUDScale):1.f;
@@ -262,6 +279,11 @@ void AASHUD::DrawHUD() {
         if(StationId==201||StationId==202) {Done=(S->VaultMask&(1<<(StationId-201)))!=0;Station=Done?TEXT("SIGIL ACTIVATED"):TEXT("ACTIVATE SIGIL");}
         else if(StationId==203) {Done=S->bVaultClaimed;Station=Done?TEXT("VAULT COLLECTED"):(S->VaultMask==3?TEXT("OPEN RUNE VAULT"):TEXT("VAULT / ACTIVATE BOTH SIGILS"));}
         else if(StationId==220) Station=TEXT("EMBER BARGAIN / TRADE HEALTH");
+        else if(StationId>=31&&StationId<=33) {
+            const int32 D=StationId-31;const auto* Local=PC->GetPlayerState<AASPlayerState>();
+            const bool Open=ASExpedition::DifficultyUnlocked(D,Local?Local->ClearedMask:0);
+            Station=FString::Printf(TEXT("%s PORTAL / %s%s / %s%s"),UTF8_TO_TCHAR(ASExpedition::PortalName(D)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(D)),S->Difficulty==D?TEXT(" [CHOSEN]"):TEXT(""),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(D)),Open?TEXT(""):*(FString(TEXT(" / LOCKED: "))+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D))));
+        }
         else if(StationId==222) Station=S->bLuckyShop?TEXT("LUCKY SHOP / SPEND SCRAP AND ASH"):TEXT("LUCKY SHOP / CLOSED");
         else if(StationId==221) Station=TEXT("WISHING WELL / STAKE CINDERS");
         else if(StationId==9) Station=S->Phase==EASPhase::Victory?TEXT("RETURN TO HUB / BOTH PLAYERS"):TEXT("REWARD CHEST / NEXT ROOM");
