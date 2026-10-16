@@ -204,6 +204,35 @@ inline std::vector<BossProp> BossProps(int Ward) {
     }
     return P;
 }
+// ---- Endless arena (0.23 B8): one very large enclosed cell, about three times a boss arena by area.
+// The centre (chest and spawn) stays clear. Obstacles are generated deterministically from a seed so server and
+// clients rebuild the same arena; a shuffle re-rolls the seed while keeping cover off players.
+constexpr int EndlessRoom=100,EndlessShape=20,EndlessHalf=3100;
+inline Layout GenerateEndless() {
+    Layout L;L.Shape=EndlessShape;L.Width=1;L.Height=1;
+    Cell C;C.X=0;C.Y=0;C.SpanX=5;C.SpanY=5;C.HalfX=EndlessHalf;C.HalfY=EndlessHalf;C.WorldX=0;C.WorldY=0;
+    L.Cells={C};L.Exit=0;return L;
+}
+struct EndlessObstacle {float X,Y,Length,Thickness,Yaw,Height;};
+struct KeepOut {float X=0,Y=0;bool Active=false;};
+constexpr float EndlessCentreClear=800.f,EndlessKeepRadius=520.f,EndlessGap=330.f;
+inline std::vector<EndlessObstacle> EndlessProps(std::uint32_t Seed,const std::array<KeepOut,2>& Keep) {
+    Random R(Seed*2654435761u+977u);std::vector<EndlessObstacle> Out;
+    const float Limit=float(EndlessHalf)-380.f;
+    for(int Try=0;Try<6000&&Out.size()<72;++Try) {
+        EndlessObstacle O;const int Kind=R.Range(10);
+        O.X=float(R.Range(int(Limit*2)+1))-Limit;O.Y=float(R.Range(int(Limit*2)+1))-Limit;
+        O.Yaw=float(R.Range(12))*15.f;
+        if(Kind<4) {O.Length=O.Thickness=170.f+float(R.Range(4))*30.f;O.Height=380.f;}          // pillars
+        else if(Kind<8) {O.Length=420.f+float(R.Range(5))*60.f;O.Thickness=130.f;O.Height=300.f;}   // walls
+        else {O.Length=300.f;O.Thickness=300.f;O.Height=160.f;}                                    // low blocks (jumpable cover)
+        const float Radius=.5f*std::hypot(O.Length,O.Thickness);bool Ok=std::hypot(O.X,O.Y)>=EndlessCentreClear+Radius;
+        for(const auto& K:Keep) if(K.Active&&std::hypot(O.X-K.X,O.Y-K.Y)<EndlessKeepRadius+Radius) Ok=false;
+        for(const auto& P:Out) if(Ok&&std::hypot(O.X-P.X,O.Y-P.Y)<Radius+.5f*std::hypot(P.Length,P.Thickness)+EndlessGap) Ok=false;
+        if(Ok) Out.push_back(O);
+    }
+    return Out;
+}
 inline int NextCell(const Layout& L,int From,int To)
 {
     if(From<0||To<0||From>=int(L.Cells.size())||To>=int(L.Cells.size())) return -1;

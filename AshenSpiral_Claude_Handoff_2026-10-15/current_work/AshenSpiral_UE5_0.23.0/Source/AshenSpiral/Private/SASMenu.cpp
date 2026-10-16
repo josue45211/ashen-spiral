@@ -224,6 +224,21 @@ void SASMenu::Construct(const FArguments& Args) {
             Card(ASData::Weapons[I].Name,ASData::Weapons[I].Desc,P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
         }
         Card(TEXT("Spiral styles"),TEXT("Change how your ability pulls, slows, shields, or collapses."),TEXT("SANCTUM"),10,3);
+    } else if(Page==22) {
+        const bool Open=PS&&PS->bEndlessUnlocked;
+        Text(Open?TEXT("Endless: one huge arena, chained waves, a boss every ten waves. Many entered, none came back whole. Permanent skill-tree upgrades come with you; everything else starts fresh."):TEXT("The portal is sealed. Beat Normal mode once to open it."),18,Open?ASMenuGold:ASMenuMuted);
+        Text(FString::Printf(TEXT("Best cleared wave: %d"),P.BestEndlessWave),16,ASMenuGold);
+        Card(TEXT("Enter the Endless portal"),TEXT("Host only. Both players must be ready. Either player presses E at the chest to start the next wave; there is no timer."),TEXT("ENTER ENDLESS"),74,0,Hub&&PS&&PS->PlayerIndex==0&&Open);
+        if(P.EndlessChoices<2) {
+            const int32 Cost=ASExpedition::ChoiceCost(P.EndlessChoices);
+            Card(FString::Printf(TEXT("Chest choices: %d -> %d"),3+P.EndlessChoices,4+P.EndlessChoices),TEXT("Permanent: more upgrade choices at every Endless chest."),FString::Printf(TEXT("%d ASH"),Cost),29,0,Hub&&P.Ash>=Cost);
+        } else Text(TEXT("Chest choices: 5 (maximum)."),16,ASMenuGold);
+        Text(TEXT("Top runs on this character"),18,ASMenuGold);
+        for(int32 I=0;I<FMath::Min(5,P.EndlessRecords.Num());++I) {
+            const auto& R=P.EndlessRecords[I];
+            Text(FString::Printf(TEXT("%d. Wave %d   damage %.0f / %.0f   kills %d / %d   taken %.0f / %.0f"),I+1,R.Wave,R.Damage,R.PartnerDamage,R.Kills,R.PartnerKills,R.DamageTaken,R.PartnerDamageTaken),14);
+        }
+        if(P.EndlessRecords.IsEmpty()) Text(TEXT("No completed runs yet."),14);
     } else if(Page==21) {
         const int32 Pool=S?S->Cinders:0;const auto Odds=ASExpedition::Odds(Pool);
         Text(TEXT("Stake Cinders for one wish. One wish per player at each well. The result is decided by the host's server, never by your game."));
@@ -391,6 +406,11 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(TEXT("Loading reward choices..."));
     } else if(Page==10) {
         Text(S->Phase==EASPhase::Victory?TEXT("The fourth sovereign falls. The Spiral remembers your victory."):TEXT("The ember dims, but what you recovered remains."),23,ASMenuGold);
+        if(S->bEndless) {
+            Text(FString::Printf(TEXT("Highest cleared wave: %d.   Best on this character: %d."),S->ClearedEndlessWave,P.BestEndlessWave),20,ASMenuGold);
+            for(auto V:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(V)) Text(FString::Printf(TEXT("PLAYER %d   damage %.0f   kills %d   damage taken %.0f"),Other->PlayerIndex+1,Other->RunDamage,Other->RunKills,Other->RunDamageTaken),16);
+            for(int32 I=0;I<FMath::Min(5,P.EndlessRecords.Num());++I) Text(FString::Printf(TEXT("#%d   wave %d"),I+1,P.EndlessRecords[I].Wave),14);
+        } else
         Text(FString::Printf(TEXT("Reached room %d / 32. Best cleared room: %d. Victories: %d. Defeats: %d."),S->Room+1,P.BestRoom,P.Wins,P.Deaths));
         Body->AddSlot().AutoHeight()[SNew(STextBlock).Font(Font(16)).ColorAndOpacity(ASMenuGold).Text_Lambda([Weak](){auto* V=Weak.Get();auto* State=V?V->GetPlayerState<AASPlayerState>():nullptr;return Txt(State&&State->bSavePending?TEXT("Waiting for verified reward save..."):TEXT("Your reward save has been acknowledged."));})];
         Card(TEXT("Return together"),TEXT("The host returns both connected players to the same hub. This does not disconnect the party."),TEXT("RETURN TO HUB"),33,0,PS&&PS->PlayerIndex==0);

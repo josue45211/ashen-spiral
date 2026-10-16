@@ -189,16 +189,16 @@ void AASPlayerController::PlayerTick(float Delta) {
 void AASPlayerController::RequestProfile_Implementation() {
     ResubmitProfile();
 }
-void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice,bool RaiseStakes,int32 TitleIndex,int32 TitleTier,int32 ClearedMask) {
+void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice,bool RaiseStakes,int32 TitleIndex,int32 TitleTier,int32 ClearedMask,int32 EndlessChoices) {
     if(auto* S=AS::State(this)) if(S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) PS->bWagerVote=RaiseStakes;
     if(Protocol!=ASData::Protocol) {Notify(TEXT("Protocol mismatch. Use the same project build on both PCs."));return;}
-    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience,ColorChoice,ClearedMask);
+    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience,ColorChoice,ClearedMask,EndlessChoices);
     SetCharacterTitle(TitleIndex,TitleTier);
 }
 void AASPlayerController::ResubmitProfile() {
     auto* GI=GetGameInstance<UASGameInstance>();if(!GI) return;
     const auto& P=GI->Profile;
-    SubmitProfile(P.ProfileId,P.Build,ASData::Protocol,P.Experience,P.ColorChoice,GI->bRaiseStakes,P.TitleChoice,P.TitleChoice>=0?ASCareer::Tier(P.Career[P.TitleChoice],P.TitleChoice):0,ASExpedition::ClearedMask(P.Wins,P.ClearedMask));
+    SubmitProfile(P.ProfileId,P.Build,ASData::Protocol,P.Experience,P.ColorChoice,GI->bRaiseStakes,P.TitleChoice,P.TitleChoice>=0?ASCareer::Tier(P.Career[P.TitleChoice],P.TitleChoice):0,ASExpedition::ClearedMask(P.Wins,P.ClearedMask),P.EndlessChoices);
 }
 void AASPlayerController::ProfileRejected_Implementation() {
     // The server refused the switch; return to the character it still has for us.
@@ -213,6 +213,7 @@ void AASPlayerController::CancelActions_Implementation() {if(auto* H=Cast<AASCha
 void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State(this);if(S&&S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) PS->bReady=Ready;}
 void AASPlayerController::SetDifficulty_Implementation(int32 Difficulty) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->SetDifficulty(this,Difficulty);}
 void AASPlayerController::GambleAtWell_Implementation(int32 StakeIndex) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->GambleAtWell(this,StakeIndex);}
+void AASPlayerController::StartEndless_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginEndless(this,Seed);}
 void AASPlayerController::StartRun_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginRun(this,Seed);}
 void AASPlayerController::ChooseReward_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Reward(this,Index);}
 void AASPlayerController::RerollRewards_Implementation() {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Reroll(this);}
@@ -290,7 +291,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
     const int32 CurrentPage=Menu.IsValid()?Menu->Page:0;
     if(Code==0) {CloseMenu();SetPartyPaused(false);return;}
     if(Code==10) {OpenMenu(Index);return;}
-    if(Code>=20&&Code<=28) {
+    if(Code>=20&&Code<=29) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Permanent loadouts can only be changed in the hub.");return;}
         if(GI->Purchase(Code-20,Index)) ResubmitProfile();
         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
@@ -344,6 +345,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         Notice=GI->LastMessage;
     }
     else if(Code==73) {GambleAtWell(Index);}
+    else if(Code==74) {StartEndless(FMath::Rand());CloseMenu();return;}
     else if(Code==72) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Difficulty is chosen in the hub.");return;}
         SetDifficulty(Index);Notice=TEXT("Difficulty selection sent to the host.");

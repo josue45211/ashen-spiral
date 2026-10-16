@@ -1,1 +1,1 @@
-PASS: 3443 boss arena structure checks.
+PASS: 50824 boss arena structure checks.

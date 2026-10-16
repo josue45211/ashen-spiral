@@ -58,5 +58,31 @@ int main() {
     int Ring=0;for(const auto& P:BossProps(3)) if(P.Kind==0&&std::hypot(P.X,P.Y)<800.f) ++Ring;
     Check(Ring==4,"ward 3 ring has four pieces, leaving four gates");
     Check(Boss(7)&&Boss(15)&&Boss(23)&&Boss(31)&&Ward(7)==0&&Ward(31)==3,"boss rooms map to wards 0..3");
+    // Endless arena: large, enclosed, centre clear, deterministic, shuffles never bury players.
+    {
+        const auto L=GenerateEndless();
+        Check(L.Cells.size()==1&&L.Exit==0&&L.Shape==EndlessShape,"endless arena is one enclosed cell");
+        const float EndlessArea=float(2*EndlessHalf)*float(2*EndlessHalf),BossArea=float(2*BossArenaHalf)*float(2*BossArenaHalf);
+        Check(EndlessArea/BossArea>=2.7f&&EndlessArea/BossArea<=3.3f,"endless arena is about three times a boss arena by area");
+        std::array<KeepOut,2> None;
+        for(std::uint32_t Seed=1;Seed<40;++Seed) {
+            const auto A=EndlessProps(Seed,None),B=EndlessProps(Seed,None);
+            Check(A.size()==B.size(),"endless props are deterministic");
+            Check(A.size()>=40,"endless arena is full of scattered obstacles");
+            for(std::size_t I=0;I<A.size();++I) {
+                Check(A[I].X==B[I].X&&A[I].Y==B[I].Y&&A[I].Yaw==B[I].Yaw,"endless props are identical on server and client");
+                Check(std::hypot(A[I].X,A[I].Y)>=EndlessCentreClear,"endless centre (chest and spawn) stays clear");
+                Check(std::abs(A[I].X)<=EndlessHalf-300&&std::abs(A[I].Y)<=EndlessHalf-300,"endless obstacles stay inside the walls");
+                for(std::size_t J=I+1;J<A.size();++J) {
+                    const float Ri=.5f*std::hypot(A[I].Length,A[I].Thickness),Rj=.5f*std::hypot(A[J].Length,A[J].Thickness);
+                    Check(std::hypot(A[I].X-A[J].X,A[I].Y-A[J].Y)>=Ri+Rj+EndlessGap-.01f,"endless obstacles leave a navigable gap");
+                }
+            }
+            std::array<KeepOut,2> Keep;Keep[0]={1200.f,-900.f,true};Keep[1]={-2000.f,1500.f,true};
+            for(const auto& O:EndlessProps(Seed,Keep)) for(const auto& K:Keep)
+                Check(std::hypot(O.X-K.X,O.Y-K.Y)>=EndlessKeepRadius,"a shuffle never places cover on a player");
+        }
+        Check(EndlessProps(1,None).size()!=0&&(EndlessProps(1,None)[0].X!=EndlessProps(2,None)[0].X||EndlessProps(1,None)[0].Y!=EndlessProps(2,None)[0].Y),"different seeds give different layouts");
+    }
     std::cout<<"PASS: "<<Checks<<" boss arena structure checks.\n";
 }

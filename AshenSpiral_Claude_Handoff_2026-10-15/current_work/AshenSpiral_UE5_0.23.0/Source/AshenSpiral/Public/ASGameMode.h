@@ -36,9 +36,10 @@ public:
     virtual void Logout(AController* Exiting) override;
     virtual FString InitNewPlayer(APlayerController* NewPlayer,const FUniqueNetIdRepl& UniqueId,const FString& Options,const FString& Portal) override;
     virtual void RestartPlayer(AController* NewPlayer) override;
-    void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience,int32 ColorChoice,int32 ClearedMask);
+    void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience,int32 ColorChoice,int32 ClearedMask,int32 EndlessChoices);
     void BeginRun(AASPlayerController* PC,int32 Seed);
     void SetDifficulty(AASPlayerController* PC,int32 Difficulty);
+    void BeginEndless(AASPlayerController* PC,int32 Seed);
     void EnterRoom(int32 Room);
     void EnemyKilled(AASEnemy* Enemy,AASCharacter* Killer);
     void Reward(AASPlayerController* PC,int32 Index);
@@ -66,6 +67,17 @@ private:
     void RollOffers(AASPlayerState* PS,AASCharacter* Hero);
     bool InteractVault(AASPlayerController* PC,int32 Target=0);
     void QueueWave();
+    // ---- Endless mode (0.23 B8)
+    void EnterEndless();
+    void QueueEndlessWave();
+    void EndlessTick(float Delta);
+    void EndlessFinishWave();
+    void EndlessAdvance(AASPlayerController* PC);
+    void ShuffleEndlessArena();
+    void ConfigureEndlessEnemy(AASEnemy* Enemy);
+    int32 EndlessShuffles=0,EndlessWaveSize=0,NextShuffleWave=0;
+    float EndlessWaveStart=0,EndlessShuffleClock=0,EndlessShuffleTarget=150.f,EndlessShuffleAt=-1.f;
+    bool bEndlessBossPending=false;
     void SpawnPracticeDummy();
     void FinishRoom();
     void BankCinders();

@@ -107,7 +107,7 @@ void AASHUD::DrawHUD() {
     const float Delta=GetWorld()->GetDeltaSeconds(),Now=GetWorld()->GetTimeSeconds();
     Group(24,24,UI);Box(0,0,2,82,ASHudTeal);
     Text(S->Phase==EASPhase::Hub?TEXT("EMBER NEXUS"):ASData::Biomes[ASAdventure::Biome(S->Room)],14,10,ASHudGold,.83f);
-    Text(S->Phase==EASPhase::Hub?TEXT("EXPEDITION HUB"):FString::Printf(TEXT("CHAMBER %02d / 32     WAVE %d / %d"),S->Room+1,S->Wave+1,ASRules::WaveCount(S->Room)),14,36,ASHudMuted,.65f);
+    Text(S->Phase==EASPhase::Hub?TEXT("EXPEDITION HUB"):(S->bEndless?FString::Printf(TEXT("ENDLESS     WAVE %d     CLEARED %d     ENEMIES %d"),S->EndlessWave,S->ClearedEndlessWave,S->LivingEnemies+S->PendingSpawns):FString::Printf(TEXT("CHAMBER %02d / 32     WAVE %d / %d"),S->Room+1,S->Wave+1,ASRules::WaveCount(S->Room))),14,36,ASHudMuted,.65f);
     if(S->Phase==EASPhase::Hub&&Preferences) Text(FString::Printf(TEXT("LEVEL %d    ASH %d    EMBERS %d"),ASCareer::Level(Preferences->Profile.Experience),Preferences->Profile.Ash,Preferences->Profile.RelicEmbers),14,58,ASHudMuted,.65f);
     else Text(FString::Printf(TEXT("%d FOES    %d CINDERS%s"),S->LivingEnemies+S->PendingSpawns,S->Cinders,S->Challenge>0?*FString::Printf(TEXT("    WAGER %d"),S->Challenge):TEXT("")),14,58,ASHudMuted,.65f);
     Group(Width-24-192*UI,24,UI);Map(S,H);Group();

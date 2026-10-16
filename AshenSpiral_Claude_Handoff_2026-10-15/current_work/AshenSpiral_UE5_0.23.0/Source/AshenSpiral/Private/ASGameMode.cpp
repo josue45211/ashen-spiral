@@ -86,7 +86,7 @@ void AASGameMode::RestartPlayer(AController* Player) {
     auto* H=GetWorld()->SpawnActor<AASCharacter>(DefaultPawnClass,Position,FRotator::ZeroRotator,Params);
     if(H) {H->ColorIndex=PS?PS->PlayerIndex:0;H->RefreshLook();Player->Possess(H);}
 }
-void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const FASBuild& InBuild,int32 Experience,int32 ColorChoice,int32 ClearedMask) {
+void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const FASBuild& InBuild,int32 Experience,int32 ColorChoice,int32 ClearedMask,int32 EndlessChoices) {
     auto* S=AS::State(this);auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;if(!S||!PS) return;
     bool Valid=ID.Len()==32;for(TCHAR C:ID) if(!FChar::IsHexDigit(C)) Valid=false;
     if(!Valid) {PC->Notify(TEXT("Invalid profile ID. Restart with a writable save folder."));return;}
@@ -101,7 +101,7 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
         if(S->Phase!=EASPhase::Hub||PS->bSavePending||PS->ReceiptQueue.Num()>0||Disconnected.Contains(PS->ProfileId)) {PC->Notify(TEXT("Character can only be switched in the hub with no pending saves."));PC->ProfileRejected();return;}
         LiveSnapshots.Remove(PS->ProfileId);
     }
-    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->ClearedMask=ClearedMask&7;PS->bEndlessUnlocked=ASExpedition::EndlessUnlocked(PS->ClearedMask);PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
+    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->ClearedMask=ClearedMask&7;PS->EndlessChoices=FMath::Clamp(EndlessChoices,0,2);PS->bEndlessUnlocked=ASExpedition::EndlessUnlocked(PS->ClearedMask);PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
     RestartPlayer(PC);auto* H=Cast<AASCharacter>(PC->GetPawn());if(!H) return;
     H->ColorIndex=PS->PlayerIndex;H->ApplyBuild(PS->Build,true);
     if(FASReconnect* Saved=Disconnected.Find(ID)) {
@@ -278,11 +278,11 @@ void AASGameMode::Tick(float Delta) {
     if(S->Phase==EASPhase::Countdown && S->SimTime>=S->CountdownEnd) S->Phase=EASPhase::Combat;
     if(!S->Fighting()) return;
     bool Alive=false;int32 Loaded=0;for(auto W:S->Heroes) if(auto* H=W.Get()) {
-        if(auto* PS=H->GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) {++Loaded;if(!H->bDowned) Alive=true;}
+        if(auto* PS=H->GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) {++Loaded;if(S->bEndless?!H->bEliminated:!H->bDowned) Alive=true;}
     }
     if(Loaded>0&&!Alive) {EndRun(false);return;}
     if(S->Phase!=EASPhase::Combat) return;
-    if(Queued>0 && S->SimTime>=NextSpawn && S->Enemies.Num()<ASRules::MaxEnemies) {
+    if(Queued>0 && S->SimTime>=NextSpawn && S->Enemies.Num()<(S->bEndless?FMath::Min(ASRules::MaxEnemies,36):ASRules::MaxEnemies)) {
         const FVector Warning=S->SpawnWarnings.IsEmpty()?S->Arena->CellPosition(0)+FVector(400,400,100):S->SpawnWarnings[0];
         FVector At;if(!S->Arena->FreeEnemyPoint(Warning,At)) {NextSpawn=S->SimTime+.25f;return;}
         auto* E=GetWorld()->SpawnActorDeferred<AASEnemy>(AASEnemy::StaticClass(),FTransform(At),nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
@@ -292,19 +292,168 @@ void AASGameMode::Tick(float Delta) {
             if(!E->Elite()&&S->Room>=6&&Random.FRand()<.45f) {const int32 Themes[5][3]={{1,6,8},{0,5,7},{2,6,8},{0,5,9},{5,6,8}};E->Kind=Themes[E->Theme][Random.RandRange(0,2)];}
             E->MaxHealth=(E->Boss()?1100.f+450.f*E->Ward:(E->Elite()?300.f:70.f)+E->Ward*22.f)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);
             E->MaxHealth*=ASBuild::ChallengeHealth(S->Challenge)*(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:1.f)));
+            if(S->bEndless) ConfigureEndlessEnemy(E);
             E->Health=E->MaxHealth;UGameplayStatics::FinishSpawningActor(E,FTransform(At));E->RefreshLook();
             S->Effect(3,At,FVector::ForwardVector,ASData::BiomeColor(E->Theme),1.3f);
         }
         --Queued;if(!S->SpawnWarnings.IsEmpty()) S->SpawnWarnings.RemoveAt(0);S->PendingSpawns=Queued;NextSpawn=S->SimTime+.23f;
     }
     S->Enemies.RemoveAll([](const auto& W){return !W.IsValid();});S->LivingEnemies=S->Enemies.Num();
+    if(S->bEndless) {EndlessTick(Delta);return;}
     if(Queued==0&&S->LivingEnemies==0) {
         if(S->Wave+1<ASRules::WaveCount(S->Room)) {++S->Wave;QueueWave();}else FinishRoom();
     }
 }
+void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
+    auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)||!S->Arena) return;
+    const auto* HostState=PC->GetPlayerState<AASPlayerState>();
+    if(!HostState||!HostState->bEndlessUnlocked) {PC->Notify(TEXT("The Endless portal is sealed. Beat Normal mode once to open it."));return;}
+    if(!AllReady()) {PC->Notify(TEXT("Both players must load a profile and mark Ready before entering."));return;}
+    RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->Cinders=0;S->Challenge=0;bEnding=false;
+    S->bPartyPaused=false;AbandonReconnect();
+    S->bEndless=true;S->EndlessWave=0;S->ClearedEndlessWave=0;S->bLuckyShop=false;S->bRareShop=false;
+    for(auto W:S->Heroes) if(auto* H=W.Get()) {
+        auto* PS=H->GetPlayerState<AASPlayerState>();if(!PS) continue;
+        PS->RunDamage=0;PS->RunDamageTaken=0;PS->RunKills=0;PS->LastGambleRoom=-100;PS->bShopClaimed=false;
+        H->ApplyBuild(PS->Build,true);
+    }
+    EnterEndless();
+}
+void AASGameMode::EnterEndless() {
+    auto* S=AS::State(this);if(!S||!S->Arena) return;
+    ClearCombat();S->Room=ASRules::EndlessRoom;S->Wave=0;S->VaultMask=0;S->bVaultClaimed=false;bAdvancePending=false;RoomStarted=S->SimTime;
+    EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
+    NextShuffleWave=1+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
+    S->Arena->ConfigureEndless(RunSeed,0,TArray<FVector>());
+    for(auto W:S->Heroes) if(auto* H=W.Get()) {
+        H->ResetInput(true);H->ResetMagazine();H->bDowned=false;H->ReviveProgress=0;
+        H->SetActorLocation(S->Arena->SpawnPoint(H->ColorIndex));H->LastSafe=H->GetActorLocation();H->Movement()->StopMovementImmediately();
+        H->Movement()->AirDashesUsed=0;H->Movement()->bAirDashing=false;H->Movement()->DashRemaining=0;
+        H->Movement()->SetMovementMode(MOVE_Walking);H->InvulnerableUntil=S->SimTime+3;H->WarCryUntil=0;
+        if(auto* PS=H->GetPlayerState<AASPlayerState>()) {PS->Offers.Empty();PS->bRewardClaimed=false;PS->bRoomDamaged=false;PS->bRoomEligible=true;}
+    }
+    S->Arena->RefreshNavigation();
+    QueueEndlessWave();
+    S->Phase=EASPhase::Countdown;S->CountdownEnd=S->SimTime+3.f;NextSpawn=S->CountdownEnd;
+    for(auto W:S->Heroes) if(auto* H=W.Get()) H->EnterRoomTraits(S->CountdownEnd);
+    S->ForceNetUpdate();
+}
+void AASGameMode::QueueEndlessWave() {
+    auto* S=AS::State(this);if(!S||!S->Arena) return;
+    ++S->EndlessWave;const int32 Wave=S->EndlessWave,Players=S->PlayerArray.Num();
+    // Chained waves add to whatever is still alive; stragglers are never removed for a reward.
+    int32 Count=ASExpedition::EnemyCount(Wave,Players);
+    if(ASExpedition::BossWave(Wave)) {bEndlessBossPending=true;Count=1+Count/2;}
+    // The active-enemy cap (36) is enforced at spawn time; never queue more than the cap allows in total.
+    Count=FMath::Clamp(Count,0,FMath::Max(1,36-S->Enemies.Num()-Queued));
+    FVector Center=S->Arena->SpawnPoint(0);for(auto W:S->Heroes) if(auto* H=W.Get()) if(!H->bDowned) {Center=H->GetActorLocation();break;}
+    for(int32 I=0;I<Count;++I) {
+        FVector P=S->Arena->EnemySpawn(Center,Random);
+        for(int32 Try=0;Try<16;++Try) {
+            bool Clear=true;
+            for(const FVector& Other:S->SpawnWarnings) if(FVector::DistSquared2D(P,Other)<190*190) Clear=false;
+            for(auto W:S->Heroes) if(auto* H=W.Get()) if(FVector::DistSquared2D(P,H->GetActorLocation())<550*550) Clear=false;
+            if(Clear) break;P=S->Arena->EnemySpawn(Center,Random);
+        }
+        S->SpawnWarnings.Add(P);
+    }
+    Queued+=Count;S->PendingSpawns=Queued;EndlessWaveStart=S->SimTime;EndlessWaveSize=Queued+S->Enemies.Num();NextSpawn=FMath::Max(NextSpawn,S->SimTime+.5f);
+    for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) {
+        PC->Notify(ASExpedition::BossWave(Wave)?FString::Printf(TEXT("WAVE %d / BOSS"),Wave):FString::Printf(TEXT("WAVE %d"),Wave));
+        if(Wave==21) PC->Notify(TEXT("CHECKPOINT CHANGE: difficulty up, chests now every other wave."));
+        if(Wave==51) PC->Notify(TEXT("THE SKY BLEEDS: enemies are faster and angrier. Chests only every third wave."));
+    }
+    S->ForceNetUpdate();
+}
+void AASGameMode::ConfigureEndlessEnemy(AASEnemy* E) {
+    auto* S=AS::State(this);if(!S||!E) return;
+    const int32 Wave=FMath::Max(1,S->EndlessWave);int32 Tier=0;
+    E->Ward=FMath::Clamp((Wave-1)/10,0,3);E->Theme=E->Ward;
+    if(bEndlessBossPending) {
+        bEndlessBossPending=false;E->Kind=4;E->Ward=(Wave/10-1)%ASRules::WardCount;E->Theme=E->Ward;Tier=2;
+    } else {
+        const int32 Pool[]={0,1,2,5,6,7,8,9};
+        const float EliteChance=Wave>=5?FMath::Min(.30f,.05f+.01f*Wave):0.f;
+        if(Random.FRand()<EliteChance) {E->Kind=3;Tier=1;}
+        else E->Kind=Pool[Random.RandRange(0,FMath::Min(7,2+Wave/4))];
+    }
+    const float Base=E->Boss()?1100.f+450.f*E->Ward:(E->Elite()?300.f:70.f)+E->Ward*22.f;
+    E->MaxHealth=Base*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty,Wave,Tier);
+    E->MaxHealth*=(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:1.f)));
+}
+void AASGameMode::EndlessTick(float Delta) {
+    auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Combat) return;
+    const int32 Wave=S->EndlessWave;const int32 Living=S->LivingEnemies;
+    // A pending shuffle was announced three seconds ago.
+    if(EndlessShuffleAt>=0.f&&S->SimTime>=EndlessShuffleAt) {EndlessShuffleAt=-1.f;ShuffleEndlessArena();}
+    // After wave 50 the shuffle runs on active-combat time and pauses while no enemies are out.
+    if(Wave>50&&Living>0&&EndlessShuffleAt<0.f) {
+        EndlessShuffleClock+=Delta;
+        if(EndlessShuffleClock>=EndlessShuffleTarget) {
+            EndlessShuffleClock=0;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());EndlessShuffleAt=S->SimTime+3.f;
+            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("THE ARENA SHIFTS IN 3 SECONDS"));
+        }
+    }
+    if(Queued>0) return;
+    if(ASExpedition::RewardWave(Wave)) {
+        // Checkpoint waves (and every boss wave) must be cleared: the boss dies and nothing is left behind.
+        if(Living==0) EndlessFinishWave();
+        return;
+    }
+    // Other waves chain into the next once most enemies are down, or after 45 s. Stragglers stay alive.
+    if(Living<=FMath::Max(2,FMath::CeilToInt(EndlessWaveSize*.15f))||S->SimTime-EndlessWaveStart>=45.f) {
+        S->ClearedEndlessWave=Wave;
+        if(Wave<=50&&Wave>=NextShuffleWave) {
+            NextShuffleWave=Wave+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
+            EndlessShuffleAt=S->SimTime+3.f;
+            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("THE ARENA SHIFTS IN 3 SECONDS"));
+        }
+        QueueEndlessWave();
+    }
+}
+void AASGameMode::ShuffleEndlessArena() {
+    auto* S=AS::State(this);if(!S||!S->Arena||!S->bEndless) return;
+    TArray<FVector> Keep;for(auto W:S->Heroes) if(auto* H=W.Get()) if(Keep.Num()<2) Keep.Add(H->GetActorLocation());
+    ++EndlessShuffles;S->Arena->ConfigureEndless(RunSeed,EndlessShuffles,Keep);S->Arena->RefreshNavigation();
+    // New cover can never land on a player (keep-out), and enemies buried by it are moved to open ground.
+    FCollisionObjectQueryParams Solid;Solid.AddObjectTypesToQuery(ECC_WorldStatic);
+    auto Enemies=S->Enemies;
+    for(auto W:Enemies) if(auto* E=W.Get()) {
+        if(GetWorld()->OverlapAnyTestByObjectType(E->GetActorLocation(),FQuat::Identity,Solid,FCollisionShape::MakeCapsule(60,90))) {
+            FVector At;if(S->Arena->FreeEnemyPoint(E->GetActorLocation(),At)) E->SetActorLocation(At,false,nullptr,ETeleportType::TeleportPhysics);
+        }
+    }
+    S->Effect(7,S->Arena->CellPosition(0)+FVector(0,0,50),FVector::UpVector,FLinearColor(.9f,.3f,.15f),3000.f);
+}
+void AASGameMode::EndlessFinishWave() {
+    auto* S=AS::State(this);if(!S) return;
+    S->ClearedEndlessWave=S->EndlessWave;S->Phase=EASPhase::Reward;S->ChestKind=0;
+    auto Projectiles=S->Projectiles;for(auto W:Projectiles) if(auto* P=W.Get()) P->Destroy();
+    for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->bDowned) {
+        // TUNABLE: downed or eliminated players return at the checkpoint chest with 35% health.
+        H->bDowned=false;H->bEliminated=false;H->BleedRemaining=25.f;H->ReviveProgress=0;H->Health=FMath::Max(H->Health,H->MaxHealth*.35f);H->RefreshLook();H->ForceNetUpdate();
+    }
+    for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
+        PS->Offers.Empty();PS->bRewardClaimed=false;
+        AASCharacter* Hero=nullptr;for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->GetPlayerState<AASPlayerState>()==PS) {Hero=H;break;}
+        RollOffers(PS,Hero);
+        if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(FString::Printf(TEXT("WAVE %d CLEARED. Claim your reward at the chest, then either player presses E to continue."),S->EndlessWave));
+    }
+    if(S->Arena) S->Effect(7,S->Arena->ExitPoint()+FVector(0,0,100),FVector::ForwardVector,FLinearColor(1,.6f,.12f),2.f);
+    S->ForceNetUpdate();
+}
+void AASGameMode::EndlessAdvance(AASPlayerController* PC) {
+    auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Reward) return;
+    // Both players have chosen (checked by the caller); there is no timer and either player advances.
+    QueueEndlessWave();
+    S->Phase=EASPhase::Countdown;S->CountdownEnd=S->SimTime+3.f;NextSpawn=S->CountdownEnd;
+    for(auto W:S->Heroes) if(auto* H=W.Get()) {H->InvulnerableUntil=S->SimTime+2;H->EnterRoomTraits(S->CountdownEnd);}
+    S->ForceNetUpdate();(void)PC;
+}
 void AASGameMode::EnemyKilled(AASEnemy* E,AASCharacter* Killer) {
     auto* S=AS::State(this);if(!S||!E||E->bTrainingDummy||S->Phase!=EASPhase::Combat) return;++Kills;
     if(IsValid(Killer)) if(auto* PS=Killer->GetPlayerState<AASPlayerState>()) {
+        PS->RunKills=FMath::Min(1000000,PS->RunKills+1);
         PS->Record(ASCareer::Kills,1,E->Boss()?100:(E->Elite()?25:5));
         if(E->Boss()) PS->Record(ASCareer::Bosses);else if(E->Elite()) PS->Record(ASCareer::Elites);
         if(ASCareer::MultiStatus(E->StatusBits)) PS->Record(ASCareer::Elemental);
@@ -388,6 +537,7 @@ void AASGameMode::Interact(AASPlayerController* PC,int32 Target) {
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(!PS->bRewardClaimed||PS->bSavePending) {
         PC->Notify(PS->bSavePending?TEXT("Waiting for a verified save. Check that both save folders are writable."):TEXT("Each player must claim their own reward."));return;
     }
+    if(S->bEndless) {EndlessAdvance(PC);return;}
     BankCinders();
     // Receipts are acknowledged before loading the next chamber, including the conversion.
     bool Saving=false;for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) Saving|=PS->bSavePending;
@@ -411,6 +561,15 @@ void AASGameMode::EndRun(bool Victory) {
     }
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
         FASReceipt R;R.Id=S->RunId+(Victory?TEXT(":victory:"):TEXT(":defeat:"))+PS->ProfileId;
+        if(S->bEndless) {
+            // Highest CLEARED wave, plus both players' run stats. TUNABLE earnings: Ash and Scrap per cleared wave.
+            R.Id=S->RunId+TEXT(":endless:")+PS->ProfileId;R.bEndless=true;R.bRunEnded=true;R.EndlessWave=S->ClearedEndlessWave;
+            R.Room=0;R.Ward=0;R.bDeath=true;R.Ash=FMath::Min(10000,S->ClearedEndlessWave*3);R.Scrap=FMath::Min(10000,S->ClearedEndlessWave*2);
+            R.EndlessRecord.RunId=S->RunId;R.EndlessRecord.Wave=S->ClearedEndlessWave;R.EndlessRecord.Damage=PS->RunDamage;R.EndlessRecord.Kills=PS->RunKills;R.EndlessRecord.DamageTaken=PS->RunDamageTaken;
+            for(auto Q:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(Q)) if(Other!=PS) {R.EndlessRecord.PartnerDamage=Other->RunDamage;R.EndlessRecord.PartnerKills=Other->RunKills;R.EndlessRecord.PartnerDamageTaken=Other->RunDamageTaken;}
+            R.EndlessRecord.EndedUtc=FDateTime::UtcNow().ToIso8601();R.EndlessRecord.Sanitize();R.Difficulty=S->Difficulty;
+            PS->DrainCareer(R);SendReceipt(PS,R);continue;
+        }
         R.Room=Victory?32:S->Room;R.Ward=ASRules::Ward(S->Room);R.Ash=Victory?80:(5+(PS->Build.Talent(10)?8:0));
         R.Cores=Victory?2:0;R.Points=Victory?1:0;R.bWin=Victory;R.Difficulty=S->Difficulty;R.bDeath=!Victory;if(Victory) PS->Record(ASCareer::Wins,1,150);PS->DrainCareer(R);SendReceipt(PS,R);
     }
@@ -425,7 +584,7 @@ void AASGameMode::BackToHub() {
         if(Pending) {FASReceipt R;R.Id=S->RunId+TEXT(":return:")+PS->ProfileId;R.Room=FMath::Clamp(S->Room,0,32);PS->DrainCareer(R);SendReceipt(PS,R);}
     }
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(PS->bSavePending) {bHubPending=true;return;}
-    bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
+    bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->bEndless=false;S->EndlessWave=0;S->ClearedEndlessWave=0;S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
     S->Arena->Configure(-1,1103);SpawnPracticeDummy();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         if(auto* PS=H->GetPlayerState<AASPlayerState>()) {PS->bReady=false;PS->bRewardClaimed=false;PS->Offers.Empty();H->ApplyBuild(PS->Build,true);}
@@ -435,7 +594,8 @@ void AASGameMode::BackToHub() {
 
 void AASGameMode::RollOffers(AASPlayerState* PS,AASCharacter* H) {
     if(!PS||!H) return;auto* S=AS::State(this);if(!S) return;
-    PS->Offers.Empty();for(int I:ASBuild::Offers(H->UpgradeContext(),uint32(Random.RandRange(1,MAX_int32)),PS->Build.Rank(12)>0?4:3)) PS->Offers.Add(I);
+    PS->Offers.Empty();for(int I:ASBuild::Offers(H->UpgradeContext(),uint32(Random.RandRange(1,MAX_int32)),S->bEndless?ASExpedition::ChoiceCount(PS->EndlessChoices):(PS->Build.Rank(12)>0?4:3))) PS->Offers.Add(I);
+    if(S->bEndless) {PS->ForceNetUpdate();PS->OnOffersChanged();return;}
     TArray<int32> Pool;for(int32 I=0;I<(S->ChestKind==2?PS->Build.StylePool:PS->Build.RelicPool);++I) if(S->ChestKind==2?I!=H->Build.Style:!H->Relic(I)) Pool.Add(I);
     if(!Pool.IsEmpty()) PS->Offers.Add(Pool[Random.RandRange(0,Pool.Num()-1)]);
     PS->ForceNetUpdate();PS->OnOffersChanged();

@@ -47,6 +47,13 @@ void Style(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float 
 }
 AASWorld::AASWorld() {bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));RootComponent->SetMobility(EComponentMobility::Static);}
 void AASWorld::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASWorld,Config);}
+void AASWorld::ConfigureEndless(int32 Seed,int32 Shuffle,const TArray<FVector>& Keep) {
+    if(!HasAuthority()) return;
+    Config.Room=ASRules::EndlessRoom;Config.Seed=Seed;Config.Shuffle=Shuffle;Config.KeepCount=FMath::Min(2,Keep.Num());
+    Config.KeepX0=Keep.IsValidIndex(0)?Keep[0].X:0.f;Config.KeepY0=Keep.IsValidIndex(0)?Keep[0].Y:0.f;
+    Config.KeepX1=Keep.IsValidIndex(1)?Keep[1].X:0.f;Config.KeepY1=Keep.IsValidIndex(1)?Keep[1].Y:0.f;
+    ++Config.Generation;Rebuild();ForceNetUpdate();
+}
 void AASWorld::Configure(int32 Room,int32 Seed) {if(!HasAuthority()) return;Config.Room=Room;Config.Seed=Seed;++Config.Generation;Rebuild();ForceNetUpdate();}
 void AASWorld::BeginPlay() {
     Super::BeginPlay();Rebuild();
@@ -108,7 +115,7 @@ void AASWorld::Rebuild() {
     for(auto C:Labels) if(C) C->DestroyComponent();Labels.Empty();
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
     Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
-    if(Config.Room<0) MakeHub();else {Layout=ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed));MakeRoom();if(HasAuthority()) BuildNavigation();}
+    if(Config.Room<0) MakeHub();else {Layout=Config.Room==ASRules::EndlessRoom?ASRules::GenerateEndless():(ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed)));MakeRoom();if(HasAuthority()) BuildNavigation();}
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d"),
         Config.Room,Config.Generation,Batches.Num(),Stations.Num());
 }
@@ -168,7 +175,8 @@ void AASWorld::MakeHub() {
               {FVector(0,-650,0),2,TEXT("THE ARMORY\nWalk up to a weapon / E")},
               {FVector(350,1000,0),3,TEXT("ABILITY SANCTUM\n6 active abilities + Spiral styles")},
               {FVector(-600,800,0),4,TEXT("ASHEN HEARTH\nPermanent ranks")},
-              {FVector(-1100,-100,0),5,TEXT("IONE'S WORKBENCH\nCraft and remember")}};
+              {FVector(-1100,-100,0),5,TEXT("IONE'S WORKBENCH\nCraft and remember")},
+              {FVector(-300,1250,0),22,TEXT("ENDLESS PORTAL\nEnter / E")}};
     for(const auto& S:Stations) {
         const float Yaw=(-S.Position).Rotation().Yaw;
         Add(TEXT("SM_Ring"),TEXT("HubGlow"),S.Position+FVector(0,0,15),FVector(3.4f,3.4f,1),ASWorldHubGold,false,0,3);
@@ -177,6 +185,9 @@ void AASWorld::MakeHub() {
         Add(TEXT("Sphere"),TEXT("HubFlame"),S.Position+FVector(0,0,S.Menu==4?380:185),FVector(.6f,.6f,1.1f),ASWorldHubGold,false,0,8);
         Light(S.Position+FVector(0,0,210),ASWorldHubGold,850,800);
     }
+    // Endless portal: functional placeholder, dark and dormant-looking. The sinister look is the 0.23.1 B8 item.
+    Add(TEXT("SM_Arch"),TEXT("EndlessPortalArch"),FVector(-300,1330,0),FVector(1.5f),FLinearColor(.08f,.07f,.08f),true,-90.f);
+    Add(TEXT("Sphere"),TEXT("EndlessPortalLens"),FVector(-300,1350,245),FVector(4.7f,.12f,5.3f),FLinearColor(.35f,.03f,.03f),false,0,1.2f);
     Add(TEXT("SM_Arch"),TEXT("HubPortal"),FVector(1180,0,0),FVector(1.5f),Stone,true);
     Add(TEXT("Sphere"),TEXT("PortalLens"),FVector(1200,0,245),FVector(.12f,4.7f,5.3f),ASWorldHubTeal,false,0,2);
     for(int32 I=0;I<10;++I) {
@@ -196,6 +207,19 @@ void AASWorld::MakeHub() {
     Text(TEXT("PRACTICE TARGET\nWeapons + Spiral + active ability / no rewards"),DummyPoint()+FVector(0,0,200),-130,23);
     Text(TEXT("ASHEN SPIRAL"),FVector(1550,0,750),180,70);
     Text(TEXT("THE EMBER NEXUS"),FVector(1550,0,650),180,30);
+}
+void AASWorld::EndlessArena(const FVector& Center) {
+    // Placeholder identity: dark ruin stone with a faint red-gold chest sigil. P2 art-directs in 0.23.1.
+    const FLinearColor Stone(.17f,.16f,.17f),Sigil(.9f,.25f,.1f);
+    std::array<ASRules::KeepOut,2> Keep;
+    if(Config.KeepCount>0) Keep[0]={Config.KeepX0,Config.KeepY0,true};
+    if(Config.KeepCount>1) Keep[1]={Config.KeepX1,Config.KeepY1,true};
+    for(const auto& O:ASRules::EndlessProps(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep)) {
+        Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=370?0:(O.Height>=290?1:2)),Center+FVector(O.X,O.Y,O.Height*.5f),FVector(O.Length/100.f,O.Thickness/100.f,O.Height/100.f),Stone*(O.Height>=370?1.15f:1.f),true,O.Yaw,0,.05f);
+    }
+    Add(TEXT("SM_Ring"),TEXT("EndlessSigilOuter"),Center+FVector(0,0,9),FVector(12,12,1),Sigil,false,0,1.5f);
+    Add(TEXT("SM_Ring"),TEXT("EndlessSigilInner"),Center+FVector(0,0,9),FVector(7,7,1),Sigil,false,0,2.5f);
+    Light(Center+FVector(0,0,600),FLinearColor(1,.35f,.2f),2200,3200);
 }
 void AASWorld::BossArena(const FVector& Center) {
     const int32 W=Ward();const FLinearColor Glow=ASData::BiomeColor(Biome());
@@ -258,7 +282,8 @@ void AASWorld::MakeRoom() {
                 Add(TEXT("SM_Stalactite"),TEXT("CeilingMinerals"),P+FVector(X,Y,Roof-20),FVector(R.FRandRange(.5f,1.3f)),FLinearColor(.32f,.29f,.22f),true,R.FRandRange(0,360));
             }
         }
-        if(HasBossArena()&&I==0) BossArena(P);
+        if(IsEndlessArena()&&I==0) EndlessArena(P);
+        else if(HasBossArena()&&I==0) BossArena(P);
         else if(Biome()==0) Archives(P,I);else {Props(P,I,R);Landmarks(P,I);}
         if(I%4==2 && I!=Layout.Exit) {
             const FVector W=P+FVector(200,220,9);Water.Add(W);

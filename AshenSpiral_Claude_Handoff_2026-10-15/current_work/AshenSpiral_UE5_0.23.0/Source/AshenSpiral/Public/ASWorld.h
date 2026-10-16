@@ -10,6 +10,10 @@ USTRUCT() struct FASLayoutConfig {
     UPROPERTY() int32 Room=-1;
     UPROPERTY() int32 Seed=1103;
     UPROPERTY() int32 Generation=0;
+    // Endless arena: shuffle counter plus up to two keep-clear points (player positions) so new cover never lands on anyone.
+    UPROPERTY() int32 Shuffle=0;
+    UPROPERTY() int32 KeepCount=0;
+    UPROPERTY() float KeepX0=0,KeepY0=0,KeepX1=0,KeepY1=0;
 };
 struct FASStation {FVector Position;int32 Menu;FString Name;};
 namespace ASAssets {
@@ -27,6 +31,7 @@ public:
     UPROPERTY(ReplicatedUsing=Rebuild) FASLayoutConfig Config;
     UFUNCTION() void Rebuild();
     void Configure(int32 Room,int32 Seed);
+    void ConfigureEndless(int32 Seed,int32 Shuffle,const TArray<FVector>& Keep);
     ASRules::Layout Layout;
     TArray<FASStation> Stations;
     TArray<FVector> Water;
@@ -65,7 +70,8 @@ public:
     FVector ShrinePoint() const {return CellPosition(1)+FVector(0,260,0);}
     FVector InteractionPoint(int32 Id) const;
     void InteractionCandidates(TArray<int32>& Ids) const;
-    bool HasBossArena() const {return Layout.Shape>=ASRules::BossShapeBase;}
+    bool HasBossArena() const {return Layout.Shape>=ASRules::BossShapeBase&&Layout.Shape<ASRules::BossShapeBase+ASRules::WardCount;}
+    bool IsEndlessArena() const {return Layout.Shape==ASRules::EndlessShape;}
     FVector BossSpawn() const {return CellPosition(0)+FVector(0,0,240);}
     int32 Ward() const {return ASRules::Ward(Config.Room);}
 private:
@@ -89,6 +95,7 @@ private:
     void MakeHub();
     void MakeRoom();
     void BossArena(const FVector& Center);
+    void EndlessArena(const FVector& Center);
     void Archives(const FVector& Center,int32 Index);
     void Props(const FVector& Center,int32 Index,FRandomStream& Random);
     void Landmarks(const FVector& Center,int32 Index);
