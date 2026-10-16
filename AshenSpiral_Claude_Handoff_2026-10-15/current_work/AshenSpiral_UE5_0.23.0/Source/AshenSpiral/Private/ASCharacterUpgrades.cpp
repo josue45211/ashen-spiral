@@ -16,7 +16,7 @@ int32 AASCharacter::TraitValue(Trait T) const {return TraitRank(T)+(ASBuild::Evo
 ASBuild::Context AASCharacter::UpgradeContext() const {
     ASBuild::Context C;C.Weapon=Build.Weapon;C.Last=LastUpgrade;C.Curse=CurseStacks;C.Hurt=Health<MaxHealth-.1f;
     C.Evolutions=EvolutionMask;C.PermanentCooldown=Rank(14);C.PermanentCritical=Rank(19);C.MissingRelic=false;
-    if(const auto* S=AS::State(this)) {C.Room=S->Room;C.Challenge=S->Challenge;}
+    if(const auto* S=AS::State(this)) {C.Room=S->Room;C.Challenge=S->Challenge;C.Difficulty=S->Difficulty;}
     for(int32 I=0;I<ASRules::RunUpgradeCount;++I) C.Stats[I]=RunRank(I);
     for(int32 I=0;I<ASBuild::Count;++I) C.Traits[I]=TraitRank(Trait(I));
     for(int32 I=0;I<Build.RelicPool;++I) if(!Relic(I)) C.MissingRelic=true;

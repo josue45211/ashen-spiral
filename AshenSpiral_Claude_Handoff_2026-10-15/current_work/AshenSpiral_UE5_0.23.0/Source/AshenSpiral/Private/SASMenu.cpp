@@ -203,6 +203,12 @@ void SASMenu::Construct(const FArguments& Args) {
             return Txt(Status);})];
         Input(TEXT("Deterministic expedition seed"),2);
         Card(TEXT("Your readiness"),TEXT("Changing a weapon, style, or permanent upgrade resets your ready check. Solo expeditions do not require the ready toggle."),TEXT("TOGGLE READY"),30,0,Hub&&PS&&PS->bProfileReady);
+        {
+            const int32 Chosen=S?S->Difficulty:0;const bool Chooser=Hub&&PS&&PS->PlayerIndex==0;
+            const TCHAR* Names[3]={TEXT("Normal"),TEXT("Hard"),TEXT("Very Hard")};
+            const TCHAR* Details[3]={TEXT("Baseline enemy health and damage. Standard reward quality."),TEXT("Enemies have +50% health and deal +30% damage. Reward quality +25%."),TEXT("Enemies have +110% health and deal +60% damage. Reward quality +50%.")};
+            for(int32 D=0;D<3;++D) Card(FString::Printf(TEXT("Difficulty portal: %s"),Names[D]),Details[D],Chosen==D?TEXT("SELECTED"):TEXT("CHOOSE"),72,D,Chooser&&Chosen!=D);
+        }
         Card(TEXT("Begin expedition"),TEXT("The first wave starts after a three-second countdown. Red minimap markers show where enemies are about to appear."),TEXT("ENTER SPIRAL"),31,0,Hub&&PS&&PS->PlayerIndex==0);
         Card(TEXT("Choose equipment"),FString::Printf(TEXT("Equipped: %s  /  %s"),ASData::Weapons[P.Build.Weapon].Name,ASData::Styles[P.Build.Style].Name),TEXT("ARMORY"),10,2);
         Card(TEXT("Build your stats"),TEXT("Preview current and next values for permanent cooldown, attack-speed, damage, health, movement, and critical upgrades."),TEXT("UPGRADES"),10,4);

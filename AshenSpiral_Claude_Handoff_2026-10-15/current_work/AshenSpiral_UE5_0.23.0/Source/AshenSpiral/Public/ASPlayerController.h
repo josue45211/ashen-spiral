@@ -53,6 +53,7 @@ public:
     UFUNCTION(Server,Reliable) void ToggleWagerVote(bool Enabled);
     UFUNCTION(Server,Reliable) void SetPartyPaused(bool Paused);
     UFUNCTION(Server,Reliable) void ReturnHub();
+    UFUNCTION(Server,Reliable) void SetDifficulty(int32 Difficulty);
     UFUNCTION(Server,Reliable) void ContinueAlone();
     UFUNCTION(Server,Reliable) void InteractServer(int32 Target=0);
     UFUNCTION(Client,Reliable) void ReceiveReceipt(const FASReceipt& Receipt);

@@ -153,6 +153,10 @@ bool AASGameMode::AllReady() const {
     for(auto P:S->PlayerArray) {auto* PS=Cast<AASPlayerState>(P);if(!PS||!PS->bProfileReady||PS->bSavePending||(S->PlayerArray.Num()>1&&!PS->bReady)) return false;}
     return true;
 }
+void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
+    auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
+    S->Difficulty=ASExpedition::Difficulty(Difficulty);S->ForceNetUpdate();
+}
 void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
     if(!AllReady()) {PC->Notify(TEXT("Both players must load a profile and mark Ready before departure."));return;}
@@ -282,7 +286,7 @@ void AASGameMode::Tick(float Delta) {
             E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);const int32 Pool[]={0,1,2,5,6,7,8,9};
             E->Kind=ASRules::Boss(S->Room)?4:((ASRules::Elite(S->Room)&&S->Wave==2&&Queued==1)?3:Pool[Random.RandRange(0,FMath::Min(7,3+S->Room/2))]);
             if(!E->Elite()&&S->Room>=6&&Random.FRand()<.45f) {const int32 Themes[5][3]={{1,6,8},{0,5,7},{2,6,8},{0,5,9},{5,6,8}};E->Kind=Themes[E->Theme][Random.RandRange(0,2)];}
-            E->MaxHealth=(E->Boss()?1100.f+450.f*E->Ward:(E->Elite()?300.f:70.f)+E->Ward*22.f)*(S->PlayerArray.Num()==2?1.45f:1.f);
+            E->MaxHealth=(E->Boss()?1100.f+450.f*E->Ward:(E->Elite()?300.f:70.f)+E->Ward*22.f)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);
             E->MaxHealth*=ASBuild::ChallengeHealth(S->Challenge)*(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:1.f)));
             E->Health=E->MaxHealth;UGameplayStatics::FinishSpawningActor(E,FTransform(At));E->RefreshLook();
             S->Effect(3,At,FVector::ForwardVector,ASData::BiomeColor(E->Theme),1.3f);
@@ -447,7 +451,7 @@ void AASGameMode::SpawnMinion(const FVector& Near) {
     auto* S=AS::State(this);if(!S||!S->Arena||S->Phase!=EASPhase::Combat||S->Enemies.Num()+Queued>=ASRules::MaxEnemies) return;
     FVector At;if(!S->Arena->FreeEnemyPoint(Near,At)) return;const FTransform T(At);
     auto* E=GetWorld()->SpawnActorDeferred<AASEnemy>(AASEnemy::StaticClass(),T,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
-    if(E) {E->Kind=0;E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);E->MaxHealth=(45.f+15.f*E->Ward)*ASBuild::ChallengeHealth(S->Challenge)*(S->PlayerArray.Num()==2?1.45f:1.f);E->Health=E->MaxHealth;UGameplayStatics::FinishSpawningActor(E,T);S->Effect(3,At,FVector::UpVector,FLinearColor(.2f,1,.4f),100);}
+    if(E) {E->Kind=0;E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);E->MaxHealth=(45.f+15.f*E->Ward)*ASBuild::ChallengeHealth(S->Challenge)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);E->Health=E->MaxHealth;UGameplayStatics::FinishSpawningActor(E,T);S->Effect(3,At,FVector::UpVector,FLinearColor(.2f,1,.4f),100);}
 }
 bool AASGameMode::InteractVault(AASPlayerController* PC,int32 Target) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;

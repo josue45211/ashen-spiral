@@ -37,6 +37,7 @@ public:
     virtual void RestartPlayer(AController* NewPlayer) override;
     void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience,int32 ColorChoice);
     void BeginRun(AASPlayerController* PC,int32 Seed);
+    void SetDifficulty(AASPlayerController* PC,int32 Difficulty);
     void EnterRoom(int32 Room);
     void EnemyKilled(AASEnemy* Enemy,AASCharacter* Killer);
     void Reward(AASPlayerController* PC,int32 Index);

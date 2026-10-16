@@ -204,6 +204,15 @@ def validate():
             adventure=subprocess.run([str(adventure_exe)],check=True,text=True,capture_output=True).stdout.strip()
             (ROOT/'Tests/adventure_results.txt').write_text(adventure+'\n')
             check(adventure.startswith('PASS:'),'Adventure camera, reach, ability, offering and biome/trap shared rules passed')
+            expedition_exe=Path(d)/('expedition_023_tests.exe' if sys.platform=='win32' else 'expedition_023_tests')
+            expedition_src=ROOT/'Tests/expedition_023_tests.cpp'
+            if Path(compiler).stem.lower()=='cl':
+                expedition_cmd=[compiler,'/nologo','/std:c++17','/EHsc','/W4',str(expedition_src),'/Fe:'+str(expedition_exe)]
+            else: expedition_cmd=[compiler,'-std=c++17','-O2','-Wall','-Wextra','-pedantic',str(expedition_src),'-o',str(expedition_exe)]
+            subprocess.run(expedition_cmd,cwd=d,check=True)
+            expedition=subprocess.run([str(expedition_exe)],check=True,text=True,capture_output=True).stdout.strip()
+            (ROOT/'Tests/expedition_023_results.txt').write_text(expedition+'\n')
+            check(expedition.startswith('PASS:'),'0.23 expedition rules (difficulty, Endless cadence, gambling odds, synergies) passed')
             career_exe=Path(d)/('career_tests.exe' if sys.platform=='win32' else 'career_tests')
             career_src=ROOT/'Tests/career_tests.cpp'
             if Path(compiler).stem.lower()=='cl':
