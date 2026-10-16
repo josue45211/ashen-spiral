@@ -89,7 +89,7 @@ def validate():
     runtime='\n'.join(p.read_text() for p in source if p.name!='ASBuildRules.h')
     for trait in traits:
         trait=trait.strip()
-        if trait in ('Count','Sense'): continue
+        if trait in ('Count','Sense') or '=' in trait: continue  # '=' marks a compatibility alias (FullHeal=Vengeance)
         check('Trait::'+trait in runtime, f'{trait}: trait referenced by runtime integration (not execution proof)')
     check('ReceiptQueue.RemoveAt(0)' in controller and 'ReceiveReceipt(PS->PendingReceipt)' in controller,
           'Acknowledgement drains queued receipts rather than dropping later rewards')

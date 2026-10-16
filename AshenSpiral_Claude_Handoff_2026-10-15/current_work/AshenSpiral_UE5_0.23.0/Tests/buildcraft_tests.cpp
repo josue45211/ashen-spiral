@@ -18,14 +18,19 @@ int main() {
         Check(IsTrait(OfferBase+I),"stable trait offer ID");
     }
     Check(!IsTrait(199)&&!IsTrait(266),"offer range rejects neighbors");
-    Check(!CanChoose(C,200+Index(Trait::Mend))&&!CanChoose(C,200+Index(Trait::FullHeal)),"full-health heroes do not get wasted healing offers");
+    Check(!CanChoose(C,200+Index(Trait::Mend)),"full-health heroes do not get wasted healing offers");
+    // FullHeal is now a compatibility alias of Vengeance (a lethal-hit save), not an instant heal; it must not be gated on missing health.
+    Check(Trait::FullHeal==Trait::Vengeance,"FullHeal alias resolves to Vengeance");
     Check(!CanChoose(C,200+Index(Trait::Cleanse)),"cleanse requires a curse");
     Check(!CanChoose(C,200+Index(Trait::Refine))&&!CanChoose(C,200+Index(Trait::Duplicate)),"rare modifications require an owned eligible choice");
     C.Hurt=true;C.Curse=1;
     Check(CanChoose(C,200+Index(Trait::Mend))&&CanChoose(C,200+Index(Trait::Cleanse)),"context enables useful survival choices");
     C.MissingRelic=false;Check(!CanChoose(C,200+Index(Trait::Mystery)),"mystery excludes exhausted relic pool");
     C.Last=200+Index(Trait::Armor);C.Traits[Index(Trait::Armor)]=1;
-    Check(CanChoose(C,200+Index(Trait::Refine))&&CanChoose(C,200+Index(Trait::Duplicate)),"owned repeatable trait permits evolution and duplicate");
+    Check(!CanChoose(C,200+Index(Trait::Refine))&&CanChoose(C,200+Index(Trait::Duplicate)),"uncapped trait permits duplicate but not evolution (0.23: evolution needs a capped trait)");
+    C.Traits[Index(Trait::Armor)]=Catalog[Index(Trait::Armor)].Max;
+    Check(CanChoose(C,200+Index(Trait::Refine)),"capped trait permits evolution");
+    C.Traits[Index(Trait::Armor)]=1;
     C.Traits[Index(Trait::Armor)]=5;Check(!CanChoose(C,200+Index(Trait::Duplicate)),"duplicate cannot bypass normal cap");
     Check(CanEvolve(C,Index(Trait::Armor)),"evolution works at normal rank cap");
     C.Evolutions=std::uint64_t(1)<<Index(Trait::Armor);Check(!CanEvolve(C,Index(Trait::Armor)),"cannot evolve the same trait twice");

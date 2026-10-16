@@ -5,6 +5,6 @@
     "FMath::Sin(static_cast<float>(J))"
   ],
   "positions_checked": 7,
-  "compiler": "g++",
+  "compiler": "clang++.EXE",
   "scope": "Extracted expressions with diagnostic-matched overload stand-ins; not an Unreal module compile."
 }

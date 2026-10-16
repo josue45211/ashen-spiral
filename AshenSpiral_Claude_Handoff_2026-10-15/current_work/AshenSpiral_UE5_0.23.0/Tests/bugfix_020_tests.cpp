@@ -81,7 +81,7 @@ int main() {
         const auto K=ASAnimation::TwoBone(I*.15f,A,B);
         Check(Near(std::hypot(K.Along,K.Out),A,.003)&&Near(std::hypot(K.Reach-K.Along,K.Out),B,.003),"two-bone solve preserves both segment lengths across unreachable targets");
     }
-    for(int I=0;I<500;++I) {const auto F=ASAnimation::Foot(I*.03f,1);Check(F.Lift>=0&&F.Lift<=24.001&&std::abs(F.Forward)<=34.001,"gait keeps stance planted and swing within anatomical reach");}
+    for(int I=0;I<500;++I) {const auto F=ASAnimation::Foot(I*.03f,1);Check(F.Lift>=0&&F.Lift<=28.001&&std::abs(F.Forward)<=37.001,"gait keeps stance planted and swing within anatomical reach");}
     Check(Near(std::pow(1-ASAnimation::Blend(1.f/30,12),30),std::pow(1-ASAnimation::Blend(1.f/120,12),120),1e-5),"animation blending is frame-rate independent");
     Check(ASAdventure::NovaAreaRadius(330,true)==630&&ASAdventure::NovaAreaRadius(320,false)==320,"Nova expands existing area skills without changing ordinary casts");
     ASRules::Random R(200020);

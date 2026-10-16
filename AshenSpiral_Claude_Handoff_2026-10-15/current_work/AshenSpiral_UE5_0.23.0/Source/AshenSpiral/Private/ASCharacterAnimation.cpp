@@ -103,18 +103,18 @@ void AASCharacter::Animate(float Delta) {
         WeaponMesh->SetRelativeRotation(HandRotation.Inverse()*WeaponRotation);
     }
     CapeLean=FMath::Lerp(CapeLean,LocomotionWeight*26.f+(Dashing?24.f:0.f)+AirWeight*9.f,ASAnimation::Blend(Delta,5.f));
-    Parts[15]->SetRelativeRotation(FRotator(-4.f-CapeLean,Step*1.5f,FMath::Sin(Now*2.7f)*1.5f));
-    Parts[19]->SetRelativeRotation(FRotator(-CapeLean*.4f+FMath::Sin(Now*3.1f)*3.f,Step*2.f,FMath::Sin(Now*2.1f)*2.f));
+    float CapeFlare=0,CapeTwist=0;
     if(Build.Weapon==1&&!bDowned) {
         ASHammer::Pose HP;ASHammer::Frame HF;AnimateHammer(Now,HP,HF);
-        Parts[15]->AddRelativeRotation(FRotator(-FMath::Abs(HP.BodyPitch)*.45f,-HP.BodyYaw*.45f,HP.BodyYaw*.16f));
-        Parts[19]->AddRelativeRotation(FRotator(-FMath::Abs(HP.BodyPitch)*.35f,-HP.BodyYaw*.25f,HP.BodyYaw*.22f));
+        CapeFlare=FMath::Clamp(FMath::Abs(HP.BodyPitch)/30.f,0.f,1.f);CapeTwist=HP.BodyYaw;
         if(auto* Mat=Cast<UMaterialInstanceDynamic>(WeaponMesh->GetMaterial(0))) {
             const bool Active=AttackPoseStarted>=0&&Now<AttackPoseStarted+AttackPoseDuration;
             const float Glow=HammerLeapState?2.8f:(Active?.35f+MeleeStep*.6f+ASMelee::Phase(Now,AttackPoseStarted,AttackPoseDuration)*.6f:.15f);
             Mat->SetScalarParameterValue(TEXT("Emission"),Glow);
         }
     }
+    AnimateCape(Delta,CapeFlare,CapeTwist);
+    DamageReactionAge+=Delta;AbilityGestureAge+=Delta;
     HammerShakeAge+=Delta;
     if(IsLocallyControlled()) if(auto* GI=GetGameInstance<UASGameInstance>()) {
         const bool Shake=Build.Weapon==1&&!GI->bReduceMotion&&HammerShakeAge<.28f;
@@ -129,4 +129,49 @@ void AASCharacter::Animate(float Delta) {
     for(auto Part:Parts) Part->SetOwnerNoSee(HideSelf);
     WeaponMesh->SetOwnerNoSee(HideSelf);ArrowMesh->SetOwnerNoSee(HideSelf);ChargeMesh->SetOwnerNoSee(HideSelf);
     for(auto Part:BowStrings) Part->SetOwnerNoSee(HideSelf);for(auto Part:Wisps) Part->SetOwnerNoSee(HideSelf);
+}
+
+void AASCharacter::DamageReaction_Implementation(FVector_NetQuantizeNormal Direction,float Strength) {
+    DamageReactionAge=0;DamageReactionStrength=FMath::Clamp(Strength,0.f,1.f);DamageReactionDirection=Direction;
+}
+void AASCharacter::AbilityGesture_Implementation() {AbilityGestureAge=0;}
+void AASCharacter::CreateCape() {
+    // Six linked cloth segments replace the rigid cape boards. Segments are visual only.
+    for(int32 I=0;I<6;++I) {
+        auto* C=CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("CapeSegment%d"),I));
+        C->SetupAttachment(Figure);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);
+        FlowingCape.Add(C);
+    }
+}
+void AASCharacter::RefreshCape() {
+    if(Parts.Num()!=21) return;
+    const FLinearColor Cloth(.012f,.016f,.023f);
+    for(int32 I=0;I<FlowingCape.Num();++I) if(auto* C=FlowingCape[I].Get()) {
+        ASAssets::Armor(C,TEXT("SM_Cape"),bDowned?FLinearColor(.3f,.02f,.025f):Cloth,0.f,0.f,.95f);
+        C->SetVisibility(true);
+    }
+    // Legacy rigid pieces stay as unused hierarchy anchors, hidden.
+    Parts[15]->SetVisibility(false,true);Parts[19]->SetVisibility(false,true);
+}
+void AASCharacter::AnimateCape(float Delta,float AttackFlare,float BodyTwist) {
+    if(FlowingCape.Num()<6||Delta<=0.f) return;
+    const float Now=AS::Time(this),Yaw=GetActorRotation().Yaw,Rate=FMath::FindDeltaAngleDegrees(PreviousVisualYaw,Yaw);PreviousVisualYaw=Yaw;
+    // Large jumps are teleports/respawns: do not whip the cape.
+    TurnVelocity=FMath::Abs(Rate)>120.f?0.f:FMath::Lerp(TurnVelocity,Rate/Delta/540.f,ASAnimation::Blend(Delta,6.f));
+    CapeTurn=FMath::Lerp(CapeTurn,FMath::Clamp(TurnVelocity,-1.f,1.f),ASAnimation::Blend(Delta,3.f));
+    const float Speed=FMath::Clamp(CapeLean/40.f,0.f,1.5f),Flare=FMath::Clamp(AttackFlare,0.f,1.f);
+    const float Twist=FMath::Clamp(BodyTwist,-40.f,40.f)*.3f;
+    FVector Node[7];
+    for(int32 I=0;I<7;++I) {
+        const auto P=ASAnimation::CapePoint(I,Now,Speed,CapeTurn,Flare);
+        Node[I]=FVector(P.X,P.Y+Twist*float(I)/6.f,P.Z);
+    }
+    for(int32 I=0;I<6;++I) if(auto* C=FlowingCape[I].Get()) {
+        const FVector Down=Node[I+1]-Node[I];const float Length=Down.Size();
+        if(Length<KINDA_SMALL_NUMBER) continue;
+        const float T=(float(I)+.5f)/6.f;
+        C->SetRelativeLocation(Node[I]);
+        C->SetRelativeRotation(FRotationMatrix::MakeFromZX(-Down,FVector::ForwardVector).Rotator());
+        C->SetRelativeScale3D(FVector(1.f,ASAnimation::CapeWidth(T)/31.f,Length/55.f*1.08f));
+    }
 }

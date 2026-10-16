@@ -303,8 +303,10 @@ void AASGameMode::EnemyKilled(AASEnemy* E,AASCharacter* Killer) {
     if(Random.FRand()<.25f) AASPickup::Spawn(GetWorld(),E->GetActorLocation()+FVector(40,0,0),2,1.f);
     S->Effect(6,E->GetActorLocation(),FVector::ForwardVector,ASData::BiomeColor(E->Theme),E->Boss()?2.f:.65f);
 }
-void AASGameMode::SendReceipt(AASPlayerState* PS,const FASReceipt& R) {
+void AASGameMode::SendReceipt(AASPlayerState* PS,const FASReceipt& Unstamped) {
     if(!PS) return;
+    // UASGameInstance::Receive rejects receipts whose profile differs from the loaded character.
+    FASReceipt R=Unstamped;R.ProfileId=PS->ProfileId;
     if(PS->bSavePending) {
         if(PS->PendingReceipt.Id==R.Id) return;
         for(const auto& Waiting:PS->ReceiptQueue) if(Waiting.Id==R.Id) return;
