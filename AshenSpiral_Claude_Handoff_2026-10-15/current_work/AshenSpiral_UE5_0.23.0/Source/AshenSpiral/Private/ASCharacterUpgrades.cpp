@@ -12,7 +12,12 @@ using ASBuild::Trait;
 int32 AASCharacter::TraitRank(Trait T) const {
     const int32 I=int32(T);return I>=0&&I<ASBuild::Count&&TraitRanks.IsValidIndex(I)?FMath::Clamp(TraitRanks[I],0,ASBuild::Catalog[I].Max):0;
 }
-int32 AASCharacter::TraitValue(Trait T) const {return TraitRank(T)+(ASBuild::Evolved(EvolutionMask,int32(T))?1:0);}
+int32 AASCharacter::TraitValue(Trait T) const {
+    int32 Rank=TraitRank(T);const int32 Cap=ASBuild::Catalog[int32(T)].Max;
+    // Ranks above the normal cap exist only in Endless: full strength to the cap, then each block of five steps down.
+    if(Rank>Cap) Rank=FMath::RoundToInt(ASExpedition::TraitPower(Rank,Cap));
+    return Rank+(ASBuild::Evolved(EvolutionMask,int32(T))?1:0);
+}
 ASBuild::Context AASCharacter::UpgradeContext() const {
     ASBuild::Context C;C.Weapon=Build.Weapon;C.Last=LastUpgrade;C.Curse=CurseStacks;C.Hurt=Health<MaxHealth-.1f;
     C.Evolutions=EvolutionMask;C.PermanentCooldown=Rank(14);C.PermanentCritical=Rank(19);C.MissingRelic=false;
