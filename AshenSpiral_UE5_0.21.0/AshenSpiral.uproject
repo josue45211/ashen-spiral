@@ -1,0 +1,33 @@
+{
+  "FileVersion": 3,
+  "EngineAssociation": "5.8",
+  "Category": "Games",
+  "Description": "Ashen Spiral - third-person Unreal remake v0.15.0 (target UE 5.8.3)",
+  "Modules": [
+    {
+      "Name": "AshenSpiral",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ],
+  "Plugins": [
+    {
+      "Name": "PythonScriptPlugin",
+      "Enabled": true,
+      "TargetAllowList": [
+        "Editor"
+      ]
+    },
+    {
+      "Name": "EditorScriptingUtilities",
+      "Enabled": true,
+      "TargetAllowList": [
+        "Editor"
+      ]
+    },
+    {
+      "Name": "OnlineSubsystemUtils",
+      "Enabled": true
+    }
+  ]
+}

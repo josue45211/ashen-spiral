@@ -1,0 +1,1040 @@
+--- a/Source/AshenSpiral/Private/ASCharacter.cpp
++++ b/Source/AshenSpiral/Private/ASCharacter.cpp
+@@ -54,7 +54,7 @@
+ UASMovementComponent* AASCharacter::Movement() const {return Cast<UASMovementComponent>(GetCharacterMovement());}
+ bool AASCharacter::CanJumpInternal_Implementation() const {
+     const auto* S=AS::State(this);
+-    return !bDowned&&!bReviving&&S&&!S->Frozen()&&S->Phase!=EASPhase::Defeat&&S->Phase!=EASPhase::Victory
++    return !bDowned&&!bReviving&&S&&!S->Frozen()&&S->Phase!=EASPhase::Defeat
+         &&Super::CanJumpInternal_Implementation();
+ }
+ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+@@ -63,7 +63,7 @@
+     DOREPLIFETIME(AASCharacter,MaxHealth);DOREPLIFETIME(AASCharacter,Shield);DOREPLIFETIME(AASCharacter,ChargeStart);
+     DOREPLIFETIME(AASCharacter,NextSpiral);DOREPLIFETIME(AASCharacter,NextAttack);DOREPLIFETIME(AASCharacter,InvulnerableUntil);
+     DOREPLIFETIME(AASCharacter,ReviveProgress);DOREPLIFETIME(AASCharacter,bCharging);DOREPLIFETIME(AASCharacter,bDowned);
+-    DOREPLIFETIME(AASCharacter,AttackSequence);DOREPLIFETIME(AASCharacter,ColorIndex);
++    DOREPLIFETIME(AASCharacter,ColorChoice);DOREPLIFETIME(AASCharacter,AttackSequence);DOREPLIFETIME(AASCharacter,ColorIndex);
+     DOREPLIFETIME(AASCharacter,TraitRanks);DOREPLIFETIME(AASCharacter,EvolutionMask);DOREPLIFETIME(AASCharacter,LastUpgrade);
+     DOREPLIFETIME(AASCharacter,Rerolls);DOREPLIFETIME(AASCharacter,CurseStacks);DOREPLIFETIME(AASCharacter,Focus);DOREPLIFETIME(AASCharacter,NextRune);
+     DOREPLIFETIME(AASCharacter,ConduitHits);DOREPLIFETIME(AASCharacter,bPhoenixUsed);
+@@ -71,7 +71,7 @@
+ }
+ void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
+     if(!HasAuthority()) return;Build=V;Build.Sanitize();
+-    if(auto* PS=GetPlayerState<AASPlayerState>()) ColorIndex=PS->PlayerIndex;
++    if(auto* PS=GetPlayerState<AASPlayerState>()) {ColorIndex=PS->PlayerIndex;ColorChoice=PS->ColorChoice;}
+     if(Fresh) {
+         ResetTraits();
+         RunRanks.Init(0,ASRules::RunUpgradeCount);
+@@ -83,8 +83,7 @@
+ }
+ void AASCharacter::RefreshLook() {
+     if(Parts.Num()!=19) return;
+-    const FLinearColor Dark(.09f,.10f,.13f),Metal(.34f,.32f,.28f),Cloth=ColorIndex==0?FLinearColor(.25f,.08f,.035f):FLinearColor(.035f,.18f,.17f);
+-    const FLinearColor Fire=ASData::PlayerColor(ColorIndex);
++    const FLinearColor Fire=BodyColor(),Dark(.09f,.10f,.13f),Metal(.34f,.32f,.28f),Cloth=Fire*.27f;
+     const TCHAR* Meshes[19]={TEXT("SM_Torso"),TEXT("SM_Hood"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Arm"),TEXT("SM_Arm"),TEXT("SM_Arm"),TEXT("SM_Leg"),TEXT("SM_Leg"),TEXT("SM_Leg"),TEXT("SM_Leg"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("Cube"),TEXT("SM_Hand"),TEXT("SM_Hand")};
+     const FVector Positions[19]={FVector(0,0,111),FVector(0,0,163),FVector(0,0,77),FVector(0,-40,117),FVector(0,-41,79),FVector(0,40,117),FVector(0,41,79),FVector(0,-16,54),FVector(0,-16,22),FVector(0,16,54),FVector(0,16,22),FVector(9,-16,10),FVector(9,16,10),FVector(0,-43,137),FVector(0,43,137),FVector(-24,0,138),FVector(28,0,163),FVector(0,-41,54),FVector(0,41,54)};
+     for(int32 I=0;I<19;++I) {
+@@ -244,7 +243,7 @@
+             HitEnemy(W.Get(),PrimaryDamageBonus()+(Build.Weapon==1?46:32)+(Build.Weapon==0&&W->PulledUntil>S->SimTime?25:0),Critical,ASData::WeaponElement(Build.Weapon),true);
+         const auto Props=S->Breakables;
+         for(auto W:Props) if(auto* B=W.Get()) if(FVector::DistSquared2D(GetActorLocation(),B->GetActorLocation())<Reach*Reach&&FMath::Abs(GetActorLocation().Z-B->GetActorLocation().Z)<180.f&&FVector::DotProduct(Forward,(B->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>0&&B->VisibleFrom(GetActorLocation())) B->Strike(this,(32.f+PrimaryDamageBonus())*DamageScale(true));
+-        S->Effect(1,GetActorLocation()-FVector(0,0,20),Forward,ASData::PlayerColor(ColorIndex),Reach);
++        S->Effect(1,GetActorLocation()-FVector(0,0,20),Forward,BodyColor(),Reach);
+         if(Build.Weapon==1) {
+             AASWell* Closest=nullptr;float Best=750;
+             for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&W->Hero.Get()==this) {float D=FVector::Dist2D(GetActorLocation(),W->GetActorLocation());if(D<Best){Best=D;Closest=W.Get();}}
+@@ -257,7 +256,7 @@
+         if(TraitValue(ASBuild::Trait::EchoShot)>0) AASProjectile::Fire(GetWorld(),Muzzle,Direction.RotateAngleAxis(5.f,FVector::UpVector),this,Build.Weapon,Base*.45f,false,Critical,true);
+         const int32 Extra=FMath::Min(3,TraitValue(ASBuild::Trait::Volley));
+         for(int32 I=0;I<Extra;++I) AASProjectile::Fire(GetWorld(),Muzzle,Direction.RotateAngleAxis((I%2?1.f:-1.f)*(10.f+I*4.f),FVector::UpVector),this,Build.Weapon,Base*.35f,false,Critical,true);
+-        S->Effect(2,Muzzle,Forward,ASData::PlayerColor(ColorIndex),25);
++        S->Effect(2,Muzzle,Forward,BodyColor(),25);
+     }
+ }
+ void AASCharacter::CastSpiral(bool Perfect) {
+@@ -276,7 +275,7 @@
+     if(CombatBenefits()&&Relic(9)) Shield=FMath::Min(60.f,Shield+10);
+     if(CombatBenefits()&&Build.Style==5) {Movement()->DashCharges=FMath::Max(1,Movement()->DashCharges);Movement()->DashCooldown=0;}
+     if(CombatBenefits()&&Perfect&&(Relic(3)||Build.Style==9)) bNextCritical=true;
+-    S->Effect(3,Place,Dir,ASData::PlayerColor(ColorIndex),Perfect?100:70);
++    S->Effect(3,Place,Dir,BodyColor(),Perfect?100:70);
+ }
+ void AASCharacter::OnDash() {
+     if(!HasAuthority()) return;auto* S=AS::State(this);if(!S) return;
+@@ -284,7 +283,7 @@
+     InvulnerableUntil=FMath::Max(InvulnerableUntil,S->SimTime+FMath::Max(Rank(11)? .4f:0.f,.26f+Rank(9)*.025f+.03f*TraitValue(ASBuild::Trait::LongDash)));
+     if(CombatBenefits()&&TraitValue(ASBuild::Trait::Repulse)>0) for(auto W:S->Enemies) if(auto* E=W.Get()) if(CanDamage(E)&&FVector::DistSquared2D(GetActorLocation(),E->GetActorLocation())<FMath::Square((280.f+40.f*TraitValue(ASBuild::Trait::Repulse))*AreaScale())&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) E->Control(0,E->GetActorLocation()-GetActorLocation(),600.f);
+     if(CombatBenefits()&&Talent(4)) RallyUntil=S->SimTime+3;
+-    S->Effect(4,GetActorLocation()-FVector(0,0,65),Movement()->DashDirection,ASData::PlayerColor(ColorIndex),100);
++    S->Effect(4,GetActorLocation()-FVector(0,0,65),Movement()->DashDirection,BodyColor(),100);
+     if(Relic(22)) AASWell::Plant(this,GetActorLocation()-FVector(0,0,78),false,.55f,1);
+     if(Relic(10)) AASField::Spawn(GetWorld(),1,GetActorLocation()-FVector(0,0,78),70,5,0,.65f+Rank(10)*.2f,this,GetActorLocation()+Movement()->DashDirection*500-FVector(0,0,78));
+ }
+--- a/Source/AshenSpiral/Private/ASData.cpp
++++ b/Source/AshenSpiral/Private/ASData.cpp
+@@ -124,6 +124,19 @@
+ const TCHAR* ElementName(EASHitKind Kind) {
+     switch(Kind) {case EASHitKind::Bleed:return TEXT("BLEED");case EASHitKind::Shock:return TEXT("SHOCK");case EASHitKind::Burn:return TEXT("BURN");case EASHitKind::Poison:return TEXT("POISON");case EASHitKind::Frost:return TEXT("FROST");default:return TEXT("PHYSICAL");}
+ }
++const TCHAR* ArmorColorNames[8]={TEXT("EMBER"),TEXT("TEAL"),TEXT("AZURE"),TEXT("EMERALD"),TEXT("VIOLET"),TEXT("ROSE"),TEXT("SILVER"),TEXT("CRIMSON")};
++const TCHAR* CrosshairColorNames[8]={TEXT("WHITE"),TEXT("CYAN"),TEXT("LIME"),TEXT("YELLOW"),TEXT("PINK"),TEXT("RED"),TEXT("BLUE"),TEXT("ORANGE")};
++const TCHAR* CrosshairStyles[4]={TEXT("CROSS"),TEXT("DOT"),TEXT("RING"),TEXT("CROSS + DOT")};
++FLinearColor ArmorColor(int32 Choice,int32 PlayerIndex) {
++    if(Choice<0) return PlayerColor(PlayerIndex);
++    const FLinearColor Colors[8]={FLinearColor(1,.57f,.15f),FLinearColor(.1f,.85f,.75f),FLinearColor(.12f,.5f,1),FLinearColor(.15f,.9f,.3f),FLinearColor(.65f,.3f,1),FLinearColor(1,.24f,.6f),FLinearColor(.8f,.87f,1),FLinearColor(.85f,.07f,.1f)};
++    return Colors[FMath::Clamp(Choice,0,7)];
++}
++FLinearColor MapPlayerColor(int32 PlayerIndex) {return PlayerIndex==0?FLinearColor(.05f,.7f,1.f):FLinearColor::White;}
++FLinearColor CrosshairColor(int32 Choice) {
++    const FLinearColor Colors[8]={FLinearColor::White,FLinearColor(0,1,1),FLinearColor(.4f,1,.05f),FLinearColor(1,1,0),FLinearColor(1,.15f,.7f),FLinearColor(1,.1f,.1f),FLinearColor(.2f,.45f,1),FLinearColor(1,.5f,.05f)};
++    return Colors[FMath::Clamp(Choice,0,7)];
++}
+ FLinearColor PlayerColor(int32 I) { return I==0?FLinearColor(1.f,.57f,.15f):FLinearColor(.10f,.85f,.75f); }
+ FLinearColor BiomeColor(int32 I) {
+  const FLinearColor Colors[5]={FLinearColor(.22f,.65f,.57f),FLinearColor(.9f,.20f,.12f),FLinearColor(.48f,.30f,1.f),FLinearColor(.20f,.75f,.26f),FLinearColor(.12f,.8f,.95f)};
+@@ -137,7 +150,7 @@
+  RelicPool=FMath::Clamp(RelicPool,8,24);TalentMask&=4095;
+ }
+ void FASProfileData::Sanitize() {
+- Schema=1;Build.Sanitize();Materials.SetNumZeroed(5);
++ Schema=1;ColorChoice=FMath::Clamp(ColorChoice,-1,7);Build.Sanitize();Materials.SetNumZeroed(5);
+  Experience=FMath::Clamp(Experience,0,ASCareer::MaxValue);Career.SetNumZeroed(ASCareer::Count);for(int32& N:Career) N=FMath::Clamp(N,0,ASCareer::MaxValue);
+  Ash=FMath::Clamp(Ash,0,ASRules::MaxCurrency);RelicEmbers=FMath::Clamp(RelicEmbers,0,1000000);
+  Tablets=FMath::Clamp(Tablets,0,1000000);SkillPoints=FMath::Clamp(SkillPoints,0,1000000);
+--- a/Source/AshenSpiral/Private/ASGameInstance.cpp
++++ b/Source/AshenSpiral/Private/ASGameInstance.cpp
+@@ -76,7 +76,11 @@
+     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("Sensitivity"),Sensitivity,GGameUserSettingsIni);
+     GConfig->GetBool(TEXT("AshenSpiral"),TEXT("DamageNumbers"),bShowNumbers,GGameUserSettingsIni);
+     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("NumberScale"),NumberScale,GGameUserSettingsIni);
+-    NumberScale=FMath::Clamp(NumberScale,1.f,1.6f);
++    NumberScale=ASPresentation::NumberScale(NumberScale);
++    GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CrosshairScale"),CrosshairScale,GGameUserSettingsIni);
++    GConfig->GetInt(TEXT("AshenSpiral"),TEXT("CrosshairStyle"),CrosshairStyle,GGameUserSettingsIni);
++    GConfig->GetInt(TEXT("AshenSpiral"),TEXT("CrosshairColor"),CrosshairColorIndex,GGameUserSettingsIni);
++    CrosshairScale=ASPresentation::CrosshairScale(CrosshairScale);CrosshairStyle=FMath::Clamp(CrosshairStyle,0,3);CrosshairColorIndex=FMath::Clamp(CrosshairColorIndex,0,7);
+     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CameraDistance"),CameraDistance,GGameUserSettingsIni);
+     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CameraHeight"),CameraHeight,GGameUserSettingsIni);
+     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CameraShoulder"),CameraShoulder,GGameUserSettingsIni);
+@@ -94,7 +98,17 @@
+     GConfig->SetBool(TEXT("AshenSpiral"),TEXT("DamageNumbers"),bShowNumbers,GGameUserSettingsIni);
+     GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("NumberScale"),NumberScale,GGameUserSettingsIni);
+     GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("HUDTextScale"),HUDTextScale,GGameUserSettingsIni);
+-    SaveCameraSettings();Super::Shutdown();
++    SaveHUDSettings();SaveCameraSettings();Super::Shutdown();
++}
++void UASGameInstance::SaveHUDSettings() {
++    NumberScale=ASPresentation::NumberScale(NumberScale);CrosshairScale=ASPresentation::CrosshairScale(CrosshairScale);
++    CrosshairStyle=FMath::Clamp(CrosshairStyle,0,3);CrosshairColorIndex=FMath::Clamp(CrosshairColorIndex,0,7);
++    GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("CrosshairScale"),CrosshairScale,GGameUserSettingsIni);
++    GConfig->SetInt(TEXT("AshenSpiral"),TEXT("CrosshairStyle"),CrosshairStyle,GGameUserSettingsIni);
++    GConfig->SetInt(TEXT("AshenSpiral"),TEXT("CrosshairColor"),CrosshairColorIndex,GGameUserSettingsIni);
++    GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("NumberScale"),NumberScale,GGameUserSettingsIni);
++    GConfig->SetBool(TEXT("AshenSpiral"),TEXT("DamageNumbers"),bShowNumbers,GGameUserSettingsIni);
++    GConfig->Flush(false,GGameUserSettingsIni);
+ }
+ void UASGameInstance::SanitizeCameraSettings() {
+     const auto Safe=[](float V,float Default,float Min,float Max) {return FMath::IsFinite(V)?FMath::Clamp(V,Min,Max):Default;};
+--- a/Source/AshenSpiral/Private/ASGameMode.cpp
++++ b/Source/AshenSpiral/Private/ASGameMode.cpp
+@@ -56,7 +56,7 @@
+ #endif
+     const FString ID=UGameplayStatics::ParseOption(Options,TEXT("Profile"));
+     if(!EditorTest) {
+-        if(UGameplayStatics::GetIntOption(Options,TEXT("Protocol"),0)!=ASData::Protocol) {Error=TEXT("Both players need Ashen Spiral UE 0.16.2 (protocol 1600).");return;}
++        if(UGameplayStatics::GetIntOption(Options,TEXT("Protocol"),0)!=ASData::Protocol) {Error=TEXT("Both players need Ashen Spiral UE 0.17.0 (protocol 1700).");return;}
+         if(UGameplayStatics::ParseOption(Options,TEXT("Code")).ToUpper()!=S->SessionCode) {Error=TEXT("Session code does not match the host.");return;}
+         if(S->Phase!=EASPhase::Hub && !Disconnected.Contains(ID)) {Error=TEXT("An expedition is already running. Join in the hub.");return;}
+     }
+@@ -85,7 +85,7 @@
+     auto* H=GetWorld()->SpawnActor<AASCharacter>(DefaultPawnClass,Position,FRotator::ZeroRotator,Params);
+     if(H) {H->ColorIndex=PS?PS->PlayerIndex:0;H->RefreshLook();Player->Possess(H);}
+ }
+-void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const FASBuild& InBuild,int32 Experience) {
++void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const FASBuild& InBuild,int32 Experience,int32 ColorChoice) {
+     auto* S=AS::State(this);auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;if(!S||!PS) return;
+     bool Valid=ID.Len()==32;for(TCHAR C:ID) if(!FChar::IsHexDigit(C)) Valid=false;
+     if(!Valid) {PC->Notify(TEXT("Invalid profile ID. Restart with a writable save folder."));return;}
+@@ -94,7 +94,7 @@
+     }
+     if(PS->bProfileReady && S->Phase!=EASPhase::Hub) return; // No mid-run loadout injection.
+     if(!PS->ProfileId.IsEmpty() && PS->ProfileId!=ID) {PC->Notify(TEXT("Reconnect profile differs from the profile used to join."));return;}
+-    PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
++    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
+     RestartPlayer(PC);auto* H=Cast<AASCharacter>(PC->GetPawn());if(!H) return;
+     H->ColorIndex=PS->PlayerIndex;H->ApplyBuild(PS->Build,true);
+     if(FASReconnect* Saved=Disconnected.Find(ID)) {
+@@ -386,7 +386,9 @@
+ void AASGameMode::EndRun(bool Victory) {
+     if(bEnding) return;bEnding=true;auto* S=AS::State(this);if(!S) return;
+     ClearCombat();S->Phase=Victory?EASPhase::Victory:EASPhase::Defeat;S->bPartyPaused=false;
+-    for(auto W:S->Heroes) if(auto* H=W.Get()) H->ResetInput();
++    for(auto W:S->Heroes) if(auto* H=W.Get()) {
++        H->ResetInput();if(Victory&&H->bDowned) {H->bDowned=false;H->Health=FMath::Max(1.f,H->Health);H->ReviveProgress=0;H->RefreshLook();H->ForceNetUpdate();}
++    }
+     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) {
+         FASReceipt R;R.Id=S->RunId+(Victory?TEXT(":victory:"):TEXT(":defeat:"))+PS->ProfileId;
+         R.Room=Victory?32:S->Room;R.Ward=ASRules::Ward(S->Room);R.Ash=Victory?80:(5+(PS->Build.Talent(10)?8:0));
+--- a/Source/AshenSpiral/Private/ASGameState.cpp
++++ b/Source/AshenSpiral/Private/ASGameState.cpp
+@@ -18,7 +18,7 @@
+ }
+ void AASPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
+     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+-    DOREPLIFETIME(AASPlayerState,CharacterLevel);DOREPLIFETIME(AASPlayerState,Build);DOREPLIFETIME(AASPlayerState,PlayerIndex);DOREPLIFETIME(AASPlayerState,bReady);DOREPLIFETIME(AASPlayerState,bWagerVote);DOREPLIFETIME(AASPlayerState,bShrineUsed);
++    DOREPLIFETIME(AASPlayerState,ColorChoice);DOREPLIFETIME(AASPlayerState,CharacterLevel);DOREPLIFETIME(AASPlayerState,Build);DOREPLIFETIME(AASPlayerState,PlayerIndex);DOREPLIFETIME(AASPlayerState,bReady);DOREPLIFETIME(AASPlayerState,bWagerVote);DOREPLIFETIME(AASPlayerState,bShrineUsed);
+     DOREPLIFETIME(AASPlayerState,bProfileReady);DOREPLIFETIME(AASPlayerState,bRewardClaimed);DOREPLIFETIME(AASPlayerState,bSavePending);
+     DOREPLIFETIME(AASPlayerState,ProfileId);DOREPLIFETIME_CONDITION(AASPlayerState,Offers,COND_OwnerOnly);
+ }
+--- /dev/null
++++ b/Source/AshenSpiral/Private/ASGameViewportClient.cpp
+@@ -0,0 +1,32 @@
++#include "ASGameViewportClient.h"
++#include "ASPlayerController.h"
++#include "Engine/World.h"
++#include "InputKeyEventArgs.h"
++#include "InputCoreTypes.h"
++#include "UnrealClient.h"
++#include "Slate/SceneViewport.h"
++
++AASPlayerController* UASGameViewportClient::LocalController() const {
++    if(auto* ViewportWorld=GetWorld()) for(auto It=ViewportWorld->GetPlayerControllerIterator();It;++It)
++        if(auto* PC=Cast<AASPlayerController>(It->Get())) if(PC->IsLocalController()&&PC->LocalViewport()==this) return PC;
++    return nullptr;
++}
++void UASGameViewportClient::ReceivedFocus(FViewport* InViewport) {
++    Super::ReceivedFocus(InViewport);if(auto* PC=LocalController()) PC->QueueGameplayCapture();
++}
++void UASGameViewportClient::LostFocus(FViewport* InViewport) {
++    Super::LostFocus(InViewport);if(auto* PC=LocalController()) PC->ViewportFocusLost();
++}
++void UASGameViewportClient::Activated(FViewport* InViewport,const FWindowActivateEvent& Event) {
++    Super::Activated(InViewport,Event);if(auto* PC=LocalController()) PC->QueueGameplayCapture();
++}
++void UASGameViewportClient::Deactivated(FViewport* InViewport,const FWindowActivateEvent& Event) {
++    Super::Deactivated(InViewport,Event);if(auto* PC=LocalController()) PC->ViewportFocusLost();
++}
++bool UASGameViewportClient::InputKey(const FInputKeyEventArgs& EventArgs) {
++    if(EventArgs.Event==IE_Pressed&&EventArgs.Key==EKeys::LeftMouseButton)
++        if(auto* PC=LocalController()) if(PC->WantsGameplayInput()&&EventArgs.Viewport&&!EventArgs.Viewport->HasMouseCapture()) {
++            PC->ApplyGameplayInput();return true; // Refocus click captures without firing.
++        }
++    return Super::InputKey(EventArgs);
++}
+--- a/Source/AshenSpiral/Private/ASHUD.cpp
++++ b/Source/AshenSpiral/Private/ASHUD.cpp
+@@ -16,7 +16,7 @@
+ #include "Engine/Engine.h"
+ #include "Engine/World.h"
+ #include "ASRules.h"
+-namespace {const FLinearColor Gold(1,.65f,.22f),Teal(.15f,.87f,.74f),Muted(.70f,.75f,.80f),Panel(.014f,.021f,.031f,.79f),Red(1,.15f,.16f);}
++namespace {const FLinearColor Purple(.72f,.24f,1.f),VaultGreen(.25f,1.f,.4f),Gold(1,.65f,.22f),Teal(.15f,.87f,.74f),Muted(.70f,.75f,.80f),Panel(.014f,.021f,.031f,.79f),Red(1,.15f,.16f);}
+ // Keep all dynamic text in Slate. Canvas remains responsible for bars/lines only.
+ class SASHUDText : public SLeafWidget {
+ public:
+@@ -37,12 +37,12 @@
+ private:TWeakObjectPtr<AASHUD> HUD;
+ };
+ void AASHUD::BeginPlay() {
+-    Super::BeginPlay();if(PlayerOwner&&PlayerOwner->IsLocalController()&&GEngine&&GEngine->GameViewport) {
+-        SAssignNew(TextLayer,SASHUDText).HUD(this);GEngine->GameViewport->AddViewportWidgetContent(TextLayer.ToSharedRef(),5);
++    Super::BeginPlay();if(auto* PC=Cast<AASPlayerController>(PlayerOwner)) if(auto* Viewport=PC->LocalViewport()) {
++        TextViewport=Viewport;SAssignNew(TextLayer,SASHUDText).HUD(this);Viewport->AddViewportWidgetContent(TextLayer.ToSharedRef(),5);
+     }
+ }
+ void AASHUD::EndPlay(const EEndPlayReason::Type Reason) {
+-    if(TextLayer.IsValid()&&GEngine&&GEngine->GameViewport) GEngine->GameViewport->RemoveViewportWidgetContent(TextLayer.ToSharedRef());TextLayer.Reset();Super::EndPlay(Reason);
++    if(TextLayer.IsValid()&&TextViewport.IsValid()) TextViewport->RemoveViewportWidgetContent(TextLayer.ToSharedRef());TextLayer.Reset();Super::EndPlay(Reason);
+ }
+ void AASHUD::Text(const FString& V,float X,float Y,FLinearColor C,float Size) {
+     const auto* GI=GetGameInstance<UASGameInstance>();
+@@ -54,7 +54,8 @@
+ void AASHUD::Bar(float X,float Y,float W,float H,float F,FLinearColor C) {Box(X,Y,W,H,FLinearColor(.06f,.075f,.1f,.9f));Box(X,Y,W*FMath::Clamp(F,0.f,1.f),H,C);}
+ void AASHUD::Map(AASGameState* S,AASCharacter* Hero) {
+     if(!S->Arena) return;auto* A=S->Arena.Get();const float Size=245,Left=Width-Size-28,Top=28,MidX=Left+Size/2,MidY=Top+Size/2;
+-    Box(Left-10,Top-10,Size+20,Size+(Hero->TraitValue(ASBuild::Trait::Sense)>0?95:70),Panel);
++    const bool ShowSense=S->Phase!=EASPhase::Hub&&Hero->TraitValue(ASBuild::Trait::Sense)>0;
++    Box(Left-10,Top-10,Size+20,Size+(ShowSense?123:80),Panel);
+     float WorldSpan=4100;FVector MapCenter;A->MapBounds(MapCenter,WorldSpan);
+     auto XY=[&](const FVector& P){return FVector2D(MidX+(P.Y-MapCenter.Y)/WorldSpan*Size,MidY-(P.X-MapCenter.X)/WorldSpan*Size);};
+     if(S->Phase==EASPhase::Hub) {
+@@ -67,35 +68,37 @@
+         }
+         for(int32 I=0;I<int32(A->Layout.Cells.size());++I) {auto P=XY(A->CellPosition(I));const auto Half=A->CellHalfSize(I);const float W=Half.Y*2/WorldSpan*Size,H=Half.X*2/WorldSpan*Size;Box(P.X-W*.5f,P.Y-H*.5f,W,H,FLinearColor(.16f,.20f,.24f,.97f));}
+         auto Chest=XY(A->ExitPoint());Box(Chest.X-4,Chest.Y-4,8,8,Gold);
+-        if(Hero->TraitValue(ASBuild::Trait::Sense)>0) {
+-            for(auto W:S->Fields) if(auto* F=W.Get()) if(F->Kind==2||(F->Kind>=4&&F->Kind<=7)) {const auto P=XY(F->GetActorLocation());Box(P.X-3,P.Y-3,6,6,F->Disabled()?Teal:FLinearColor(1,.45f,.1f));}
+-            if(A->HasVault()) {const auto P=XY(A->VaultPoint(3));Box(P.X-5,P.Y-5,10,10,S->bVaultClaimed?Muted:Teal);}
+-            Text(TEXT("ORANGE: TRAPS / TEAL: VAULT"),Left,Top+Size+53,Teal,.59f);
++        if(ShowSense) {
++            for(auto W:S->Fields) if(auto* F=W.Get()) if(F->Kind==2||(F->Kind>=4&&F->Kind<=7)) {const auto P=XY(F->GetActorLocation());Box(P.X-3,P.Y-3,6,6,F->Disabled()?FLinearColor(.35f,.14f,.45f):Purple);}
++            if(A->HasVault()) {const auto P=XY(A->VaultPoint(3));Box(P.X-5,P.Y-5,10,10,S->bVaultClaimed?Muted:VaultGreen);}
++            Text(TEXT("PURPLE: TRAPS"),Left,Top+Size+74,Purple,.59f);
++            Text(TEXT("GREEN: RUNE VAULT"),Left,Top+Size+96,VaultGreen,.59f);
+         }
+         int32 Index=0;for(const FVector& Warning:S->SpawnWarnings) {
+             const auto P=XY(Warning);const bool Large=ASRules::Boss(S->Room)||(ASRules::Elite(S->Room)&&S->Wave==2&&Index==S->SpawnWarnings.Num()-1);++Index;
+             const float R=Large?5.f:3.f;const float Pulse=.65f+.35f*FMath::Sin(S->SimTime*8.f);
+             Box(P.X-R-2,P.Y-R-2,(R+2)*2,(R+2)*2,FLinearColor(1,.12f,.12f,Pulse*.5f));Box(P.X-R,P.Y-R,R*2,R*2,Red);
+         }
+-        for(auto W:S->Enemies) if(auto* E=W.Get()) {
++        for(auto W:S->Enemies) if(auto* E=W.Get()) if(!E->bTrainingDummy&&E->Health>0) {
+             const auto P=XY(E->GetActorLocation());const float R=E->Boss()?5.f:(E->Elite()?4.f:2.4f);
+-            if(E->Elite()&&Hero->Talent(9)) Box(P.X-R-2,P.Y-R-2,(R+2)*2,(R+2)*2,Gold);
+             Box(P.X-R,P.Y-R,R*2,R*2,Red);
+         }
+     }
+     for(auto W:S->Heroes) if(auto* H=W.Get()) {
+-        const auto P=XY(H->GetActorLocation());const auto C=H==Hero?FLinearColor::White:ASData::PlayerColor(H->ColorIndex);
+-        Box(P.X-3,P.Y-3,6,6,H->bDowned?Red:C);const FVector Dir=H->GetActorForwardVector();
++        const auto P=XY(H->GetActorLocation());const auto C=ASData::MapPlayerColor(H->ColorIndex);
++        Box(P.X-5,P.Y-5,10,10,FLinearColor::Black);Box(P.X-3,P.Y-3,6,6,C);
++        if(H->bDowned) {Line(P.X-6,P.Y,P.X+6,P.Y,C,2);Line(P.X,P.Y-6,P.X,P.Y+6,C,2);}const FVector Dir=H->GetActorForwardVector();
+         Line(P.X,P.Y,P.X+Dir.Y*10,P.Y-Dir.X*10,C,2.f);
+     }
+-    Text(TEXT("RED: ENEMIES / SPAWNS"),Left,Top+Size+9,Red,.65f);Text(TEXT("GOLD: EXIT / DASH LINKS"),Left,Top+Size+31,Gold,.65f);
++    Text(TEXT("RED: FOES / SPAWNS"),Left,Top+Size+8,Red,.59f);Text(TEXT("GOLD: REWARD / GAPS"),Left,Top+Size+30,Gold,.59f);
++    Text(TEXT("P1: CYAN / P2: WHITE"),Left,Top+Size+52,FLinearColor::White,.59f);
+ }
+ void AASHUD::DrawHUD() {
+     Labels.Reset();Super::DrawHUD();auto* PC=Cast<AASPlayerController>(PlayerOwner);auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
+     if(!Canvas||!PC||!S||!H) return;
+     // HUD ownership can arrive after BeginPlay on a joining client.
+-    if(!TextLayer.IsValid()&&PC->IsLocalController()&&GEngine&&GEngine->GameViewport) {
+-        SAssignNew(TextLayer,SASHUDText).HUD(this);GEngine->GameViewport->AddViewportWidgetContent(TextLayer.ToSharedRef(),5);
++    if(!TextLayer.IsValid()&&PC->IsLocalController()) if(auto* Viewport=PC->LocalViewport()) {
++        TextViewport=Viewport;SAssignNew(TextLayer,SASHUDText).HUD(this);Viewport->AddViewportWidgetContent(TextLayer.ToSharedRef(),5);
+     }
+     OutputSize=FVector2D(Canvas->ClipX,Canvas->ClipY);
+     Scale=FMath::Max(.55f,FMath::Min(Canvas->ClipX/1920.f,Canvas->ClipY/1080.f));Width=Canvas->ClipX/Scale;Height=Canvas->ClipY/Scale;
+@@ -156,7 +159,20 @@
+         Text(Perfect?TEXT("RELEASE  /  PERFECT SPIRAL"):TEXT("HOLD  /  RELEASE IN THE GOLD WINDOW"),X+4,Y-32,Perfect?Gold:Muted,.76f);
+     }
+     const float CX=Width*.5f,CY=Height*.5f;
+-    Line(CX-10,CY,CX-4,CY,FLinearColor(1,1,1,.6f));Line(CX+4,CY,CX+10,CY,FLinearColor(1,1,1,.6f));Line(CX,CY-10,CX,CY-4,FLinearColor(1,1,1,.6f));Line(CX,CY+4,CX,CY+10,FLinearColor(1,1,1,.6f));
++    const auto* Settings=PC->GetGameInstance<UASGameInstance>();
++    const float AimScale=Settings?Settings->CrosshairScale:1.f,R=10.f*AimScale,Gap=4.f*AimScale;
++    const int32 Shape=Settings?Settings->CrosshairStyle:0;
++    const FLinearColor AimColor=ASData::CrosshairColor(Settings?Settings->CrosshairColorIndex:0);
++    const auto AimLine=[&](float X,float Y,float X2,float Y2){Line(X,Y,X2,Y2,FLinearColor::Black,4.f);Line(X,Y,X2,Y2,AimColor,2.f);};
++    if(Shape==0||Shape==3) {
++        AimLine(CX-R,CY,CX-Gap,CY);AimLine(CX+Gap,CY,CX+R,CY);
++        AimLine(CX,CY-R,CX,CY-Gap);AimLine(CX,CY+Gap,CX,CY+R);
++    }
++    if(Shape==1||Shape==3) {const float Dot=2.f*AimScale;Box(CX-Dot-1,CY-Dot-1,Dot*2+2,Dot*2+2,FLinearColor::Black);Box(CX-Dot,CY-Dot,Dot*2,Dot*2,AimColor);}
++    if(Shape==2) for(int32 I=0;I<32;++I) {
++        const float A=float(I)*UE_TWO_PI/32.f,B=float(I+1)*UE_TWO_PI/32.f;
++        AimLine(CX+FMath::Cos(A)*R,CY+FMath::Sin(A)*R,CX+FMath::Cos(B)*R,CY+FMath::Sin(B)*R);
++    }
+     if(PC->bAimBlocked) {
+         FVector2D Impact;if(PC->ProjectWorldLocationToScreen(PC->ShotImpact,Impact)) {
+             const float X=Impact.X/Scale,Y=Impact.Y/Scale;Line(X-7,Y-7,X+7,Y+7,Red,2);Line(X+7,Y-7,X-7,Y+7,Red,2);
+@@ -166,9 +182,25 @@
+     FString Objective;
+     if(S->Phase==EASPhase::Countdown) Objective=FString::Printf(TEXT("WAVE STARTS IN %.0f  /  WATCH THE RED MARKERS"),FMath::CeilToFloat(S->CountdownEnd-S->SimTime));
+     else if(S->Phase==EASPhase::Victory) Objective=TEXT("EXPEDITION COMPLETE / ENTER THE TEAL PORTAL AND PRESS E");
+-    else if(S->Phase==EASPhase::Reward) Objective=TEXT("ROOM CLEARED  /  FOLLOW THE GOLD CHEST ON THE MAP");
++    else if(S->Phase==EASPhase::Reward) Objective=TEXT("ROOM CLEARED  /  FOLLOW THE REWARD ARROW");
+     else if(S->Phase==EASPhase::Hub) Objective=TEXT("EXPLORE THE HUB  /  E TO INTERACT  /  ESC FOR OVERVIEW");
+     if(!Objective.IsEmpty()) {Box(Width/2-360,26,720,49,Panel);Text(Objective,Width/2-338,40,Gold,.77f);}
++    if(S->Arena&&(S->Phase==EASPhase::Reward||S->Phase==EASPhase::Victory)) {
++        const FVector Target=S->Arena->ExitPoint(),ToReward=Target-H->GetActorLocation();
++        FVector CameraAt;FRotator View;PC->GetPlayerViewPoint(CameraAt,View);
++        const FRotationMatrix Flat(FRotator(0.f,View.Yaw,0.f));
++        FVector2D Direction(FVector::DotProduct(ToReward,Flat.GetUnitAxis(EAxis::Y)),-FVector::DotProduct(ToReward,Flat.GetUnitAxis(EAxis::X)));
++        Direction=Direction.GetSafeNormal();if(Direction.IsNearlyZero()) Direction=FVector2D(0,-1);
++        const FVector2D Center(CX,117.f),Side(-Direction.Y,Direction.X),Tip=Center+Direction*19.f,Back=Center-Direction*12.f;
++        const auto Color=S->Phase==EASPhase::Victory?Teal:Gold;
++        Box(CX-145,83,290,103,Panel);
++        Line(Tip.X,Tip.Y,Back.X+Side.X*12,Back.Y+Side.Y*12,Color,4);
++        Line(Tip.X,Tip.Y,Back.X-Side.X*12,Back.Y-Side.Y*12,Color,4);
++        Line(Center.X-Direction.X*17,Center.Y-Direction.Y*17,Tip.X,Tip.Y,Color,4);
++        const auto* PS=PC->GetPlayerState<AASPlayerState>();
++        const TCHAR* Destination=S->Phase==EASPhase::Victory?TEXT("HUB PORTAL"):(PS&&PS->bRewardClaimed?TEXT("NEXT ROOM"):TEXT("CLAIM REWARD"));
++        Text(FString::Printf(TEXT("%s / %.0f m"),Destination,ToReward.Size2D()/100.f),CX-128,151,Color,.72f);
++    }
+     for(auto W:S->Enemies) if(auto* E=W.Get()) if(E->Boss()) {
+         Box(Width/2-365,95,730,74,Panel);Text(ASData::Bosses[E->Ward],Width/2-342,109,Gold,.9f);Bar(Width/2-342,147,684,7,E->Health/E->MaxHealth,Red);break;
+     }
+@@ -255,22 +287,22 @@
+     }
+     for(const auto& N:PC->DamageNumbers) {
+         const float Age=1.25f-(N.Expires-S->SimTime);const bool Incoming=N.Kind==EASHitKind::Received||N.Kind==EASHitKind::Shield;
+-        FVector2D P;
+-        if(Incoming) P=FVector2D((220+N.Drift)*Scale,(Height-183-Age*55)*Scale);
+-        else if(!PC->ProjectWorldLocationToScreen(N.Position+FVector(0,0,Age*75),P)) continue;
++
+         const float Alpha=FMath::Clamp((N.Expires-S->SimTime)/.4f,0.f,1.f);auto Color=ASData::HitColor(N.Kind);Color.A=Alpha;
+-        const float X=P.X/Scale+N.Drift*Age,Y=P.Y/Scale;
+-        const auto* GI=PC->GetGameInstance<UASGameInstance>();const float Pop=(GI?GI->NumberScale:1.25f)*(N.Critical?1.45f+.22f*FMath::Max(0.f,1-Age/.16f):1.f);
++        const auto* GI=PC->GetGameInstance<UASGameInstance>();const float Pop=(GI?GI->NumberScale:1.2f)*(N.Critical?1.45f+.22f*FMath::Max(0.f,1-Age/.16f):1.f);
+         // UE's checked Printf requires a literal format in each call.
+         const FString Value=N.Value<1
+             ? FString::Printf(TEXT("%s%.1f"),Incoming?TEXT("-"):TEXT(""),N.Value)
+             : FString::Printf(TEXT("%s%.0f"),Incoming?TEXT("-"):TEXT(""),N.Value);
++        const float TextHeight=FMath::Max(14.f,Pop*20.f)*(GI?GI->HUDTextScale:1.f)+8.f;
++        const float X=CX+N.Drift*(1.f+Age*.3f)-float(Value.Len())*TextHeight*.27f;
++        const float Y=ASPresentation::DamageTop(CY,AimScale,TextHeight,Age,N.Lane,Incoming);
+         for(const FVector2D Offset:{FVector2D(-1.5,-1.5),FVector2D(1.5,-1.5),FVector2D(-1.5,1.5),FVector2D(1.5,1.5)}) Text(Value,X+Offset.X,Y+Offset.Y,FLinearColor(0,0,0,Alpha),Pop);
+         Text(Value,X,Y,Color,Pop);
+         if(N.Critical) {Text(TEXT("CRIT"),X-1,Y-19,FLinearColor(1,.78f,.26f,Alpha),.68f);Line(X-7,Y+5,X-12,Y+11,FLinearColor(1,.78f,.26f,Alpha),2);Line(X-12,Y+11,X-7,Y+17,FLinearColor(1,.78f,.26f,Alpha),2);}
+     }
+     if(S->SimTime-PC->LastCritAt<.2f) {
+-        const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13,CY+FMath::Sin(A)*13,CX+FMath::Cos(A)*21,CY+FMath::Sin(A)*21,C,2);}
++        const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}
+     }
+     if(S->Frozen()) {
+         Box(Width/2-380,Height/2-45,760,90,Panel);
+--- a/Source/AshenSpiral/Private/ASPlayerController.cpp
++++ b/Source/AshenSpiral/Private/ASPlayerController.cpp
+@@ -12,13 +12,17 @@
+ #include "GameFramework/PlayerInput.h"
+ #include "Engine/Engine.h"
+ #include "Engine/GameViewportClient.h"
++#include "Engine/LocalPlayer.h"
++#include "ASGameViewportClient.h"
++#include "Widgets/SViewport.h"
+ #include "Engine/World.h"
+ #include "Kismet/GameplayStatics.h"
+ #include "Components/InputComponent.h"
+ #include "Widgets/SWeakWidget.h"
+ #include "TimerManager.h"
+ #include "UnrealClient.h"
+-#include "Framework/Application/SlateApplication.h"
++#include "Slate/SceneViewport.h"
++#include "Input/Reply.h"
+ 
+ namespace {
+ bool TryParseInt32Strict(const FString& Text, int32& OutValue)
+@@ -64,7 +68,8 @@
+     }),.8f,false);
+ }
+ void AASPlayerController::EndPlay(const EEndPlayReason::Type Reason) {
+-    if(MenuLayer.IsValid()&&GEngine&&GEngine->GameViewport) GEngine->GameViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
++    if(MenuLayer.IsValid()&&MenuViewport.IsValid()) MenuViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
++    if(auto* Client=LocalViewport()) if(Client->Viewport&&Client->Viewport->HasMouseCapture()) {Client->Viewport->CaptureMouse(false);Client->Viewport->LockMouseToViewport(false);}
+     Menu.Reset();MenuLayer.Reset();Super::EndPlay(Reason);
+ }
+ void AASPlayerController::SetupInputComponent() {
+@@ -82,6 +87,7 @@
+     InputComponent->BindAction("Rune",IE_Pressed,this,&AASPlayerController::Rune);
+     InputComponent->BindAction("Build",IE_Pressed,this,&AASPlayerController::BuildMenu);
+     InputComponent->BindAxis("Zoom",this,&AASPlayerController::Zoom);
++    InputComponent->BindAction("RelockMouse",IE_Pressed,this,&AASPlayerController::ApplyGameplayInput);
+ }
+ void AASPlayerController::MoveForward(float V) {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->AddMovementInput(FRotationMatrix(FRotator(0,GetControlRotation().Yaw,0)).GetUnitAxis(EAxis::X),V);}
+ void AASPlayerController::MoveRight(float V) {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->AddMovementInput(FRotationMatrix(FRotator(0,GetControlRotation().Yaw,0)).GetUnitAxis(EAxis::Y),V);}
+@@ -104,6 +110,13 @@
+     if(auto* GI=GetGameInstance<UASGameInstance>()) {GI->CameraShoulder*=-1.f;GI->SaveCameraSettings();ApplyCameraSettings();}
+ }
+ void AASPlayerController::ASPerformance() {bShowStats=!bShowStats;}
++void AASPlayerController::ASInputStatus() {
++    auto* Client=LocalViewport();auto* Viewport=Client?Client->Viewport:nullptr;
++    UE_LOG(LogTemp,Display,TEXT("AshenInput: world=%s viewport=%s class=%s local=%d foreground=%d focus=%d captured=%d menu=%d wantsGameplay=%d captureMode=%d lockMode=%d"),
++        *GetNameSafe(GetWorld()),*GetNameSafe(Client),*GetNameSafe(Client?Client->GetClass():nullptr),IsLocalController(),
++        Viewport&&Viewport->IsForegroundWindow(),Viewport&&Viewport->HasFocus(),Viewport&&Viewport->HasMouseCapture(),MenuOpen(),WantsGameplayInput(),
++        Client?int32(Client->GetMouseCaptureMode()):-1,Client?int32(Client->GetMouseLockMode()):-1);
++}
+ void AASPlayerController::Interact() {
+     if(MenuOpen()) return;auto* H=Cast<AASCharacter>(GetPawn());auto* S=AS::State(this);if(!H||!S||!S->Arena) return;
+     const int32 Page=FocusedInteraction>0?FocusedInteraction:S->Arena->StationAt(H->GetActorLocation());
+@@ -119,28 +132,24 @@
+ }
+ void AASPlayerController::ToggleMenu() {
+     if(MenuOpen()) {CloseMenu();SetPartyPaused(false);return;}
+-    if(auto* S=AS::State(this)) {if(S->bPartyPaused) {SetPartyPaused(false);return;}if(S->Fighting()) SetPartyPaused(true);}
++    if(auto* S=AS::State(this)) {if(S->bPartyPaused) {SetPartyPaused(false);QueueGameplayCapture();return;}if(S->Fighting()) SetPartyPaused(true);}
+     OpenMenu(0);
+ }
+ void AASPlayerController::OpenMenu(int32 Page,bool PreserveScroll) {
+-    if(!IsLocalController()||!GEngine||!GEngine->GameViewport) return;
+-    if(Menu.IsValid()&&Menu->Page==8) if(auto* GI=GetGameInstance<UASGameInstance>()) GI->SaveCameraSettings();
++    auto* Viewport=LocalViewport();if(!IsLocalController()||!Viewport) return;
++    if(Menu.IsValid()&&Menu->Page==8) if(auto* GI=GetGameInstance<UASGameInstance>()) {GI->SaveCameraSettings();GI->SaveHUDSettings();}
+     const float Offset=PreserveScroll&&Menu.IsValid()&&Menu->Page==Page?Menu->ScrollOffset():0;
+-    if(MenuLayer.IsValid()) GEngine->GameViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
++    if(MenuLayer.IsValid()&&MenuViewport.IsValid()) MenuViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
++    MenuViewport=Viewport;
+     CancelActions();if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();
+     SAssignNew(Menu,SASMenu).Controller(this).Page(Page);Menu->SetScrollOffset(Offset);
+     SAssignNew(MenuLayer,SWeakWidget).PossiblyNullContent(Menu.ToSharedRef());
+-    GEngine->GameViewport->AddViewportWidgetContent(MenuLayer.ToSharedRef(),20);bShowMouseCursor=true;
+-    FInputModeGameAndUI Mode;Mode.SetWidgetToFocus(Menu);Mode.SetHideCursorDuringCapture(false);Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);SetInputMode(Mode);
+-    GEngine->GameViewport->SetMouseLockMode(EMouseLockMode::DoNotLock);
+-    GEngine->GameViewport->SetMouseCaptureMode(EMouseCaptureMode::NoCapture);
+-    if(GEngine->GameViewport->Viewport) {GEngine->GameViewport->Viewport->CaptureMouse(false);GEngine->GameViewport->Viewport->LockMouseToViewport(false);}
+-    FSlateApplication::Get().ReleaseAllPointerCapture();
++    Viewport->AddViewportWidgetContent(MenuLayer.ToSharedRef(),20);ApplyMenuInput();
+ }
+ void AASPlayerController::CloseMenu() {
+-    if(Menu.IsValid()&&Menu->Page==8) if(auto* GI=GetGameInstance<UASGameInstance>()) GI->SaveCameraSettings();
+-    if(MenuLayer.IsValid()&&GEngine&&GEngine->GameViewport) GEngine->GameViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
+-    Menu.Reset();MenuLayer.Reset();ApplyGameplayInput();
++    if(Menu.IsValid()&&Menu->Page==8) if(auto* GI=GetGameInstance<UASGameInstance>()) {GI->SaveCameraSettings();GI->SaveHUDSettings();}
++    if(MenuLayer.IsValid()&&MenuViewport.IsValid()) MenuViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
++    Menu.Reset();MenuLayer.Reset();ApplyGameplayInput();QueueGameplayCapture();
+ }
+ void AASPlayerController::RefreshRewardMenu() {if(IsLocalController()&&Menu.IsValid()&&Menu->Page==9) OpenMenu(9,true);}
+ void AASPlayerController::PlayerTick(float Delta) {
+@@ -149,25 +158,33 @@
+     if(S->Room!=LastRoom||S->Phase!=LastPhase) {
+         if(S->Phase==EASPhase::Defeat) OpenMenu(10);else if(S->Phase==EASPhase::Victory) {CloseMenu();Notify(TEXT("Expedition complete! Permanent rewards are being saved. Enter the teal portal and press E to return together."));}
+         else if(S->Phase==EASPhase::Hub && LastPhase!=EASPhase::Hub) {
+-            if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience);
++            if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice);
+             OpenMenu(1);
+         } else if(S->Phase==EASPhase::Countdown && (S->Room!=LastRoom||LastPhase==EASPhase::Hub||LastPhase==EASPhase::Reward)) CloseMenu();
+         LastRoom=S->Room;LastPhase=S->Phase;
+     }
+-    const bool Focused=GEngine&&GEngine->GameViewport&&GEngine->GameViewport->Viewport&&GEngine->GameViewport->Viewport->HasFocus();
+-    if(!Focused&&bHadViewportFocus) {CancelActions();if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();}
+-    if(Focused&&!MenuOpen()&&(!bHadViewportFocus||(GEngine->GameViewport->Viewport&&!GEngine->GameViewport->Viewport->HasMouseCapture()))) ApplyGameplayInput();
++    auto* Client=LocalViewport();auto* Viewport=Client?Client->Viewport:nullptr;
++    const bool Foreground=Viewport&&Viewport->IsForegroundWindow();
++    const bool Focused=Foreground&&Viewport->HasFocus();
++    if(!Focused&&bHadViewportFocus) ViewportFocusLost();
++    if(WantsGameplayInput()) {
++        if(Foreground&&(Focused||bCaptureRequested)) {
++            if(!bGameplayInputApplied||bCaptureRequested||!Viewport->HasMouseCapture()) ApplyGameplayInput();
++            // Refresh confinement independently of capture, including after a resize.
++            if(Viewport->HasMouseCapture()) Viewport->LockMouseToViewport(true);
++        }
++    } else if(!bMenuInputApplied) ApplyMenuInput();
+     bHadViewportFocus=Focused;
+     ApplyCameraSettings();
+     if(!MenuOpen()) {const bool Send=GetWorld()->GetTimeSeconds()>=NextAim;if(Send) NextAim=GetWorld()->GetTimeSeconds()+.033f;UpdateAim(Send);}
+ 
+ }
+ void AASPlayerController::RequestProfile_Implementation() {
+-    if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience);
+-}
+-void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const FASBuild& Build,int32 Protocol,int32 Experience) {
++    if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice);
++}
++void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice) {
+     if(Protocol!=ASData::Protocol) {Notify(TEXT("Protocol mismatch. Use the same project build on both PCs."));return;}
+-    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience);
++    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience,ColorChoice);
+ }
+ void AASPlayerController::CancelActions_Implementation() {if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();}
+ void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State(this);if(S&&S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) PS->bReady=Ready;}
+@@ -179,6 +196,11 @@
+ void AASPlayerController::ReturnHub_Implementation() {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) if(GM->Host(this)) GM->BackToHub();}
+ void AASPlayerController::ContinueAlone_Implementation() {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) if(GM->Host(this)) GM->AbandonReconnect();}
+ void AASPlayerController::InteractServer_Implementation(int32 Target) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Interact(this,Target);}
++void AASPlayerController::SetCharacterColor_Implementation(int32 Choice) {
++    auto* PS=GetPlayerState<AASPlayerState>();if(!PS||!PS->bProfileReady) return;
++    PS->ColorChoice=FMath::Clamp(Choice,-1,7);PS->ForceNetUpdate();
++    if(auto* H=Cast<AASCharacter>(GetPawn())) {H->ColorChoice=PS->ColorChoice;H->RefreshLook();H->ForceNetUpdate();}
++}
+ void AASPlayerController::UseShrine_Implementation() {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->UseShrine(this);}
+ void AASPlayerController::TryWeapon_Implementation(int32 Weapon) {
+     auto* S=AS::State(this);auto* H=Cast<AASCharacter>(GetPawn());
+@@ -201,7 +223,7 @@
+ void AASPlayerController::DamageNumber_Implementation(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind) {
+     if(Critical) LastCritAt=AS::Time(this);if(Kind==EASHitKind::Received||Kind==EASHitKind::Shield) LastHurtAt=AS::Time(this);
+     auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
+-    if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);DamageNumbers.Add({Position,Value,AS::Time(this)+1.25f,Critical,Kind,FMath::FRandRange(-28.f,28.f)});
++    if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);DamageNumbers.Add({Position,Value,AS::Time(this)+1.25f,Critical,Kind,FMath::FRandRange(-65.f,65.f),DamageLane});DamageLane=(DamageLane+1)%3;
+ }
+ FKey AASPlayerController::BoundKey(FName Binding) const {
+     auto* Settings=GetDefault<UInputSettings>();FName Axis;float Scale=1;
+@@ -233,7 +255,7 @@
+     if(Code==10) {OpenMenu(Index);return;}
+     if(Code>=20&&Code<=28) {
+         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Permanent loadouts can only be changed in the hub.");return;}
+-        if(GI->Purchase(Code-20,Index)) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience);
++        if(GI->Purchase(Code-20,Index)) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice);
+         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
+     }
+     if(Code==30&&PS) SetReady(!PS->bReady);
+@@ -276,9 +298,17 @@
+     } else if(Code==49) GI->OpenProgressFolder();
+     else if(Code==50) {GI->ExportProgress();Notice=GI->LastMessage;}
+     else if(Code==51) {GI->SetDisplayMode(Index);Notice=GI->LastMessage;}
+-    else if(Code==52) GI->NumberScale=GI->NumberScale<1.4f?1.6f:1.25f;
++    else if(Code==52) {GI->NumberScale=.8f+.2f*FMath::Clamp(Index,0,4);GI->SaveHUDSettings();}
+     else if(Code==53) GI->HUDTextScale=GI->HUDTextScale<1.1f?1.2f:1.f;
+     else if(Code==54) {GI->ResetCameraSettings();ApplyCameraSettings();Notice=TEXT("Camera defaults restored and saved. Close this menu to check your view.");}
++    else if(Code==55) {GI->CrosshairStyle=(GI->CrosshairStyle+1)%4;GI->SaveHUDSettings();}
++    else if(Code==56) {GI->CrosshairColorIndex=(GI->CrosshairColorIndex+1)%8;GI->SaveHUDSettings();}
++    else if(Code==57) {GI->CrosshairScale=1.f;GI->CrosshairStyle=GI->CrosshairColorIndex=0;GI->SaveHUDSettings();}
++    else if(Code==58) {
++        auto Candidate=GI->Profile;Candidate.ColorChoice=FMath::Clamp(Index,-1,7);
++        if(GI->Commit(Candidate)) {SetCharacterColor(GI->Profile.ColorChoice);Notice=TEXT("Character color saved. Minimap identities remain P1 cyan and P2 white.");}
++        else Notice=GI->LastMessage;
++    }
+     else if(Code==62) {UseShrine();CloseMenu();return;}
+     else if(Code==60) {RerollRewards();return;}
+     else if(Code==61) {ToggleWagerVote();return;}
+@@ -296,20 +326,46 @@
+     // Character animation is suspended during a party pause; settings still apply.
+     if(auto* S=AS::State(this)) if(S->Frozen()) H->Boom->TargetArmLength=GI->CameraDistance;
+ }
++UGameViewportClient* AASPlayerController::LocalViewport() const {
++    const auto* Local=GetLocalPlayer();return Local?Local->ViewportClient.Get():nullptr;
++}
++bool AASPlayerController::WantsGameplayInput() const {
++    const auto* S=AS::State(this);return IsLocalController()&&!MenuOpen()&&!(S&&S->Frozen());
++}
++void AASPlayerController::QueueGameplayCapture() {bCaptureRequested=true;bMenuInputApplied=false;}
++void AASPlayerController::ViewportFocusLost() {
++    bHadViewportFocus=false;bGameplayInputApplied=false;bMenuInputApplied=false;bCaptureRequested=false;
++    CancelActions();if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();
++}
++void AASPlayerController::ApplyMenuInput() {
++    if(!IsLocalController()) return;auto* Client=LocalViewport();if(!Client) return;
++    bGameplayInputApplied=false;bMenuInputApplied=true;bShowMouseCursor=true;
++    if(auto* Own=Cast<UASGameViewportClient>(Client)) Own->SetGameplayMouseLock(false);
++    Client->SetMouseCaptureMode(EMouseCaptureMode::NoCapture);Client->SetMouseLockMode(EMouseLockMode::DoNotLock);Client->SetHideCursorDuringCapture(false);
++    auto* Viewport=Client->Viewport;if(!Viewport||!Viewport->IsForegroundWindow()) return;
++    FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
++    if(Menu.IsValid()) Mode.SetWidgetToFocus(Menu);
++    SetInputMode(Mode);
++    Viewport->CaptureMouse(false);Viewport->LockMouseToViewport(false);
++}
+ void AASPlayerController::ApplyGameplayInput() {
+-    if(!IsLocalController()) return;
++    if(!WantsGameplayInput()) {ApplyMenuInput();return;}
++    auto* Local=GetLocalPlayer();auto* Client=LocalViewport();if(!Local||!Client) return;
++    if(auto* Own=Cast<UASGameViewportClient>(Client)) Own->SetGameplayMouseLock(true);
++    Client->SetMouseCaptureMode(EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
++    Client->SetMouseLockMode(EMouseLockMode::LockAlways);Client->SetHideCursorDuringCapture(true);
++    auto* Viewport=Client->Viewport;
++    // Never make a background PIE/standalone window steal the other player's mouse.
++    if(!Viewport||!Viewport->IsForegroundWindow()) {bCaptureRequested=true;return;}
+     bShowMouseCursor=false;bEnableClickEvents=false;bEnableMouseOverEvents=false;
+-    FInputModeGameOnly Mode;Mode.SetConsumeCaptureMouseDown(false);SetInputMode(Mode);
+-    if(GEngine&&GEngine->GameViewport) {
+-        GEngine->GameViewport->SetMouseCaptureMode(EMouseCaptureMode::CapturePermanently_IncludingInitialMouseDown);
+-        GEngine->GameViewport->SetMouseLockMode(EMouseLockMode::LockAlways);
+-        GEngine->GameViewport->SetHideCursorDuringCapture(true);
+-    }
+-    FSlateApplication::Get().SetAllUserFocusToGameViewport();
+-    if(GEngine&&GEngine->GameViewport&&GEngine->GameViewport->Viewport) {
+-        GEngine->GameViewport->Viewport->CaptureMouse(true);
+-        GEngine->GameViewport->Viewport->LockMouseToViewport(true);
+-    }
++    FInputModeGameOnly Mode;Mode.SetConsumeCaptureMouseDown(true);SetInputMode(Mode);
++    if(auto Widget=Client->GetGameViewportWidget()) {
++        // Relative movement + capture + confinement must all target this local viewport.
++        Local->GetSlateOperations().UseHighPrecisionMouseMovement(Widget.ToSharedRef())
++            .CaptureMouse(Widget.ToSharedRef()).LockMouseToWidget(Widget.ToSharedRef());
++    }
++    Viewport->CaptureMouse(true);Viewport->LockMouseToViewport(true);
++    bGameplayInputApplied=true;bMenuInputApplied=false;bCaptureRequested=false;
+ }
+ void AASPlayerController::BuildMenu() {
+     if(Menu.IsValid()&&Menu->Page==17) {CloseMenu();return;}
+--- a/Source/AshenSpiral/Private/ASWorld.cpp
++++ b/Source/AshenSpiral/Private/ASWorld.cpp
+@@ -92,7 +92,7 @@
+         Post->Settings.AutoExposureApplyPhysicalCameraExposure=false;
+         Post->Settings.bOverride_AutoExposureBias=true;Post->Settings.AutoExposureBias=1.f;
+     }
+-    UE_LOG(LogTemp,Display,TEXT("AshenVisual 0.16.2: sun=%s rotation=%s fill=%s sky=%s exposureVolume=%s"),
++    UE_LOG(LogTemp,Display,TEXT("AshenVisual 0.17.0: sun=%s rotation=%s fill=%s sky=%s exposureVolume=%s"),
+         *GetNameSafe(Sun),Sun?*Sun->GetActorRotation().ToString():TEXT("MISSING"),
+         *GetNameSafe(Fill),*GetNameSafe(Sky),*GetNameSafe(Post));
+ }
+--- a/Source/AshenSpiral/Private/SASMenu.cpp
++++ b/Source/AshenSpiral/Private/SASMenu.cpp
+@@ -109,12 +109,12 @@
+ void SASMenu::CameraSlider(const FString& Label,float UASGameInstance::* Setting,float Min,float Max,float Step,const FString& Unit) {
+     const auto Weak=PC;
+     const auto Value=[Weak,Setting,Min]() {auto* C=Weak.Get();auto* GI=C?C->GetGameInstance<UASGameInstance>():nullptr;return GI?GI->*Setting:Min;};
+-    const auto Save=[Weak]() {if(auto* C=Weak.Get()) if(auto* GI=C->GetGameInstance<UASGameInstance>()) GI->SaveCameraSettings();};
++    const auto Save=[Weak]() {if(auto* C=Weak.Get()) if(auto* GI=C->GetGameInstance<UASGameInstance>()) {GI->SaveCameraSettings();GI->SaveHUDSettings();}};
+     Body->AddSlot().AutoHeight().Padding(4,6)
+         [SNew(SVerticalBox)
+             +SVerticalBox::Slot().AutoHeight().Padding(0,0,0,7)
+                 [SNew(STextBlock).Font(Font(16)).ColorAndOpacity(Muted).WrapTextAt(BodyTextWidth)
+-                    .Text_Lambda([Label,Unit,Value](){return Txt(FString::Printf(TEXT("%s   %.0f%s"),*Label,Value(),*Unit));})]
++                    .Text_Lambda([Label,Unit,Value](){return Txt(FString::Printf(TEXT("%s   %s%s"),*Label,*FString::SanitizeFloat(Value()),*Unit));})]
+             +SVerticalBox::Slot().AutoHeight()
+                 [SNew(SSlider).MinValue(Min).MaxValue(Max).StepSize(Step).MouseUsesStep(true)
+                     .Value_Lambda(Value).SliderHandleColor(Gold)
+@@ -159,7 +159,7 @@
+                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("CONTROLS"),10,11)]
+                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("SETTINGS"),10,8)]
+                                 +SHorizontalBox::Slot().FillWidth(1).HAlign(HAlign_Right).VAlign(VAlign_Center)
+-                                    [SNew(STextBlock).Text(Txt(TEXT("ASHEN SPIRAL  0.16.2"))).Font(Font(11)).ColorAndOpacity(Muted)]]]]]]];
++                                    [SNew(STextBlock).Text(Txt(TEXT("ASHEN SPIRAL  0.17.0"))).Font(Font(11)).ColorAndOpacity(Muted)]]]]]]];
+     if(!GI||!S) {Text(TEXT("Loading the world and personal profile..."));return;}
+     const auto& P=GI->Profile;
+     const auto* Hero=Cast<AASCharacter>(C->GetPawn());
+@@ -310,6 +310,22 @@
+         Card(TEXT("Join the host"),TEXT("Use your existing profile. A partner can rejoin a held expedition with the same profile within 90 seconds."),TEXT("JOIN"),36,0,Hub&&C->GetNetMode()!=NM_ListenServer);
+         Card(TEXT("Local two-window test"),TEXT("Use Test_Two_Players.bat. It assigns different profile slots and joins over 127.0.0.1; no VPN or router changes are required."),TEXT("CLOSE"),0);
+     } else if(Page==8) {
++        Text(TEXT("CROSSHAIR & DAMAGE NUMBERS"),22,Gold);
++        Card(TEXT("Crosshair shape"),FString::Printf(TEXT("Current: %s. The aim point stays at the screen center."),ASData::CrosshairStyles[GI->CrosshairStyle]),TEXT("NEXT SHAPE"),55);
++        Card(TEXT("Crosshair color"),FString::Printf(TEXT("Current: %s. A dark outline keeps it visible on bright backgrounds."),ASData::CrosshairColorNames[GI->CrosshairColorIndex]),TEXT("NEXT COLOR"),56);
++        CameraSlider(TEXT("Crosshair size (1 = 100%)"),&UASGameInstance::CrosshairScale,.5f,2.f,.1f,TEXT(" x"));
++        Card(TEXT("Reset crosshair"),TEXT("White cross at 100% size."),TEXT("RESET"),57);
++        Text(TEXT("Damage numbers rise above your crosshair. Critical hits retain their extra emphasis; incoming damage uses a separate higher row."),14);
++        Body->AddSlot().AutoHeight().Padding(0,5,0,12)
++            [SNew(SHorizontalBox)
++                +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("80%"),52,0)]
++                +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("100%"),52,1)]
++                +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("120%"),52,2)]
++                +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("140%"),52,3)]
++                +SHorizontalBox::Slot().FillWidth(1).Padding(2)[Button(TEXT("160%"),52,4)]];
++        Text(FString::Printf(TEXT("Selected damage-number size: %.0f%%"),GI->NumberScale*100.f),14,Gold);
++        const int32 NextColor=(GI->Profile.ColorChoice+1)%8;
++        Card(TEXT("Character color"),FString::Printf(TEXT("Current: %s. Visible to both players and saved with your profile. P1 is always cyan and P2 white on the minimap."),GI->Profile.ColorChoice<0?TEXT("PLAYER DEFAULT"):ASData::ArmorColorNames[GI->Profile.ColorChoice]),FString::Printf(TEXT("TRY %s"),ASData::ArmorColorNames[NextColor]),58,NextColor);
+         Text(TEXT("CAMERA POSITION & ANGLE"),22,Gold);
+         Text(TEXT("Drag a slider to adjust your view. Changes apply immediately and save when you release the slider or leave Settings. Close the menu to check your aim. These settings affect only your own camera."),14);
+         CameraSlider(TEXT("Tilt / pitch (negative = look down)"),&UASGameInstance::CameraPitch,-30.f,20.f,1.f,TEXT(" degrees"));
+@@ -325,7 +341,6 @@
+         Card(TEXT("Borderless fullscreen"),TEXT("Fill the desktop at its native resolution. Available in Standalone Game or packaged builds."),TEXT("FULLSCREEN"),51,1);
+         Card(TEXT("Windowed mode"),TEXT("Return to a movable 1280 x 720 window."),TEXT("WINDOWED"),51,0);
+         Card(TEXT("TV text size"),FString::Printf(TEXT("HUD text is rendered at native output resolution. Current size: %.0f%%. Use borderless fullscreen for your display's native resolution."),GI->HUDTextScale*100.f),TEXT("CHANGE SIZE"),53);
+-        Card(TEXT("Number size"),FString::Printf(TEXT("Current size %.0f%%. Choose large or extra large damage numbers with dark outlines."),GI->NumberScale*100.f),TEXT("CHANGE SIZE"),52);
+         Card(TEXT("Damage numbers"),TEXT("At most 64 recent numbers are drawn. Turn them off for a cleaner combat view."),GI->bShowNumbers?TEXT("ON - TOGGLE"):TEXT("OFF - TOGGLE"),42);
+         Card(TEXT("Key bindings"),TEXT("Keyboard, mouse buttons, and digital controller buttons can be reassigned. Escape always closes the menu."),TEXT("REBIND"),10,11);
+     } else if(Page==9) {
+@@ -376,7 +391,7 @@
+         Text(TEXT("Damage colors: burn orange, poison green, bleed pink, shock yellow, frost cyan, Spiral violet, physical white, health lost red, shield hits blue. Crits add a gold burst and CRIT label. Enemy bars stay visible for 3 seconds after damage, then fade through second 5."));
+         Text(TEXT("Select a binding below, then press a key. Keyboard and gamepad mappings are stored separately; this view labels keyboard bindings. Do not assign one key to several actions."));
+         KeyRow(TEXT("Move forward"),"Forward");KeyRow(TEXT("Move backward"),"Backward");KeyRow(TEXT("Move left"),"Left");KeyRow(TEXT("Move right"),"Right");
+-        KeyRow(TEXT("Attack"),"Attack");KeyRow(TEXT("Spiral (hold / release)"),"Spiral");KeyRow(TEXT("Active ability"),"Rune");KeyRow(TEXT("Jump"),"Jump");KeyRow(TEXT("Dash"),"Dash");KeyRow(TEXT("Interact / advance"),"Interact");KeyRow(TEXT("Revive ally (hold)"),"Revive");KeyRow(TEXT("Swap shoulder"),"Shoulder");KeyRow(TEXT("Performance overlay"),"Stats");
++        KeyRow(TEXT("Attack"),"Attack");KeyRow(TEXT("Spiral (hold / release)"),"Spiral");KeyRow(TEXT("Active ability"),"Rune");KeyRow(TEXT("Jump"),"Jump");KeyRow(TEXT("Dash"),"Dash");KeyRow(TEXT("Interact / advance"),"Interact");KeyRow(TEXT("Revive ally (hold)"),"Revive");KeyRow(TEXT("Swap shoulder"),"Shoulder");KeyRow(TEXT("Performance overlay"),"Stats");KeyRow(TEXT("Re-lock gameplay mouse"),"RelockMouse");
+         Card(TEXT("Restore movement defaults"),TEXT("Set keyboard Jump to Space and Dash to Shift; set controller Jump to A and Dash to B. Other bindings stay as configured."),TEXT("RESET JUMP/DASH"),44);
+     } else if(Page==12) {
+         Text(TEXT("This abandons the current expedition for both players. Cleared-room rewards already saved stay in each profile. Unfinished-room progress is not saved. The party remains connected."),20);
+--- a/Source/AshenSpiral/Public/ASCharacter.h
++++ b/Source/AshenSpiral/Public/ASCharacter.h
+@@ -32,6 +32,8 @@
+     UPROPERTY(Replicated) float AttackPoseDuration=.28f;
+     UPROPERTY(ReplicatedUsing=OnAttackPose) int32 AttackSequence=0;
+     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorIndex=0;
++    UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorChoice=-1;
++    FLinearColor BodyColor() const {return ASData::ArmorColor(ColorChoice,ColorIndex);}
+     UPROPERTY(Replicated) TArray<int32> TraitRanks;
+     UPROPERTY(Replicated) uint64 EvolutionMask=0;
+     UPROPERTY(Replicated) int32 LastUpgrade=-1;
+--- a/Source/AshenSpiral/Public/ASData.h
++++ b/Source/AshenSpiral/Public/ASData.h
+@@ -4,6 +4,7 @@
+ #include "ASBuildRules.h"
+ #include "ASAdventureRules.h"
+ #include "ASCareerRules.h"
++#include "ASPresentationRules.h"
+ #include "ASData.generated.h"
+ UENUM() enum class EASHitKind : uint8 { Physical, Spiral, Burn, Poison, Frost, Received, Shield, Bleed, Shock };
+ UENUM() enum class EASPhase : uint8 { Hub, Countdown, Combat, Reward, Defeat, Victory };
+@@ -24,6 +25,7 @@
+ USTRUCT() struct FASProfileData {
+     GENERATED_BODY()
+     UPROPERTY() int32 Schema=1;
++    UPROPERTY() int32 ColorChoice=-1;
+     UPROPERTY() int32 Experience=0;
+     UPROPERTY() TArray<int32> Career;
+     UPROPERTY() FString ProfileId;
+@@ -80,6 +82,12 @@
+     FLinearColor HitColor(EASHitKind Kind);
+     const TCHAR* ElementName(EASHitKind Kind);
+     FLinearColor PlayerColor(int32 Index);
++    FLinearColor ArmorColor(int32 Choice,int32 PlayerIndex);
++    FLinearColor MapPlayerColor(int32 PlayerIndex);
++    FLinearColor CrosshairColor(int32 Choice);
++    extern const TCHAR* ArmorColorNames[8];
++    extern const TCHAR* CrosshairColorNames[8];
++    extern const TCHAR* CrosshairStyles[4];
+     FLinearColor BiomeColor(int32 Index);
+-    constexpr int32 Protocol=1600;
++    constexpr int32 Protocol=1700;
+ }
+--- a/Source/AshenSpiral/Public/ASGameInstance.h
++++ b/Source/AshenSpiral/Public/ASGameInstance.h
+@@ -34,9 +34,12 @@
+     void SanitizeCameraSettings();
+     void SaveCameraSettings();
+     void ResetCameraSettings();
++    void SaveHUDSettings();
+     int32 Quality=2;
+     float Sensitivity=.85f;
+-    float NumberScale=1.25f;
++    float NumberScale=1.2f;
++    float CrosshairScale=1.f;
++    int32 CrosshairStyle=0,CrosshairColorIndex=0;
+     float CameraDistance=528.f;
+     float CameraHeight=100.f;
+     float CameraShoulder=155.f;
+--- a/Source/AshenSpiral/Public/ASGameMode.h
++++ b/Source/AshenSpiral/Public/ASGameMode.h
+@@ -33,7 +33,7 @@
+     virtual void Logout(AController* Exiting) override;
+     virtual FString InitNewPlayer(APlayerController* NewPlayer,const FUniqueNetIdRepl& UniqueId,const FString& Options,const FString& Portal) override;
+     virtual void RestartPlayer(AController* NewPlayer) override;
+-    void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience);
++    void ProfileArrived(AASPlayerController* PC,const FString& Id,const FASBuild& Build,int32 Experience,int32 ColorChoice);
+     void BeginRun(AASPlayerController* PC,int32 Seed);
+     void EnterRoom(int32 Room);
+     void EnemyKilled(AASEnemy* Enemy,AASCharacter* Killer);
+--- a/Source/AshenSpiral/Public/ASGameState.h
++++ b/Source/AshenSpiral/Public/ASGameState.h
+@@ -10,6 +10,7 @@
+ public:
+     UPROPERTY(Replicated) FASBuild Build;
+     UPROPERTY(Replicated) int32 CharacterLevel=1;
++    UPROPERTY(Replicated) int32 ColorChoice=-1;
+     int32 PendingExperience=0;
+     TArray<int32> PendingCareer;
+     bool bRoomDamaged=false;
+--- /dev/null
++++ b/Source/AshenSpiral/Public/ASGameViewportClient.h
+@@ -0,0 +1,21 @@
++#pragma once
++#include "CoreMinimal.h"
++#include "Engine/GameViewportClient.h"
++#include "ASGameViewportClient.generated.h"
++class AASPlayerController;
++
++UCLASS() class ASHENSPIRAL_API UASGameViewportClient : public UGameViewportClient {
++    GENERATED_BODY()
++public:
++    virtual void ReceivedFocus(FViewport* InViewport) override;
++    virtual void LostFocus(FViewport* InViewport) override;
++    virtual void Activated(FViewport* InViewport,const FWindowActivateEvent& Event) override;
++    virtual void Deactivated(FViewport* InViewport,const FWindowActivateEvent& Event) override;
++    virtual bool InputKey(const FInputKeyEventArgs& EventArgs) override;
++    virtual bool ShouldAlwaysLockMouse() override {return bGameplayMouseLock;}
++    virtual bool LockDuringCapture() override {return bGameplayMouseLock;}
++    void SetGameplayMouseLock(bool Enabled) {bGameplayMouseLock=Enabled;}
++private:
++    bool bGameplayMouseLock=false;
++    AASPlayerController* LocalController() const;
++};
+--- a/Source/AshenSpiral/Public/ASHUD.h
++++ b/Source/AshenSpiral/Public/ASHUD.h
+@@ -2,7 +2,7 @@
+ #include "CoreMinimal.h"
+ #include "GameFramework/HUD.h"
+ #include "ASHUD.generated.h"
+-class AASGameState;class AASCharacter;class SWidget;
++class UGameViewportClient;class AASGameState;class AASCharacter;class SWidget;
+ struct FASHUDLabel {FString Value;FVector2D Position;FLinearColor Color;int32 Pixels=16;};
+ UCLASS() class ASHENSPIRAL_API AASHUD : public AHUD {
+     GENERATED_BODY()
+@@ -14,6 +14,7 @@
+     FVector2D OutputSize=FVector2D(1920,1080);
+ private:
+     TSharedPtr<SWidget> TextLayer;
++    TWeakObjectPtr<UGameViewportClient> TextViewport;
+     float Scale=1.f,Width=1920,Height=1080,SmoothedDelta=.0167f,TrailingHealth=1.f;
+     void Text(const FString& Value,float X,float Y,FLinearColor Color=FLinearColor::White,float Size=1.f);
+     void Box(float X,float Y,float W,float H,FLinearColor Color);
+--- a/Source/AshenSpiral/Public/ASPlayerController.h
++++ b/Source/AshenSpiral/Public/ASPlayerController.h
+@@ -3,8 +3,8 @@
+ #include "GameFramework/PlayerController.h"
+ #include "ASData.h"
+ #include "ASPlayerController.generated.h"
+-class SASMenu;class SWidget;
+-struct FASDamageNumber {FVector Position;float Value=0,Expires=0;bool Critical=false;EASHitKind Kind=EASHitKind::Physical;float Drift=0;};
++class SASMenu;class SWidget;class UGameViewportClient;
++struct FASDamageNumber {FVector Position;float Value=0,Expires=0;bool Critical=false;EASHitKind Kind=EASHitKind::Physical;float Drift=0;int32 Lane=0;};
+ UCLASS() class ASHENSPIRAL_API AASPlayerController : public APlayerController {
+     GENERATED_BODY()
+ public:
+@@ -28,14 +28,20 @@
+     FVector AimTarget=FVector::ZeroVector,ShotImpact=FVector::ZeroVector;
+     int32 FocusedInteraction=-1;
+     bool bAimBlocked=false;
++    UGameViewportClient* LocalViewport() const;
++    bool WantsGameplayInput() const;
+     void ApplyGameplayInput();
++    void ApplyMenuInput();
++    void QueueGameplayCapture();
++    void ViewportFocusLost();
+     void ApplyCameraSettings();
+     void UpdateAim(bool Send);
+     void BuildMenu();void Zoom(float Value);
++    UFUNCTION(Server,Reliable) void SetCharacterColor(int32 Choice);
+     UFUNCTION(Server,Reliable) void UseShrine();
+     UFUNCTION(Server,Reliable) void TryWeapon(int32 Weapon);
+     UFUNCTION(Client,Reliable) void RequestProfile();
+-    UFUNCTION(Server,Reliable) void SubmitProfile(const FString& Id,const FASBuild& Build,int32 Protocol,int32 Experience);
++    UFUNCTION(Server,Reliable) void SubmitProfile(const FString& Id,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice);
+     UFUNCTION(Server,Reliable) void CancelActions();
+     UFUNCTION(Server,Reliable) void SetReady(bool Ready);
+     UFUNCTION(Server,Reliable) void StartRun(int32 Seed);
+@@ -51,11 +57,14 @@
+     UFUNCTION(Client,Reliable) void Notify(const FString& Message);
+     UFUNCTION(Client,Unreliable) void DamageNumber(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind);
+     UFUNCTION(Exec) void ASPerformance();
++    UFUNCTION(Exec) void ASInputStatus();
+ private:
+     TSharedPtr<SASMenu> Menu;
+     TSharedPtr<SWidget> MenuLayer;
++    TWeakObjectPtr<UGameViewportClient> MenuViewport;
+     float NextAim=0;
+-    bool bHadViewportFocus=false;
++    int32 DamageLane=0;
++    bool bHadViewportFocus=false,bGameplayInputApplied=false,bMenuInputApplied=false,bCaptureRequested=false;
+     int32 LastRoom=-100;
+     EASPhase LastPhase=EASPhase::Hub;
+     void MoveForward(float Value);void MoveRight(float Value);void Turn(float Value);void Look(float Value);void TurnStick(float Value);void LookStick(float Value);
+--- /dev/null
++++ b/Source/AshenSpiral/Public/ASPresentationRules.h
+@@ -0,0 +1,17 @@
++#pragma once
++#include <algorithm>
++#include <cmath>
++
++namespace ASPresentation {
++inline float NumberScale(float Value) {
++    if(!std::isfinite(Value)) return 1.2f;
++    return .8f+.2f*std::clamp(int(std::lround((std::clamp(Value,.8f,1.6f)-.8f)/.2f)),0,4);
++}
++inline float CrosshairScale(float Value) {return std::isfinite(Value)?std::clamp(Value,.5f,2.f):1.f;}
++// Includes the larger critical-hit flash, so text never covers the aim point.
++inline float CrosshairClearance(float Scale) {return 24.f*CrosshairScale(Scale)+16.f;}
++inline float DamageTop(float CenterY,float Scale,float TextHeight,float Age,int Lane,bool Incoming) {
++    return CenterY-CrosshairClearance(Scale)-std::max(0.f,TextHeight)-std::max(0.f,Age)*55.f
++        -float(std::clamp(Lane,0,2))*24.f-(Incoming?76.f:0.f);
++}
++}
+--- a/Source/AshenSpiral/Public/ASRules.h
++++ b/Source/AshenSpiral/Public/ASRules.h
+@@ -190,7 +190,7 @@
+ inline float HealthBarAlpha(float SinceHit) {return !std::isfinite(SinceHit)?0.f:std::clamp((5.f-SinceHit)/2.f,0.f,1.f);}
+ inline bool CanAirDash(bool Grounded,bool Falling,bool UsedAirDash) {return Grounded||(Falling&&!UsedAirDash);}
+ // The integer phase values match EASPhase. Only Combat can grant proc benefits.
+-inline bool CanUseWeapons(int Phase) {return Phase>=0&&Phase<=3;}
++inline bool CanUseWeapons(int Phase) {return (Phase>=0&&Phase<=3)||Phase==5;}
+ inline bool CanGainCombatBenefits(int Phase) {return Phase==2;}
+ inline bool CanDamageTarget(int Phase,bool PracticeTarget,bool Cosmetic) {return !Cosmetic&&((Phase==0&&PracticeTarget)||(Phase==2&&!PracticeTarget));}
+ struct ElementState {
+--- /dev/null
++++ b/Config/DefaultEditorPerProjectUserSettings.ini
+@@ -0,0 +1,2 @@
++[/Script/UnrealEd.LevelEditorPlaySettings]
++GameGetsMouseControl=True
+--- a/Config/DefaultEngine.ini
++++ b/Config/DefaultEngine.ini
+@@ -46,3 +46,6 @@
+ 
+ [/Script/PythonScriptPlugin.PythonScriptPluginSettings]
+ bDeveloperMode=False
++
++[/Script/Engine.Engine]
++GameViewportClientClassName=/Script/AshenSpiral.ASGameViewportClient
+--- a/Config/DefaultGame.ini
++++ b/Config/DefaultGame.ini
+@@ -2,7 +2,7 @@
+ ProjectID=72BD3133406E4584AF641D6678E53EF1
+ ProjectName=Ashen Spiral
+ Description=The Third-Person Spiral
+-ProjectVersion=0.16.2
++ProjectVersion=0.17.0
+ CompanyName=Independent prototype
+ bUseBorderlessWindow=True
+ 
+--- a/Config/DefaultInput.ini
++++ b/Config/DefaultInput.ini
+@@ -39,3 +39,5 @@
+ +AxisMappings=(AxisName="Zoom",Key=MouseWheelAxis,Scale=1.0)
+ +ActionMappings=(ActionName="Build",Key=Tab)
+ +ActionMappings=(ActionName="Build",Key=Gamepad_Special_Left)
++
+++ActionMappings=(ActionName="RelockMouse",Key=F10)
+--- a/Tools/CollectDiagnostics.ps1
++++ b/Tools/CollectDiagnostics.ps1
+@@ -22,7 +22,7 @@
+         }
+     }
+     $Summary = @(
+-        'Ashen Spiral 0.16.2 diagnostic collection',
++        'Ashen Spiral 0.17.0 diagnostic collection',
+         ('Captured: ' + (Get-Date -Format o)),
+         'Runtime startup entries in AshenSpiral.log begin with AshenVisual.',
+         'Please include a screenshot of the game window with this ZIP.',
+--- a/Tools/TestTwoPlayers.ps1
++++ b/Tools/TestTwoPlayers.ps1
+@@ -6,7 +6,7 @@
+     Start-GameProcess $Engine @('/Game/Maps/AshenSpiral?listen?Session=LOCAL2','-game','-windowed','-ResX=1000','-ResY=700','-WinX=10','-WinY=30','-ProfileSlot=90','-log')
+     Write-Host 'When the host window reaches the hub, press Enter here to launch the second player.'
+     Read-Host | Out-Null
+-    Start-GameProcess $Engine @('127.0.0.1:24567?Code=LOCAL2?Protocol=1600','-game','-windowed','-ResX=1000','-ResY=700','-WinX=1020','-WinY=30','-ProfileSlot=91','-log')
++    Start-GameProcess $Engine @('127.0.0.1:24567?Code=LOCAL2?Protocol=1700','-game','-windowed','-ResX=1000','-ResY=700','-WinX=1020','-WinY=30','-ProfileSlot=91','-log')
+     Write-Host 'Use the Expedition panel in each window to ready up. Test slots 90 and 91 do not replace your normal profile.'
+     exit 0
+ } catch { Write-Host $_.Exception.Message -ForegroundColor Red; exit 1 }
+--- a/Tools/bootstrap_unreal.py
++++ b/Tools/bootstrap_unreal.py
+@@ -192,7 +192,7 @@
+     assets.save_directory("/Game/Art", False, True)
+     assets.save_directory("/Game/Audio", False, True)
+     require(len(imported) >= 66, "Incomplete art import")
+-    report = {"success": True, "source_version": "0.16.2", "weapon_art_revision": WEAPON_ART_REVISION, "engine": unreal.SystemLibrary.get_engine_version(),
++    report = {"success": True, "source_version": "0.17.0", "weapon_art_revision": WEAPON_ART_REVISION, "engine": unreal.SystemLibrary.get_engine_version(),
+               "asset_count": len(imported) + 2, "assets": imported + [material.get_path_name(), map_path],
+               "bootstrap_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+     MARKER.write_text(json.dumps(report, indent=2))
+--- a/Tools/generate_upgrade_catalog.py
++++ b/Tools/generate_upgrade_catalog.py
+@@ -11,7 +11,7 @@
+     data = (ROOT/'Source/AshenSpiral/Private/ASData.cpp').read_text().split('const FASRunUpgrade RunUpgrades')[1].split('};')[0]
+     stats = re.findall(r'\{TEXT\("([^"]+)"\),TEXT\("([^"]+)"\)\}', data)
+     assert len(stats) == 6
+-    lines = ['# Upgrade catalog — 0.16.2', '',
++    lines = ['# Upgrade catalog — 0.17.0', '',
+              'Generated from `ASBuildRules.h` and `ASData.cpp`. All listed picks are run-only; normal rank caps are shown. Evolution can add one effective rank to eligible repeatable traits without increasing their normal pick cap.', '',
+              '## Six core stat upgrades', '', '| Upgrade | Per-pick effect | Normal cap |', '|---|---|---|']
+     for name, description in stats:
+--- a/Tests/adventure_tests.cpp
++++ b/Tests/adventure_tests.cpp
+@@ -1,5 +1,6 @@
+ #include "../Source/AshenSpiral/Public/ASAdventureRules.h"
+ #include "../Source/AshenSpiral/Public/ASRules.h"
++#include "../Source/AshenSpiral/Public/ASPresentationRules.h"
+ #include <cstdlib>
+ #include <iostream>
+ #include <limits>
+@@ -8,6 +9,22 @@
+ static bool Near(float A,float B,float E=.001f) {return std::abs(A-B)<E;}
+ int main() {
+     using namespace ASAdventure;
++    const float Options[]={.8f,1.f,1.2f,1.4f,1.6f};
++    for(float Option:Options) Check(Near(ASPresentation::NumberScale(Option),Option),"every requested damage-size option survives load/save normalization");
++    Check(Near(ASPresentation::NumberScale(1.25f),1.2f),"old 125% preference migrates to nearest offered size");
++    Check(Near(ASPresentation::NumberScale(-100),.8f)&&Near(ASPresentation::NumberScale(100),1.6f),"out of range number settings are bounded");
++    Check(Near(ASPresentation::NumberScale(std::numeric_limits<float>::quiet_NaN()),1.2f),"invalid number setting has a usable default");
++    for(float ViewHeight:{720.f,1080.f,2160.f}) for(float Reticle:{.5f,1.f,2.f})
++        for(float Size:Options) for(float Crit:{1.f,1.45f,1.67f}) for(float HUD:{1.f,1.2f})
++            for(float Age:{0.f,.15f,.5f,1.24f}) for(int Lane=0;Lane<3;++Lane) for(bool Incoming:{false,true}) {
++                const float H=std::max(14.f,Size*Crit*20.f)*HUD+8.f;
++                const float Y=ASPresentation::DamageTop(ViewHeight*.5f,Reticle,H,Age,Lane,Incoming);
++                const float AimTop=ViewHeight*.5f-21.f*Reticle;
++                Check(Y+H+2.f<AimTop,"popup rectangle and outline clear even the largest critical reticle at every supported size");
++                const float Later=ASPresentation::DamageTop(ViewHeight*.5f,Reticle,H,Age+.1f,Lane,Incoming);
++                Check(Later<Y,"damage popup rises away from the reticle over time");
++            }
++
+     Check(Near(CameraDistance(528,0),440*1.2f),"default camera is twenty percent farther");
+     Check(CameraDistance(528,1)<528&&CameraDistance(528,-1)>528,"wheel direction");
+     float Zoom=528;for(int I=0;I<100;++I) Zoom=CameraDistance(Zoom,1);
+@@ -55,5 +72,5 @@
+             Check(std::abs(B-A)*440<7,"no large sixty fps saw teleport");
+         }
+     }
+-    std::cout<<"PASS: "<<Checks<<" adventure checks; camera, interaction reach, six abilities, shrine safety, biome mapping and four-ward trap motion.\n";
++    std::cout<<"PASS: "<<Checks<<" adventure checks; camera, popup clearance, interaction reach, six abilities, shrine safety, biome mapping and four-ward trap motion.\n";
+ }
+--- a/Tests/gameplay_tests.cpp
++++ b/Tests/gameplay_tests.cpp
+@@ -85,7 +85,7 @@
+     Invalid.KeepConnected(0);Check(Invalid.Open==std::vector<std::uint8_t>({0,0}),"invalid navigation cannot expose spawn positions");
+ 
+     for(int Phase=-1;Phase<=6;++Phase) {
+-        Check(CanUseWeapons(Phase)==(Phase>=0&&Phase<=3),"hub and both inter-wave phases allow weapon input");
++        Check(CanUseWeapons(Phase)==((Phase>=0&&Phase<=3)||Phase==5),"hub, inter-wave and victory phases allow weapons/dash; defeat does not");
+         Check(CanGainCombatBenefits(Phase)==(Phase==2),"on-cast and on-hit benefits require combat");
+         for(bool Practice:{false,true}) {
+             Check(!CanDamageTarget(Phase,Practice,true),"cosmetic casts cannot acquire damage eligibility in a later phase");

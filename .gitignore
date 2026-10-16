@@ -1,0 +1,12 @@
+﻿# Unreal Engine build artifacts (regenerable)
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+# Visual Studio
+.vs/
+*.VC.db
+*.opensdf
+*.sdf
+*.suo
+*.sln

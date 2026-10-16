@@ -1,0 +1,2 @@
+PASS: 11548175 melee/0.21 checks; 1687 full-cycle pose samples; 450 Archives rooms; 3000 melee reward drafts.
+Shared rules and source geometry only. Unreal movement, collision, RPC timing and rendering are not executed.

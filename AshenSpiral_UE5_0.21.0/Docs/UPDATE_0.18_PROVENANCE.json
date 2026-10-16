@@ -1,0 +1,9 @@
+{
+  "version": "0.18.0",
+  "date_utc": "2026-10-12",
+  "base_archive": "AshenSpiral_UE5_0.17.1.zip",
+  "base_sha256": "405d5fe87ab92aa57e673cfe55b0eb5037e67e41320f456e3e20a999da55e51d",
+  "changes": "World-space route guide; scalable compact HUD; stacked notices; 5-10 multi-cell rooms; original firearm trio; procedural landmarks.",
+  "external_assets_imported": false,
+  "unreal_compile_and_playtest": "NOT RUN; engine/editor unavailable"
+}

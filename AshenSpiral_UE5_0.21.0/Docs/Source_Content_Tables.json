@@ -1,0 +1,1695 @@
+{
+  "version": "0.21.0",
+  "protocol": 2100,
+  "weapons": [
+    {
+      "id": 0,
+      "name": "Cinder Blade",
+      "description": "Hold Attack for a fast three-hit combo. The third strike lunges forward. No reload; attack speed accelerates the full swing. Slash detonates ash on pulled enemies.",
+      "ash_cost": 0,
+      "base_damage_per_attack": 40.0,
+      "attack_interval_seconds": 0.28,
+      "capacity": 0,
+      "reload_seconds": 0.0,
+      "uses_magazine": false,
+      "combo_steps": 3,
+      "third_hit_damage_multiplier": 1.3,
+      "third_hit_time_multiplier": 1.25
+    },
+    {
+      "id": 1,
+      "name": "Grav Hammer",
+      "description": "Hold Attack for left swing, right swing, then a charged jump-slam (2.6x damage). Two-handed grip. No reload. The finisher collapses your nearest well.",
+      "ash_cost": 15,
+      "base_damage_per_attack": 62.0,
+      "attack_interval_seconds": 0.72,
+      "capacity": 0,
+      "reload_seconds": 0.0,
+      "uses_magazine": false,
+      "combo_steps": 3,
+      "third_hit_damage_multiplier": 2.6,
+      "third_hit_time_multiplier": 1.65
+    },
+    {
+      "id": 2,
+      "name": "Ash Bow",
+      "description": "Accurate arrows pass straight through wells. Splits require a Split upgrade and an enemy hit.",
+      "ash_cost": 25,
+      "base_damage_per_attack": 39.0,
+      "attack_interval_seconds": 0.3,
+      "capacity": 10,
+      "reload_seconds": 1.25,
+      "uses_magazine": true
+    },
+    {
+      "id": 3,
+      "name": "Spiral Glaive",
+      "description": "Thrown blades orbit a well, cutting enemies inside.",
+      "ash_cost": 35,
+      "base_damage_per_attack": 33.0,
+      "attack_interval_seconds": 0.48,
+      "capacity": 7,
+      "reload_seconds": 1.3,
+      "uses_magazine": true
+    },
+    {
+      "id": 4,
+      "name": "Ember Staff",
+      "description": "Mark enemies with ash. Wells burn marks; perfect wells slow.",
+      "ash_cost": 45,
+      "base_damage_per_attack": 31.0,
+      "attack_interval_seconds": 0.34,
+      "capacity": 14,
+      "reload_seconds": 1.45,
+      "uses_magazine": true
+    },
+    {
+      "id": 5,
+      "name": "Rift Scythe",
+      "description": "No reload; attack speed accelerates the full scythe swing. Dash through a well for a wide crescent and extra invulnerability.",
+      "ash_cost": 55,
+      "base_damage_per_attack": 41.0,
+      "attack_interval_seconds": 0.4,
+      "capacity": 0,
+      "reload_seconds": 0.0,
+      "uses_magazine": false,
+      "combo_steps": 1,
+      "third_hit_damage_multiplier": 1.0,
+      "third_hit_time_multiplier": 1.0
+    },
+    {
+      "id": 6,
+      "name": "Cinder Scattergun",
+      "description": "Six burning pellets in a tight cone. Devastating nearby; damage falls with distance. One proc-carrying pellet per shot.",
+      "ash_cost": 65,
+      "base_damage_per_attack": 96.0,
+      "attack_interval_seconds": 0.72,
+      "capacity": 6,
+      "reload_seconds": 1.65,
+      "uses_magazine": true
+    },
+    {
+      "id": 7,
+      "name": "Tempest Rotary",
+      "description": "Rapid frost rounds. Sustained fire widens the cone; release briefly to recover accuracy.",
+      "ash_cost": 80,
+      "base_damage_per_attack": 14.0,
+      "attack_interval_seconds": 0.105,
+      "capacity": 40,
+      "reload_seconds": 1.85,
+      "uses_magazine": true
+    },
+    {
+      "id": 8,
+      "name": "Rift Mortar",
+      "description": "Launch an ember rocket that bursts on contact. Splash respects cover, scales with area upgrades, and cannot hurt allies.",
+      "ash_cost": 95,
+      "base_damage_per_attack": 132.0,
+      "attack_interval_seconds": 1.05,
+      "capacity": 3,
+      "reload_seconds": 2.1,
+      "uses_magazine": true
+    }
+  ],
+  "relics": [
+    {
+      "id": 0,
+      "key": "ignite",
+      "name": "Ashen Kindling",
+      "description": "Wells ignite enemies inside."
+    },
+    {
+      "id": 1,
+      "key": "refund",
+      "name": "Borrowed Momentum",
+      "description": "Dashing through a well refreshes Spiral once per well."
+    },
+    {
+      "id": 2,
+      "key": "healpulse",
+      "name": "Quiet Collapse",
+      "description": "A collapsing well heals its owner for 5 HP."
+    },
+    {
+      "id": 3,
+      "key": "crit",
+      "name": "Faultless Edge",
+      "description": "First attack after a perfect well is guaranteed critical."
+    },
+    {
+      "id": 4,
+      "key": "persist",
+      "name": "Lingering Orbit",
+      "description": "Up to two wells follow you into the next room for 3 seconds."
+    },
+    {
+      "id": 5,
+      "key": "attune",
+      "name": "Party Attunement",
+      "description": "Your wells accelerate allies' attacks while inside."
+    },
+    {
+      "id": 6,
+      "key": "echo",
+      "name": "Second Echo",
+      "description": "Perfect wells repeat their collapse after a brief delay."
+    },
+    {
+      "id": 7,
+      "key": "shards",
+      "name": "Shattered Ring",
+      "description": "Collapsed wells fire six poison arrows."
+    },
+    {
+      "id": 8,
+      "key": "twin",
+      "name": "Twin Singularity",
+      "description": "Perfect casts plant a second, smaller well."
+    },
+    {
+      "id": 9,
+      "key": "shield",
+      "name": "Ash Mantle",
+      "description": "Releasing Spiral grants a 10-point shield."
+    },
+    {
+      "id": 10,
+      "key": "trail",
+      "name": "Cinder Wake",
+      "description": "Dash trails burn enemies that cross them."
+    },
+    {
+      "id": 11,
+      "key": "orbit",
+      "name": "Orbiting Remains",
+      "description": "Wells gain an orbiting blade."
+    },
+    {
+      "id": 12,
+      "key": "chain",
+      "name": "Chain Reaction",
+      "description": "Collapse hastens nearby wells by one second."
+    },
+    {
+      "id": 13,
+      "key": "blood",
+      "name": "Blood Gravity",
+      "description": "Casting below half HP spends 3 HP for a perfect well."
+    },
+    {
+      "id": 14,
+      "key": "frost",
+      "name": "Still Ash",
+      "description": "Wells slow enemies caught inside."
+    },
+    {
+      "id": 15,
+      "key": "nova",
+      "name": "Exit Wound",
+      "description": "Dashing out of a well erupts for 28 damage."
+    },
+    {
+      "id": 16,
+      "key": "reach",
+      "name": "Long Spiral",
+      "description": "Place your well farther along your aim."
+    },
+    {
+      "id": 17,
+      "key": "soul",
+      "name": "Patient Gravity",
+      "description": "Killing a pulled enemy extends its well, capped at 6 seconds."
+    },
+    {
+      "id": 18,
+      "key": "guard",
+      "name": "Inner Sanctuary",
+      "description": "Standing in your well absorbs one hit per cast."
+    },
+    {
+      "id": 19,
+      "key": "focus",
+      "name": "Measured Breath",
+      "description": "Widen the perfect-release timing window."
+    },
+    {
+      "id": 20,
+      "key": "rebound",
+      "name": "Returning Ash",
+      "description": "Your projectiles bounce once."
+    },
+    {
+      "id": 21,
+      "key": "magnet",
+      "name": "Hungry Heart",
+      "description": "A collapsing well draws health drops to you."
+    },
+    {
+      "id": 22,
+      "key": "after",
+      "name": "Afterimage",
+      "description": "Dash plants a short-lived well at its origin."
+    },
+    {
+      "id": 23,
+      "key": "link",
+      "name": "Linked Landing",
+      "description": "Dashing through an ally well shields both players."
+    }
+  ],
+  "active_skills": [
+    {
+      "id": 0,
+      "name": "Rune Lance",
+      "description": "25 Focus / 1.2s. A 48-damage aimed lance; +25% against staff marks. Rune Nova turns the impact into a 300cm area blast. Pairs with Ember Staff."
+    },
+    {
+      "id": 1,
+      "name": "Winter Fan",
+      "description": "30 Focus / 6s. A 650cm forward cone deals 24 damage and builds frost twice. Freeze foes before a hammer slam or line up a bow shot. Bosses resist hard control."
+    },
+    {
+      "id": 2,
+      "name": "Storm Thread",
+      "description": "32 Focus / 5s. Aim at a foe to arc through up to four enemies for 38/29/22/17 damage. +30% against chilled or poisoned targets. Pairs with frost and poison weapons."
+    },
+    {
+      "id": 3,
+      "name": "Venom Bloom",
+      "description": "35 Focus / 7s. Plant a 320cm poison field for 4s. Pulses deal 7 damage and apply poison, or +30% pulse damage against bleeding enemies. Gather with Spiral; finish with ranged attacks."
+    },
+    {
+      "id": 4,
+      "name": "War Cry",
+      "description": "28 Focus / 9s. Stagger nearby foes for 18 damage; gain 22 shield and +20% melee damage for 4s. Pairs with blade, hammer and scythe. No shield or buff between waves."
+    },
+    {
+      "id": 5,
+      "name": "Cinder Mine",
+      "description": "30 Focus / 6s. Place an aimed rune that explodes after 1s for 68 damage in 330cm and ignites survivors. +25% damage to pulled foes. Set a well, then detonate."
+    }
+  ],
+  "spiral_styles": [
+    {
+      "id": 0,
+      "name": "Gather",
+      "description": "Balanced pull and collapse."
+    },
+    {
+      "id": 1,
+      "name": "Undertow",
+      "description": "Stronger pull; shorter duration."
+    },
+    {
+      "id": 2,
+      "name": "Stillness",
+      "description": "Slow enemies inside the well."
+    },
+    {
+      "id": 3,
+      "name": "Orbit",
+      "description": "Every well carries an orbiting blade."
+    },
+    {
+      "id": 4,
+      "name": "Sanctuary",
+      "description": "Collapse heals you for 3 HP."
+    },
+    {
+      "id": 5,
+      "name": "Recoil",
+      "description": "Casting refreshes Dash."
+    },
+    {
+      "id": 6,
+      "name": "Twin",
+      "description": "Main well at full size; second well at 72% size."
+    },
+    {
+      "id": 7,
+      "name": "Anchor",
+      "description": "Long-lived wells with a tighter radius."
+    },
+    {
+      "id": 8,
+      "name": "Rift",
+      "description": "Collapsing wells erupt across a wider area."
+    },
+    {
+      "id": 9,
+      "name": "Convergence",
+      "description": "Perfect wells grant a critical next attack."
+    }
+  ],
+  "core_upgrades": [
+    {
+      "id": 100,
+      "name": "Ability Cooldown",
+      "description": "-8% of the base Spiral cooldown this run. Stacks with permanent cooldown upgrades; 65% total cap.",
+      "max_picks": 5
+    },
+    {
+      "id": 101,
+      "name": "Attack Speed",
+      "description": "+12% attack speed this run, for every weapon.",
+      "max_picks": 5
+    },
+    {
+      "id": 102,
+      "name": "Damage",
+      "description": "+15% damage this run, including your abilities.",
+      "max_picks": 5
+    },
+    {
+      "id": 103,
+      "name": "Maximum Health",
+      "description": "+15 maximum health and heal 15 HP immediately.",
+      "max_picks": 5
+    },
+    {
+      "id": 104,
+      "name": "Movement Speed",
+      "description": "+5% running speed this run. Dash distance is unchanged.",
+      "max_picks": 5
+    },
+    {
+      "id": 105,
+      "name": "Critical Chance",
+      "description": "+5 percentage points of critical chance this run, up to 50% total.",
+      "max_picks": 5
+    }
+  ],
+  "hearth": [
+    {
+      "id": 0,
+      "key": "hp",
+      "branch": "Survivor",
+      "name": "Ashen Vessel",
+      "description": "+8 starting HP per rank.",
+      "base_ash_cost": 8,
+      "max_rank": 3
+    },
+    {
+      "id": 1,
+      "key": "ward",
+      "branch": "Survivor",
+      "name": "Ember Shell",
+      "description": "+5 starting shield per rank.",
+      "base_ash_cost": 10,
+      "max_rank": 3
+    },
+    {
+      "id": 2,
+      "key": "healing",
+      "branch": "Survivor",
+      "name": "Gentle Collapse",
+      "description": "Your well collapses heal 1 HP per rank.",
+      "base_ash_cost": 12,
+      "max_rank": 3
+    },
+    {
+      "id": 3,
+      "key": "mercy",
+      "branch": "Survivor",
+      "name": "Second Breath",
+      "description": "Once per run, fatal damage restores 25% HP.",
+      "base_ash_cost": 25,
+      "max_rank": 1
+    },
+    {
+      "id": 4,
+      "key": "radius",
+      "branch": "Arcanist",
+      "name": "Widening Spiral",
+      "description": "+25 cm well radius per rank.",
+      "base_ash_cost": 8,
+      "max_rank": 3
+    },
+    {
+      "id": 5,
+      "key": "duration",
+      "branch": "Arcanist",
+      "name": "Held Ash",
+      "description": "+0.25 seconds well duration per rank.",
+      "base_ash_cost": 10,
+      "max_rank": 3
+    },
+    {
+      "id": 6,
+      "key": "perfect",
+      "branch": "Arcanist",
+      "name": "Measured Release",
+      "description": "Perfect window widens 0.025s per rank.",
+      "base_ash_cost": 12,
+      "max_rank": 3
+    },
+    {
+      "id": 7,
+      "key": "pull",
+      "branch": "Arcanist",
+      "name": "Weight of Names",
+      "description": "+45 cm/s pull speed per rank.",
+      "base_ash_cost": 12,
+      "max_rank": 3
+    },
+    {
+      "id": 8,
+      "key": "dash",
+      "branch": "Wayfarer",
+      "name": "Light Step",
+      "description": "Dash recharges 0.06s faster per rank.",
+      "base_ash_cost": 8,
+      "max_rank": 3
+    },
+    {
+      "id": 9,
+      "key": "iframe",
+      "branch": "Wayfarer",
+      "name": "Ash Body",
+      "description": "+0.025s dash invulnerability per rank.",
+      "base_ash_cost": 10,
+      "max_rank": 3
+    },
+    {
+      "id": 10,
+      "key": "trail",
+      "branch": "Wayfarer",
+      "name": "Long Wake",
+      "description": "Dash trail lasts 0.2s longer per rank.",
+      "base_ash_cost": 12,
+      "max_rank": 3
+    },
+    {
+      "id": 11,
+      "key": "landing",
+      "branch": "Wayfarer",
+      "name": "Safe Landing",
+      "description": "Dash grants at least 0.4s invulnerability.",
+      "base_ash_cost": 20,
+      "max_rank": 1
+    },
+    {
+      "id": 12,
+      "key": "choice",
+      "branch": "Tactician",
+      "name": "Another Possibility",
+      "description": "Reward chests offer five choices instead of four.",
+      "base_ash_cost": 20,
+      "max_rank": 1
+    },
+    {
+      "id": 13,
+      "key": "cinders",
+      "branch": "Tactician",
+      "name": "Provision",
+      "description": "Start with +10 Cinders per rank.",
+      "base_ash_cost": 8,
+      "max_rank": 3
+    },
+    {
+      "id": 14,
+      "key": "charge",
+      "branch": "Tactician",
+      "name": "Ability Cooldown",
+      "description": "-10% of the base Spiral cooldown per rank. Total cooldown reduction caps at 65%.",
+      "base_ash_cost": 12,
+      "max_rank": 5
+    },
+    {
+      "id": 15,
+      "key": "ally",
+      "branch": "Tactician",
+      "name": "Shared Momentum",
+      "description": "Ally-well launch heals 3 HP, once per 3 seconds.",
+      "base_ash_cost": 20,
+      "max_rank": 1
+    },
+    {
+      "id": 16,
+      "key": "attack_speed",
+      "branch": "Combat",
+      "name": "Attack Speed",
+      "description": "+8% attack speed per rank. Applies to every weapon.",
+      "base_ash_cost": 10,
+      "max_rank": 5
+    },
+    {
+      "id": 17,
+      "key": "damage",
+      "branch": "Combat",
+      "name": "Damage",
+      "description": "+10% damage per rank, including your abilities.",
+      "base_ash_cost": 12,
+      "max_rank": 5
+    },
+    {
+      "id": 18,
+      "key": "move_speed",
+      "branch": "Combat",
+      "name": "Movement Speed",
+      "description": "+5% running speed per rank. Dash distance is unchanged.",
+      "base_ash_cost": 10,
+      "max_rank": 5
+    },
+    {
+      "id": 19,
+      "key": "critical_chance",
+      "branch": "Combat",
+      "name": "Critical Chance",
+      "description": "+4 percentage points per rank, from a base 5%. Critical attacks deal 1.8x damage.",
+      "base_ash_cost": 14,
+      "max_rank": 5
+    }
+  ],
+  "talents": [
+    {
+      "id": 0,
+      "name": "Iron Lungs",
+      "description": "Dash recharges 15% faster.",
+      "branch": 0,
+      "skill_point_cost": 1,
+      "branch_points_required": 0,
+      "retired": false
+    },
+    {
+      "id": 1,
+      "name": "Thick Skin",
+      "description": "8% damage resistance; 12% below 40% health.",
+      "branch": 0,
+      "skill_point_cost": 1,
+      "branch_points_required": 0,
+      "retired": false
+    },
+    {
+      "id": 2,
+      "name": "Second Wind",
+      "description": "One fatal rescue per run at 30% health.",
+      "branch": 0,
+      "skill_point_cost": 2,
+      "branch_points_required": 2,
+      "retired": false
+    },
+    {
+      "id": 3,
+      "name": "Unbroken",
+      "description": "Gain a 20% health shield before crossing 25% health; 12s recharge.",
+      "branch": 0,
+      "skill_point_cost": 3,
+      "branch_points_required": 4,
+      "retired": false
+    },
+    {
+      "id": 4,
+      "name": "Rally Step",
+      "description": "Dash grants nearby allies 10% damage for 3 seconds.",
+      "branch": 1,
+      "skill_point_cost": 1,
+      "branch_points_required": 0,
+      "retired": false
+    },
+    {
+      "id": 5,
+      "name": "Guardian Link",
+      "description": "A heavy hit within 720cm grants the talent holder a 10% health shield; 12s recharge.",
+      "branch": 1,
+      "skill_point_cost": 1,
+      "branch_points_required": 0,
+      "retired": false
+    },
+    {
+      "id": 6,
+      "name": "Coordinated Strike",
+      "description": "Alternating ally hits deal +18% damage; +5% solo.",
+      "branch": 1,
+      "skill_point_cost": 2,
+      "branch_points_required": 2,
+      "retired": false
+    },
+    {
+      "id": 7,
+      "name": "Twin Resonance",
+      "description": "Heal 2% near your ally every 8s; 1% solo.",
+      "branch": 1,
+      "skill_point_cost": 3,
+      "branch_points_required": 4,
+      "retired": false
+    },
+    {
+      "id": 8,
+      "name": "Lucky Find",
+      "description": "Earn 20% more common materials on room clear.",
+      "branch": 2,
+      "skill_point_cost": 1,
+      "branch_points_required": 0,
+      "retired": false
+    },
+    {
+      "id": 9,
+      "name": "Retired talent",
+      "description": "Former Treasure Sense. Its skill point is refunded automatically.",
+      "branch": 2,
+      "skill_point_cost": 0,
+      "branch_points_required": 0,
+      "retired": true
+    },
+    {
+      "id": 10,
+      "name": "Efficient Extraction",
+      "description": "Failure grants an additional 8 Ash.",
+      "branch": 2,
+      "skill_point_cost": 2,
+      "branch_points_required": 1,
+      "retired": false
+    },
+    {
+      "id": 11,
+      "name": "Spiral Hoarder",
+      "description": "Victory grants 30 additional Scrap and 10 Bone Dust.",
+      "branch": 2,
+      "skill_point_cost": 3,
+      "branch_points_required": 3,
+      "retired": false
+    }
+  ],
+  "traits": [
+    {
+      "id": 0,
+      "offer_id": 200,
+      "name": "Honed Edge",
+      "description": "+4 base damage per rank; firearms normalize this bonus by fire rate for equal added burst DPS.",
+      "max_picks": 5,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 1,
+      "offer_id": 201,
+      "name": "Deadeye",
+      "description": "+20 percentage points of critical damage per rank (base 180%).",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 2,
+      "offer_id": 202,
+      "name": "Brawler",
+      "description": "+12% melee weapon damage per rank.",
+      "max_picks": 5,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 35,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 3,
+      "offer_id": 203,
+      "name": "Marksman",
+      "description": "+12% bow/glaive/firearm weapon damage per rank.",
+      "max_picks": 5,
+      "category": 0,
+      "tags": "Weapon|Projectile",
+      "rarity": "Common",
+      "weapon_mask": 460,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 4,
+      "offer_id": 204,
+      "name": "Arcanist",
+      "description": "+12% staff and skill damage per rank.",
+      "max_picks": 5,
+      "category": 0,
+      "tags": "Spell",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 5,
+      "offer_id": 205,
+      "name": "Kindling Touch",
+      "description": "18% chance/rank to apply burn (54% before evolution). If the weapon already burns, a proc raises its burn power by 30%.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element|Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 6,
+      "offer_id": 206,
+      "name": "Venom Touch",
+      "description": "18% chance/rank to apply poison (54% before evolution). Native poison gains an extra stack and 30% power on a proc.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element|Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 7,
+      "offer_id": 207,
+      "name": "Serrated Touch",
+      "description": "18% chance per rank to bleed on a primary hit. Bleed: 4 DPS/stack, 2 stacks, 3 sec.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element|Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 8,
+      "offer_id": 208,
+      "name": "Storm Touch",
+      "description": "18% chance per rank to shock for 20% weapon damage and arc to one nearby foe. 0.35 sec limit.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element|Echo",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 9,
+      "offer_id": 209,
+      "name": "Winter Touch",
+      "description": "18% chance per rank to add frost on a primary hit; bosses only chill.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element|Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 10,
+      "offer_id": 210,
+      "name": "Drill Shot",
+      "description": "Primary projectiles pierce one additional enemy per rank.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Projectile",
+      "rarity": "Common",
+      "weapon_mask": 220,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 11,
+      "offer_id": 211,
+      "name": "Ricochet",
+      "description": "Primary projectiles ricochet to one extra enemy or off a wall per rank.",
+      "max_picks": 2,
+      "category": 2,
+      "tags": "Projectile",
+      "rarity": "Rare",
+      "weapon_mask": 220,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 12,
+      "offer_id": 212,
+      "name": "Forked Flight",
+      "description": "18% chance per rank to split on impact into two 40%-damage shots. Splits cannot split again.",
+      "max_picks": 2,
+      "category": 2,
+      "tags": "Projectile|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 220,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 13,
+      "offer_id": 213,
+      "name": "Impact Bloom",
+      "description": "Primary hits splash nearby enemies for 15% dealt damage per rank. 0.25 sec limit; no recursive procs.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Weapon|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 14,
+      "offer_id": 214,
+      "name": "Elite Hunter",
+      "description": "+15% damage against elites per rank.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 15,
+      "offer_id": 215,
+      "name": "Giant Slayer",
+      "description": "+15% damage against bosses per rank.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 16,
+      "offer_id": 216,
+      "name": "First Blood",
+      "description": "+20% damage against an enemy above 99% health per rank.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 17,
+      "offer_id": 217,
+      "name": "Leech",
+      "description": "Heal 1.5% of primary-hit damage per rank, capped at 3 HP per 0.25 sec.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Weapon|Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 18,
+      "offer_id": 218,
+      "name": "Reaper's Rest",
+      "description": "Heal 1.5 HP per rank when you kill a real enemy.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Guard|Loot",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 19,
+      "offer_id": 219,
+      "name": "Field Dressing",
+      "description": "Immediately restore 35% maximum health. Can be chosen up to five times per run.",
+      "max_picks": 5,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 20,
+      "offer_id": 220,
+      "name": "Ironweave",
+      "description": "Reduce incoming damage by 5% per rank. Combined reductions cap at 65%.",
+      "max_picks": 5,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 21,
+      "offer_id": 221,
+      "name": "Defiance",
+      "description": "After taking damage, gain 10% damage reduction per rank for 3 sec.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 22,
+      "offer_id": 222,
+      "name": "Renewing Barrier",
+      "description": "+12 regenerating shield capacity per rank; restores 2 shield/sec/rank after 5 sec without a hit in combat.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 23,
+      "offer_id": 223,
+      "name": "Elusive",
+      "description": "4% evasion chance per rank, capped at 20% before evolution.",
+      "max_picks": 5,
+      "category": 1,
+      "tags": "Guard|Dash",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 24,
+      "offer_id": 224,
+      "name": "Briar Mail",
+      "description": "Return 4 damage per rank to the attacker on a damaging hit; 0.3 sec internal cooldown.",
+      "max_picks": 4,
+      "category": 1,
+      "tags": "Guard|Echo",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 25,
+      "offer_id": 225,
+      "name": "Phoenix Oath",
+      "description": "Survive one lethal hit this run at 35% health with 2 sec of protection.",
+      "max_picks": 1,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Legendary",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 26,
+      "offer_id": 226,
+      "name": "Regrowth",
+      "description": "Regenerate 1 HP/sec per rank in combat after 3 sec without damage.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 27,
+      "offer_id": 227,
+      "name": "Afterimage",
+      "description": "+0.08 sec invulnerability after taking damage per rank.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Guard|Dash",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 28,
+      "offer_id": 228,
+      "name": "Longstride",
+      "description": "Dash distance +12% per rank; dash invulnerability +0.03 sec per rank.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Dash",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 29,
+      "offer_id": 229,
+      "name": "Second Step",
+      "description": "+1 dash charge per rank, up to 3 charges. Charges refill in sequence; air dashes per landing match total charge capacity and each still spends a charge.",
+      "max_picks": 2,
+      "category": 2,
+      "tags": "Dash",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 30,
+      "offer_id": 230,
+      "name": "Winter Mantle",
+      "description": "Chill nearby enemies within 320 + 50 cm/rank. Normal enemies slow 35%; bosses 25%.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Guard|Element",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 31,
+      "offer_id": 231,
+      "name": "Heavy Impact",
+      "description": "Primary hits knock normal enemies back with 120 force/rank; elites receive half force, bosses resist.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 32,
+      "offer_id": 232,
+      "name": "Concussion",
+      "description": "8% stun chance per rank on primary hits: 0.4 sec, 2 sec immunity. Bosses resist.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Weapon|Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 33,
+      "offer_id": 233,
+      "name": "Bramble Bind",
+      "description": "10% root chance per rank on primary hits: 0.8 sec, 3 sec immunity. Bosses resist.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element|Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 34,
+      "offer_id": 234,
+      "name": "Gravity Hook",
+      "description": "Primary hits pull nearby normal enemies toward the impact. 0.6 sec limit.",
+      "max_picks": 2,
+      "category": 2,
+      "tags": "Spell|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 35,
+      "offer_id": 235,
+      "name": "Repulsor",
+      "description": "Dashing pushes nearby normal enemies away. Radius 280 + 40 cm/rank.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Dash|Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 36,
+      "offer_id": 236,
+      "name": "Prospector",
+      "description": "+20% Cinders from kills per rank, using fractional carry so small kills benefit.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Loot",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 37,
+      "offer_id": 237,
+      "name": "Fortune",
+      "description": "+6 percentage points to health/shield drop chance per rank.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Loot|Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 38,
+      "offer_id": 238,
+      "name": "Loaded Dice",
+      "description": "Gain one personal reward reroll immediately. Up to three picks per run.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Loot",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 39,
+      "offer_id": 239,
+      "name": "Mending Coin",
+      "description": "Picking up a Cinder shard restores 1 HP per rank during combat.",
+      "max_picks": 3,
+      "category": 1,
+      "tags": "Loot|Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 40,
+      "offer_id": 240,
+      "name": "Vanguard",
+      "description": "Next and later rooms begin with +10% damage/rank for the first 8 combat seconds.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon|Spell",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 41,
+      "offer_id": 241,
+      "name": "Razor Dash",
+      "description": "Dash through enemies for 12 damage/rank, once per enemy per dash.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Dash|Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 42,
+      "offer_id": 242,
+      "name": "Chain Lightning",
+      "description": "Primary hits chain to one additional enemy per rank at 30% dealt damage, once per 0.35 sec.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Echo|Element",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 43,
+      "offer_id": 243,
+      "name": "Patient Hunter",
+      "description": "After standing still for 1.2 sec, gain +12% damage per rank.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 44,
+      "offer_id": 244,
+      "name": "Momentum",
+      "description": "+8% damage per rank while moving faster than a walk.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon|Dash",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 45,
+      "offer_id": 245,
+      "name": "Last Ember",
+      "description": "+15% damage per rank below 40% health.",
+      "max_picks": 3,
+      "category": 0,
+      "tags": "Weapon|Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 46,
+      "offer_id": 246,
+      "name": "Battle Rhythm",
+      "description": "Kills reduce Spiral cooldown by 0.25 sec/rank and grant +5% damage/rank for 2 sec.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Weapon|Spell",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 47,
+      "offer_id": 247,
+      "name": "Echo Shot",
+      "description": "Fire one additional projectile at 45% damage. Extra shots do not create more splits or proc chains.",
+      "max_picks": 1,
+      "category": 2,
+      "tags": "Projectile|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 476,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 48,
+      "offer_id": 248,
+      "name": "Fan of Sparks",
+      "description": "Fire one extra spread projectile per rank at 35% damage each.",
+      "max_picks": 2,
+      "category": 2,
+      "tags": "Projectile|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 476,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 49,
+      "offer_id": 249,
+      "name": "Expanding Force",
+      "description": "+15% explosion, Spiral and aura radius per rank.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Spell|Echo",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 50,
+      "offer_id": 250,
+      "name": "Lingering Affliction",
+      "description": "+20% burn, poison and bleed duration per rank. Hard crowd-control durations remain capped.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Element",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 51,
+      "offer_id": 251,
+      "name": "Deep Reservoir",
+      "description": "+10 maximum Focus per rank; immediately restore that amount. Rune Lance uses 25 Focus.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Spell",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 52,
+      "offer_id": 252,
+      "name": "Flowing Runes",
+      "description": "+2 Focus regeneration/sec per rank during combat or lobby practice.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Spell",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 53,
+      "offer_id": 253,
+      "name": "Rune Nova",
+      "description": "Evolve any active skill: Lance and Storm impacts gain a 300 cm blast; Winter Fan gains a 300 cm impact bloom. War Cry, Venom Bloom and Cinder Mine gain 300 cm base radius. Damage per hit is unchanged; area upgrades apply once.",
+      "max_picks": 1,
+      "category": 2,
+      "tags": "Spell|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 54,
+      "offer_id": 254,
+      "name": "Orbiting Ember",
+      "description": "Gain an orbiting wisp per rank (max 3), each dealing 4 damage every 0.5 sec to a nearby enemy.",
+      "max_picks": 3,
+      "category": 2,
+      "tags": "Echo|Spell",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 55,
+      "offer_id": 255,
+      "name": "Vault Sense",
+      "description": "Show trap positions and timing on the HUD and minimap, plus the optional vault cache.",
+      "max_picks": 1,
+      "category": 2,
+      "tags": "Loot|Guard",
+      "rarity": "Common",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": true
+    },
+    {
+      "id": 56,
+      "offer_id": 256,
+      "name": "Second Dawn",
+      "description": "Immediately heal to full. One pick per run.",
+      "max_picks": 1,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Legendary",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 57,
+      "offer_id": 257,
+      "name": "Cleanse",
+      "description": "Remove all Blood Pact curse stacks (+10% incoming damage each). The traded maximum health stays traded.",
+      "max_picks": 1,
+      "category": 1,
+      "tags": "Guard",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 58,
+      "offer_id": 258,
+      "name": "Blood Pact",
+      "description": "Trade 15% maximum health for +45% damage. Gain a removable curse: +10% incoming damage.",
+      "max_picks": 1,
+      "category": 0,
+      "tags": "Weapon|Spell",
+      "rarity": "Legendary",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 59,
+      "offer_id": 259,
+      "name": "Emberforge Evolution",
+      "description": "Evolve one owned non-instant trait, granting one effective rank above its normal value. Two evolutions per run.",
+      "max_picks": 2,
+      "category": 2,
+      "tags": "Echo|Spell",
+      "rarity": "Legendary",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 60,
+      "offer_id": 260,
+      "name": "Mystery Relic",
+      "description": "Gain one random, unowned relic from your unlocked pool. One pick per run.",
+      "max_picks": 1,
+      "category": 2,
+      "tags": "Loot|Echo",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 61,
+      "offer_id": 261,
+      "name": "Echo of Choice",
+      "description": "Repeat your most recent repeatable stat/trait upgrade if it is not capped. One pick per run.",
+      "max_picks": 1,
+      "category": 2,
+      "tags": "Echo",
+      "rarity": "Legendary",
+      "weapon_mask": 511,
+      "instant": true,
+      "retired": false
+    },
+    {
+      "id": 62,
+      "offer_id": 262,
+      "name": "Battle Conduit",
+      "description": "Every 6 primary hits restores 12 Focus and shortens Spiral cooldown by 0.3 sec. Counts at most once per 0.15 sec.",
+      "max_picks": 1,
+      "category": 2,
+      "tags": "Weapon|Spell",
+      "rarity": "Rare",
+      "weapon_mask": 511,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 63,
+      "offer_id": 263,
+      "name": "Deep Magazine",
+      "description": "Add 20% of base ammunition/charge capacity per rank, rounding each rank up to whole rounds. Five ranks. Every pick adds at least one round; applies to ranged weapons only. Melee has no reload. Cannot evolve.",
+      "max_picks": 5,
+      "category": 2,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 476,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 64,
+      "offer_id": 264,
+      "name": "Quick Hands",
+      "description": "+15% reload speed per rank. Reload time = base time / (1 + 0.15 x rank). Ranged weapons only. Five ranks; cannot evolve.",
+      "max_picks": 5,
+      "category": 2,
+      "tags": "Weapon",
+      "rarity": "Common",
+      "weapon_mask": 476,
+      "instant": false,
+      "retired": false
+    },
+    {
+      "id": 65,
+      "offer_id": 265,
+      "name": "Tight Grouping",
+      "description": "15% less spread per rank, up to 75%. Tightens pellets, rotary fire, Echo Shot, Fan of Sparks and Forked Flight. Cannot evolve.",
+      "max_picks": 5,
+      "category": 2,
+      "tags": "Projectile",
+      "rarity": "Common",
+      "weapon_mask": 476,
+      "instant": false,
+      "retired": false
+    }
+  ],
+  "achievements": [
+    {
+      "id": 0,
+      "name": "Ash Hunter",
+      "description": "Defeat enemies with your attacks or ongoing effects.",
+      "metric": "Kills",
+      "goals": [
+        100,
+        1000,
+        5000
+      ]
+    },
+    {
+      "id": 1,
+      "name": "Giant Slayer",
+      "description": "Defeat elite enemies (personal final hit).",
+      "metric": "Elites",
+      "goals": [
+        10,
+        50,
+        250
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Sovereign Breaker",
+      "description": "Defeat ward bosses (personal final hit).",
+      "metric": "Bosses",
+      "goals": [
+        1,
+        10,
+        50
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Wayfarer",
+      "description": "Clear expedition chambers.",
+      "metric": "Rooms",
+      "goals": [
+        10,
+        100,
+        500
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Untouched",
+      "description": "Clear a chamber without health or shield damage.",
+      "metric": "Flawless",
+      "goals": [
+        1,
+        10,
+        50
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Perfect Rhythm",
+      "description": "Release Perfect Spirals during combat.",
+      "metric": "Perfects",
+      "goals": [
+        25,
+        100,
+        500
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Lifeline",
+      "description": "Complete a co-op revival.",
+      "metric": "Revives",
+      "goals": [
+        1,
+        10,
+        50
+      ]
+    },
+    {
+      "id": 7,
+      "name": "Vaultkeeper",
+      "description": "Recover Rune Vault caches with your party.",
+      "metric": "Vaults",
+      "goals": [
+        1,
+        10,
+        50
+      ]
+    },
+    {
+      "id": 8,
+      "name": "Demolitionist",
+      "description": "Detonate explosive casks during combat.",
+      "metric": "Casks",
+      "goals": [
+        10,
+        50,
+        200
+      ]
+    },
+    {
+      "id": 9,
+      "name": "Spiral Conqueror",
+      "description": "Finish complete expeditions.",
+      "metric": "Wins",
+      "goals": [
+        1,
+        5,
+        20
+      ]
+    },
+    {
+      "id": 10,
+      "name": "Alchemist",
+      "description": "Defeat enemies affected by at least two statuses.",
+      "metric": "Elemental",
+      "goals": [
+        25,
+        100,
+        500
+      ]
+    },
+    {
+      "id": 11,
+      "name": "Quick Work",
+      "description": "Clear a chamber within 90 seconds, including countdowns.",
+      "metric": "Swift",
+      "goals": [
+        1,
+        10,
+        50
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "id": 0,
+      "name": "Scrap",
+      "retired": false
+    },
+    {
+      "id": 1,
+      "name": "Bone Dust",
+      "retired": false
+    },
+    {
+      "id": 2,
+      "name": "Retired Crystal Shard",
+      "retired": true
+    },
+    {
+      "id": 3,
+      "name": "Retired Vine Fiber",
+      "retired": true
+    },
+    {
+      "id": 4,
+      "name": "Spiral Core",
+      "retired": false
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+PASS: 1451458 assertions; 10000 deterministic layouts; 2263 optional gap edges.
+Native shared-rule tests only. Unreal compilation, physics, rendering and networking were NOT exercised.

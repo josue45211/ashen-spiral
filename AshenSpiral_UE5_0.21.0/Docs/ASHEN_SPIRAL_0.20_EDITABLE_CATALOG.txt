@@ -1,0 +1,1302 @@
+ASHEN SPIRAL — EDITABLE GAME CATALOG
+Version 0.20.0 / protocol 2000
+
+Generated from the runtime content tables. Edit this text to propose changes; editing this file does not change the game.
+The newer 0.20-bugfix-decisions.pdf controls this release. Broad balance changes, new unlocks and boss redesigns from the earlier Grok worksheet are deferred.
+IDs stay stable. Retired entries are preserved for save compatibility and cannot be selected.
+
+
+WEAPONS — PERMANENT UNLOCKS; RELOADS FOR ALL NINE
+
+[WEAPON 00] Cinder Blade
+Slash detonates ash on pulled enemies. Short, fast wells.
+ash_cost = 0
+base_damage_per_attack = 40
+attack_interval_s = 0.32
+capacity = 9
+reload_s = 1.1
+requested_changes =
+
+[WEAPON 01] Grav Hammer
+Tap to slam and plant a well; hold Attack to collapse it.
+ash_cost = 15
+base_damage_per_attack = 62
+attack_interval_s = 0.65
+capacity = 4
+reload_s = 1.45
+requested_changes =
+
+[WEAPON 02] Ash Bow
+Accurate arrows pass straight through wells. Splits require a Split upgrade and an enemy hit.
+ash_cost = 25
+base_damage_per_attack = 39
+attack_interval_s = 0.3
+capacity = 10
+reload_s = 1.25
+requested_changes =
+
+[WEAPON 03] Spiral Glaive
+Thrown blades orbit a well, cutting enemies inside.
+ash_cost = 35
+base_damage_per_attack = 33
+attack_interval_s = 0.48
+capacity = 7
+reload_s = 1.3
+requested_changes =
+
+[WEAPON 04] Ember Staff
+Mark enemies with ash. Wells burn marks; perfect wells slow.
+ash_cost = 45
+base_damage_per_attack = 31
+attack_interval_s = 0.34
+capacity = 14
+reload_s = 1.45
+requested_changes =
+
+[WEAPON 05] Rift Scythe
+Dash through a well for a wide crescent and extra invulnerability.
+ash_cost = 55
+base_damage_per_attack = 41
+attack_interval_s = 0.4
+capacity = 7
+reload_s = 1.25
+requested_changes =
+
+[WEAPON 06] Cinder Scattergun
+Six burning pellets in a tight cone. Devastating nearby; damage falls with distance. One proc-carrying pellet per shot.
+ash_cost = 65
+base_damage_per_attack = 96
+attack_interval_s = 0.72
+capacity = 6
+reload_s = 1.65
+requested_changes =
+
+[WEAPON 07] Tempest Rotary
+Rapid frost rounds. Sustained fire widens the cone; release briefly to recover accuracy.
+ash_cost = 80
+base_damage_per_attack = 14
+attack_interval_s = 0.105
+capacity = 40
+reload_s = 1.85
+requested_changes =
+
+[WEAPON 08] Rift Mortar
+Launch an ember rocket that bursts on contact. Splash respects cover, scales with area upgrades, and cannot hurt allies.
+ash_cost = 95
+base_damage_per_attack = 132
+attack_interval_s = 1.05
+capacity = 3
+reload_s = 2.1
+requested_changes =
+
+Scattergun damage is 96 total at close range (6 pellets x 16), before modifiers and falloff.
+Intervals are before attack-speed modifiers; charged attacks and skill effects have separate behavior.
+Deep Magazine: add ceil(20% x base capacity) per rank, max 5. Quick Hands: base reload / (1 + 0.15 x rank), max 5.
+Tight Grouping: spread multiplier max(0.25, 1 - 0.15 x rank), max 5. Applies to primary and bonus/split shots.
+Spending the final round immediately starts reload, including when the attack button is released. R / left-stick click reloads a partial magazine.
+
+ACTIVE SKILLS — FOCUS / F
+
+[ACTIVE 00] Rune Lance
+25 Focus / 1.2s. A 48-damage aimed lance; +25% against staff marks. Rune Nova turns the impact into a 300cm area blast. Pairs with Ember Staff.
+requested_changes =
+
+[ACTIVE 01] Winter Fan
+30 Focus / 6s. A 650cm forward cone deals 24 damage and builds frost twice. Freeze foes before a hammer slam or line up a bow shot. Bosses resist hard control.
+requested_changes =
+
+[ACTIVE 02] Storm Thread
+32 Focus / 5s. Aim at a foe to arc through up to four enemies for 38/29/22/17 damage. +30% against chilled or poisoned targets. Pairs with frost and poison weapons.
+requested_changes =
+
+[ACTIVE 03] Venom Bloom
+35 Focus / 7s. Plant a 320cm poison field for 4s. Pulses deal 7 damage and apply poison, or +30% pulse damage against bleeding enemies. Gather with Spiral; finish with ranged attacks.
+requested_changes =
+
+[ACTIVE 04] War Cry
+28 Focus / 9s. Stagger nearby foes for 18 damage; gain 22 shield and +20% melee damage for 4s. Pairs with blade, hammer and scythe. No shield or buff between waves.
+requested_changes =
+
+[ACTIVE 05] Cinder Mine
+30 Focus / 6s. Place an aimed rune that explodes after 1s for 68 damage in 330cm and ignites survivors. +25% damage to pulled foes. Set a well, then detonate.
+requested_changes =
+
+
+SPIRAL STYLES — RIGHT MOUSE
+
+[STYLE 00] Gather
+Balanced pull and collapse.
+requested_changes =
+
+[STYLE 01] Undertow
+Stronger pull; shorter duration.
+requested_changes =
+
+[STYLE 02] Stillness
+Slow enemies inside the well.
+requested_changes =
+
+[STYLE 03] Orbit
+Every well carries an orbiting blade.
+requested_changes =
+
+[STYLE 04] Sanctuary
+Collapse heals you for 3 HP.
+requested_changes =
+
+[STYLE 05] Recoil
+Casting refreshes Dash.
+requested_changes =
+
+[STYLE 06] Twin
+Main well at full size; second well at 72% size.
+requested_changes =
+
+[STYLE 07] Anchor
+Long-lived wells with a tighter radius.
+requested_changes =
+
+[STYLE 08] Rift
+Collapsing wells erupt across a wider area.
+requested_changes =
+
+[STYLE 09] Convergence
+Perfect wells grant a critical next attack.
+requested_changes =
+
+
+RELICS — UNLOCKABLE REWARD POOL
+
+[RELIC 00] Ashen Kindling
+Wells ignite enemies inside.
+requested_changes =
+
+[RELIC 01] Borrowed Momentum
+Dashing through a well refreshes Spiral once per well.
+requested_changes =
+
+[RELIC 02] Quiet Collapse
+A collapsing well heals its owner for 5 HP.
+requested_changes =
+
+[RELIC 03] Faultless Edge
+First attack after a perfect well is guaranteed critical.
+requested_changes =
+
+[RELIC 04] Lingering Orbit
+Up to two wells follow you into the next room for 3 seconds.
+requested_changes =
+
+[RELIC 05] Party Attunement
+Your wells accelerate allies' attacks while inside.
+requested_changes =
+
+[RELIC 06] Second Echo
+Perfect wells repeat their collapse after a brief delay.
+requested_changes =
+
+[RELIC 07] Shattered Ring
+Collapsed wells fire six poison arrows.
+requested_changes =
+
+[RELIC 08] Twin Singularity
+Perfect casts plant a second, smaller well.
+requested_changes =
+
+[RELIC 09] Ash Mantle
+Releasing Spiral grants a 10-point shield.
+requested_changes =
+
+[RELIC 10] Cinder Wake
+Dash trails burn enemies that cross them.
+requested_changes =
+
+[RELIC 11] Orbiting Remains
+Wells gain an orbiting blade.
+requested_changes =
+
+[RELIC 12] Chain Reaction
+Collapse hastens nearby wells by one second.
+requested_changes =
+
+[RELIC 13] Blood Gravity
+Casting below half HP spends 3 HP for a perfect well.
+requested_changes =
+
+[RELIC 14] Still Ash
+Wells slow enemies caught inside.
+requested_changes =
+
+[RELIC 15] Exit Wound
+Dashing out of a well erupts for 28 damage.
+requested_changes =
+
+[RELIC 16] Long Spiral
+Place your well farther along your aim.
+requested_changes =
+
+[RELIC 17] Patient Gravity
+Killing a pulled enemy extends its well, capped at 6 seconds.
+requested_changes =
+
+[RELIC 18] Inner Sanctuary
+Standing in your well absorbs one hit per cast.
+requested_changes =
+
+[RELIC 19] Measured Breath
+Widen the perfect-release timing window.
+requested_changes =
+
+[RELIC 20] Returning Ash
+Your projectiles bounce once.
+requested_changes =
+
+[RELIC 21] Hungry Heart
+A collapsing well draws health drops to you.
+requested_changes =
+
+[RELIC 22] Afterimage
+Dash plants a short-lived well at its origin.
+requested_changes =
+
+[RELIC 23] Linked Landing
+Dashing through an ally well shields both players.
+requested_changes =
+
+Relics: first 8 initially available; spend 4 Relic Embers to add the next 4, up to 24.
+Styles: first 6 initially available; spend 1 Tablet to discover the next, up to 10.
+All six active skills are free to equip in the hub.
+0.20 Rune Nova: Lance/Storm impacts and Winter Fan impact bloom use 300 cm base radius; War Cry 330 -> 630, Venom Bloom 320 -> 620, Cinder Mine 330 -> 630 cm. Area scaling is applied once; hit damage is unchanged. Storm does not damage the same enemy twice within one cast.
+Ashen Kindling and Cinder Wake apply actual Burn status. Second Echo scales its damage area and ring once.
+Ash Mantle / Linked Landing grant 10 / 12 shield toward 60 without lowering an existing higher shield. Guardian Link requires 720 cm proximity.
+
+CORE STAT REWARDS — CURRENT RUN ONLY
+
+[STAT 100] Ability Cooldown
+-8% of the base Spiral cooldown this run. Stacks with permanent cooldown upgrades; 65% total cap.
+max_picks = 5; cooldown and critical effects may cap earlier
+requested_changes =
+
+[STAT 101] Attack Speed
++12% attack speed this run, for every weapon.
+max_picks = 5; cooldown and critical effects may cap earlier
+requested_changes =
+
+[STAT 102] Damage
++15% damage this run, including your abilities.
+max_picks = 5; cooldown and critical effects may cap earlier
+requested_changes =
+
+[STAT 103] Maximum Health
++15 maximum health and heal 15 HP immediately.
+max_picks = 5; cooldown and critical effects may cap earlier
+requested_changes =
+
+[STAT 104] Movement Speed
++5% running speed this run. Dash distance is unchanged.
+max_picks = 5; cooldown and critical effects may cap earlier
+requested_changes =
+
+[STAT 105] Critical Chance
++5 percentage points of critical chance this run, up to 50% total.
+max_picks = 5; cooldown and critical effects may cap earlier
+requested_changes =
+
+
+RUN TRAITS — 65 SELECTABLE, ONE RETIRED ID
+
+[TRAIT 00] Honed Edge
++4 base damage per rank; firearms normalize this bonus by fire rate for equal added burst DPS.
+offer_id = 200
+max_picks = 5
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 01] Deadeye
++20 percentage points of critical damage per rank (base 180%).
+offer_id = 201
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 02] Brawler
++12% melee weapon damage per rank.
+offer_id = 202
+max_picks = 5
+rarity = Common
+category = Damage
+eligible_weapons = Cinder Blade, Grav Hammer, Rift Scythe
+retired = false
+requested_changes =
+
+[TRAIT 03] Marksman
++12% bow/glaive/firearm weapon damage per rank.
+offer_id = 203
+max_picks = 5
+rarity = Common
+category = Damage
+eligible_weapons = Ash Bow, Spiral Glaive, Cinder Scattergun, Tempest Rotary, Rift Mortar
+retired = false
+requested_changes =
+
+[TRAIT 04] Arcanist
++12% staff and skill damage per rank.
+offer_id = 204
+max_picks = 5
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 05] Kindling Touch
+18% chance/rank to apply burn (54% before evolution). If the weapon already burns, a proc raises its burn power by 30%.
+offer_id = 205
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 06] Venom Touch
+18% chance/rank to apply poison (54% before evolution). Native poison gains an extra stack and 30% power on a proc.
+offer_id = 206
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 07] Serrated Touch
+18% chance per rank to bleed on a primary hit. Bleed: 4 DPS/stack, 2 stacks, 3 sec.
+offer_id = 207
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 08] Storm Touch
+18% chance per rank to shock for 20% weapon damage and arc to one nearby foe. 0.35 sec limit.
+offer_id = 208
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 09] Winter Touch
+18% chance per rank to add frost on a primary hit; bosses only chill.
+offer_id = 209
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 10] Drill Shot
+Primary projectiles pierce one additional enemy per rank.
+offer_id = 210
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = Ash Bow, Spiral Glaive, Ember Staff, Cinder Scattergun, Tempest Rotary
+retired = false
+requested_changes =
+
+[TRAIT 11] Ricochet
+Primary projectiles ricochet to one extra enemy or off a wall per rank.
+offer_id = 211
+max_picks = 2
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = Ash Bow, Spiral Glaive, Ember Staff, Cinder Scattergun, Tempest Rotary
+retired = false
+requested_changes =
+
+[TRAIT 12] Forked Flight
+18% chance per rank to split on impact into two 40%-damage shots. Splits cannot split again.
+offer_id = 212
+max_picks = 2
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = Ash Bow, Spiral Glaive, Ember Staff, Cinder Scattergun, Tempest Rotary
+retired = false
+requested_changes =
+
+[TRAIT 13] Impact Bloom
+Primary hits splash nearby enemies for 15% dealt damage per rank. 0.25 sec limit; no recursive procs.
+offer_id = 213
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 14] Elite Hunter
++15% damage against elites per rank.
+offer_id = 214
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 15] Giant Slayer
++15% damage against bosses per rank.
+offer_id = 215
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 16] First Blood
++20% damage against an enemy above 99% health per rank.
+offer_id = 216
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 17] Leech
+Heal 1.5% of primary-hit damage per rank, capped at 3 HP per 0.25 sec.
+offer_id = 217
+max_picks = 3
+rarity = Rare
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 18] Reaper's Rest
+Heal 1.5 HP per rank when you kill a real enemy.
+offer_id = 218
+max_picks = 3
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 19] Field Dressing
+Immediately restore 35% maximum health. Can be chosen up to five times per run.
+offer_id = 219
+max_picks = 5
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 20] Ironweave
+Reduce incoming damage by 5% per rank. Combined reductions cap at 65%.
+offer_id = 220
+max_picks = 5
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 21] Defiance
+After taking damage, gain 10% damage reduction per rank for 3 sec.
+offer_id = 221
+max_picks = 3
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 22] Renewing Barrier
++12 regenerating shield capacity per rank; restores 2 shield/sec/rank after 5 sec without a hit in combat.
+offer_id = 222
+max_picks = 3
+rarity = Rare
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 23] Elusive
+4% evasion chance per rank, capped at 20% before evolution.
+offer_id = 223
+max_picks = 5
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 24] Briar Mail
+Return 4 damage per rank to the attacker on a damaging hit; 0.3 sec internal cooldown.
+offer_id = 224
+max_picks = 4
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 25] Phoenix Oath
+Survive one lethal hit this run at 35% health with 2 sec of protection.
+offer_id = 225
+max_picks = 1
+rarity = Legendary
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 26] Regrowth
+Regenerate 1 HP/sec per rank in combat after 3 sec without damage.
+offer_id = 226
+max_picks = 3
+rarity = Rare
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 27] Afterimage
++0.08 sec invulnerability after taking damage per rank.
+offer_id = 227
+max_picks = 3
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 28] Longstride
+Dash distance +12% per rank; dash invulnerability +0.03 sec per rank.
+offer_id = 228
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 29] Second Step
++1 dash charge per rank, up to 3 charges. Charges refill in sequence; one air dash per landing remains.
+offer_id = 229
+max_picks = 2
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 30] Winter Mantle
+Chill nearby enemies within 320 + 50 cm/rank. Normal enemies slow 35%; bosses 25%.
+offer_id = 230
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 31] Heavy Impact
+Primary hits knock normal enemies back with 120 force/rank; elites receive half force, bosses resist.
+offer_id = 231
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 32] Concussion
+8% stun chance per rank on primary hits: 0.4 sec, 2 sec immunity. Bosses resist.
+offer_id = 232
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 33] Bramble Bind
+10% root chance per rank on primary hits: 0.8 sec, 3 sec immunity. Bosses resist.
+offer_id = 233
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 34] Gravity Hook
+Primary hits pull nearby normal enemies toward the impact. 0.6 sec limit.
+offer_id = 234
+max_picks = 2
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 35] Repulsor
+Dashing pushes nearby normal enemies away. Radius 280 + 40 cm/rank.
+offer_id = 235
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 36] Prospector
++20% Cinders from kills per rank, using fractional carry so small kills benefit.
+offer_id = 236
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 37] Fortune
++6 percentage points to health/shield drop chance per rank.
+offer_id = 237
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 38] Loaded Dice
+Gain one personal reward reroll immediately. Up to three picks per run.
+offer_id = 238
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 39] Mending Coin
+Picking up a Cinder shard restores 1 HP per rank during combat.
+offer_id = 239
+max_picks = 3
+rarity = Common
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 40] Vanguard
+Next and later rooms begin with +10% damage/rank for the first 8 combat seconds.
+offer_id = 240
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 41] Razor Dash
+Dash through enemies for 12 damage/rank, once per enemy per dash.
+offer_id = 241
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 42] Chain Lightning
+Primary hits chain to one additional enemy per rank at 30% dealt damage, once per 0.35 sec.
+offer_id = 242
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 43] Patient Hunter
+After standing still for 1.2 sec, gain +12% damage per rank.
+offer_id = 243
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 44] Momentum
++8% damage per rank while moving faster than a walk.
+offer_id = 244
+max_picks = 3
+rarity = Common
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 45] Last Ember
++15% damage per rank below 40% health.
+offer_id = 245
+max_picks = 3
+rarity = Rare
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 46] Battle Rhythm
+Kills reduce Spiral cooldown by 0.25 sec/rank and grant +5% damage/rank for 2 sec.
+offer_id = 246
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 47] Echo Shot
+Fire one additional projectile at 45% damage. Extra shots do not create more splits or proc chains.
+offer_id = 247
+max_picks = 1
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = Ash Bow, Spiral Glaive, Ember Staff, Cinder Scattergun, Tempest Rotary, Rift Mortar
+retired = false
+requested_changes =
+
+[TRAIT 48] Fan of Sparks
+Fire one extra spread projectile per rank at 35% damage each.
+offer_id = 248
+max_picks = 2
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = Ash Bow, Spiral Glaive, Ember Staff, Cinder Scattergun, Tempest Rotary, Rift Mortar
+retired = false
+requested_changes =
+
+[TRAIT 49] Expanding Force
++15% explosion, Spiral and aura radius per rank.
+offer_id = 249
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 50] Lingering Affliction
++20% burn, poison and bleed duration per rank. Hard crowd-control durations remain capped.
+offer_id = 250
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 51] Deep Reservoir
++10 maximum Focus per rank; immediately restore that amount. Rune Lance uses 25 Focus.
+offer_id = 251
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 52] Flowing Runes
++2 Focus regeneration/sec per rank during combat or lobby practice.
+offer_id = 252
+max_picks = 3
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 53] Rune Nova
+Evolve any active skill: Lance and Storm impacts gain a 300 cm blast; Winter Fan gains a 300 cm impact bloom. War Cry, Venom Bloom and Cinder Mine gain 300 cm base radius. Damage per hit is unchanged; area upgrades apply once.
+offer_id = 253
+max_picks = 1
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 54] Orbiting Ember
+Gain an orbiting wisp per rank (max 3), each dealing 4 damage every 0.5 sec to a nearby enemy.
+offer_id = 254
+max_picks = 3
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 55] Vault Sense
+Show trap positions and timing on the HUD and minimap, plus the optional vault cache.
+offer_id = 255
+max_picks = 1
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = true
+requested_changes =
+
+[TRAIT 56] Second Dawn
+Immediately heal to full. One pick per run.
+offer_id = 256
+max_picks = 1
+rarity = Legendary
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 57] Cleanse
+Remove all Blood Pact curse stacks (+10% incoming damage each). The traded maximum health stays traded.
+offer_id = 257
+max_picks = 1
+rarity = Rare
+category = Survival
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 58] Blood Pact
+Trade 15% maximum health for +45% damage. Gain a removable curse: +10% incoming damage.
+offer_id = 258
+max_picks = 1
+rarity = Legendary
+category = Damage
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 59] Emberforge Evolution
+Evolve one owned non-instant trait, granting one effective rank above its normal value. Two evolutions per run.
+offer_id = 259
+max_picks = 2
+rarity = Legendary
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 60] Mystery Relic
+Gain one random, unowned relic from your unlocked pool. One pick per run.
+offer_id = 260
+max_picks = 1
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 61] Echo of Choice
+Repeat your most recent repeatable stat/trait upgrade if it is not capped. One pick per run.
+offer_id = 261
+max_picks = 1
+rarity = Legendary
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 62] Battle Conduit
+Every 6 primary hits restores 12 Focus and shortens Spiral cooldown by 0.3 sec. Counts at most once per 0.15 sec.
+offer_id = 262
+max_picks = 1
+rarity = Rare
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 63] Deep Magazine
+Add 20% of base ammunition/charge capacity per rank, rounding each rank up to whole rounds. Five ranks. Every pick adds at least one round; applies to all weapons. Cannot evolve.
+offer_id = 263
+max_picks = 5
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 64] Quick Hands
++15% reload speed per rank. Reload time = base time / (1 + 0.15 x rank). Five ranks; cannot evolve.
+offer_id = 264
+max_picks = 5
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = All nine
+retired = false
+requested_changes =
+
+[TRAIT 65] Tight Grouping
+15% less spread per rank, up to 75%. Tightens pellets, rotary fire, Echo Shot, Fan of Sparks and Forked Flight. Cannot evolve.
+offer_id = 265
+max_picks = 5
+rarity = Common
+category = Modifiers and economy
+eligible_weapons = Ash Bow, Spiral Glaive, Ember Staff, Cinder Scattergun, Tempest Rotary, Rift Mortar
+retired = false
+requested_changes =
+
+Evolution can grant one effective rank above an eligible trait’s normal value without raising its selectable pick cap.
+Deep Magazine, Quick Hands and Tight Grouping cannot evolve. Existing prerequisite and anti-recursion rules remain; see BUILDCRAFT_0.14_NOTES.md.
+
+ASHEN HEARTH — PERMANENT RANKS
+
+[HEARTH 00] Ashen Vessel
++8 starting HP per rank.
+branch = Survivor
+max_rank = 3
+next_rank_ash_cost = 8 x (current rank + 1)
+requested_changes =
+
+[HEARTH 01] Ember Shell
++5 starting shield per rank.
+branch = Survivor
+max_rank = 3
+next_rank_ash_cost = 10 x (current rank + 1)
+requested_changes =
+
+[HEARTH 02] Gentle Collapse
+Your well collapses heal 1 HP per rank.
+branch = Survivor
+max_rank = 3
+next_rank_ash_cost = 12 x (current rank + 1)
+requested_changes =
+
+[HEARTH 03] Second Breath
+Once per run, fatal damage restores 25% HP.
+branch = Survivor
+max_rank = 1
+next_rank_ash_cost = 25 x (current rank + 1)
+requested_changes =
+
+[HEARTH 04] Widening Spiral
++25 cm well radius per rank.
+branch = Arcanist
+max_rank = 3
+next_rank_ash_cost = 8 x (current rank + 1)
+requested_changes =
+
+[HEARTH 05] Held Ash
++0.25 seconds well duration per rank.
+branch = Arcanist
+max_rank = 3
+next_rank_ash_cost = 10 x (current rank + 1)
+requested_changes =
+
+[HEARTH 06] Measured Release
+Perfect window widens 0.025s per rank.
+branch = Arcanist
+max_rank = 3
+next_rank_ash_cost = 12 x (current rank + 1)
+requested_changes =
+
+[HEARTH 07] Weight of Names
++45 cm/s pull speed per rank.
+branch = Arcanist
+max_rank = 3
+next_rank_ash_cost = 12 x (current rank + 1)
+requested_changes =
+
+[HEARTH 08] Light Step
+Dash recharges 0.06s faster per rank.
+branch = Wayfarer
+max_rank = 3
+next_rank_ash_cost = 8 x (current rank + 1)
+requested_changes =
+
+[HEARTH 09] Ash Body
++0.025s dash invulnerability per rank.
+branch = Wayfarer
+max_rank = 3
+next_rank_ash_cost = 10 x (current rank + 1)
+requested_changes =
+
+[HEARTH 10] Long Wake
+Dash trail lasts 0.2s longer per rank.
+branch = Wayfarer
+max_rank = 3
+next_rank_ash_cost = 12 x (current rank + 1)
+requested_changes =
+
+[HEARTH 11] Safe Landing
+Dash grants at least 0.4s invulnerability.
+branch = Wayfarer
+max_rank = 1
+next_rank_ash_cost = 20 x (current rank + 1)
+requested_changes =
+
+[HEARTH 12] Another Possibility
+Reward chests offer five choices instead of four.
+branch = Tactician
+max_rank = 1
+next_rank_ash_cost = 20 x (current rank + 1)
+requested_changes =
+
+[HEARTH 13] Provision
+Start with +10 Cinders per rank.
+branch = Tactician
+max_rank = 3
+next_rank_ash_cost = 8 x (current rank + 1)
+requested_changes =
+
+[HEARTH 14] Ability Cooldown
+-10% of the base Spiral cooldown per rank. Total cooldown reduction caps at 65%.
+branch = Tactician
+max_rank = 5
+next_rank_ash_cost = 12 x (current rank + 1)
+requested_changes =
+
+[HEARTH 15] Shared Momentum
+Ally-well launch heals 3 HP, once per 3 seconds.
+branch = Tactician
+max_rank = 1
+next_rank_ash_cost = 20 x (current rank + 1)
+requested_changes =
+
+[HEARTH 16] Attack Speed
++8% attack speed per rank. Applies to every weapon.
+branch = Combat
+max_rank = 5
+next_rank_ash_cost = 10 x (current rank + 1)
+requested_changes =
+
+[HEARTH 17] Damage
++10% damage per rank, including your abilities.
+branch = Combat
+max_rank = 5
+next_rank_ash_cost = 12 x (current rank + 1)
+requested_changes =
+
+[HEARTH 18] Movement Speed
++5% running speed per rank. Dash distance is unchanged.
+branch = Combat
+max_rank = 5
+next_rank_ash_cost = 10 x (current rank + 1)
+requested_changes =
+
+[HEARTH 19] Critical Chance
++4 percentage points per rank, from a base 5%. Critical attacks deal 1.8x damage.
+branch = Combat
+max_rank = 5
+next_rank_ash_cost = 14 x (current rank + 1)
+requested_changes =
+
+
+CONSTELLATION TALENTS — PERMANENT SKILL POINTS
+
+[TALENT 00] Iron Lungs
+Dash recharges 15% faster.
+branch = Survivor
+skill_point_cost = 1
+branch_points_required = 0
+retired = false
+requested_changes =
+
+[TALENT 01] Thick Skin
+8% damage resistance; 12% below 40% health.
+branch = Survivor
+skill_point_cost = 1
+branch_points_required = 0
+retired = false
+requested_changes =
+
+[TALENT 02] Second Wind
+One fatal rescue per run at 30% health.
+branch = Survivor
+skill_point_cost = 2
+branch_points_required = 2
+retired = false
+requested_changes =
+
+[TALENT 03] Unbroken
+Gain a 20% health shield before crossing 25% health; 12s recharge.
+branch = Survivor
+skill_point_cost = 3
+branch_points_required = 4
+retired = false
+requested_changes =
+
+[TALENT 04] Rally Step
+Dash grants nearby allies 10% damage for 3 seconds.
+branch = Tactician
+skill_point_cost = 1
+branch_points_required = 0
+retired = false
+requested_changes =
+
+[TALENT 05] Guardian Link
+A heavy hit within 720cm grants the talent holder a 10% health shield; 12s recharge.
+branch = Tactician
+skill_point_cost = 1
+branch_points_required = 0
+retired = false
+requested_changes =
+
+[TALENT 06] Coordinated Strike
+Alternating ally hits deal +18% damage; +5% solo.
+branch = Tactician
+skill_point_cost = 2
+branch_points_required = 2
+retired = false
+requested_changes =
+
+[TALENT 07] Twin Resonance
+Heal 2% near your ally every 8s; 1% solo.
+branch = Tactician
+skill_point_cost = 3
+branch_points_required = 4
+retired = false
+requested_changes =
+
+[TALENT 08] Lucky Find
+Earn 20% more common materials on room clear.
+branch = Scavenger
+skill_point_cost = 1
+branch_points_required = 0
+retired = false
+requested_changes =
+
+[TALENT 09] Retired talent
+Former Treasure Sense. Its skill point is refunded automatically.
+branch = Scavenger
+skill_point_cost = 0
+branch_points_required = 0
+retired = true
+requested_changes =
+
+[TALENT 10] Efficient Extraction
+Failure grants an additional 8 Ash.
+branch = Scavenger
+skill_point_cost = 2
+branch_points_required = 1
+retired = false
+requested_changes =
+
+[TALENT 11] Spiral Hoarder
+Victory grants 30 additional Scrap and 10 Bone Dust.
+branch = Scavenger
+skill_point_cost = 3
+branch_points_required = 3
+retired = false
+requested_changes =
+
+
+MATERIALS AND WORKBENCH
+
+Active: Scrap (ID 0), Bone Dust (ID 1), Spiral Core (ID 4).
+Crystal Shard (ID 2) and Vine Fiber (ID 3) are retired; legacy quantities convert 1:1 to Scrap.
+Ward common drops: ward 2 gives Bone Dust; wards 1, 3 and 4 give Scrap.
+Refinement: 15 Scrap + 8 Bone Dust -> 40 Ash, once per profile.
+Memory: 3 Spiral Cores + 12 Bone Dust -> 1 Skill Point.
+Treasure Sense (talent ID 9) is removed and refunds its 1 Skill Point once. Vault Sense (trait ID 55) remains unavailable.
+Spiral Hoarder victory award: 30 Scrap + 10 Bone Dust.
+
+CAREER — 12 ACHIEVEMENTS, 36 TIERS, COSMETIC TITLES
+
+[ACHIEVEMENT 00] Ash Hunter
+Defeat enemies with your attacks or ongoing effects.
+tier_goals = 100, 1000, 5000
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 01] Giant Slayer
+Defeat elite enemies (personal final hit).
+tier_goals = 10, 50, 250
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 02] Sovereign Breaker
+Defeat ward bosses (personal final hit).
+tier_goals = 1, 10, 50
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 03] Wayfarer
+Clear expedition chambers.
+tier_goals = 10, 100, 500
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 04] Untouched
+Clear a chamber without health or shield damage.
+tier_goals = 1, 10, 50
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 05] Perfect Rhythm
+Release Perfect Spirals during combat.
+tier_goals = 25, 100, 500
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 06] Lifeline
+Complete a co-op revival.
+tier_goals = 1, 10, 50
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 07] Vaultkeeper
+Recover Rune Vault caches with your party.
+tier_goals = 1, 10, 50
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 08] Demolitionist
+Detonate explosive casks during combat.
+tier_goals = 10, 50, 200
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 09] Spiral Conqueror
+Finish complete expeditions.
+tier_goals = 1, 5, 20
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 10] Alchemist
+Defeat enemies affected by at least two statuses.
+tier_goals = 25, 100, 500
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+[ACHIEVEMENT 11] Quick Work
+Clear a chamber within 90 seconds, including countdowns.
+tier_goals = 1, 10, 50
+rewards = 1 Relic Ember per new tier; tier III also grants 1 Tablet; earned name/rank can be equipped as a title
+requested_changes =
+
+Level milestones: 1 Relic Ember at every fifth level; 1 Tablet at every tenth level (both at multiples of ten).
+Existing earned milestones receive a one-time catch-up. Paid cursors and balances save together; reopening a profile or retrying receipts does not pay again.
+These milestones grant no direct damage, health, speed, skill points or XP.
+All base player/enemy numbers, weapon prices and boss behavior remain at 0.19 values unless a specific 0.20 PDF fix is documented in DESIGN_0.20.md.
+
+Validation boundary: source/rule tests only. Unreal compilation, rendering, collision, audio, save I/O and co-op playtesting still require the installed editor.
