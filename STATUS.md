@@ -1,8 +1,12 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-15 23:00 PDT
-phase: Overnight run - everything implemented; independent review fixes applied; waiting for answers and playtest
-current_item: idle (nothing left that is safe without answers); expand tests if time allows
+updated: 2026-10-16 15:36 PDT
+phase: Night report written; waiting for the 5PM playtest. Nothing left to do without answers.
+current_item: idle
+
+## Night report
+Final check at HEAD 5c0bcca, run 2026-10-16 15:36 PDT: UBT editor build Succeeded in unity AND -DisableUnity (zero compile errors); Tests/run_tests.py exit 0 (native + gameplay + new suites). No game launch, per Josue.
+Everything below is compile + native-test verified only. Nothing was run in-engine.
 
 ## Done (every item: UBT editor build OK unity + non-unity, Tests/run_tests.py exit 0; none verified in-engine)
 - Phase 1 compile blockers: C4458 rename, DamageReaction/AbilityGesture/cape definitions, ProfileId stamped in SendReceipt
@@ -19,8 +23,12 @@ current_item: idle (nothing left that is safe without answers); expand tests if 
 - Native tests added: expedition rules, boss/endless arena structure, heavy cape chain, Endless offers (about 1.5M checks)
 - Independent read-only review of B2/B6/B8 found 9 issues; 8 fixed: stale Endless boss flag (likely out-of-bounds Ward crash), switch ignored mid-run leaving client/server on different characters, revert now uses the server-kept profile id, abandoning an Endless run now banks stats/earnings (and no longer files a fake chamber-32 clear), reconnect snapshot now refreshes well/shop/stat fields, real capsule for post-shuffle unsticking + pending shuffle cleared at checkpoints, empty offer list no longer blocks the chest, failed spawn point no longer skips Endless timers. Also found by clang: ASExpeditionRules.h was missing its ASRules.h include (masked by unity builds).
 
-## In Progress
-- (none)
+## Left undone / queued
+- Physical walk-through-the-portal animation (colour flood placeholder only; P2 visual track)
+- Scythe poses (left alone per Josue), Blade art pass (needs P2 reference frames)
+- Full landscape decay for Endless (future reference only, sky stages done)
+- Release metadata: README, version, catalog, manifest are still the 0.22 documents; Tests/validation_results.json still says Unreal compile NOT RUN
+- Tunables to revisit after the playtest: well odds thresholds (50/1000 were tuned for Ash), Endless earn rates and shop prices, well placement, unlock rules (ASExpeditionRules.h)
 
 ## UNVERIFIED (playtest checklist for Josue and P2; compile + native tests only)
 - A1 Blade poses: art review needed (no reference frames)
@@ -35,15 +43,86 @@ current_item: idle (nothing left that is safe without answers); expand tests if 
 - Receipts: ProfileId stamping verified by reasoning and a lexical test only
 
 ## Needs Josue
-- B6 odds (review also flagged it): defaults give Cinders <=50 and >=1000 an expected return above break-even (1.08x / 1.09x), middle 0.74x. The 50/1000 thresholds were tuned for Ash, not Cinders. Keep or retune?
-- B1 co-op: difficulty unlocks check the host's profile only. Intended?
-- B8 elimination: downed or eliminated players return at the next checkpoint chest with 35% HP (TUNABLE). Keep, or stay out until the run ends?
-- B8 economy: Ash/Scrap earn rates (Scrap 1/5/25 per normal/elite/boss kill, Ash 2 per checkpoint and 10 per boss, banked at run end) and shop prices are my placeholders. OK for playtest?
-- B1 walk-in: the portal transition is a colour flood on run start, not an actual walk-into-the-archway animation. Acceptable for the placeholder pass?
-- Smoke tests: you said skip launching the game; screenshot checks need a launch. Want me to try a headless NullRHI boot (log scan only) tonight, or leave all in-engine checks for the playtest?
+- Bridge v3 (POST /exec) NOT installed: the allowlist can be bypassed. See Notes. Install a hardened version, skip it, or install as sent?
+
+## Token usage and cost
+Not available to me: this session exposes no usage counters, so I cannot report input/output tokens or USD without inventing numbers. Please read it from the Claude Code /cost or /usage view.
 
 ## Notes
-- Real clock stamps only; earlier stamps of 22:58 and 23:45 were wrong (system time was about 22:20-22:31).
-- Build logs: C:\Games\b_*.log (latest: b_portal2.log non-unity); scratch build copy C:\Games\AshenSpiral_build_0.23
-- Branch astra/0.23-handoff, nothing merged. Commits cfe023c to HEAD.
-- Release metadata (README, version, catalog, manifest) still the 0.22 documents; Tests/validation_results.json says Unreal compile NOT RUN, which is out of date.
+- v3 server decision (2026-10-16 15:36): I did not install it. exec_allowed() accepts any command whose first token is `python` and that merely contains the token `Tests/run_tests.py`, e.g. `python -c "<code>" Tests/run_tests.py` runs arbitrary code. The git allowlist also permits file-writing options such as `git diff --output=<path>` and `git branch -D`. The server binds 0.0.0.0 with no authentication, so anyone on the LAN or tailnet could use it, which contradicts the comment that the worst case is reading git history. The running v2 bridge is untouched and still serving. Proposed hardening if you want it: exact-match command list (no free arguments), git restricted to fixed read-only invocations without --output, bind to the Tailscale interface only, shared-secret header.
+- Answered questions removed from Needs Josue (odds keep, host-only unlocks, elimination keep, economy placeholders, walk-in acceptable, smoke test skipped).
+- INBOX.md is uncommitted by design. The 21:23 test entry and the 21:27 definition-of-done entry were moved under Handled there.
+- Review of B2/B6/B8 by an independent read-only subagent found 9 issues, 8 fixed (see git log, commit 5c0bcca).
+- Build logs: C:\Games\head_unity.log, C:\Games\head_nonunity.log. Scratch build copy: C:\Games\AshenSpiral_build_0.23.
+- Earlier updated: stamps of 22:58 and 23:45 on 2026-10-15 were wrong (written ahead of the system clock).
+
+## Commits (for review)
+Range cfe023c..HEAD, oldest first. Paths relative to AshenSpiral_Claude_Handoff_2026-10-15/current_work/AshenSpiral_UE5_0.23.0/ (STATUS.md at repo root).
+
+- cfe023c Fix C4458 shadowed Controller in ASEnemy synergy callout
+  - source: Private/ASEnemy.cpp
+- 03ff6c2 Phase 1: cape/reaction/gesture definitions, stamp receipt profile id, refresh stale tests
+  - source: Private/ASCharacterAnimation.cpp, Private/ASGameMode.cpp
+  - tests: bugfix_020_tests.cpp, buildcraft_results.txt, buildcraft_tests.cpp, reload_navigation_results.txt, run_tests.py, trig_compile_results.json, validation_results.json
+- 3b5a344 A5: consume player/enemy hit reaction and attack release in animation
+  - source: Private/ASCharacterAnimation.cpp, Private/ASEnemyAnimation.cpp
+  - tests: bugfix_020_results.txt, bugfix_020_tests.cpp, validation_results.json
+- 95ad817 A1: Blade pose pass (fast coil, short follow-through, stronger lunge lean, off-hand counterweight)
+  - source: Private/ASCharacterAnimation.cpp, Public/ASMeleeRules.h
+  - tests: validation_results.json
+  - other: mission-control-server.py
+- 40e386a A2: stride-matched gait cadence and visual acceleration lean
+  - source: Private/ASCharacterAnimation.cpp
+  - tests: validation_results.json
+  - other: STATUS.md
+- 0e4132d A6: consume AbilityGesture in animation; Scythe left untouched pending P2 review
+  - source: Private/ASCharacterAnimation.cpp
+- 577119a B2: second character slot - hub switch UI, server-side switch gating with client revert, fresh-slot commit failure handling
+  - source: Private/ASGameInstance.cpp, Private/ASGameMode.cpp, Private/ASPlayerController.cpp, Private/SASMenu.cpp, Public/ASPlayerController.h
+  - tests: run_tests.py, validation_results.json
+- a173b0b B3-B5: synergy liveness guards; restore Vengeance Oath weapon mask to all weapons (per Josue)
+  - source: Private/ASCharacter.cpp, Private/ASEnemy.cpp, Public/ASBuildRules.h
+  - tests: reload_navigation_results.txt, validation_results.json
+  - other: STATUS.md, mission-control-server.py
+- 717b261 B1: difficulty selection (host, hub) wired to enemy HP/damage and offer quality; add expedition rule tests
+  - source: Private/ASCharacterUpgrades.cpp, Private/ASGameMode.cpp, Private/ASPlayerController.cpp, Private/SASMenu.cpp, Public/ASGameMode.h, Public/ASPlayerController.h
+  - tests: expedition_023_results.txt, expedition_023_tests.cpp, run_tests.py, validation_results.json
+  - other: INBOX.md, STATUS.md
+- da947f4 Update STATUS.md
+  - other: STATUS.md
+- 24d1a11 Revert Emberforge capped gate (per Josue); lock Hard/Very Hard behind clears (tunable rules in ASExpeditionRules.h); refactor profile resubmit
+  - source: Private/ASData.cpp, Private/ASGameInstance.cpp, Private/ASGameMode.cpp, Private/ASGameState.cpp, Private/ASPlayerController.cpp, Private/SASMenu.cpp, Public/ASBuildRules.h, Public/ASData.h, Public/ASExpeditionRules.h, Public/ASGameMode.h, Public/ASGameState.h, Public/ASPlayerController.h
+  - tests: buildcraft_results.txt, buildcraft_tests.cpp, expedition_023_results.txt, expedition_023_tests.cpp, validation_results.json
+- 4791b79 B6: wishing well station (shrine rooms), server-authoritative Cinder gamble with per-player-per-room key, reconnect-safe, odds UI
+  - source: Private/ASGameMode.cpp, Private/ASHUD.cpp, Private/ASPlayerController.cpp, Private/ASWorld.cpp, Private/SASMenu.cpp, Public/ASExpeditionRules.h, Public/ASGameMode.h, Public/ASPlayerController.h, Public/ASWorld.h
+  - tests: expedition_023_results.txt, expedition_023_tests.cpp, validation_results.json
+- bfed9f8 B7: bespoke structural boss arenas per ward (layout, attack-aligned cover, centre boss spawn, west entry) + structure tests
+  - source: Private/ASGameMode.cpp, Private/ASWorld.cpp, Public/ASRules.h, Public/ASWorld.h
+  - tests: boss_arena_023_results.txt, boss_arena_023_tests.cpp, run_tests.py, validation_results.json
+- 0e0f10b B8.1: Endless mode core - hub portal station, huge obstacle arena, chained waves with straggler carry (cap 36), checkpoint chests, shuffle with telegr
+  - source: Private/ASCharacterUpgrades.cpp, Private/ASGameMode.cpp, Private/ASHUD.cpp, Private/ASPlayerController.cpp, Private/ASWorld.cpp, Private/SASMenu.cpp, Public/ASGameMode.h, Public/ASPlayerController.h, Public/ASRules.h, Public/ASWorld.h
+  - tests: boss_arena_023_results.txt, boss_arena_023_tests.cpp, validation_results.json
+- 31cfaaa B8.2: Endless exclusive traits (IDs 400-403) with runtime effects, sidegrade shift after wave 15, kill/checkpoint economy feeding the end-of-run recei
+  - source: Private/ASCharacterUpgrades.cpp, Private/ASGameMode.cpp, Private/SASMenu.cpp, Public/ASBuildRules.h, Public/ASCharacter.h, Public/ASExpeditionRules.h
+  - tests: buildcraft_tests.cpp, validation_results.json
+- f997b5b B8.3: lucky shop (server-validated Scrap/Ash stock), bleed-out bars, wave-50+ lethal telegraphed blasts and homing shots
+  - source: Private/ASEnemy.cpp, Private/ASGameMode.cpp, Private/ASGameState.cpp, Private/ASHUD.cpp, Private/ASPlayerController.cpp, Private/ASSpell.cpp, Private/ASWorld.cpp, Private/SASMenu.cpp, Public/ASExpeditionRules.h, Public/ASGameMode.h, Public/ASGameState.h, Public/ASPlayerController.h, Public/ASSpell.h, Public/ASWorld.h
+  - tests: expedition_023_results.txt, expedition_023_tests.cpp, validation_results.json
+- 0cecd6d B8.4: carry Endless run state (ranks, earnings, stats, bleed) through reconnect snapshots
+  - source: Private/ASGameMode.cpp, Public/ASGameMode.h
+  - tests: validation_results.json
+- 69dde83 B8.5: Endless power curve - diminishing returns for trait ranks above the normal cap
+  - source: Private/ASCharacterUpgrades.cpp
+- acdd121 0.23.1 A3: heavy cape - damped length-constrained cloth chain with inertia, delayed turn/dash/leap/swing response, idle billow, body/floor clearance, 
+  - source: Private/ASCharacterAnimation.cpp, Public/ASAnimationRules.h, Public/ASCharacter.h
+  - tests: cape_0231_results.txt, cape_0231_tests.cpp, run_tests.py, validation_results.json
+- 5525cec 0.23.1 B1/B8 looks: gothic Ember/Ashen/Blood portals (chained when locked, dripping blood), sinister Endless portal, tooltips with exact modifiers, ru
+  - source: Private/ASGameMode.cpp, Private/ASHUD.cpp, Private/ASPlayerController.cpp, Private/ASPortal.cpp, Private/ASWorld.cpp, Public/ASExpeditionRules.h, Public/ASHUD.h, Public/ASPortal.h, Public/ASWorld.h
+  - tests: expedition_023_results.txt, expedition_023_tests.cpp, validation_results.json
+- ffaf489 Cape segment width matches SM_Cape half-width (36); refresh STATUS.md
+  - source: Private/ASCharacterAnimation.cpp
+  - other: STATUS.md
+- 5c0bcca Fix issues from independent review of slot switch, well and Endless; add missing ASRules include
+  - source: Private/ASGameInstance.cpp, Private/ASGameMode.cpp, Private/ASPlayerController.cpp, Public/ASExpeditionRules.h, Public/ASGameInstance.h, Public/ASPlayerController.h
+  - tests: run_tests.py, validation_results.json
+  - other: STATUS.md
