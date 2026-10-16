@@ -1,5 +1,5 @@
 {
-  "source_checks_passed": 446652,
+  "source_checks_passed": 446657,
   "source_files_checked": 54,
   "mesh_count": 78,
   "mesh_vertex_count": 80514,
@@ -16,7 +16,7 @@
   "hammer_022_tests": "PASS: 9537191 hammer/0.22 checks; 2886 actual-mesh pose samples; tangent orientation, two-hand reach, contact timing, haste, frontal coverage and leap immunity boundaries.\nShared rules/source geometry only; Unreal physics and network execution still require playtest.",
   "melee_021_tests": "PASS: 11548175 melee/0.21 checks; 1687 full-cycle pose samples; 450 Archives rooms; 3000 melee reward drafts.\nShared rules and source geometry only. Unreal movement, collision, RPC timing and rendering are not executed.",
   "bugfix_020_tests": "PASS: 11362 0.20 regression checks; migrations, one-time milestone rewards, shield grants, traps, joint lengths, 400 multi-endpoint route oracles and seed 6767 chamber 23 floor model.\nUnreal save serialization, mesh collision, Slate, animation rendering and networking are not executed.",
-  "reload_navigation_tests": "PASS: 108645 reload/navigation checks; 1200 route-oracle comparisons; 40000 reward drafts.\nStakes tier 0 -> 3: rare cards 8843 -> 11653, legendary cards 512 -> 779 across 60000 choices per tier.\nShared rules only; Unreal actors, audio, physics, Slate and replication not executed.",
+  "reload_navigation_tests": "PASS: 108681 reload/navigation checks; 1200 route-oracle comparisons; 40000 reward drafts.\nStakes tier 0 -> 3: rare cards 8849 -> 11559, legendary cards 778 -> 1152 across 60000 choices per tier.\nShared rules only; Unreal actors, audio, physics, Slate and replication not executed.",
   "trig_overload_regression": "PASS: both runtime fern expressions compile with float/double overloads; seven positions are finite and on the unit circle. Unreal module compilation was not run.",
   "interface_arsenal_tests": "PASS: 652 interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\nShared rules only; Unreal rendering, actors, save I/O and networking were not run.",
   "unreal_module_compile": "NOT RUN - Unreal Engine unavailable",

@@ -298,10 +298,10 @@ void AASCharacter::HitEnemy(AASEnemy* E,float Amount,bool Critical,EASHitKind Ki
     if(Critical) Amount*=CriticalPower();
     E->LastHitter=this;E->LastHitTime=S->SimTime;
     const FVector At=E->GetActorLocation();const bool Pulled=E->PulledUntil>S->SimTime;const bool ShowNumber=Critical||ApplyElement||E->NextDamageNumber<=S->SimTime;if(ShowNumber) E->NextDamageNumber=S->SimTime+.14f;const float Before=E->Health;const bool Killed=E->Hit(Amount,this);const float Dealt=Killed?Before:Before-E->Health;
-    if(!Killed&&Kind==EASHitKind::Shock) E->RegisterCoopElement(Kind,this,DamageScale(false));
-    if(!Killed&&ApplyElement) E->ApplyElement(Kind,this,DamageScale(true));
+    if(!Killed&&Kind==EASHitKind::Shock&&IsValid(E)) E->RegisterCoopElement(Kind,this,DamageScale(false));
+    if(!Killed&&ApplyElement&&IsValid(E)) E->ApplyElement(Kind,this,DamageScale(true));
     if(ShowNumber) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At+FVector(0,0,80),Dealt,Critical,Kind);
-    if(ApplyElement&&AllowProcs) HitProcs(Killed?nullptr:E,At,Dealt);
+    if(ApplyElement&&AllowProcs) HitProcs(Killed||!IsValid(E)||E->Health<=0?nullptr:E,At,Dealt);
     if(Critical) S->Effect(8,At+FVector(0,0,35),FVector::ForwardVector,ASData::HitColor(Kind),80);
     if(CombatBenefits()&&Killed&&Relic(17)&&Pulled) for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&W->Hero.Get()==this) W->Expires=FMath::Min(S->SimTime+6,W->Expires+.4f);
 }

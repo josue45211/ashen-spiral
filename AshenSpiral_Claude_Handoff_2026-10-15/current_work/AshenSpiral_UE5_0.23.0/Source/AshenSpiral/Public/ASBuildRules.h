@@ -80,7 +80,7 @@ inline constexpr std::array<Definition,Count> Catalog{{
  {"Rune Nova","Evolve any active skill: Lance and Storm impacts gain a 300 cm blast; Winter Fan gains a 300 cm impact bloom. War Cry, Venom Bloom and Cinder Mine gain 300 cm base radius. Damage per hit is unchanged; area upgrades apply once.",1,2,Spell|Echo,1,511,false},
  {"Orbiting Ember","Gain an orbiting wisp per rank (max 3), each dealing 4 damage every 0.5 sec to a nearby enemy.",3,2,Echo|Spell,1,511,false},
  {"Vault Sense","Show trap positions and timing on the HUD and minimap, plus the optional vault cache.",1,2,Loot|Guard,0,511,false},
- {"Vengeance Oath","Survive one lethal hit this run at 1 HP with 3 sec of protection; your next three-hit combo finisher deals 5x damage.",1,1,Guard|Weapon,2,3,false},
+ {"Vengeance Oath","Survive one lethal hit this run at 1 HP with 3 sec of protection; your next three-hit combo finisher deals 5x damage.",1,1,Guard|Weapon,2,511,false},
  {"Cleanse","Remove all Blood Pact curse stacks (+10% incoming damage each). The traded maximum health stays traded.",1,1,Guard,1,511,true},
  {"Blood Pact","Trade 15% maximum health for +45% damage. Gain a removable curse: +10% incoming damage.",1,0,Weapon|Spell,2,511,false},
  {"Emberforge Evolution","Evolve one capped eligible non-instant trait, granting one effective rank above its normal value. Only offered when a capped trait can evolve. Two evolutions per run.",2,2,Echo|Spell,2,511,true},

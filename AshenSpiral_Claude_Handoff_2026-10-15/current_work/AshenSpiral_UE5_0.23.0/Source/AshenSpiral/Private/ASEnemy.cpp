@@ -87,6 +87,8 @@ void AASEnemy::RefreshStatus() {
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
     RegisterCoopElement(Type,Source,Power);
+    // A synergy can kill this very target; do not keep applying status to a dead actor.
+    if(!IsValid(this)||Health<=0) return;
     if(Type==EASHitKind::Frost&&Power<=0) Elements.Frost=FMath::Max(Elements.Frost,12.f);
     else Elements.Apply(int(Type),Power,Boss(),ASBuild::StatusDuration(Source->TraitValue(ASBuild::Trait::Duration)));
     if(Type==EASHitKind::Burn) BurnSource=Source;if(Type==EASHitKind::Poison) PoisonSource=Source;if(Type==EASHitKind::Bleed) BleedSource=Source;
