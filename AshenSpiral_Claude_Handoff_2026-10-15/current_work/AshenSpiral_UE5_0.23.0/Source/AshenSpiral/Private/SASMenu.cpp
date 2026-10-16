@@ -239,6 +239,9 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(TEXT("Ash, relic embers, tablets, materials, unlocks and permanent upgrades now save outside the extracted game folder. Future 0.13+ builds use this same location automatically. Cinders and chest stat ranks remain run-only."));
         Text(FString::Printf(TEXT("Ash: %d   Relic embers: %d   Tablets: %d   Skill points: %d"),P.Ash,P.RelicEmbers,P.Tablets,P.SkillPoints),18,ASMenuGold);
         Text(GI->ProgressDirectory(),13);
+        Text(FString::Printf(TEXT("Active character: %d. Each character has its own progress, currencies and unlocks."),GI->ActiveCharacterSlot+1),16,ASMenuGold);
+        Card(TEXT("Character 1"),TEXT("Your original character."),GI->ActiveCharacterSlot==0?TEXT("ACTIVE"):TEXT("SWITCH"),71,0,Hub&&GI->ActiveCharacterSlot!=0);
+        Card(TEXT("Character 2"),TEXT("A fully independent fresh character. Starts at zero."),GI->ActiveCharacterSlot==1?TEXT("ACTIVE"):TEXT("SWITCH"),71,1,Hub&&GI->ActiveCharacterSlot!=1);
         Card(TEXT("Portable progress backup"),TEXT("Create a separate verified export. Copy it to another PC or keep it before changing versions."),TEXT("EXPORT"),50);
         Card(TEXT("Find your saves and exports"),TEXT("Opens the progress folder in your file browser."),TEXT("OPEN FOLDER"),49);
         Text(TEXT("To move from 0.12 or earlier: run Import_Progress.bat and select your old .sav file. It prepares a copy for review here. You can also paste an existing .sav / .ashenprofile path below. Import is available only in an offline hub."));

@@ -293,7 +293,7 @@ bool UASGameInstance::LoadCharacter() {
         }
         Profile.Sanitize();
         if((FoundStored||FoundLegacy)&&!LegacyLoaded) {bProgressBlocked=true;LastMessage=TEXT("Saved progress could not be read. Existing files have been preserved. Restore a backup from the Progress page.");}
-        else Commit(Profile);
+        else if(!Commit(Profile)) {bProgressBlocked=true;LastMessage=TEXT("A new character save could not be created. Check that the progress folder is writable.");}
     } else {
         FASProfileData Migrated=Profile;Migrated.Sanitize();
         if(Profile.MigrationVersion<20) {if(!Commit(Migrated)) bProgressBlocked=true;}

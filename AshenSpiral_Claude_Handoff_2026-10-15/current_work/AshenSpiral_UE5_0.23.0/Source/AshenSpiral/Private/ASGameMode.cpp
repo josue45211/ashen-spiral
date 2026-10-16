@@ -90,11 +90,17 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
     auto* S=AS::State(this);auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;if(!S||!PS) return;
     bool Valid=ID.Len()==32;for(TCHAR C:ID) if(!FChar::IsHexDigit(C)) Valid=false;
     if(!Valid) {PC->Notify(TEXT("Invalid profile ID. Restart with a writable save folder."));return;}
+    // A changed id is a hub character switch; if refused, the client must revert its local slot.
+    const bool Switching=!PS->ProfileId.IsEmpty()&&PS->ProfileId!=ID;
     for(auto P:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(P)) if(Other!=PS && Other->bProfileReady && Other->ProfileId==ID) {
-        PC->Notify(TEXT("Duplicate profile. Use a different -ProfileSlot for two local clients."));return;
+        PC->Notify(TEXT("Duplicate profile. Use a different -ProfileSlot for two local clients."));if(Switching) PC->ProfileRejected();return;
     }
     if(PS->bProfileReady && S->Phase!=EASPhase::Hub) return; // No mid-run loadout injection.
-    if(!PS->ProfileId.IsEmpty() && PS->ProfileId!=ID) {PC->Notify(TEXT("Reconnect profile differs from the profile used to join."));return;}
+    if(Switching) {
+        // Only a quiet hub may change character: no run, no unsaved receipts, no held reconnect.
+        if(S->Phase!=EASPhase::Hub||PS->bSavePending||PS->ReceiptQueue.Num()>0||Disconnected.Contains(PS->ProfileId)) {PC->Notify(TEXT("Character can only be switched in the hub with no pending saves."));PC->ProfileRejected();return;}
+        LiveSnapshots.Remove(PS->ProfileId);
+    }
     PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
     RestartPlayer(PC);auto* H=Cast<AASCharacter>(PC->GetPawn());if(!H) return;
     H->ColorIndex=PS->PlayerIndex;H->ApplyBuild(PS->Build,true);

@@ -194,6 +194,18 @@ void AASPlayerController::SubmitProfile_Implementation(const FString& ID,const F
     if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ProfileArrived(this,ID,Build,Experience,ColorChoice);
     SetCharacterTitle(TitleIndex,TitleTier);
 }
+void AASPlayerController::ResubmitProfile() {
+    if(auto* GI=GetGameInstance<UASGameInstance>()) SubmitProfile(GI->Profile.ProfileId,GI->Profile.Build,ASData::Protocol,GI->Profile.Experience,GI->Profile.ColorChoice,GI->bRaiseStakes,GI->Profile.TitleChoice,GI->Profile.TitleChoice>=0?ASCareer::Tier(GI->Profile.Career[GI->Profile.TitleChoice],GI->Profile.TitleChoice):0);
+}
+void AASPlayerController::ProfileRejected_Implementation() {
+    // The server refused the switch; return to the character it still has for us.
+    if(auto* GI=GetGameInstance<UASGameInstance>()) {
+        const FString Message=GI->LastMessage;
+        if(GI->SwitchCharacterSlot(GI->ActiveCharacterSlot==0?1:0)) ResubmitProfile();
+        GI->LastMessage=Message;
+        if(Menu.IsValid()) OpenMenu(Menu->Page,true);
+    }
+}
 void AASPlayerController::CancelActions_Implementation() {if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();}
 void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State(this);if(S&&S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) PS->bReady=Ready;}
 void AASPlayerController::StartRun_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginRun(this,Seed);}
@@ -321,6 +333,11 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
     else if(Code==52) {GI->NumberScale=.8f+.2f*FMath::Clamp(Index,0,4);GI->SaveHUDSettings();}
     else if(Code==53) {GI->HUDTextScale=GI->HUDTextScale<1.1f?1.2f:1.f;GI->SaveHUDSettings();}
     else if(Code==59) {GI->HUDScale=float(FMath::Clamp(Index,0,3)+1)*.25f;GI->SaveHUDSettings();}
+    else if(Code==71) {
+        if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Switch characters in the hub.");return;}
+        if(GI->SwitchCharacterSlot(Index)) ResubmitProfile();
+        Notice=GI->LastMessage;
+    }
     else if(Code==70) {GI->bReduceMotion=!GI->bReduceMotion;GI->SaveCameraSettings();ApplyCameraSettings();}
     else if(Code==54) {GI->ResetCameraSettings();ApplyCameraSettings();Notice=TEXT("Camera defaults restored and saved. Close this menu to check your view.");}
     else if(Code==55) {GI->CrosshairStyle=(GI->CrosshairStyle+1)%4;GI->SaveHUDSettings();}
