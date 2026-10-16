@@ -213,6 +213,15 @@ def validate():
             expedition=subprocess.run([str(expedition_exe)],check=True,text=True,capture_output=True).stdout.strip()
             (ROOT/'Tests/expedition_023_results.txt').write_text(expedition+'\n')
             check(expedition.startswith('PASS:'),'0.23 expedition rules (difficulty, Endless cadence, gambling odds, synergies) passed')
+            arena_exe=Path(d)/('boss_arena_023_tests.exe' if sys.platform=='win32' else 'boss_arena_023_tests')
+            arena_src=ROOT/'Tests/boss_arena_023_tests.cpp'
+            if Path(compiler).stem.lower()=='cl':
+                arena_cmd=[compiler,'/nologo','/std:c++17','/EHsc','/W4',str(arena_src),'/Fe:'+str(arena_exe)]
+            else: arena_cmd=[compiler,'-std=c++17','-O2','-Wall','-Wextra','-pedantic',str(arena_src),'-o',str(arena_exe)]
+            subprocess.run(arena_cmd,cwd=d,check=True)
+            arena=subprocess.run([str(arena_exe)],check=True,text=True,capture_output=True).stdout.strip()
+            (ROOT/'Tests/boss_arena_023_results.txt').write_text(arena+'\n')
+            check(arena.startswith('PASS:'),'0.23 boss arena layouts: structure, clearances and attack-aligned cover passed')
             career_exe=Path(d)/('career_tests.exe' if sys.platform=='win32' else 'career_tests')
             career_src=ROOT/'Tests/career_tests.cpp'
             if Path(compiler).stem.lower()=='cl':

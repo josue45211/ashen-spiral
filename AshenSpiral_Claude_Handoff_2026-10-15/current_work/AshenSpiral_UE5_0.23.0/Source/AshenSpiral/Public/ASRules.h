@@ -158,6 +158,52 @@ inline Layout Generate(std::uint32_t Seed) {
     for(int I=1;I<int(L.Cells.size());++I) if(Distance[I]>Distance[L.Exit]) L.Exit=I;
     return L;
 }
+// ---- Boss arenas (0.23 B7): one hand-authored arena per ward boss, designed around its attacks.
+// Shape >= BossShapeBase marks a bespoke boss layout. Cell 0 is the arena (boss at its centre,
+// players enter at the west edge), cell 1 is the reward alcove behind the east door.
+constexpr int BossShapeBase=10,BossArenaHalf=1800;
+inline constexpr float Pi180() {return 3.14159265358979323846f/180.f;}
+inline Layout GenerateBoss(int Ward) {
+    Layout L;L.Shape=BossShapeBase+std::clamp(Ward,0,WardCount-1);L.Width=2;L.Height=1;L.SpacingX=600;L.SpacingY=600;
+    Cell Arena;Arena.X=0;Arena.Y=0;Arena.SpanX=3;Arena.SpanY=3;Arena.HalfX=BossArenaHalf;Arena.HalfY=BossArenaHalf;
+    Cell Alcove;Alcove.X=1;Alcove.Y=0;Alcove.HalfX=600;Alcove.HalfY=600;
+    L.Cells={Arena,Alcove};L.Edges.push_back({0,1,false});L.Exit=1;
+    L.Cells[0].WorldX=0;L.Cells[0].WorldY=0;
+    L.Cells[1].WorldX=L.Cells[0].HalfX+L.Cells[1].HalfX+L.SpacingX;L.Cells[1].WorldY=0;
+    return L;
+}
+// Kind 0: collidable block (Length x Thickness, rotated by Yaw). Kind 1: non-colliding floor glow strip.
+// Kind 2: non-colliding floor ring (Length = diameter). Props sharing a Group may touch.
+struct BossProp {int Kind,Group;float X,Y,Length,Thickness,Yaw;};
+inline std::vector<BossProp> BossProps(int Ward) {
+    std::vector<BossProp> P;
+    Ward=std::clamp(Ward,0,WardCount-1);int G=0;
+    if(Ward==0) {
+        // Radial-shot boss: the 12/18-way ring fires along multiples of 30/20 degrees, so six pillars on the
+        // 60-degree rays are cover that always matters in both phases.
+        for(int K=0;K<6;++K) {const float A=K*60.f*Pi180();P.push_back({0,G++,800.f*std::cos(A),800.f*std::sin(A),150.f,150.f,K*60.f});}
+        P.push_back({2,G++,0,0,700,0,0});P.push_back({2,G++,0,0,1500,0,0});
+    } else if(Ward==1) {
+        // Charge boss: a serpentine of staggered walls makes charges end against stone and breaks straight lines.
+        const float Xs[4]={-800.f,-270.f,270.f,800.f},Ys[4]={750.f,-750.f,750.f,-750.f};
+        for(int K=0;K<4;++K) {P.push_back({0,G++,Xs[K],Ys[K],1000.f,120.f,90.f});P.push_back({1,G++,Xs[K]+((K%2)?-300.f:300.f),0,1600.f,60.f,90.f});}
+    } else if(Ward==2) {
+        // Inversion boss (wells are reversed in phase two): open ground for wells and dashes, low plinths only at the corners.
+        for(int SX:{-1,1}) for(int SY:{-1,1}) P.push_back({0,G++,SX*1300.f,SY*1300.f,220.f,220.f,45.f});
+        P.push_back({2,G++,0,0,1000,0,0});P.push_back({2,G++,0,0,1700,0,0});
+    } else {
+        // Blast-and-pull boss: a broken ring with four gates interrupts the phase-two pull; corner alcoves shelter blasts.
+        for(int K=0;K<4;++K) {
+            const float A=(45.f+90.f*K)*Pi180(),D=750.f*std::cos(30.f*Pi180());
+            P.push_back({0,G++,D*std::cos(A),D*std::sin(A),750.f,130.f,45.f+90.f*K+90.f});
+        }
+        for(int SX:{-1,1}) for(int SY:{-1,1}) {
+            const int Group=G++;P.push_back({0,Group,SX*1200.f,SY*950.f,500.f,120.f,0});P.push_back({0,Group,SX*950.f,SY*1200.f,500.f,120.f,90.f});
+        }
+        P.push_back({2,G++,0,0,1500,0,0});
+    }
+    return P;
+}
 inline int NextCell(const Layout& L,int From,int To)
 {
     if(From<0||To<0||From>=int(L.Cells.size())||To>=int(L.Cells.size())) return -1;

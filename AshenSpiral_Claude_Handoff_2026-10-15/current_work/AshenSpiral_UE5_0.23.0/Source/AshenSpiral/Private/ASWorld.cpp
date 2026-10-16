@@ -108,7 +108,7 @@ void AASWorld::Rebuild() {
     for(auto C:Labels) if(C) C->DestroyComponent();Labels.Empty();
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
     Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
-    if(Config.Room<0) MakeHub();else {Layout=ASRules::Generate(uint32(Config.Seed));MakeRoom();if(HasAuthority()) BuildNavigation();}
+    if(Config.Room<0) MakeHub();else {Layout=ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed));MakeRoom();if(HasAuthority()) BuildNavigation();}
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d"),
         Config.Room,Config.Generation,Batches.Num(),Stations.Num());
 }
@@ -197,6 +197,19 @@ void AASWorld::MakeHub() {
     Text(TEXT("ASHEN SPIRAL"),FVector(1550,0,750),180,70);
     Text(TEXT("THE EMBER NEXUS"),FVector(1550,0,650),180,30);
 }
+void AASWorld::BossArena(const FVector& Center) {
+    const int32 W=Ward();const FLinearColor Glow=ASData::BiomeColor(Biome());
+    const FLinearColor Stone=FLinearColor(.26f,.28f,.31f)*(W==1?.8f:1.f);
+    const FLinearColor Identity[4]={FLinearColor(.9f,.55f,.2f),FLinearColor(1.f,.2f,.08f),FLinearColor(.25f,.6f,1.f),FLinearColor(.7f,.15f,.9f)};
+    for(const auto& Prop:ASRules::BossProps(W)) {
+        const FVector At=Center+FVector(Prop.X,Prop.Y,0);
+        if(Prop.Kind==0) Add(TEXT("Cube"),FString::Printf(TEXT("BossCover%d"),W),At+FVector(0,0,160),FVector(Prop.Length/100.f,Prop.Thickness/100.f,3.2f),Stone,true,Prop.Yaw,0,.1f);
+        else if(Prop.Kind==1) Add(TEXT("Cube"),FString::Printf(TEXT("BossLane%d"),W),At+FVector(0,0,5),FVector(Prop.Length/100.f,Prop.Thickness/100.f,.05f),Identity[W],false,Prop.Yaw,3);
+        else Add(TEXT("SM_Ring"),FString::Printf(TEXT("BossSigil%d"),W),At+FVector(0,0,9),FVector(Prop.Length/100.f,Prop.Length/100.f,1),Identity[W],false,0,2.5f);
+    }
+    Light(Center+FVector(0,0,420),Identity[W],1800,2600);
+    (void)Glow;
+}
 void AASWorld::MakeRoom() {
     const FLinearColor Palette[5]={FLinearColor(.26f,.28f,.31f),FLinearColor(.19f,.15f,.17f),FLinearColor(.16f,.18f,.26f),FLinearColor(.24f,.27f,.19f),FLinearColor(.12f,.20f,.24f)};
     const FLinearColor Floor=Palette[Biome()],Glow=ASData::BiomeColor(Biome());
@@ -245,7 +258,8 @@ void AASWorld::MakeRoom() {
                 Add(TEXT("SM_Stalactite"),TEXT("CeilingMinerals"),P+FVector(X,Y,Roof-20),FVector(R.FRandRange(.5f,1.3f)),FLinearColor(.32f,.29f,.22f),true,R.FRandRange(0,360));
             }
         }
-        if(Biome()==0) Archives(P,I);else {Props(P,I,R);Landmarks(P,I);}
+        if(HasBossArena()&&I==0) BossArena(P);
+        else if(Biome()==0) Archives(P,I);else {Props(P,I,R);Landmarks(P,I);}
         if(I%4==2 && I!=Layout.Exit) {
             const FVector W=P+FVector(200,220,9);Water.Add(W);
             Add(TEXT("Cylinder"),TEXT("Water"),W,FVector(3.8f,3.8f,.025f),FLinearColor(.045f,.19f,.24f),false,0,.35f,.6f);
@@ -421,7 +435,10 @@ FVector AASWorld::CellPosition(int32 I) const {
     if(I<0||I>=int32(Layout.Cells.size())) return FVector::ZeroVector;
     return FVector(Layout.Cells[I].WorldX-Layout.Cells[0].WorldX,Layout.Cells[I].WorldY-Layout.Cells[0].WorldY,0);
 }
-FVector AASWorld::SpawnPoint(int32 I) const {return CellPosition(0)+FVector(-210,I==0?-100:100,100);}
+FVector AASWorld::SpawnPoint(int32 I) const {
+    if(HasBossArena()) return CellPosition(0)+FVector(-ASRules::BossArenaHalf+450.f,I==0?-150.f:150.f,100);
+    return CellPosition(0)+FVector(-210,I==0?-100:100,100);
+}
 FVector AASWorld::ExitPoint() const {return CellPosition(Layout.Exit)+FVector(-220,0,0);}
 int32 AASWorld::NearestCell(const FVector& P) const {
     int32 Best=0;double D=DBL_MAX;for(int32 I=0;I<int32(Layout.Cells.size());++I) {const FVector Offset=P-CellPosition(I);const auto Half=CellHalfSize(I);const double T=FMath::Square(FMath::Max(0.0,FMath::Abs(Offset.X)-Half.X))+FMath::Square(FMath::Max(0.0,FMath::Abs(Offset.Y)-Half.Y));if(T<D){D=T;Best=I;}}return Best;

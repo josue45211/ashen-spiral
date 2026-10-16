@@ -240,6 +240,8 @@ void AASGameMode::QueueWave() {
             for(auto W:S->Heroes) if(auto* H=W.Get()) if(FVector::DistSquared2D(P,H->GetActorLocation())<550*550) Clear=false;
             if(Clear) break;P=S->Arena->EnemySpawn(Center,Random);
         }
+        // Bespoke boss arenas: the boss always rises from the centre of its arena.
+        if(ASRules::Boss(S->Room)&&S->Arena->HasBossArena()) P=S->Arena->BossSpawn();
         S->SpawnWarnings.Add(P);
     }
     S->Phase=EASPhase::Countdown;S->CountdownEnd=S->SimTime+3.f;NextSpawn=S->CountdownEnd;

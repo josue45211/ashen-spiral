@@ -65,6 +65,8 @@ public:
     FVector ShrinePoint() const {return CellPosition(1)+FVector(0,260,0);}
     FVector InteractionPoint(int32 Id) const;
     void InteractionCandidates(TArray<int32>& Ids) const;
+    bool HasBossArena() const {return Layout.Shape>=ASRules::BossShapeBase;}
+    FVector BossSpawn() const {return CellPosition(0)+FVector(0,0,240);}
     int32 Ward() const {return ASRules::Ward(Config.Room);}
 private:
     UPROPERTY() TMap<FName,TObjectPtr<UHierarchicalInstancedStaticMeshComponent>> Batches;
@@ -86,6 +88,7 @@ private:
     void Text(const FString& Value,const FVector& Position,float Yaw,float Size=32.f);
     void MakeHub();
     void MakeRoom();
+    void BossArena(const FVector& Center);
     void Archives(const FVector& Center,int32 Index);
     void Props(const FVector& Center,int32 Index,FRandomStream& Random);
     void Landmarks(const FVector& Center,int32 Index);
