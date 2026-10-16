@@ -59,6 +59,9 @@ public:
     int32 StationAt(const FVector& P,FString* Label=nullptr) const;
     int32 Biome() const {return ASAdventure::Biome(Config.Room);}
     bool HasShrine() const {return Config.Room>=0&&Config.Room%3==2&&Layout.Cells.size()>2;}
+    // TUNABLE: the wishing well stands in shrine rooms (every third chamber), opposite the Ember Bargain.
+    bool HasWell() const {return HasShrine();}
+    FVector WellPoint() const {return CellPosition(1)+FVector(0,-260,0);}
     FVector ShrinePoint() const {return CellPosition(1)+FVector(0,260,0);}
     FVector InteractionPoint(int32 Id) const;
     void InteractionCandidates(TArray<int32>& Ids) const;

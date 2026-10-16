@@ -12,6 +12,7 @@ struct FASReconnect {
     int32 Relics=0,PlayerIndex=1,Ammo=0;
     float ReloadStart=0,ReloadEnd=0,NextAttack=0,NextHammerLeap=0;
     bool Mercy=false,SecondWind=false,Claimed=false;
+    int32 LastGambleRoom=-100;
     TArray<int32> Offers;
     TArray<int32> RunRanks;
     TArray<int32> TraitRanks;
@@ -46,6 +47,7 @@ public:
     void SpawnMinion(const FVector& Position);
     void Interact(AASPlayerController* PC,int32 Target=0);
     void UseShrine(AASPlayerController* PC);
+    void GambleAtWell(AASPlayerController* PC,int32 StakeIndex);
     void BackToHub();
     bool ReturningToHub() const {return bHubPending;}
     void EndRun(bool Victory);

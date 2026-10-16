@@ -21,7 +21,7 @@ void CaptureTraits(AASCharacter* H,AASPlayerState* PS,FASReconnect& R) {
     R.TraitRanks=H->TraitRanks;R.EvolutionMask=H->EvolutionMask;R.LastUpgrade=H->LastUpgrade;R.Rerolls=H->Rerolls;R.CurseStacks=H->CurseStacks;
     R.Focus=H->Focus;R.NextRune=H->NextRune;R.ConduitHits=H->ConduitHits;R.PhoenixUsed=H->bPhoenixUsed;R.GoldRemainder=H->GoldRemainder;
     R.RoomBuffUntil=H->RoomBuffUntil;R.KillBuffUntil=H->KillBuffUntil;R.DashCharges=H->Movement()->DashCharges;R.DashRecharge=H->Movement()->DashRecharge;R.AirDashesUsed=H->Movement()->AirDashesUsed;
-    R.WagerVote=PS->bWagerVote;R.ShrineUsed=PS->bShrineUsed;R.WarCryUntil=H->WarCryUntil;R.ReceiptQueue=PS->ReceiptQueue;
+    R.WagerVote=PS->bWagerVote;R.ShrineUsed=PS->bShrineUsed;R.LastGambleRoom=PS->LastGambleRoom;R.WarCryUntil=H->WarCryUntil;R.ReceiptQueue=PS->ReceiptQueue;
 }
 }
 AASGameMode::AASGameMode() {
@@ -118,7 +118,7 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
         H->Focus=Saved->Focus;H->NextRune=Saved->NextRune;H->ConduitHits=Saved->ConduitHits;H->bPhoenixUsed=Saved->PhoenixUsed;H->GoldRemainder=Saved->GoldRemainder;
         H->RoomBuffUntil=Saved->RoomBuffUntil;H->KillBuffUntil=Saved->KillBuffUntil;H->Movement()->DashCharges=Saved->DashCharges;
         H->Movement()->KnownDashCapacity=H->MaxDashCharges();H->Movement()->DashRecharge=Saved->DashRecharge;H->Movement()->AirDashesUsed=FMath::Clamp(Saved->AirDashesUsed,0,H->MaxDashCharges());
-        PS->bWagerVote=Saved->WagerVote;PS->bShrineUsed=Saved->ShrineUsed;H->WarCryUntil=Saved->WarCryUntil;PS->ReceiptQueue=Saved->ReceiptQueue;
+        PS->bWagerVote=Saved->WagerVote;PS->bShrineUsed=Saved->ShrineUsed;PS->LastGambleRoom=Saved->LastGambleRoom;H->WarCryUntil=Saved->WarCryUntil;PS->ReceiptQueue=Saved->ReceiptQueue;
         H->NextSpiral=Saved->NextSpiral;H->bDowned=H->Health<=0;H->bMercyUsed=Saved->Mercy;H->bSecondWindUsed=Saved->SecondWind;
         if(!Saved->Receipt.Id.IsEmpty()) SendReceipt(PS,Saved->Receipt);
         Disconnected.Remove(ID);S->bConnectionHold=false;S->ReconnectRemaining=0;PC->Notify(TEXT("Rejoined the expedition."));
@@ -166,7 +166,7 @@ void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
     S->bPartyPaused=false;AbandonReconnect();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         auto* PS=H->GetPlayerState<AASPlayerState>();if(!PS) continue;
-        H->ApplyBuild(PS->Build,true);S->Cinders+=H->Rank(13)*10;
+        PS->LastGambleRoom=-100;H->ApplyBuild(PS->Build,true);S->Cinders+=H->Rank(13)*10;
     }
     EnterRoom(0);
 }
@@ -476,6 +476,23 @@ bool AASGameMode::InteractVault(AASPlayerController* PC,int32 Target) {
     S->Effect(7,S->Arena->VaultPoint(3)+FVector(0,0,90),FVector::UpVector,FLinearColor(.2f,.7f,1),250);return true;
 }
 
+void AASGameMode::GambleAtWell(AASPlayerController* PC,int32 StakeIndex) {
+    auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;
+    if(!S||!H||!PS||!PS->bProfileReady||!S->Arena||!S->Arena->HasWell()||H->bDowned||S->Frozen()||!(S->Phase==EASPhase::Reward||S->Phase==EASPhase::Combat)||S->bCindersBanked) return;
+    const FVector At=S->Arena->WellPoint();
+    if(!ASAdventure::InReach(FVector::DistSquared2D(H->GetActorLocation(),At),H->GetActorLocation().Z-At.Z)||!AS::ClearSight(GetWorld(),H->GetActorLocation(),At+FVector(0,0,210))) {PC->Notify(TEXT("Stand next to the wishing well with a clear path."));return;}
+    // One spin per player per well; each room has its own well. The key is consumed before the roll
+    // so a repeated RPC cannot spin twice, and it is carried in the reconnect snapshot.
+    if(PS->LastGambleRoom==S->Room) {PC->Notify(TEXT("You have already made your wish at this well."));return;}
+    const int32 Stake=ASExpedition::GambleStake(S->Cinders,StakeIndex);
+    if(Stake<=0) {PC->Notify(FString::Printf(TEXT("You need at least %d Cinders to make a wish."),ASExpedition::GambleMinimum));return;}
+    PS->LastGambleRoom=S->Room;PS->ForceNetUpdate();
+    const int32 Before=S->Cinders,Multiplier=ASExpedition::GambleMultiplier(Random.RandRange(0,99),Before);
+    S->Cinders=ASExpedition::GambleBalance(Before,Stake,Multiplier);S->ForceNetUpdate();
+    const FString Result=Multiplier==0?FString::Printf(TEXT("The well takes %d Cinders."),Stake):(Multiplier==1?TEXT("The well returns your stake."):FString::Printf(TEXT("WISH GRANTED x%d: +%d Cinders!"),Multiplier,Stake*(Multiplier-1)));
+    for(auto P:S->PlayerArray) if(auto* Other=Cast<AASPlayerState>(P)) if(auto* OtherPC=Cast<AASPlayerController>(Other->GetOwner())) OtherPC->Notify(FString::Printf(TEXT("Player %d staked %d Cinders. %s"),PS->PlayerIndex+1,Stake,*Result));
+    S->Effect(7,At,FVector::UpVector,Multiplier==0?FLinearColor(.5f,.05f,.05f):FLinearColor(.3f,.9f,1),Multiplier>=5?320.f:180.f);
+}
 void AASGameMode::UseShrine(AASPlayerController* PC) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;
     if(!S||!H||!PS||!PS->bProfileReady||!S->Arena||!S->Arena->HasShrine()||H->bDowned||S->Frozen()||PS->bShrineUsed||!(S->Phase==EASPhase::Reward||S->Phase==EASPhase::Combat)) return;

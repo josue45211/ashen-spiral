@@ -44,5 +44,10 @@ int main() {
     Check(!DifficultyUnlocked(2,4)&&!DifficultyUnlocked(1,6),"unlocks require the previous tier, not just any clear");
     Check(ClearedMask(1,0)==1&&ClearedMask(0,0)==0&&ClearedMask(0,0xFF)==7,"older saves with wins count as Normal-beaten; mask is sanitized");
     Check(EndlessUnlocked(1)&&!EndlessUnlocked(0)&&!EndlessUnlocked(6),"Endless needs a Normal clear");
+    Check(GambleStake(9,0)==0&&GambleStake(0,2)==0,"below the minimum there is no stake");
+    Check(GambleStake(10,0)==10&&GambleStake(40,0)==10&&GambleStake(100,0)==25&&GambleStake(100,1)==50&&GambleStake(100,2)==100,"stake is derived from the index: 25%/50%/all, never below the minimum");
+    for(int C=0;C<3000;C+=7) for(int I=-2;I<6;++I) Check(GambleStake(C,I)>=0&&GambleStake(C,I)<=C,"a stake can never exceed the balance, even for out-of-range indices");
+    Check(GambleBalance(100,25,0)==75&&GambleBalance(100,25,1)==100&&GambleBalance(100,25,2)==125&&GambleBalance(100,100,10)==1000,"balance after a spin: loss, refund, x2, x10");
+    Check(GambleBalance(100,25,-3)==75&&GambleBalance(100,500,2)==200&&GambleBalance(0,0,5)==0,"negative multipliers cannot mint money");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

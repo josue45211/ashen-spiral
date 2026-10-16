@@ -129,6 +129,7 @@ void AASPlayerController::Interact() {
     if(Page>0&&!ASAdventure::InReach(FVector::DistSquared2D(H->GetActorLocation(),S->Arena->InteractionPoint(Page)),H->GetActorLocation().Z-S->Arena->InteractionPoint(Page).Z)) {Notify(TEXT("Move closer to interact."));return;}
     if(Page==9&&S->Phase==EASPhase::Victory) {InteractServer(9);return;}
     if(Page==220) {OpenMenu(18);return;}
+    if(Page==221) {OpenMenu(21);return;}
     if(Page>=201&&Page<=203) {InteractServer(Page);return;}
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}
     else if(S->Phase==EASPhase::Hub&&Page>0) OpenMenu(Page);
@@ -211,6 +212,7 @@ void AASPlayerController::ProfileRejected_Implementation() {
 void AASPlayerController::CancelActions_Implementation() {if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();}
 void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State(this);if(S&&S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) PS->bReady=Ready;}
 void AASPlayerController::SetDifficulty_Implementation(int32 Difficulty) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->SetDifficulty(this,Difficulty);}
+void AASPlayerController::GambleAtWell_Implementation(int32 StakeIndex) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->GambleAtWell(this,StakeIndex);}
 void AASPlayerController::StartRun_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginRun(this,Seed);}
 void AASPlayerController::ChooseReward_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Reward(this,Index);}
 void AASPlayerController::RerollRewards_Implementation() {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Reroll(this);}
@@ -341,6 +343,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         if(GI->SwitchCharacterSlot(Index)) ResubmitProfile();
         Notice=GI->LastMessage;
     }
+    else if(Code==73) {GambleAtWell(Index);}
     else if(Code==72) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Difficulty is chosen in the hub.");return;}
         SetDifficulty(Index);Notice=TEXT("Difficulty selection sent to the host.");

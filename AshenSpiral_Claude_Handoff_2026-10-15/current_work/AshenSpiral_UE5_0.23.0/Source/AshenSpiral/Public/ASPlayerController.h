@@ -42,6 +42,7 @@ public:
     UFUNCTION(Server,Reliable) void SetCharacterTitle(int32 Index,int32 Tier);
     UFUNCTION(Server,Reliable) void SetCharacterColor(int32 Choice);
     UFUNCTION(Server,Reliable) void UseShrine();
+    UFUNCTION(Server,Reliable) void GambleAtWell(int32 StakeIndex);
     UFUNCTION(Server,Reliable) void TryWeapon(int32 Weapon);
     UFUNCTION(Client,Reliable) void RequestProfile();
     UFUNCTION(Server,Reliable) void SubmitProfile(const FString& Id,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice,bool RaiseStakes,int32 TitleIndex,int32 TitleTier,int32 ClearedMask);

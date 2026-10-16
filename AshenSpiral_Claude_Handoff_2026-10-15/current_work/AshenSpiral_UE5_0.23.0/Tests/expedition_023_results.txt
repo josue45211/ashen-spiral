@@ -1,1 +1,1 @@
-PASS: 1148 expedition rule checks.
+PASS: 4584 expedition rule checks.

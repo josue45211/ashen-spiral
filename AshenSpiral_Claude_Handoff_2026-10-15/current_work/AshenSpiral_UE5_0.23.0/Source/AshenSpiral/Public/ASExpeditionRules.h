@@ -49,6 +49,18 @@ inline int ShuffleWaves(std::uint32_t Roll) {
 }
 inline float ShuffleSeconds(float Roll) {return 120.f+60.f*std::clamp(Roll,0.f,1.f);}
 inline bool ShopAppears(int Wave,float Roll) {return Wave>=10&&Roll<.15f;}
+// Wishing-well stakes are chosen by index; the server derives the amount so a client can never name its own stake.
+constexpr int GambleMinimum=10;
+inline int GambleStake(int Cinders,int Index) {
+    if(Cinders<GambleMinimum) return 0;
+    const int Percent[]={25,50,100};const int P=Percent[std::clamp(Index,0,2)];
+    return std::clamp(std::max(GambleMinimum,int(std::int64_t(Cinders)*P/100)),GambleMinimum,Cinders);
+}
+// Returns the balance after one resolved spin. Multipliers include the stake return.
+inline int GambleBalance(int Cinders,int Stake,int Multiplier) {
+    Cinders=std::max(0,Cinders);Stake=std::clamp(Stake,0,Cinders); // a stake can never exceed what is held
+    return int(std::min<std::int64_t>(std::int64_t(Cinders-Stake)+std::int64_t(Stake)*std::max(0,Multiplier),1000000000));
+}
 struct GambleOdds {int Loss,Refund,Double,Five,Ten;};
 inline GambleOdds Odds(int Ash) {return Ash<=50?GambleOdds{45,25,24,5,1}:(Ash>=1000?GambleOdds{50,20,22,7,1}:GambleOdds{60,20,17,2,1});}
 inline int GambleMultiplier(int Roll,int Ash) {

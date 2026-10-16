@@ -298,6 +298,11 @@ void AASWorld::MakeRoom() {
         Add(TEXT("SM_Ring"),TEXT("BargainSigil"),ShrinePoint()+FVector(0,0,8),FVector(1.6f,1.6f,1),FLinearColor(1,.5f,.15f),false,0,2);
         Text(TEXT("EMBER BARGAIN / E"),ShrinePoint()+FVector(0,0,220),180,23);
     }
+    if(HasWell()) {
+        Add(TEXT("SM_Ring"),TEXT("WishingWellRim"),WellPoint()+FVector(0,0,10),FVector(1.4f,1.4f,1),FLinearColor(.1f,.45f,.62f),true,0,.8f);
+        Add(TEXT("SM_Ring"),TEXT("WishingWellWater"),WellPoint()+FVector(0,0,24),FVector(1.0f,1.0f,1),FLinearColor(.2f,.8f,1),false,0,3);
+        Text(TEXT("WISHING WELL / E"),WellPoint()+FVector(0,0,220),180,23);
+    }
     const FVector Exit=ExitPoint();
     if(ASRules::Final(Config.Room)) {
         Add(TEXT("SM_Arch"),TEXT("ReturnPortalArch"),Exit,FVector(1.35f),Floor,true);
@@ -675,6 +680,7 @@ int32 AASWorld::VaultInteraction(const FVector& P) const {
 }
 int32 AASWorld::StationAt(const FVector& P,FString* Label) const {
     if(HasShrine()&&ASAdventure::InReach(FVector::DistSquared2D(P,ShrinePoint()),P.Z-ShrinePoint().Z)) {if(Label) *Label=TEXT("Ember bargain / trade health for a trait");return 220;}
+    if(HasWell()&&ASAdventure::InReach(FVector::DistSquared2D(P,WellPoint()),P.Z-WellPoint().Z)) {if(Label) *Label=TEXT("Wishing well / stake Cinders");return 221;}
     const int32 Vault=VaultInteraction(P);if(Vault) {if(Label) *Label=Vault==3?TEXT("Rune vault cache / both sigils required"):FString::Printf(TEXT("Activate vault sigil %d"),Vault);return 200+Vault;}
     const int32 Weapon=WeaponAt(P);if(Weapon>=0) {if(Label)*Label=FString(ASData::Weapons[Weapon].Name)+TEXT(" / inspect, buy or practice");return 100+Weapon;}
     if(Config.Room<0) {for(const auto& S:Stations) if(FVector::DistSquared2D(P,S.Position)<=320*320) {if(Label)*Label=S.Name;return S.Menu;}}
@@ -685,6 +691,7 @@ int32 AASWorld::StationAt(const FVector& P,FString* Label) const {
 FVector AASWorld::InteractionPoint(int32 Id) const {
     if(Id>=201&&Id<=203) return VaultPoint(Id-200)+FVector(0,0,80);
     if(Id==220) return ShrinePoint()+FVector(0,0,210);
+    if(Id==221) return WellPoint()+FVector(0,0,210);
     if(Id>=100&&Id<100+ASRules::WeaponCount) return WeaponStand(Id-100)+FVector(0,0,165);
     if(Id==9) return ExitPoint()+FVector(0,0,95);
     for(const auto& S:Stations) if(S.Menu==Id) return S.Position+FVector(0,0,150);
@@ -692,7 +699,7 @@ FVector AASWorld::InteractionPoint(int32 Id) const {
 }
 void AASWorld::InteractionCandidates(TArray<int32>& Ids) const {
     if(Config.Room<0) {for(const auto& S:Stations) Ids.Add(S.Menu);for(int32 I=0;I<ASRules::WeaponCount;++I) Ids.Add(100+I);}
-    else {Ids.Add(9);if(HasVault()) {Ids.Add(201);Ids.Add(202);Ids.Add(203);}if(HasShrine()) Ids.Add(220);}
+    else {Ids.Add(9);if(HasVault()) {Ids.Add(201);Ids.Add(202);Ids.Add(203);}if(HasShrine()) Ids.Add(220);if(HasWell()) Ids.Add(221);}
 }
 
 bool AASWorld::WallTrapPath(int32 Cell,FVector& Start,FVector& End) const {

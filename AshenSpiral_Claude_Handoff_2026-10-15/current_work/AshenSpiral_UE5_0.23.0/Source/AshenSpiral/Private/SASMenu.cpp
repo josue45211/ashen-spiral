@@ -224,6 +224,17 @@ void SASMenu::Construct(const FArguments& Args) {
             Card(ASData::Weapons[I].Name,ASData::Weapons[I].Desc,P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
         }
         Card(TEXT("Spiral styles"),TEXT("Change how your ability pulls, slows, shields, or collapses."),TEXT("SANCTUM"),10,3);
+    } else if(Page==21) {
+        const int32 Pool=S?S->Cinders:0;const auto Odds=ASExpedition::Odds(Pool);
+        Text(TEXT("Stake Cinders for one wish. One wish per player at each well. The result is decided by the host's server, never by your game."));
+        Text(FString::Printf(TEXT("Cinders in the pool: %d. Minimum stake: %d."),Pool,ASExpedition::GambleMinimum),18,ASMenuGold);
+        Text(FString::Printf(TEXT("Odds at this balance: %d%% lose the stake, %d%% stake back, %d%% x2, %d%% x5, %d%% x10."),Odds.Loss,Odds.Refund,Odds.Double,Odds.Five,Odds.Ten),16);
+        const bool Spent=PS&&S&&PS->LastGambleRoom==S->Room;
+        for(int32 I=0;I<3;++I) {
+            const int32 Stake=ASExpedition::GambleStake(Pool,I);
+            Card(FString::Printf(TEXT("Stake %d Cinders"),Stake),FString::Printf(TEXT("Lose: -%d. Best case: x10 = %d Cinders back (+%d)."),Stake,Stake*10,Stake*9),Stake>0?TEXT("MAKE A WISH"):TEXT("TOO FEW CINDERS"),73,I,Stake>0&&!Spent&&Hero&&!Hero->bDowned);
+        }
+        if(Spent) Text(TEXT("You have already made your wish at this well."),18,ASMenuGold);
     } else if(Page==18) {
         Text(TEXT("Trade current health for a random build-compatible upgrade. This is optional and can be used once per player in each shrine room."));
         const float Cost=Hero?ASAdventure::ShrineCost(Hero->MaxHealth):0.f;

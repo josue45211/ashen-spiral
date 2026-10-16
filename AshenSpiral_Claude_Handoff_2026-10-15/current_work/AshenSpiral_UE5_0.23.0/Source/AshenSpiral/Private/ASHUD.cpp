@@ -254,6 +254,7 @@ void AASHUD::DrawHUD() {
         if(StationId==201||StationId==202) {Done=(S->VaultMask&(1<<(StationId-201)))!=0;Station=Done?TEXT("SIGIL ACTIVATED"):TEXT("ACTIVATE SIGIL");}
         else if(StationId==203) {Done=S->bVaultClaimed;Station=Done?TEXT("VAULT COLLECTED"):(S->VaultMask==3?TEXT("OPEN RUNE VAULT"):TEXT("VAULT / ACTIVATE BOTH SIGILS"));}
         else if(StationId==220) Station=TEXT("EMBER BARGAIN / TRADE HEALTH");
+        else if(StationId==221) Station=TEXT("WISHING WELL / STAKE CINDERS");
         else if(StationId==9) Station=S->Phase==EASPhase::Victory?TEXT("RETURN TO HUB / BOTH PLAYERS"):TEXT("REWARD CHEST / NEXT ROOM");
         else if(StationId>=100&&StationId<100+ASRules::WeaponCount) Station=ASData::Weapons[StationId-100].Name;
         else for(const auto& Item:S->Arena->Stations) if(Item.Menu==StationId) Station=Item.Name.Replace(TEXT("\n"),TEXT(" / "));
