@@ -154,4 +154,11 @@ constexpr float DashGhostSpeed=1500.f,DashGhostSpacing=.03f,DashGhostLife=.28f;c
 inline bool DashGhostDue(float PlanarSpeed,float Now,float NextAt) {return std::isfinite(PlanarSpeed)&&PlanarSpeed>DashGhostSpeed&&Now>=NextAt;}
 inline float DashGhostAlpha(float Age) {const float T=std::clamp(Age/DashGhostLife,0.f,1.f);return (1.f-T)*(1.f-T);}
 inline float DashGhostShrink(float Age) {const float T=std::clamp(Age/DashGhostLife,0.f,1.f);return 1.f-.45f*T;}
+
+// ---- Menu button juice: hover swell, quick press squash, eased between states. Looks only.
+constexpr float ButtonHover=1.045f,ButtonPress=.94f,ButtonTween=.09f;
+inline float ButtonScaleTarget(bool Hover,bool Press,bool Enabled) {return !Enabled?1.f:(Press?ButtonPress:(Hover?ButtonHover:1.f));}
+inline float ButtonScaleAt(float From,float To,float Age) {
+    const float T=std::clamp(Age/ButtonTween,0.f,1.f);const float Ease=1.f-(1.f-T)*(1.f-T);return From+(To-From)*Ease;
+}
 }

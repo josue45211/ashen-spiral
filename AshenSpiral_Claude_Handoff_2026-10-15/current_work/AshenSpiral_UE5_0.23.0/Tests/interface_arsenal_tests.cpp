@@ -121,6 +121,12 @@ int main() {
         Check(DashGhostShrink(0)==1.f&&Near(DashGhostShrink(DashGhostLife),.55f)&&DashGhostCap>=10&&DashGhostCap<=30,"afterimages shrink and are capped");
         Check(DashGhostSpacing*DashGhostCap>=DashGhostLife,"the cap never starves a continuous dash trail");
     }
+    {
+        Check(ButtonScaleTarget(false,false,true)==1.f&&ButtonScaleTarget(true,false,true)>1.f&&ButtonScaleTarget(true,true,true)<1.f&&ButtonScaleTarget(true,true,false)==1.f,"hover swells, press squashes, disabled buttons stay still");
+        Check(Near(ButtonScaleAt(1.f,ButtonHover,0.f),1.f)&&Near(ButtonScaleAt(1.f,ButtonHover,ButtonTween),ButtonHover)&&ButtonScaleAt(1.f,ButtonHover,ButtonTween*.5f)>1.f&&ButtonScaleAt(1.f,ButtonHover,ButtonTween*.5f)<ButtonHover,"button scale eases to its target quickly");
+        for(float A=-1;A<1;A+=.01f) {const float V=ButtonScaleAt(ButtonPress,ButtonHover,A);Check(V>=ButtonPress-.001f&&V<=ButtonHover+.001f,"button scale never overshoots");}
+        Check(ButtonTween<=.12f,"button animation stays snappy");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }

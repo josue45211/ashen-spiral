@@ -8,6 +8,9 @@
 #include "ASGameState.h"
 #include "ASCharacter.h"
 #include "ASRules.h"
+#include "ASPresentationRules.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
 #include "Widgets/SOverlay.h"
 #include "Widgets/SBoxPanel.h"
 #include "Widgets/Layout/SBorder.h"
@@ -67,10 +70,31 @@ FReply SASMenu::OnKeyDown(const FGeometry& G,const FKeyEvent& Event) {
     }
     return SCompoundWidget::OnKeyDown(G,Event);
 }
+namespace {
+// Per-button animation state shared by the hover/press lambdas and the render-transform attribute.
+struct FASButtonJuice {bool Hover=false,Press=false;float From=1.f,To=1.f;double Changed=-10.0;};
+float ButtonJuiceScale(const FASButtonJuice& J) {
+    return ASPresentation::ButtonScaleAt(J.From,J.To,float(FSlateApplication::Get().GetCurrentTime()-J.Changed));
+}
+void ButtonJuiceSet(FASButtonJuice& J,bool Hover,bool Press) {
+    J.From=ButtonJuiceScale(J);J.Hover=Hover;J.Press=Press;J.To=ASPresentation::ButtonScaleTarget(Hover,Press,true);J.Changed=FSlateApplication::Get().GetCurrentTime();
+}
+}
 TSharedRef<SWidget> SASMenu::Button(const FString& Title,int32 Code,int32 Index) {
     const auto Weak=PC;
+    const TSharedRef<FASButtonJuice> Juice=MakeShared<FASButtonJuice>();
     return SNew(SButton).ContentPadding(FMargin(14,10)).HAlign(HAlign_Center).VAlign(VAlign_Center)
         .ButtonColorAndOpacity(FLinearColor(.055f,.16f,.18f)).ForegroundColor(FLinearColor::White)
+        .RenderTransformPivot(FVector2D(.5f,.5f))
+        .RenderTransform_Lambda([Juice](){const float Scale=ButtonJuiceScale(*Juice);return TOptional<FSlateRenderTransform>(FSlateRenderTransform(FScale2D(Scale)));})
+        .OnHovered_Lambda([Weak,Juice](){
+            ButtonJuiceSet(*Juice,true,Juice->Press);
+            // Placeholder hover tick: quiet, high-pitched existing sound.
+            if(auto* C=Weak.Get()) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySound2D(C,Cue,.12f,1.9f);
+        })
+        .OnUnhovered_Lambda([Juice](){ButtonJuiceSet(*Juice,false,false);})
+        .OnPressed_Lambda([Juice](){ButtonJuiceSet(*Juice,Juice->Hover,true);})
+        .OnReleased_Lambda([Juice](){ButtonJuiceSet(*Juice,Juice->Hover,false);})
         .OnClicked_Lambda([Weak,Code,Index](){if(auto* C=Weak.Get()) C->Action(Code,Index);return FReply::Handled();})
         [SNew(STextBlock).Text(Txt(Title)).Font(Font(14,true)).Justification(ETextJustify::Center)
             .WrapTextAt(ButtonTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)];
