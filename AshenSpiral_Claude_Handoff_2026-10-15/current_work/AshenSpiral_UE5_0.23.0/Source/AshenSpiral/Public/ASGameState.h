@@ -60,6 +60,7 @@ public:
     UPROPERTY(Replicated) float SimTime=0;
     UPROPERTY(Replicated) float CountdownEnd=0;
     UPROPERTY(Replicated) int32 Difficulty=0;
+    UPROPERTY(Replicated) bool bEnteringPortal=false;
     UPROPERTY(Replicated) bool bEndless=false;
     UPROPERTY(Replicated) int32 EndlessWave=0;
     UPROPERTY(Replicated) int32 ClearedEndlessWave=0;

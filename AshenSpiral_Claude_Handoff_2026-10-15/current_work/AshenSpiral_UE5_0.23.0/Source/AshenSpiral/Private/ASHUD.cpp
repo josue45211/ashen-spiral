@@ -342,6 +342,7 @@ void AASHUD::DrawHUD() {
     if(S->SimTime-PC->LastCritAt<.2f) {
         const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}
     }
+    if(S->bEnteringPortal) {Box(0,0,Width,Height,FLinearColor(0,0,0,.16f));Text(TEXT("ENTERING THE SPIRAL"),CX-145,Height*.75f,ASHudGold,.9f);}
     if(S->Frozen()) {
         Group(CX-380*UI,CY-45*UI,UI);
         Text(S->bConnectionHold?FString::Printf(TEXT("PARTNER DISCONNECTED  /  REJOIN WINDOW %.0fs"),S->ReconnectRemaining):TEXT("PARTY PAUSED  /  PRESS ESC TO RESUME"),20,15,ASHudGold,.85f);

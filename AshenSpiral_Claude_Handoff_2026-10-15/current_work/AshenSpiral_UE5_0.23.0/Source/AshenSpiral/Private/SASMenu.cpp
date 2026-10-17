@@ -201,20 +201,8 @@ void SASMenu::Construct(const FArguments& Args) {
             FString Status;auto* Local=Weak.Get();auto* State=Local?AS::State(Local):nullptr;if(!State) return Txt(TEXT("Waiting for host..."));
             for(auto V:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(V)) Status+=FString::Printf(TEXT("PLAYER %d / LEVEL %d / %s\n%s   |   %s\n"),Player->PlayerIndex+1,Player->CharacterLevel,*ASData::CareerTitle(Player->TitleIndex,Player->TitleTier),Player->bProfileReady?(Player->bReady?TEXT("READY"):TEXT("NOT READY")):TEXT("LOADING PROFILE"),ASData::Weapons[Player->Build.Weapon].Name);
             return Txt(Status);})];
-        Input(TEXT("Deterministic expedition seed"),2);
         Card(TEXT("Your readiness"),TEXT("Changing a weapon, style, or permanent upgrade resets your ready check. Solo expeditions do not require the ready toggle."),TEXT("TOGGLE READY"),30,0,Hub&&PS&&PS->bProfileReady);
-        {
-            const int32 Chosen=S?S->Difficulty:0;const bool Chooser=Hub&&PS&&PS->PlayerIndex==0;
-            const TCHAR* Names[3]={TEXT("Normal"),TEXT("Hard"),TEXT("Very Hard")};
-            const TCHAR* Details[3]={TEXT("Baseline enemy health and damage. Standard reward quality."),TEXT("Enemies have +50% health and deal +30% damage. Reward quality +25%."),TEXT("Enemies have +110% health and deal +60% damage. Reward quality +50%.")};
-            const int32 Cleared=PS?PS->ClearedMask:0;
-            for(int32 D=0;D<3;++D) {
-                const bool Open=ASExpedition::DifficultyUnlocked(D,Cleared);
-                const FString Text=Open?FString(Details[D]):FString(Details[D])+TEXT("  LOCKED: ")+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D))+TEXT(".");
-                Card(FString::Printf(TEXT("Difficulty portal: %s"),Names[D]),Text,!Open?TEXT("LOCKED"):(Chosen==D?TEXT("SELECTED"):TEXT("CHOOSE")),72,D,Chooser&&Open&&Chosen!=D);
-            }
-        }
-        Card(TEXT("Begin expedition"),TEXT("The first wave starts after a three-second countdown. Red minimap markers show where enemies are about to appear."),TEXT("ENTER SPIRAL"),31,0,Hub&&PS&&PS->PlayerIndex==0);
+        Text(TEXT("To depart: mark Ready, then press E at the Ember, Ashen or Blood archway (or the Endless portal once unlocked). The host steps through for both players."),16,ASMenuGold);
         Card(TEXT("Choose equipment"),FString::Printf(TEXT("Equipped: %s  /  %s"),ASData::Weapons[P.Build.Weapon].Name,ASData::Styles[P.Build.Style].Name),TEXT("ARMORY"),10,2);
         Card(TEXT("Build your stats"),TEXT("Preview current and next values for permanent cooldown, attack-speed, damage, health, movement, and critical upgrades."),TEXT("UPGRADES"),10,4);
         Card(TEXT("Bring a partner"),TEXT("Host first, share the code and reachable IP, and wait for both ready checks."),TEXT("CO-OP"),10,7);
@@ -241,6 +229,14 @@ void SASMenu::Construct(const FArguments& Args) {
             const FString Price=Item.Ash>0?FString::Printf(TEXT("%d ASH"),Item.Ash):FString::Printf(TEXT("%d SCRAP"),Item.Scrap);
             Card(Name,Description,(PS&&(PS->ShopBought&(1<<I)))?FString(TEXT("BOUGHT")):Price,75,I,Fits&&Open&&PS&&ASExpedition::CanBuyShopItem(I,PS->AvailableScrap,PS->AvailableAsh,PS->ShopBought,S->bRareShop));
         }
+    } else if(Page==24) {
+        // Portal page (Astra flow): details, seed, then the host's ENTER starts the walk-in.
+        const int32 D=PC.IsValid()?FMath::Clamp(PC->SelectedPortal,0,2):0;
+        const bool Unlocked=ASExpedition::DifficultyUnlocked(D,PS?PS->ClearedMask:0);
+        Text(FString::Printf(TEXT("%s portal / %s"),UTF8_TO_TCHAR(ASExpedition::PortalName(D)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(D))),20,ASMenuGold);
+        Text(Unlocked?FString(UTF8_TO_TCHAR(ASExpedition::PortalModifiers(D))):FString(TEXT("LOCKED: "))+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D))+TEXT("."),16,Unlocked?ASMenuGold:ASMenuMuted);
+        Input(TEXT("Deterministic expedition seed"),2);
+        Card(TEXT("Step through"),TEXT("Host only. Both players must be ready. You walk into the archway together and the first chamber begins."),!Unlocked?TEXT("LOCKED"):TEXT("ENTER PORTAL"),76,0,Hub&&PS&&PS->PlayerIndex==0&&Unlocked);
     } else if(Page==22) {
         const bool Open=PS&&PS->bEndlessUnlocked;
         Text(Open?TEXT("Endless: one huge arena, chained waves, a boss every ten waves. Many entered, none came back whole. Permanent skill-tree upgrades come with you; everything else starts fresh."):TEXT("The portal is sealed. Beat Normal mode once to open it."),18,Open?ASMenuGold:ASMenuMuted);

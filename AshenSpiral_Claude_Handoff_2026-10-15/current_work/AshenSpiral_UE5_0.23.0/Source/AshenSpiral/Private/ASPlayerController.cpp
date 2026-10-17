@@ -130,7 +130,7 @@ void AASPlayerController::Interact() {
     if(Page==9&&S->Phase==EASPhase::Victory) {InteractServer(9);return;}
     if(Page==220) {OpenMenu(18);return;}
     if(Page==221) {OpenMenu(21);return;}
-    if(Page>=31&&Page<=33) {SetDifficulty(Page-31);return;}
+    if(Page>=31&&Page<=33) {SelectedPortal=Page-31;OpenMenu(24);return;}
     if(Page==222) {OpenMenu(23);return;}
     if(Page>=201&&Page<=203) {InteractServer(Page);return;}
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}
@@ -219,6 +219,8 @@ void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State
 void AASPlayerController::SetDifficulty_Implementation(int32 Difficulty) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->SetDifficulty(this,Difficulty);}
 void AASPlayerController::GambleAtWell_Implementation(int32 StakeIndex) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->GambleAtWell(this,StakeIndex);}
 void AASPlayerController::BuyShopItem_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BuyShopItem(this,Index);}
+void AASPlayerController::EnterPortal_Implementation(int32 Portal,int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->StartPortal(this,Portal,Seed);}
+void AASPlayerController::CloseMenuForPortal_Implementation() {if(MenuOpen()) CloseMenu();}
 void AASPlayerController::StartEndless_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginEndless(this,Seed);}
 void AASPlayerController::StartRun_Implementation(int32 Seed) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BeginRun(this,Seed);}
 void AASPlayerController::ChooseReward_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->Reward(this,Index);}
@@ -312,7 +314,8 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
     }
     if(Code==30&&PS) SetReady(!PS->bReady);
-    else if(Code==31) {int32 Seed=1103;if(!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}StartRun(Seed);}
+    else if(Code==31) {Notice=TEXT("Choose Ember, Ashen or Blood at the three hub portals. Press E at an archway to depart.");}
+    else if(Code==76) {int32 Seed=1103;if(!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}EnterPortal(SelectedPortal,Seed);}
     else if(Code==32) {ChooseReward(Index);CloseMenu();}
     else if(Code==33) {ReturnHub();CloseMenu();}
     else if(Code==34) {ContinueAlone();CloseMenu();}
@@ -361,7 +364,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
     }
     else if(Code==73) {GambleAtWell(Index);}
     else if(Code==75) {BuyShopItem(Index);}
-    else if(Code==74) {StartEndless(FMath::Rand());CloseMenu();return;}
+    else if(Code==74) {EnterPortal(3,FMath::Rand());return;}
     else if(Code==72) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Difficulty is chosen in the hub.");return;}
         SetDifficulty(Index);Notice=TEXT("Difficulty selection sent to the host.");

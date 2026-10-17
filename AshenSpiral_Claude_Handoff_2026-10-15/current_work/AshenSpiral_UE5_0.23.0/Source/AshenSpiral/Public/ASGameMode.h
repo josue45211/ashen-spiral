@@ -42,6 +42,8 @@ public:
     void BeginRun(AASPlayerController* PC,int32 Seed);
     void SetDifficulty(AASPlayerController* PC,int32 Difficulty);
     void BeginEndless(AASPlayerController* PC,int32 Seed);
+    // Astra portal flow: E at an archway opens its page; the host's ENTER starts a short walk-in, then the run launches.
+    void StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed);
     void EnterRoom(int32 Room);
     void EnemyKilled(AASEnemy* Enemy,AASCharacter* Killer);
     void Reward(AASPlayerController* PC,int32 Index);
@@ -58,6 +60,7 @@ public:
     void AbandonReconnect();
     bool Host(const AASPlayerController* PC) const;
     bool AllReady() const;
+    int32 PortalSelection=0,PortalSeed=0;float PortalFinish=0;TWeakObjectPtr<AASPlayerController> PortalLeader;TArray<FVector> PortalStarts;FVector PortalTarget=FVector::ZeroVector;
 private:
     int32 RunSeed=1103;
     int32 Queued=0,Kills=0;

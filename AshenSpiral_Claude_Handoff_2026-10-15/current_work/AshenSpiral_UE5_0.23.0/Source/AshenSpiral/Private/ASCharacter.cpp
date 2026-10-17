@@ -54,7 +54,7 @@ void AASCharacter::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(t
 UASMovementComponent* AASCharacter::Movement() const {return Cast<UASMovementComponent>(GetCharacterMovement());}
 bool AASCharacter::CanJumpInternal_Implementation() const {
     const auto* S=AS::State(this);
-    return !bDowned&&!bReviving&&!HammerBusy()&&S&&!S->Frozen()&&S->Phase!=EASPhase::Defeat
+    return !bDowned&&!bReviving&&!HammerBusy()&&S&&!S->bEnteringPortal&&!S->Frozen()&&S->Phase!=EASPhase::Defeat
         &&Super::CanJumpInternal_Implementation();
 }
 void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {

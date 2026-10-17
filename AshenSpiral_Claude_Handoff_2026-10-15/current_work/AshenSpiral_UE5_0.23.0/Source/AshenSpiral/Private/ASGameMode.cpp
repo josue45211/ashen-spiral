@@ -168,11 +168,29 @@ bool AASGameMode::AllReady() const {
     return true;
 }
 void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
-    auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
+    auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||S->bEnteringPortal||!Host(PC)) return;
     const auto* HostState=PC->GetPlayerState<AASPlayerState>();
     if(!HostState||!ASExpedition::DifficultyUnlocked(Difficulty,HostState->ClearedMask)) {PC->Notify(TEXT("That difficulty is locked."));return;}
     S->Difficulty=ASExpedition::Difficulty(Difficulty);S->ForceNetUpdate();
     PC->Notify(FString::Printf(TEXT("%s portal chosen: %s. %s."),UTF8_TO_TCHAR(ASExpedition::PortalName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(S->Difficulty))));
+}
+void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
+    auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
+    if(!S||!S->Arena||!H||Portal<0||Portal>3||S->Phase!=EASPhase::Hub||S->bEnteringPortal) return;
+    if(!Host(PC)) {PC->Notify(TEXT("Mark Ready; the host enters the portal for both players."));return;}
+    if(!AllReady()) {PC->Notify(TEXT("Both players must mark Ready and finish saving."));return;}
+    const int32 StationId=Portal==3?22:31+Portal;const FVector Station=S->Arena->InteractionPoint(StationId)-FVector(0,0,150);
+    if(FVector::DistSquared2D(H->GetActorLocation(),Station)>360.f*360.f) {PC->Notify(TEXT("Stand at the archway to enter."));return;}
+    const auto* HostState=PC->GetPlayerState<AASPlayerState>();
+    if(Portal==3?(!HostState||!HostState->bEndlessUnlocked):(!HostState||!ASExpedition::DifficultyUnlocked(Portal,HostState->ClearedMask))) {PC->Notify(Portal==3?TEXT("The Endless portal is sealed. Beat Normal mode once to open it."):TEXT("That difficulty is locked."));return;}
+    if(Portal<3) S->Difficulty=ASExpedition::Difficulty(Portal);
+    PortalSelection=Portal;PortalSeed=Seed;PortalLeader=PC;PortalTarget=Station;PortalFinish=GetWorld()->GetTimeSeconds()+1.2f;S->bEnteringPortal=true;PortalStarts.Empty();
+    for(auto W:S->Heroes) if(auto* Hero=W.Get()) {
+        Hero->ResetInput(true);Hero->Movement()->StopMovementImmediately();Hero->Movement()->DisableMovement();
+        PortalStarts.Add(Hero->GetActorLocation());
+        if(auto* C=Cast<AASPlayerController>(Hero->GetController())) C->CloseMenuForPortal();
+    }
+    S->ForceNetUpdate();
 }
 void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
@@ -264,6 +282,24 @@ void AASGameMode::QueueWave() {
 void AASGameMode::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||!S->Arena) return;
     const float RealNow=GetWorld()->GetTimeSeconds();
+    if(S->bEnteringPortal) {
+        // Walk-in: each hero glides to the archway over 1.2s, then the run launches.
+        const float Alpha=FMath::Clamp(1.f-(PortalFinish-RealNow)/1.2f,0.f,1.f);int32 I=0;
+        for(auto W:S->Heroes) if(auto* H=W.Get()) {
+            if(PortalStarts.IsValidIndex(I)) {
+                const FVector To=FVector(PortalTarget.X,PortalTarget.Y,PortalStarts[I].Z);
+                const FVector Dir=(To-PortalStarts[I]).GetSafeNormal2D();if(!Dir.IsNearlyZero()) H->SetActorRotation(FRotator(0,Dir.Rotation().Yaw,0));
+                H->SetActorLocation(FMath::Lerp(PortalStarts[I],To,Alpha),false);
+            }
+            ++I;
+        }
+        if(RealNow>=PortalFinish) {
+            S->bEnteringPortal=false;for(auto W:S->Heroes) if(auto* H=W.Get()) H->Movement()->SetMovementMode(MOVE_Walking);
+            if(PortalLeader.IsValid()) {if(PortalSelection==3) BeginEndless(PortalLeader.Get(),PortalSeed);else BeginRun(PortalLeader.Get(),PortalSeed);}
+            S->ForceNetUpdate();
+        }
+        return;
+    }
     // PlayerController teardown can destroy the pawn before Logout. Keep a small
     // authority-side snapshot independently of the pawn's lifetime.
     if(S->Phase!=EASPhase::Hub && RealNow>=NextSnapshot) {

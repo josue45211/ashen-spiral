@@ -9,7 +9,7 @@ AASGameState::AASGameState() {PrimaryActorTick.bCanEverTick=true;SetNetUpdateFre
 void AASGameState::Tick(float Delta) {Super::Tick(Delta);if(!Frozen()) SimTime+=Delta;if(Arena) Arena->UpdateVaultAppearance();}
 void AASGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(AASGameState,Difficulty);DOREPLIFETIME(AASGameState,bEndless);DOREPLIFETIME(AASGameState,EndlessWave);DOREPLIFETIME(AASGameState,ClearedEndlessWave);DOREPLIFETIME(AASGameState,bLuckyShop);DOREPLIFETIME(AASGameState,bRareShop);DOREPLIFETIME(AASGameState,ShuffleAt);
+    DOREPLIFETIME(AASGameState,Difficulty);DOREPLIFETIME(AASGameState,bEnteringPortal);DOREPLIFETIME(AASGameState,bEndless);DOREPLIFETIME(AASGameState,EndlessWave);DOREPLIFETIME(AASGameState,ClearedEndlessWave);DOREPLIFETIME(AASGameState,bLuckyShop);DOREPLIFETIME(AASGameState,bRareShop);DOREPLIFETIME(AASGameState,ShuffleAt);
     DOREPLIFETIME(AASGameState,Phase);DOREPLIFETIME(AASGameState,bPartyPaused);DOREPLIFETIME(AASGameState,bConnectionHold);
     DOREPLIFETIME(AASGameState,ReconnectRemaining);DOREPLIFETIME(AASGameState,SimTime);DOREPLIFETIME(AASGameState,CountdownEnd);
     DOREPLIFETIME(AASGameState,Challenge);DOREPLIFETIME(AASGameState,VaultMask);DOREPLIFETIME(AASGameState,bVaultClaimed);
