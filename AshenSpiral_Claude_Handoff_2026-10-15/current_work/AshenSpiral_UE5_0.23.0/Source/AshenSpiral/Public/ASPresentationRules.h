@@ -30,7 +30,7 @@ inline bool IsSynergyPersona(NumberPersona P) {return P>=NumberPersona::SynergyL
 inline DamageLook DamageLookFor(NumberPersona P,float Age,float Life,float Seed) {
     Age=std::max(0.f,Age);Life=std::max(.1f,Life);
     const float T=std::clamp(Age/Life,0.f,1.f);const float Fade=std::clamp((1.f-T)/.3f,0.f,1.f);
-    DamageLook L{1.f,Age*55.f,0.f,0.f,Fade,0.f,0.f,0,0.f};
+    DamageLook L{1.f+.3f*std::exp(-Age/.06f),Age*55.f,0.f,0.f,Fade,0.f,0.f,0,0.f}; // every number pops in quickly
     switch(P) {
     case NumberPersona::Crit: { // Hard punch: overshoots, freezes for a beat, then shoves up with a decaying shake.
         const float Punch=std::exp(-Age/.07f);L.Scale=1.5f+1.0f*Punch;L.Flash=Punch;
@@ -67,19 +67,20 @@ inline DamageLook DamageLookFor(NumberPersona P,float Age,float Life,float Seed)
 
 // ---- Wave banner: a band sweeps in from the left, holds, then exits right. Looks only.
 constexpr float BannerLife=1.9f,BannerIn=.24f,BannerOut=.32f;
-struct BannerPose {float Slide,Alpha,Stretch;}; // Slide: -1 = off left, 0 = centred, +1 = off right.
+struct BannerPose {float Slide,Alpha,Stretch,TitleScale;}; // Slide: -1 = off left, 0 = centred, +1 = off right.
 inline BannerPose BannerAt(float Age) {
-    if(Age<0.f||Age>=BannerLife) return {-1.f,0.f,0.f};
-    if(Age<BannerIn) {const float T=Age/BannerIn;const float Ease=1.f-(1.f-T)*(1.f-T)*(1.f-T);return {-1.f+Ease,std::min(1.f,T*2.f),1.f-.5f*Ease};}
-    if(Age>BannerLife-BannerOut) {const float T=(Age-(BannerLife-BannerOut))/BannerOut;return {T*T,1.f-T,.5f};}
-    return {0.f,1.f,.5f+.04f*std::sin((Age-BannerIn)*3.f)};
+    if(Age<0.f||Age>=BannerLife) return {-1.f,0.f,0.f,1.f};
+    const float Pop=1.f+1.1f*std::exp(-std::max(0.f,Age-.05f)/.07f)*(Age<.05f?Age/.05f:1.f); // fast scale-in overshoot
+    if(Age<BannerIn) {const float T=Age/BannerIn;const float Ease=1.f-(1.f-T)*(1.f-T)*(1.f-T);return {-1.f+Ease,std::min(1.f,T*2.f),1.f-.5f*Ease,Pop};}
+    if(Age>BannerLife-BannerOut) {const float T=(Age-(BannerLife-BannerOut))/BannerOut;return {T*T,1.f-T,.5f,1.f};}
+    return {0.f,1.f,.5f+.04f*std::sin((Age-BannerIn)*3.f),Pop};
 }
 
 // ---- Kill moments (looks only): shard burst size by enemy tier, and the hit-stop that sells elite/boss deaths.
 struct KillBurst {int Shards;float Speed,Size,Life,StopScale,StopSeconds;};
 inline KillBurst KillBurstFor(bool Elite,bool Boss) {
-    if(Boss) return {30,720.f,2.6f,1.1f,.12f,.16f};
-    if(Elite) return {16,520.f,1.7f,.85f,.15f,.07f};
+    if(Boss) return {30,720.f,2.6f,1.1f,.15f,.05f};
+    if(Elite) return {16,520.f,1.7f,.85f,.2f,.035f}; // spec: 30-50ms hit-stop on elite/boss kills
     return {8,380.f,1.f,.65f,1.f,0.f};
 }
 // Ballistic shard: position offset from the burst centre after Age seconds (cm), launched at Velocity.
@@ -113,5 +114,22 @@ inline BossIntroPose BossIntroAt(float Age,bool ReduceMotion) {
     if(Age>=.3f) {const float Slam=std::exp(-(Age-.3f)/.09f);Scale=1.f+1.6f*Slam;Alpha=std::min(1.f,(Age-.3f)/.06f)*(1.f-IntroSmooth((Age-1.6f)/.4f));}
     const float Push=ReduceMotion?0.f:10.f*IntroSmooth(Age/.5f)*(1.f-IntroSmooth((Age-1.3f)/.7f));
     return {Bars,Scale,Alpha,Push};
+}
+
+// ---- Portal entry juice: FOV kick and a short fade to black over the 1.2s walk-in. Looks only.
+constexpr float PortalWalkSeconds=1.2f;
+inline float PortalKickFov(float Age,bool ReduceMotion) {
+    if(ReduceMotion||Age<0.f||Age>PortalWalkSeconds+.3f) return 0.f;
+    return 14.f-8.f*IntroSmooth((Age-.25f)/.95f)*(Age>.25f?1.f:0.f)-(Age<.25f?14.f*(1.f-IntroSmooth(Age/.25f)):0.f);
+}
+inline float PortalFadeAlpha(float Age) {return Age<0.f?0.f:.92f*IntroSmooth((Age-.7f)/.5f);}
+// ---- Low-HP vignette: off at full health, a pulsing red frame that quickens as health drops.
+struct VignetteLook {float Alpha,Hertz;};
+inline VignetteLook LowHpVignette(float HealthFraction,float Time) {
+    const float F=std::isfinite(HealthFraction)?std::clamp(HealthFraction,0.f,1.f):1.f;
+    if(F>=.999f) return {0.f,0.f};
+    const float Hz=1.f+3.f*(1.f-F),Intensity=std::pow(1.f-F,1.6f)*.62f;
+    const float Pulse=.5f+.5f*std::sin(Time*6.2831853f*Hz);
+    return {Intensity*(.55f+.45f*Pulse),Hz};
 }
 }

@@ -71,13 +71,14 @@ int main() {
     {
         Check(BannerAt(-1).Alpha==0&&BannerAt(BannerLife).Alpha==0,"banner is invisible outside its life");
         Check(Near(BannerAt(0).Slide,-1.f)&&Near(BannerAt(BannerIn).Slide,0.f)&&BannerAt(.9f).Slide==0.f,"banner slides in from the left and holds centred");
+        Check(BannerAt(.06f).TitleScale>1.8f&&Near(BannerAt(1.f).TitleScale,1.f)&&BannerAt(.5f).TitleScale<1.05f,"banner title scales in fast then settles");
         Check(BannerAt(BannerLife-.01f).Slide>0.f&&BannerAt(BannerLife-.01f).Alpha<.1f,"banner exits right while fading");
         for(float A=0;A<BannerLife;A+=.01f) {const auto B=BannerAt(A);Check(B.Alpha>=0&&B.Alpha<=1&&B.Slide>=-1.001f&&B.Slide<=1.001f&&B.Stretch>=0&&B.Stretch<=1.001f,"banner stays bounded");}
     }
     {
         const auto N=KillBurstFor(false,false),E=KillBurstFor(true,false),B=KillBurstFor(false,true);
         Check(N.Shards<E.Shards&&E.Shards<B.Shards&&N.Size<E.Size&&E.Size<B.Size&&N.Life<E.Life&&E.Life<B.Life,"kill bursts grow with enemy tier");
-        Check(N.StopSeconds==0.f&&E.StopSeconds>0.f&&B.StopSeconds>E.StopSeconds&&B.StopSeconds<=.2f&&E.StopScale<1.f&&B.StopScale<=E.StopScale,"only elites and bosses hit-stop, bosses longest, always brief");
+        Check(N.StopSeconds==0.f&&E.StopSeconds>0.f&&B.StopSeconds>E.StopSeconds&&B.StopSeconds<=.05f&&E.StopSeconds>=.03f&&E.StopScale<1.f&&B.StopScale<=E.StopScale,"only elites and bosses hit-stop, bosses longest, always brief");
         Check(Near(ShardHeight(500,0),0)&&ShardHeight(500,.25f)>0&&ShardHeight(500,1.2f)<0,"shards arc up then fall");
         Check(ShardScale(0,.6f)==1.f&&ShardScale(.6f,.6f)==0.f&&ShardScale(.3f,.6f)==1.f,"shards hold full size then shrink away");
     }
@@ -96,6 +97,16 @@ int main() {
         Check(BossIntroAt(.31f,false).NameScale>2.f&&Near(BossIntroAt(1.2f,false).NameScale,1.f)&&BossIntroAt(1.2f,false).NameAlpha>.99f,"boss name slams in oversized and settles");
         Check(BossIntroAt(.9f,false).FovPush>5.f&&BossIntroAt(.9f,true).FovPush==0.f&&BossIntroAt(1.99f,false).FovPush<.5f,"camera push-in happens, is off under reduce-motion, and fully returns");
         for(float A=0;A<BossIntroLife;A+=.01f) {const auto P=BossIntroAt(A,false);Check(P.Bars>=0&&P.Bars<=1.001f&&P.NameAlpha>=0&&P.NameAlpha<=1.001f&&P.FovPush>=0&&P.FovPush<=10.001f&&P.NameScale>=1.f&&P.NameScale<=2.7f,"boss intro stays bounded");}
+    }
+    {
+        Check(PortalKickFov(-1,false)==0&&PortalKickFov(PortalWalkSeconds+.5f,false)==0&&PortalKickFov(.5f,true)==0,"portal FOV kick is off outside the walk-in and under reduce-motion");
+        Check(PortalKickFov(.25f,false)>13.5f&&PortalKickFov(1.2f,false)>5.f&&PortalKickFov(1.2f,false)<7.f&&PortalKickFov(0,false)<.1f,"portal FOV kicks fast then eases to a held push");
+        for(float A=0;A<=PortalWalkSeconds+.3f;A+=.01f) Check(PortalKickFov(A,false)>=-.001f&&PortalKickFov(A,false)<=14.001f&&PortalFadeAlpha(A)>=0&&PortalFadeAlpha(A)<=.92f+.001f,"portal juice stays bounded");
+        Check(PortalFadeAlpha(.3f)==0.f&&PortalFadeAlpha(PortalWalkSeconds)>.85f,"portal fade is short and lands at the end of the walk-in");
+        Check(LowHpVignette(1.f,.3f).Alpha==0.f&&LowHpVignette(2.f,.3f).Alpha==0.f,"low-HP vignette is fully off at full health");
+        float PeakHalf=0,PeakLow=0;for(float A=0;A<2.f;A+=.005f) {PeakHalf=std::max(PeakHalf,LowHpVignette(.5f,A).Alpha);PeakLow=std::max(PeakLow,LowHpVignette(.1f,A).Alpha);}
+        Check(PeakLow>PeakHalf&&PeakHalf>0&&PeakLow<=.62f+.001f&&LowHpVignette(.1f,0).Hertz>LowHpVignette(.5f,0).Hertz,"vignette is stronger and pulses faster as health drops");
+        Check(LowHpVignette(std::numeric_limits<float>::quiet_NaN(),1).Alpha==0.f&&LowHpVignette(-3.f,1).Alpha>=0.f,"invalid health never produces a vignette flash");
     }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";

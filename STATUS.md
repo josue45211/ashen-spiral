@@ -158,3 +158,10 @@ NOT DONE / QUEUED:
 - Push: see Notes below for the result of the push to origin.
 - Bridge v3 security question is still open under Needs Josue.
 - Push result (2026-10-17): astra/0.23-handoff pushed to origin (c946608..dfd1608), no auth problems, no force needed. frankenstein/0.24-merge not created because backlog (a)-(c) are not green.
+
+## Part 2 pizzazz (Edison's list, per CONTINUE ORDERS 2026-10-17 12:11)
+- P2#3 wave-start banner (re-verified against spec): title now scales in fast with an overshoot; elite-wave variant added (ELITE WAVE, orange) next to the existing boss variant (BOSS, red). Test added. UNVERIFIED in-engine.
+- P2#5 kill pop (re-verified): hit-stop retuned to the spec window, elite 35ms / boss 50ms (was 70/160ms); every damage number now pops in (30% overshoot, 60ms). Tests updated. UNVERIFIED in-engine.
+- P2#7 pickup magnet (re-verified): pickups accelerate toward a player who needs them within 520cm; collect plays an expanding flash ring plus chime. Spec met as built. UNVERIFIED in-engine.
+- P2#1 portal entry juice: FOV kick (+14 degrees in 0.25s, easing to a held +6 push during the walk-in; off under Reduce Motion) and a short fade to black over the last 0.5s of the 1.2s walk-in, driven by a client-side portal clock (PlayerController::PortalAge). Tests added. UNVERIFIED in-engine.
+- P2#4 low-HP vignette: red frame of stacked soft bands, fully off at full health, intensity grows with missing health (max 0.62 alpha), pulses from 1Hz to 4Hz as health drops; non-finite health yields nothing. Hidden in the hub. Tests added. UNVERIFIED in-engine.

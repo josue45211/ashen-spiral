@@ -59,6 +59,9 @@ public:
     UFUNCTION(Server,Reliable) void EnterPortal(int32 Portal,int32 Seed);
     UFUNCTION(Client,Reliable) void CloseMenuForPortal();
     int32 SelectedPortal=0;
+    float PortalStartedAt=-1.f;
+    // Seconds since the portal walk-in began on this client; negative when not entering a portal.
+    float PortalAge() const {return PortalStartedAt<0.f||!GetWorld()?-1.f:GetWorld()->GetTimeSeconds()-PortalStartedAt;}
     UFUNCTION(Server,Reliable) void BuyShopItem(int32 Index);
     UFUNCTION(Server,Reliable) void ContinueAlone();
     UFUNCTION(Server,Reliable) void InteractServer(int32 Target=0);

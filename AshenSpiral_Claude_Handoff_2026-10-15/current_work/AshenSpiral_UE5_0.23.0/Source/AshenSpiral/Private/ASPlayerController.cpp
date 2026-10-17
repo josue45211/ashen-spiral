@@ -173,6 +173,7 @@ void AASPlayerController::PlayerTick(float Delta) {
         } else if(S->Phase==EASPhase::Countdown && (S->Room!=LastRoom||LastPhase==EASPhase::Hub||LastPhase==EASPhase::Reward)) CloseMenu();
         LastRoom=S->Room;LastPhase=S->Phase;
     }
+    if(S->bEnteringPortal&&PortalStartedAt<0.f) PortalStartedAt=GetWorld()->GetTimeSeconds();else if(!S->bEnteringPortal) PortalStartedAt=-1.f;
     auto* Client=LocalViewport();auto* Viewport=Client?Client->Viewport:nullptr;
     const bool Foreground=Viewport&&Viewport->IsForegroundWindow();
     const bool Focused=Foreground&&Viewport->HasFocus();
@@ -400,7 +401,7 @@ void AASPlayerController::ApplyCameraSettings() {
     H->Boom->TargetOffset.Z=GI->CameraHeight;
     H->Boom->SocketOffset.Y=GI->CameraShoulder;
     H->Camera->SetRelativeRotation(FRotator(GI->CameraPitch,0.f,0.f));
-    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush);}
+    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion));}
     // Character animation is suspended during a party pause; settings still apply.
     if(auto* S=AS::State(this)) if(S->Frozen()) H->Boom->TargetArmLength=GI->CameraDistance;
 }

@@ -138,6 +138,17 @@ void AASHUD::DrawHUD() {
     }
     const float HP=H->Health/FMath::Max(1.f,H->MaxHealth);
     TrailingHealth=HP>=TrailingHealth?HP:FMath::FInterpTo(TrailingHealth,HP,Delta,4.f);
+    {
+        // Low-HP vignette: stacked frame bands with a soft falloff; fully off at full health.
+        const auto Vignette=ASPresentation::LowHpVignette(HP,Now);
+        if(Vignette.Alpha>.004f&&S->Phase!=EASPhase::Hub) {
+            Group();const float Band=Height*.03f;
+            for(int32 I=0;I<9;++I) {
+                const float Fall=1.f-float(I)/9.f;const FLinearColor C(.85f,.02f,.03f,Vignette.Alpha*Fall*Fall*.7f);const float Inset=I*Band;
+                Box(0,Inset,Width,Band,C);Box(0,Height-Inset-Band,Width,Band,C);Box(Inset,Inset+Band,Band,Height-2*(Inset+Band),C);Box(Width-Inset-Band,Inset+Band,Band,Height-2*(Inset+Band),C);
+            }
+        }
+    }
     Group(24,Height-24-100*UI,UI);Box(0,0,2,100,ASHudTeal);
     Text(ASData::Weapons[H->Build.Weapon].Name,14,10,FLinearColor::White,.85f);
     if(ASMelee::IsMelee(H->Build.Weapon)) {
@@ -371,7 +382,7 @@ void AASHUD::DrawHUD() {
             }
         }
     }
-    if(S->bEnteringPortal) {Box(0,0,Width,Height,FLinearColor(0,0,0,.16f));Text(TEXT("ENTERING THE SPIRAL"),CX-145,Height*.75f,ASHudGold,.9f);}
+    if(S->bEnteringPortal) {Box(0,0,Width,Height,FLinearColor(0,0,0,ASPresentation::PortalFadeAlpha(PC->PortalAge())));Text(TEXT("ENTERING THE SPIRAL"),CX-145,Height*.75f,ASHudGold,.9f);}
     if(S->Frozen()) {
         Group(CX-380*UI,CY-45*UI,UI);
         Text(S->bConnectionHold?FString::Printf(TEXT("PARTNER DISCONNECTED  /  REJOIN WINDOW %.0fs"),S->ReconnectRemaining):TEXT("PARTY PAUSED  /  PRESS ESC TO RESUME"),20,15,ASHudGold,.85f);
@@ -401,7 +412,8 @@ void AASHUD::DrawWaveBanner(AASGameState* S) {
             Fire(FString::Printf(TEXT("WAVE %d CLEARED"),S->ClearedEndlessWave),ASExpedition::RewardWave(S->ClearedEndlessWave)?TEXT("CHECKPOINT CHEST"):TEXT(""),FLinearColor(.5f,1.f,.7f));
     } else if(Fighting&&(S->Room!=BannerRoom||S->Wave!=BannerWave)) {
         const int32 Waves=ASRules::WaveCount(S->Room);const bool Boss=ASRules::Boss(S->Room);
-        Fire(Boss?FString(TEXT("BOSS")):FString::Printf(TEXT("WAVE %d"),S->Wave+1),Boss?TEXT(""):FString::Printf(TEXT("OF %d"),Waves),Boss?FLinearColor(1.f,.25f,.2f):FLinearColor(1.f,.78f,.3f));
+        const bool EliteWave=!Boss&&ASRules::Elite(S->Room)&&S->Wave==2;
+        Fire(Boss?FString(TEXT("BOSS")):(EliteWave?FString(TEXT("ELITE WAVE")):FString::Printf(TEXT("WAVE %d"),S->Wave+1)),Boss?TEXT(""):FString::Printf(TEXT("OF %d"),Waves),Boss?FLinearColor(1.f,.25f,.2f):(EliteWave?FLinearColor(1.f,.5f,.1f):FLinearColor(1.f,.78f,.3f)));
     } else if(S->Phase==EASPhase::Reward&&BannerPhase==int32(EASPhase::Combat)&&!S->bEndless)
         Fire(TEXT("CHAMBER CLEARED"),TEXT(""),FLinearColor(.5f,1.f,.7f));
     BannerRoom=S->Room;BannerWave=S->Wave;BannerEndlessWave=S->EndlessWave;BannerCleared=S->ClearedEndlessWave;BannerPhase=int32(S->Phase);
@@ -410,7 +422,8 @@ void AASHUD::DrawWaveBanner(AASGameState* S) {
     const float BandH=118.f*Pose.Stretch*2.f,Y=Height*.22f-BandH*.5f,Off=Pose.Slide*Width;
     Box(Off,Y,Width,BandH,FLinearColor(0,0,0,.62f*Pose.Alpha));
     Box(Off,Y,Width,4,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha));Box(Off,Y+BandH-4,Width,4,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha));
-    const float TitleX=Off+Width*.5f-float(BannerTitle.Len())*22.f,TitleY=Y+BandH*.5f-34.f;
-    Text(BannerTitle,TitleX+3,TitleY+3,FLinearColor(0,0,0,Pose.Alpha),2.2f);Text(BannerTitle,TitleX,TitleY,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha),2.2f);
+    const float TitleSize=2.2f*Pose.TitleScale;
+    const float TitleX=Off+Width*.5f-float(BannerTitle.Len())*TitleSize*10.f,TitleY=Y+BandH*.5f-TitleSize*15.f;
+    Text(BannerTitle,TitleX+3,TitleY+3,FLinearColor(0,0,0,Pose.Alpha),TitleSize);Text(BannerTitle,TitleX,TitleY,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha),TitleSize);
     if(!BannerSub.IsEmpty()) Text(BannerSub,Off*1.4f+Width*.5f-float(BannerSub.Len())*9.f,TitleY+54.f,FLinearColor(1,1,1,Pose.Alpha*.85f),.9f);
 }
