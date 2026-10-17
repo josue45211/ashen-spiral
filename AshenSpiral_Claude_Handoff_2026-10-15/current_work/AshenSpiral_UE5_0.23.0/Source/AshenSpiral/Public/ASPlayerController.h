@@ -5,7 +5,7 @@
 #include "ASPlayerController.generated.h"
 class SASMenu;class SWidget;class UGameViewportClient;
 struct FASNotice {FString Message;float Born=0,Offset=0;};
-struct FASDamageNumber {FVector Position;float Value=0,Expires=0;bool Critical=false;EASHitKind Kind=EASHitKind::Physical;float Drift=0;int32 Lane=0;int32 Word=-1;};
+struct FASDamageNumber {FVector Position;float Value=0,Expires=0;bool Critical=false;EASHitKind Kind=EASHitKind::Physical;float Drift=0;int32 Lane=0;int32 Synergy=-1;float Life=1.25f,Seed=0;};
 UCLASS() class ASHENSPIRAL_API AASPlayerController : public APlayerController {
     GENERATED_BODY()
 public:
@@ -69,6 +69,7 @@ public:
     void ResubmitProfile();
     // Synergy feedback: a coloured word above the damage numbers plus a cue. Trigger indexes ASExpedition::Synergy results.
     UFUNCTION(Client,Unreliable) void SynergyCue(int32 Trigger);
+    UFUNCTION(Client,Unreliable) void SynergyNumber(FVector_NetQuantize Position,float Value,int32 Trigger);
     UFUNCTION(Client,Unreliable) void DamageNumber(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind);
     UFUNCTION(Exec) void ASPerformance();
     UFUNCTION(Exec) void ASInputStatus();

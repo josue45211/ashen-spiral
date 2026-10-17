@@ -42,6 +42,32 @@ int main() {
         for(int Frame=0;Frame<FPS;++Frame) Heat=ASArsenal::Heat(Heat,1.f/FPS,false);
         Check(Near(Heat,0),"releasing rotary fire restores accuracy");
     }
+    {
+        // Damage-number personalities: bounded, finite, and every special source behaves differently.
+        const NumberPersona All[]={NumberPersona::Plain,NumberPersona::Crit,NumberPersona::Burn,NumberPersona::Poison,NumberPersona::Frost,NumberPersona::Bleed,NumberPersona::Shock,NumberPersona::Spiral,NumberPersona::SynergyLightning,NumberPersona::SynergyStorm,NumberPersona::SynergyWild};
+        float Signature[11][6];
+        for(int P=0;P<11;++P) {
+            for(float Age=0;Age<=1.7f;Age+=.01f) {
+                const auto L=DamageLookFor(All[P],Age,P>=8?1.7f:1.25f,17.f);
+                Check(std::isfinite(L.Scale)&&std::isfinite(L.Rise)&&std::isfinite(L.X)&&std::isfinite(L.Y)&&L.Scale>.5f&&L.Scale<4.f&&L.Alpha>=0&&L.Alpha<=1,"every damage-number persona stays finite and on screen");
+            }
+            const float Ages[3]={.05f,.4f,1.f};
+            for(int I=0;I<3;++I) {const auto L=DamageLookFor(All[P],Ages[I],P>=8?1.7f:1.25f,17.f);Signature[P][I*2]=L.Scale*100+L.Rise+L.Y;Signature[P][I*2+1]=L.X;}
+        }
+        for(int A=0;A<11;++A) for(int B=A+1;B<11;++B) {
+            bool Differs=false;for(int K=0;K<6;++K) if(std::abs(Signature[A][K]-Signature[B][K])>.5f) Differs=true;
+            // The three synergy types share a motion language and differ by colour, so they may match each other.
+            const bool BothSynergy=A>=8&&B>=8;
+            Check(Differs||BothSynergy,"each element, crit and synergy has its own number motion");
+        }
+        const auto Plain=DamageLookFor(NumberPersona::Plain,.5f,1.25f,3.f);
+        Check(Near(Plain.Scale,1.f)&&Near(Plain.Rise,27.5f)&&Plain.X==0&&Plain.Y==0&&Plain.Rings==0,"plain numbers keep the original look");
+        Check(DamageLookFor(NumberPersona::Crit,0,1.25f,1.f).Scale>DamageLookFor(NumberPersona::Crit,.4f,1.25f,1.f).Scale+.5f,"crits punch in oversized then settle");
+        Check(DamageLookFor(NumberPersona::SynergyStorm,0,1.7f,1.f).Scale>DamageLookFor(NumberPersona::Crit,0,1.25f,1.f).Scale,"synergy hits are the loudest numbers");
+        Check(DamageLookFor(NumberPersona::Frost,.6f,1.25f,1.f).Rise==0&&DamageLookFor(NumberPersona::Bleed,.8f,1.25f,1.f).Y>DamageLookFor(NumberPersona::Bleed,.3f,1.25f,1.f).Y,"frost hangs still while bleed falls");
+        Check(DamageLookFor(NumberPersona::Poison,1.2f,1.25f,1.f).Y>0&&DamageLookFor(NumberPersona::Burn,.8f,1.25f,1.f).Rise>DamageLookFor(NumberPersona::Plain,.8f,1.25f,1.f).Rise,"poison drips late and burn climbs faster than plain");
+        Check(IsSynergyPersona(NumberPersona::SynergyWild)&&!IsSynergyPersona(NumberPersona::Crit),"synergy persona grouping");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }

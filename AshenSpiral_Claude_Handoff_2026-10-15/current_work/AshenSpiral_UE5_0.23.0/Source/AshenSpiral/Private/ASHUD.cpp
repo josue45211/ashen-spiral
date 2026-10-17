@@ -314,30 +314,46 @@ void AASHUD::DrawHUD() {
         if(E->bTrainingDummy) Text(TEXT("PRACTICE / RESETS AFTER 5s"),X-80,Y-25,ASHudMuted,.48f);
     }
     for(const auto& N:PC->DamageNumbers) {
-        if(N.Word>=0) {
-            // Synergy word: larger, coloured by synergy type, floats above the damage numbers.
-            const TCHAR* Words[]={TEXT("LIGHTNING BLAST"),TEXT("STORMBREAK"),TEXT("WILDFIRE")};
-            const FLinearColor Tint[]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
-            const float WordAge=1.6f-(N.Expires-S->SimTime);const float A=FMath::Clamp((N.Expires-S->SimTime)/.4f,0.f,1.f);
-            const float Rise=FMath::Min(1.f,WordAge/.25f)*18.f+WordAge*16.f;
-            const float WX=CX-170*AimScale,WY=CY-120*AimScale-Rise;
-            Text(Words[N.Word],WX+2,WY+2,FLinearColor(0,0,0,A),1.5f);Text(Words[N.Word],WX,WY,FLinearColor(Tint[N.Word].R,Tint[N.Word].G,Tint[N.Word].B,A),1.5f);
-            continue;
+        const float Age=N.Life-(N.Expires-S->SimTime);const bool Incoming=N.Kind==EASHitKind::Received||N.Kind==EASHitKind::Shield;
+        // Persona decides how the number moves and pops; colour comes from the element or the synergy type.
+        using ASPresentation::NumberPersona;
+        NumberPersona Persona=NumberPersona::Plain;
+        if(!Incoming) {
+            if(N.Synergy>=0) Persona=NumberPersona(int(NumberPersona::SynergyLightning)+FMath::Clamp(N.Synergy,0,2));
+            else if(N.Critical) Persona=NumberPersona::Crit;
+            else switch(N.Kind) {case EASHitKind::Burn:Persona=NumberPersona::Burn;break;case EASHitKind::Poison:Persona=NumberPersona::Poison;break;case EASHitKind::Frost:Persona=NumberPersona::Frost;break;
+                case EASHitKind::Bleed:Persona=NumberPersona::Bleed;break;case EASHitKind::Shock:Persona=NumberPersona::Shock;break;case EASHitKind::Spiral:Persona=NumberPersona::Spiral;break;default:break;}
         }
-        const float Age=1.25f-(N.Expires-S->SimTime);const bool Incoming=N.Kind==EASHitKind::Received||N.Kind==EASHitKind::Shield;
-
-        const float Alpha=FMath::Clamp((N.Expires-S->SimTime)/.4f,0.f,1.f);auto Color=ASData::HitColor(N.Kind);Color.A=Alpha;
-        const auto* GI=PC->GetGameInstance<UASGameInstance>();const float Pop=(GI?GI->NumberScale:1.2f)*(N.Critical?1.45f+.22f*FMath::Max(0.f,1-Age/.16f):1.f);
+        const auto Look=ASPresentation::DamageLookFor(Persona,Age,N.Life,N.Seed);
+        const FLinearColor SynergyTint[3]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
+        FLinearColor Color=N.Synergy>=0?SynergyTint[FMath::Clamp(N.Synergy,0,2)]:ASData::HitColor(N.Kind);
+        FLinearColor Edge=Color*.35f;Edge.A=1.f;
+        if(Persona==NumberPersona::Burn) Color=FMath::Lerp(FLinearColor(.55f,.05f,.03f),Color,Look.Heat);
+        if(Persona==NumberPersona::Crit) {Edge=FLinearColor(1.f,.45f,.05f);Color=FMath::Lerp(FLinearColor(1.f,.8f,.25f),FLinearColor(1.f,1.f,.9f),Look.Flash);}
+        if(Persona==NumberPersona::Frost) Color=FMath::Lerp(Color,FLinearColor(.92f,.98f,1.f),Look.Flash);
+        if(Persona==NumberPersona::Shock&&Look.Flash>0.f) Color=FLinearColor(1.f,1.f,.85f);
+        if(ASPresentation::IsSynergyPersona(Persona)) {Edge=Color;Color=FMath::Lerp(FLinearColor(1.f,1.f,1.f),Color,.35f+.65f*(1.f-Look.Flash));}
+        const float Alpha=Look.Alpha;Color.A=Alpha;
+        const auto* GI=PC->GetGameInstance<UASGameInstance>();const float Pop=(GI?GI->NumberScale:1.2f)*Look.Scale;
         // UE's checked Printf requires a literal format in each call.
         const FString Value=N.Value<1
             ? FString::Printf(TEXT("%s%.1f"),Incoming?TEXT("-"):TEXT(""),N.Value)
             : FString::Printf(TEXT("%s%.0f"),Incoming?TEXT("-"):TEXT(""),N.Value);
         const float TextHeight=FMath::Max(14.f,Pop*20.f)*(GI?GI->HUDTextScale:1.f)+8.f;
-        const float X=CX+N.Drift*(1.f+Age*.3f)-float(Value.Len())*TextHeight*.27f;
-        const float Y=ASPresentation::DamageTop(CY,AimScale,TextHeight,Age,N.Lane,Incoming);
-        for(const FVector2D Offset:{FVector2D(-1.5,-1.5),FVector2D(1.5,-1.5),FVector2D(-1.5,1.5),FVector2D(1.5,1.5)}) Text(Value,X+Offset.X,Y+Offset.Y,FLinearColor(0,0,0,Alpha),Pop);
+        const float X=CX+N.Drift*(1.f+Age*.3f)+Look.X-float(Value.Len())*TextHeight*.27f;
+        const float Y=ASPresentation::DamageTop(CY,AimScale,TextHeight,0.f,N.Lane,Incoming)-Look.Rise+Look.Y;
+        // Coloured halo first (wider for the loud personas), then the dark outline, then the face.
+        const bool Loud=Persona==NumberPersona::Crit||ASPresentation::IsSynergyPersona(Persona);
+        if(Loud) for(const FVector2D Offset:{FVector2D(-4,0),FVector2D(4,0),FVector2D(0,-4),FVector2D(0,4)}) {FLinearColor Halo=Edge;Halo.A=Alpha*.55f;Text(Value,X+Offset.X,Y+Offset.Y,Halo,Pop);}
+        for(const FVector2D Offset:{FVector2D(-1.5,-1.5),FVector2D(1.5,-1.5),FVector2D(-1.5,1.5),FVector2D(1.5,1.5)}) {FLinearColor Outline=Persona==NumberPersona::Plain?FLinearColor(0,0,0,Alpha):FLinearColor(Edge.R*.5f,Edge.G*.5f,Edge.B*.5f,Alpha);Text(Value,X+Offset.X,Y+Offset.Y,Outline,Pop);}
         Text(Value,X,Y,Color,Pop);
-        if(N.Critical) {Text(TEXT("CRIT"),X-1,Y-19,FLinearColor(1,.78f,.26f,Alpha),.68f);Line(X-7,Y+5,X-12,Y+11,FLinearColor(1,.78f,.26f,Alpha),2);Line(X-12,Y+11,X-7,Y+17,FLinearColor(1,.78f,.26f,Alpha),2);}
+        // Shockwave rings and shards: shape language only, no words.
+        for(int32 RingIndex=0;RingIndex<Look.Rings;++RingIndex) {
+            const float RT=FMath::Clamp(Look.RingT-RingIndex*.18f,0.f,1.f);if(RT<=0.f||RT>=1.f) continue;
+            const float Radius=(18.f+RT*(Persona==NumberPersona::Frost?60.f:110.f))*AimScale,A=Alpha*(1.f-RT);const FLinearColor RingColor(Edge.R,Edge.G,Edge.B,A);
+            const float CXn=X+float(Value.Len())*TextHeight*.27f,CYn=Y+TextHeight*.5f;
+            for(int32 K=0;K<12;++K) {const float A0=K*UE_PI/6.f,A1=A0+UE_PI/14.f;Line(CXn+FMath::Cos(A0)*Radius,CYn+FMath::Sin(A0)*Radius*.6f,CXn+FMath::Cos(A1)*Radius,CYn+FMath::Sin(A1)*Radius*.6f,RingColor,2.f);}
+        }
     }
     if(S->SimTime-PC->LastCritAt<.2f) {
         const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}

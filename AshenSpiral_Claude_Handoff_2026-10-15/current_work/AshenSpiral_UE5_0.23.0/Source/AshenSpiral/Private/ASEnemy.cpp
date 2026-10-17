@@ -290,6 +290,9 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
     for(auto W:Targets) if(auto* Target=W.Get()) if(!Target->SpawnProtected()&&Target->Health>0&&FVector::DistSquared2D(At,Target->GetActorLocation())<470.f*470.f&&AS::ClearSight(GetWorld(),At,Target->GetActorLocation())) {
         Target->BeginHitReaction(Source->GetActorLocation(),true);
         if(Trigger==1) Target->SlowUntil=FMath::Max(Target->SlowUntil,Now+2.f);
-        Target->Hit(ASExpedition::SynergyDamage(Trigger,Target->MaxHealth,Power,Target->Boss()),Source);
+        const float SynergyAmount=ASExpedition::SynergyDamage(Trigger,Target->MaxHealth,Power,Target->Boss());const float SynergyBefore=Target->Health;
+        const bool SynergyKilled=Target->Hit(SynergyAmount,Source);
+        const float SynergyDealt=SynergyKilled?SynergyBefore:FMath::Max(0.f,SynergyBefore-Target->Health);
+        if(SynergyDealt>0) for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* RecipientPC=Cast<AASPlayerController>(Player->GetOwner())) RecipientPC->SynergyNumber(Target->GetActorLocation()+FVector(0,0,80),SynergyDealt,Trigger);
     }
 }

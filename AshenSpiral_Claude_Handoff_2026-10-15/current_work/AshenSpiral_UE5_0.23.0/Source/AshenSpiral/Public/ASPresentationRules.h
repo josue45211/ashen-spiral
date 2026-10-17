@@ -17,4 +17,51 @@ inline float DamageTop(float CenterY,float Scale,float TextHeight,float Age,int 
     return CenterY-CrosshairClearance(Scale)-std::max(0.f,TextHeight)-std::max(0.f,Age)*55.f
         -float(std::clamp(Lane,0,2))*24.f-(Incoming?76.f:0.f);
 }
+
+// ---- Damage-number personalities (looks only). Every special damage source moves, pops and fades in its own way,
+// so a crit, a synergy or a status tick reads from the number's behaviour, never from a label.
+enum class NumberPersona {Plain,Crit,Burn,Poison,Frost,Bleed,Shock,Spiral,SynergyLightning,SynergyStorm,SynergyWild};
+struct DamageLook {float Scale,Rise,X,Y,Alpha,Flash,Heat;int Rings;float RingT;};
+inline float NumberNoise(float Seed,float Step) {
+    const float V=std::sin(Seed*12.9898f+Step*78.233f)*43758.5453f;return V-std::floor(V)-.5f;
+}
+inline bool IsSynergyPersona(NumberPersona P) {return P>=NumberPersona::SynergyLightning;}
+// Age in seconds since the number spawned; Life is its total lifetime; Seed is a stable per-number random.
+inline DamageLook DamageLookFor(NumberPersona P,float Age,float Life,float Seed) {
+    Age=std::max(0.f,Age);Life=std::max(.1f,Life);
+    const float T=std::clamp(Age/Life,0.f,1.f);const float Fade=std::clamp((1.f-T)/.3f,0.f,1.f);
+    DamageLook L{1.f,Age*55.f,0.f,0.f,Fade,0.f,0.f,0,0.f};
+    switch(P) {
+    case NumberPersona::Crit: { // Hard punch: overshoots, freezes for a beat, then shoves up with a decaying shake.
+        const float Punch=std::exp(-Age/.07f);L.Scale=1.5f+1.0f*Punch;L.Flash=Punch;
+        L.Rise=Age<.09f?0.f:(Age-.09f)*45.f;const float Shake=7.f*std::exp(-Age/.12f);
+        L.X=NumberNoise(Seed,std::floor(Age*60.f))*Shake;L.Y=NumberNoise(Seed+3.f,std::floor(Age*60.f))*Shake;
+        L.Rings=1;L.RingT=std::clamp(Age/.22f,0.f,1.f);break;}
+    case NumberPersona::Burn: { // Embers: hot start, accelerating rise, flicker, cooling to dark red.
+        L.Scale=1.05f+.14f*std::sin(Age*38.f+Seed*6.f);L.Rise=Age*60.f+Age*Age*110.f;L.X=std::sin(Age*17.f+Seed*9.f)*5.f;L.Heat=1.f-T;
+        L.Alpha*=.8f+.2f*std::sin(Age*45.f+Seed);break;}
+    case NumberPersona::Poison: { // Sluggish and wobbling; drips downward as it dies.
+        L.Scale=1.f+.05f*std::sin(Age*5.f);L.Rise=Age*26.f;L.X=std::sin(Age*5.5f+Seed*6.f)*13.f;
+        const float Drip=std::max(0.f,T-.6f);L.Y=Drip*Drip*260.f;L.Alpha*=.85f+.15f*std::sin(Age*9.f);break;}
+    case NumberPersona::Frost: { // Snaps in oversized, hangs perfectly still with a shiver, then shatters outward.
+        const float Snap=std::exp(-Age/.05f);L.Scale=1.f+.3f*Snap;L.Rise=0.f;L.Flash=Snap;
+        L.X=NumberNoise(Seed,std::floor(Age*45.f))*2.f;
+        if(T>.8f) {const float K=(T-.8f)/.2f;L.Scale*=1.f+.35f*K;L.Rings=1;L.RingT=K;}break;}
+    case NumberPersona::Bleed: { // Heavy: no lift, swells like a drop and falls.
+        L.Scale=1.f+.1f*T;L.Rise=0.f;L.Y=Age*Age*150.f;L.X=NumberNoise(Seed,0.f)*10.f;break;}
+    case NumberPersona::Shock: { // Erratic: re-jitters in discrete steps and flickers.
+        const float Step=std::floor(Age*28.f);L.X=NumberNoise(Seed,Step)*16.f;L.Y=NumberNoise(Seed+5.f,Step)*10.f;
+        L.Scale=1.f+.14f*NumberNoise(Seed+9.f,Step);L.Rise=Age*40.f;L.Alpha*=NumberNoise(Seed+2.f,Step)>0.f?1.f:.6f;L.Flash=NumberNoise(Seed,Step)>.35f?1.f:0.f;break;}
+    case NumberPersona::Spiral: { // Orbits as it climbs.
+        L.Scale=1.05f;L.Rise=Age*48.f;L.X=std::cos(Age*8.f+Seed*6.f)*18.f*std::min(1.f,Age*3.f);L.Y=std::sin(Age*8.f+Seed*6.f)*7.f;break;}
+    default:
+        if(IsSynergyPersona(P)) { // Biggest thing on screen: slam-in, long hold, shockwave rings, trembling.
+            const float Slam=std::exp(-Age/.1f);L.Scale=1.9f+1.3f*Slam;L.Flash=Slam;L.Rise=Age<.2f?0.f:(Age-.2f)*30.f;
+            const float Shake=9.f*std::exp(-Age/.18f);L.X=NumberNoise(Seed,std::floor(Age*70.f))*Shake;L.Y=NumberNoise(Seed+4.f,std::floor(Age*70.f))*Shake;
+            L.Rings=3;L.RingT=std::clamp(Age/.45f,0.f,1.f);
+        }
+        break;
+    }
+    return L;
+}
 }

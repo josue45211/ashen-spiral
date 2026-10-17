@@ -269,16 +269,19 @@ void AASPlayerController::Notify_Implementation(const FString& Message) {
 void AASPlayerController::DamageNumber_Implementation(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind) {
     if(Critical) LastCritAt=AS::Time(this);if(Kind==EASHitKind::Received||Kind==EASHitKind::Shield) LastHurtAt=AS::Time(this);
     auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
-    if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);DamageNumbers.Add({Position,Value,AS::Time(this)+1.25f,Critical,Kind,FMath::FRandRange(-65.f,65.f),DamageLane});DamageLane=(DamageLane+1)%3;
+    if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);DamageNumbers.Add({Position,Value,AS::Time(this)+1.25f,Critical,Kind,FMath::FRandRange(-65.f,65.f),DamageLane,-1,1.25f,FMath::FRand()*100.f});DamageLane=(DamageLane+1)%3;
 }
 void AASPlayerController::SynergyCue_Implementation(int32 Trigger) {
     if(Trigger<0||Trigger>2) return;
     // Placeholder cues reuse existing assets with distinct pitch per synergy; P2 audio pass to replace.
     const TCHAR* Cues[]={TEXT("S_Hit"),TEXT("S_Collapse"),TEXT("S_Spiral")};const float Pitch[]={1.45f,1.f,.8f};
     if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) UGameplayStatics::PlaySound2D(this,Cue,.8f,Pitch[Trigger]);
+}
+void AASPlayerController::SynergyNumber_Implementation(FVector_NetQuantize Position,float Value,int32 Trigger) {
+    if(Trigger<0||Trigger>2) return;
     auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
     if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);
-    DamageNumbers.Add({FVector::ZeroVector,0.f,AS::Time(this)+1.6f,false,EASHitKind::Physical,0.f,0,Trigger});
+    DamageNumbers.Add({Position,Value,AS::Time(this)+1.7f,false,EASHitKind::Physical,FMath::FRandRange(-45.f,45.f),DamageLane,Trigger,1.7f,FMath::FRand()*100.f});DamageLane=(DamageLane+1)%3;
 }
 FKey AASPlayerController::BoundKey(FName Binding) const {
     auto* Settings=GetDefault<UInputSettings>();FName Axis;float Scale=1;
