@@ -69,6 +69,8 @@ public:
     bool HasWell() const {return HasShrine();}
     // Endless lucky shop stall: beside the chest in the cleared centre.
     FVector ShopPoint() const {return ExitPoint()+FVector(0,380,0);}
+    // The stall only exists (visible + solid + interactable) while a lucky shop is open at the checkpoint.
+    bool ShopOpen() const;
     FVector WellPoint() const {return CellPosition(1)+FVector(0,-260,0);}
     FVector ShrinePoint() const {return CellPosition(1)+FVector(0,260,0);}
     FVector InteractionPoint(int32 Id) const;
@@ -89,6 +91,9 @@ private:
     UPROPERTY() TObjectPtr<APostProcessVolume> PostVolume;
     float SkyBlendT=1.f;int32 SkyFrom=0,SkyTo=0;
     bool bVaultDimmed=false;
+    UPROPERTY() TObjectPtr<UActorComponent> ShopLabel;
+    int32 ShopShown=-1;
+    void ApplyShopVisibility(bool bOpen);
     bool bGuideNavigationReady=false;
     int32 GuideBreakableCount=-1;
     ASRules::NavGrid Navigation,GuideNavigation;

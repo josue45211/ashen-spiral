@@ -110,8 +110,17 @@ void AASWorld::BeginPlay() {
         *GetNameSafe(Sun),Sun?*Sun->GetActorRotation().ToString():TEXT("MISSING"),
         *GetNameSafe(Fill),*GetNameSafe(Sky),*GetNameSafe(Post));
 }
+bool AASWorld::ShopOpen() const {
+    const auto* S=AS::State(this);return IsEndlessArena()&&S&&S->bEndless&&S->bLuckyShop&&S->Phase==EASPhase::Reward;
+}
+void AASWorld::ApplyShopVisibility(bool bOpen) {
+    if(ShopShown==(bOpen?1:0)) return;ShopShown=bOpen?1:0;
+    if(auto* Stall=Batches.FindRef(FName(TEXT("Cube_EndlessShopStall_C"))).Get()) {Stall->SetVisibility(bOpen);Stall->SetCollisionEnabled(bOpen?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);}
+    if(auto* L=Cast<USceneComponent>(ShopLabel.Get())) L->SetVisibility(bOpen);
+}
 void AASWorld::Tick(float Delta) {
     Super::Tick(Delta);
+    if(IsEndlessArena()) ApplyShopVisibility(ShopOpen());
     if(GetNetMode()==NM_DedicatedServer) return;
     const auto* S=AS::State(this);if(!S) return;
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
@@ -134,7 +143,7 @@ void AASWorld::Rebuild() {
     for(auto& P:Batches) if(P.Value) P.Value->DestroyComponent();Batches.Empty();
     for(auto C:Labels) if(C) C->DestroyComponent();Labels.Empty();
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
-    Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
+    ShopLabel=nullptr;ShopShown=-1;Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
     if(Config.Room<0) MakeHub();else {Layout=Config.Room==ASRules::EndlessRoom?ASRules::GenerateEndless():(ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed)));MakeRoom();if(HasAuthority()) BuildNavigation();}
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d"),
         Config.Room,Config.Generation,Batches.Num(),Stations.Num());
@@ -237,7 +246,7 @@ void AASWorld::EndlessArena(const FVector& Center) {
         Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=370?0:(O.Height>=290?1:2)),Center+FVector(O.X,O.Y,O.Height*.5f),FVector(O.Length/100.f,O.Thickness/100.f,O.Height/100.f),Stone*(O.Height>=370?1.15f:1.f),true,O.Yaw,0,.05f);
     }
     Add(TEXT("Cube"),TEXT("EndlessShopStall"),ExitPoint()+FVector(0,380,60),FVector(1.6f,.8f,1.2f),FLinearColor(.25f,.15f,.07f),true);
-    Text(TEXT("LUCKY SHOP / when the lamp burns"),ExitPoint()+FVector(0,380,260),90,22);
+    Text(TEXT("LUCKY SHOP / spend Scrap and Ash"),ExitPoint()+FVector(0,380,260),90,22);ShopLabel=Labels.IsEmpty()?nullptr:Labels.Last();ShopShown=-1;
     Add(TEXT("SM_Ring"),TEXT("EndlessSigilOuter"),Center+FVector(0,0,9),FVector(12,12,1),Sigil,false,0,1.5f);
     Add(TEXT("SM_Ring"),TEXT("EndlessSigilInner"),Center+FVector(0,0,9),FVector(7,7,1),Sigil,false,0,2.5f);
     Light(Center+FVector(0,0,600),FLinearColor(1,.35f,.2f),2200,3200);
@@ -743,7 +752,7 @@ int32 AASWorld::VaultInteraction(const FVector& P) const {
 }
 int32 AASWorld::StationAt(const FVector& P,FString* Label) const {
     if(HasShrine()&&ASAdventure::InReach(FVector::DistSquared2D(P,ShrinePoint()),P.Z-ShrinePoint().Z)) {if(Label) *Label=TEXT("Ember bargain / trade health for a trait");return 220;}
-    if(IsEndlessArena()&&ASAdventure::InReach(FVector::DistSquared2D(P,ShopPoint()),P.Z-ShopPoint().Z)) {if(Label) *Label=TEXT("Lucky shop / spend Scrap and Ash");return 222;}
+    if(ShopOpen()&&ASAdventure::InReach(FVector::DistSquared2D(P,ShopPoint()),P.Z-ShopPoint().Z)) {if(Label) *Label=TEXT("Lucky shop / spend Scrap and Ash");return 222;}
     if(HasWell()&&ASAdventure::InReach(FVector::DistSquared2D(P,WellPoint()),P.Z-WellPoint().Z)) {if(Label) *Label=TEXT("Wishing well / stake Cinders");return 221;}
     const int32 Vault=VaultInteraction(P);if(Vault) {if(Label) *Label=Vault==3?TEXT("Rune vault cache / both sigils required"):FString::Printf(TEXT("Activate vault sigil %d"),Vault);return 200+Vault;}
     const int32 Weapon=WeaponAt(P);if(Weapon>=0) {if(Label)*Label=FString(ASData::Weapons[Weapon].Name)+TEXT(" / inspect, buy or practice");return 100+Weapon;}
