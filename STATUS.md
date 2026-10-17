@@ -126,3 +126,7 @@ Range cfe023c..HEAD, oldest first. Paths relative to AshenSpiral_Claude_Handoff_
   - source: Private/ASGameInstance.cpp, Private/ASGameMode.cpp, Private/ASPlayerController.cpp, Public/ASExpeditionRules.h, Public/ASGameInstance.h, Public/ASPlayerController.h
   - tests: run_tests.py, validation_results.json
   - other: STATUS.md
+
+## Weekend round (2026-10-16 evening)
+- Port source: C:\Games\Astra_0.23\AshenSpiral_UE5_0.23.1_Hotfix1 is a complete tree (.uproject, Source, Content, Config); Complete_Export used only as cross-reference.
+- #1 Bounds-click bug: menu/pause input now confines the cursor to the viewport in fullscreen (LockInFullscreen + LockMouseToWidget, refreshed each tick); windowed stays unlocked for two-window local co-op. UBT editor build OK, run_tests.py exit 0. UNVERIFIED in-engine: needs P2 to confirm in fullscreen (menus, party pause, alt-tab, multi-monitor).

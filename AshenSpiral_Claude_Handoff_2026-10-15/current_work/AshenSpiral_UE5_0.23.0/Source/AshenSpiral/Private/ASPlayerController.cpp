@@ -183,6 +183,7 @@ void AASPlayerController::PlayerTick(float Delta) {
             if(Viewport->HasMouseCapture()) Viewport->LockMouseToViewport(true);
         }
     } else if(!bMenuInputApplied) ApplyMenuInput();
+    else if(Foreground&&Focused&&Viewport->IsFullscreen()) Viewport->LockMouseToViewport(true); // re-confine after resize/alt-tab
     bHadViewportFocus=Focused;
     ApplyCameraSettings();
     if(!MenuOpen()) {const bool Send=GetWorld()->GetTimeSeconds()>=NextAim;if(Send) NextAim=GetWorld()->GetTimeSeconds()+.033f;UpdateAim(Send);}
@@ -402,12 +403,16 @@ void AASPlayerController::ApplyMenuInput() {
     if(!IsLocalController()) return;auto* Client=LocalViewport();if(!Client) return;
     bGameplayInputApplied=false;bMenuInputApplied=true;bShowMouseCursor=true;
     if(auto* Own=Cast<UASGameViewportClient>(Client)) Own->SetGameplayMouseLock(false);
-    Client->SetMouseCaptureMode(EMouseCaptureMode::NoCapture);Client->SetMouseLockMode(EMouseLockMode::DoNotLock);Client->SetHideCursorDuringCapture(false);
+    // Fullscreen menus keep the cursor inside the game window; windowed play stays free so two local windows can coexist.
+    Client->SetMouseCaptureMode(EMouseCaptureMode::NoCapture);Client->SetMouseLockMode(EMouseLockMode::LockInFullscreen);Client->SetHideCursorDuringCapture(false);
     auto* Viewport=Client->Viewport;if(!Viewport||!Viewport->IsForegroundWindow()) return;
-    FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+    FInputModeGameAndUI Mode;Mode.SetHideCursorDuringCapture(false);Mode.SetLockMouseToViewportBehavior(EMouseLockMode::LockInFullscreen);
     if(Menu.IsValid()) Mode.SetWidgetToFocus(Menu);
     SetInputMode(Mode);
-    Viewport->CaptureMouse(false);Viewport->LockMouseToViewport(false);
+    Viewport->CaptureMouse(false);
+    const bool Fullscreen=Viewport->IsFullscreen();
+    Viewport->LockMouseToViewport(Fullscreen);
+    if(Fullscreen) if(auto* Local=GetLocalPlayer()) if(auto Widget=Client->GetGameViewportWidget()) Local->GetSlateOperations().LockMouseToWidget(Widget.ToSharedRef());
 }
 void AASPlayerController::ApplyGameplayInput() {
     if(!WantsGameplayInput()) {ApplyMenuInput();return;}
