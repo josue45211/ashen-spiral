@@ -370,6 +370,12 @@ void AASHUD::DrawHUD() {
         const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}
     }
     DrawWaveBanner(S);
+    for(const auto& T:PC->FloatTexts) {
+        const float Age=Now-T.Born;const auto Pose=ASPresentation::FloatTextAt(Age,T.Big);if(Pose.Alpha<=0.f) continue;
+        const float Size=(T.Big?1.5f:.95f)*Pose.Scale;
+        const float TX=CX-float(T.Text.Len())*Size*9.f,TY=(T.Big?Height*.34f:Height*.60f-T.Slot*30.f)-Pose.Rise;
+        Text(T.Text,TX+2,TY+2,FLinearColor(0,0,0,Pose.Alpha),Size);Text(T.Text,TX,TY,FLinearColor(T.Color.R,T.Color.G,T.Color.B,Pose.Alpha),Size);
+    }
     {
         const float IntroAge=S->BossIntroAge();const auto Intro=ASPresentation::BossIntroAt(IntroAge,false);
         if(IntroAge>=0.f&&Intro.Bars>0.f) {

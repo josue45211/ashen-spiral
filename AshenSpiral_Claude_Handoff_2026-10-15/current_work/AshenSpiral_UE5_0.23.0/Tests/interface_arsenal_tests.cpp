@@ -108,6 +108,13 @@ int main() {
         Check(PeakLow>PeakHalf&&PeakHalf>0&&PeakLow<=.62f+.001f&&LowHpVignette(.1f,0).Hertz>LowHpVignette(.5f,0).Hertz,"vignette is stronger and pulses faster as health drops");
         Check(LowHpVignette(std::numeric_limits<float>::quiet_NaN(),1).Alpha==0.f&&LowHpVignette(-3.f,1).Alpha>=0.f,"invalid health never produces a vignette flash");
     }
+    {
+        Check(FloatTextAt(-1,false).Alpha==0&&FloatTextAt(FloatTextLife,false).Alpha==0,"floating reward text exists only during its life");
+        Check(FloatTextAt(.02f,false).Scale>1.4f&&Near(FloatTextAt(1.f,false).Scale,1.f)&&FloatTextAt(.02f,true).Scale>FloatTextAt(.02f,false).Scale,"reward text pops in, trait banner pops harder");
+        Check(FloatTextAt(1.f,false).Rise>FloatTextAt(.2f,false).Rise&&FloatTextAt(FloatTextLife-.01f,false).Alpha<.05f,"reward text floats up and fades out");
+        for(float A=0;A<FloatTextLife;A+=.01f) {const auto F=FloatTextAt(A,A>.8f);Check(F.Alpha>=0&&F.Alpha<=1&&F.Rise>=0&&F.Rise<=80.001f&&F.Scale>=1.f&&F.Scale<=2.f,"reward text stays bounded");}
+        Check(Near(ChestPopScale(0),1.f)&&ChestPopScale(ChestPopLife*.5f)>1.25f&&ChestPopScale(ChestPopLife)==1.f&&ChestPopScale(-1)==1.f,"chest swells and settles back to its own size");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }

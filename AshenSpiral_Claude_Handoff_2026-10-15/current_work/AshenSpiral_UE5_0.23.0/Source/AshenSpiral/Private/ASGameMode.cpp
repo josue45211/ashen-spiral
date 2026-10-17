@@ -498,6 +498,7 @@ void AASGameMode::EndlessFinishWave() {
         PS->ShopBought=0;PS->Offers.Empty();PS->bRewardClaimed=false;PS->AvailableAsh=ASRules::Credit(PS->AvailableAsh,ASExpedition::CheckpointAsh(S->EndlessWave));
         AASCharacter* Hero=nullptr;for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->GetPlayerState<AASPlayerState>()==PS) {Hero=H;break;}
         RollOffers(PS,Hero);
+        if(ASExpedition::CheckpointAsh(S->EndlessWave)>0) if(auto* AshPC=Cast<AASPlayerController>(PS->GetOwner())) AshPC->RewardText(FString::Printf(TEXT("+%d ASH"),ASExpedition::CheckpointAsh(S->EndlessWave)),FLinearColor(1.f,.6f,.2f),false);
         PS->ShopOffer=-1;
         if(S->bLuckyShop&&Hero) {const auto Picks=ASBuild::Offers(Hero->UpgradeContext(),Random.GetUnsignedInt(),1);PS->ShopOffer=Picks.empty()?-1:Picks[0];}
         if(S->bLuckyShop) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(S->bRareShop?TEXT("A LUCKY SHOP appears, with rare stock for Ash!"):TEXT("A LUCKY SHOP appears beside the chest."));
@@ -601,6 +602,20 @@ void AASGameMode::Reward(AASPlayerController* PC,int32 Index) {
     if(S->ChestKind==5) {H->Heal(15);H->Shield=FMath::Min(H->MaxHealth,H->Shield+10);}
     H->RefreshLook();H->ForceNetUpdate();PS->bRewardClaimed=true;PS->ForceNetUpdate();
     PC->Notify(TEXT("Reward claimed. When both players have chosen, either player uses E at the chest to continue."));
+    {
+        // Chest fanfare: the chest swells, a ring flashes, and the reward floats up as "+X" (traits get the big banner).
+        const FVector Exit=S->Arena->ExitPoint();
+        S->Effect(15,Exit+FVector(0,0,52),FVector::UpVector,FLinearColor(.5f,.29f,.09f),1.2f);
+        S->Effect(8,Exit+FVector(0,0,60),FVector::UpVector,FLinearColor(1.f,.78f,.25f),160.f);
+        const FLinearColor Gold(1.f,.82f,.3f);
+        if(ASBuild::IsTrait(Choice)) PC->RewardText(FString::Printf(TEXT("+ %s"),UTF8_TO_TCHAR(ASBuild::Catalog[Choice-ASBuild::OfferBase].Name)),FLinearColor(.78f,.55f,1.f),true);
+        else if(ASRules::IsRunUpgradeOffer(Choice)) PC->RewardText(FString::Printf(TEXT("+ %s"),ASData::RunUpgrades[Choice-100].Name),Gold,false);
+        else PC->RewardText(S->ChestKind==2?TEXT("+ NEW SPIRAL STYLE"):TEXT("+ NEW RELIC"),Gold,false);
+        if(S->ChestKind==1) PC->RewardText(TEXT("+40 CINDERS"),FLinearColor(1.f,.75f,.12f),false);
+        if(S->ChestKind==3) PC->RewardText(TEXT("+35% HEALTH"),FLinearColor(.1f,1.f,.35f),false);
+        if(S->ChestKind==4&&Index==0) PC->RewardText(TEXT("+10 CINDERS"),FLinearColor(1.f,.75f,.12f),false);
+        if(S->ChestKind==5) PC->RewardText(TEXT("+15 HEALTH  +10 SHIELD"),FLinearColor(.1f,1.f,.35f),false);
+    }
 }
 void AASGameMode::Interact(AASPlayerController* PC,int32 Target) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
@@ -766,6 +781,11 @@ void AASGameMode::BuyShopItem(AASPlayerController* PC,int32 Index) {
     PS->AvailableScrap=FMath::Max(0,PS->AvailableScrap-Item.Scrap);PS->AvailableAsh=FMath::Max(0,PS->AvailableAsh-Item.Ash);PS->ShopBought|=1<<Index;
     H->RefreshLook();H->ForceNetUpdate();PS->ForceNetUpdate();
     PC->Notify(FString::Printf(TEXT("Bought %s."),UTF8_TO_TCHAR(Item.Name)));
+    // Trait-acquire fanfare for shop purchases that grant a trait.
+    if(Index==ASExpedition::ShopPickIndex&&(ASBuild::IsTrait(PS->ShopOffer)||ASRules::IsRunUpgradeOffer(PS->ShopOffer)))
+        PC->RewardText(FString::Printf(TEXT("+ %s"),ASBuild::IsTrait(PS->ShopOffer)?UTF8_TO_TCHAR(ASBuild::Catalog[PS->ShopOffer-ASBuild::OfferBase].Name):ASData::RunUpgrades[PS->ShopOffer-100].Name),FLinearColor(.78f,.55f,1.f),true);
+    else if(Index==3) PC->RewardText(TEXT("+ LEGENDARY TRAIT"),FLinearColor(1.f,.6f,.2f),true);
+    else PC->RewardText(FString::Printf(TEXT("+ %s"),UTF8_TO_TCHAR(Item.Name)),FLinearColor(1.f,.82f,.3f),false);
 }
 void AASGameMode::UseShrine(AASPlayerController* PC) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;auto* PS=PC?PC->GetPlayerState<AASPlayerState>():nullptr;

@@ -132,4 +132,20 @@ inline VignetteLook LowHpVignette(float HealthFraction,float Time) {
     const float Pulse=.5f+.5f*std::sin(Time*6.2831853f*Hz);
     return {Intensity*(.55f+.45f*Pulse),Hz};
 }
+
+// ---- Reward fanfare: floating "+X" text and the bigger trait banner. Looks only.
+constexpr float FloatTextLife=1.7f;
+struct FloatTextPose {float Rise,Alpha,Scale;};
+inline FloatTextPose FloatTextAt(float Age,bool Big) {
+    if(Age<0.f||Age>=FloatTextLife) return {0.f,0.f,1.f};
+    const float Pop=1.f+(Big?.9f:.55f)*std::exp(-Age/.09f);
+    const float Fade=std::clamp((FloatTextLife-Age)/.45f,0.f,1.f);
+    return {(Big?36.f:80.f)*IntroSmooth(Age/FloatTextLife),Fade,Pop};
+}
+// Chest pop: the opened chest swells and settles. Multiplier on the chest's own scale.
+constexpr float ChestPopLife=.45f;
+inline float ChestPopScale(float Age) {
+    if(Age<0.f||Age>=ChestPopLife) return 1.f;
+    return 1.f+.28f*std::sin(3.14159265f*Age/ChestPopLife);
+}
 }
