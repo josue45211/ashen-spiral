@@ -26,6 +26,7 @@ void AASPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 }
 void AASGameState::Effect_Implementation(uint8 Kind,FVector_NetQuantize P,FVector_NetQuantizeNormal D,FLinearColor C,float Size) {
     if(GetNetMode()==NM_DedicatedServer) return;
+    if(Kind==11) {if(auto* Burst=GetWorld()->SpawnActor<AASShardBurst>()) Burst->Setup(P,C,Size);return;}
     if(auto* FX=GetWorld()->SpawnActor<AASVisualEffect>()) FX->Setup(Kind,P,D,C,Size);
 }
 namespace AS {

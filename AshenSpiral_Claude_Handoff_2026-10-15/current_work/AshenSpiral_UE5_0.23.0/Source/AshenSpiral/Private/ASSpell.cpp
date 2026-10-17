@@ -15,6 +15,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Sound/SoundBase.h"
+#include "ASPresentationRules.h"
 AASProjectile::AASProjectile() {
     bReplicates=true;SetReplicateMovement(true);SetNetUpdateFrequency(25.f);PrimaryActorTick.bCanEverTick=true;
     RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
@@ -344,6 +345,36 @@ void AASPickup::Tick(float Delta) {
         else if(Kind==1) H->Shield=FMath::Min(H->MaxHealth,H->Shield+Amount);
         else {S->Cinders=ASRules::Credit(S->Cinders,FMath::RoundToInt(Amount));H->OnCinderPickup();}
         H->ForceNetUpdate();Destroy();return;
+    }
+}
+int32 AASShardBurst::Active=0;
+AASShardBurst::AASShardBurst() {PrimaryActorTick.bCanEverTick=true;RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));}
+void AASShardBurst::EndPlay(const EEndPlayReason::Type Reason) {Super::EndPlay(Reason);if(Shards.Num()>0) Active=FMath::Max(0,Active-1);}
+void AASShardBurst::Setup(const FVector& At,FLinearColor Color,float Tier) {
+    // Tier: 0 normal, 1 elite, 2 boss. Capped so a swarm wipe cannot flood the scene.
+    if(Active>=14) {Destroy();return;}
+    const auto Burst=ASPresentation::KillBurstFor(Tier>=1.5f&&Tier<2.5f,Tier>=2.5f);
+    SetActorLocation(At);Origin=At;Life=Burst.Life;Size=Burst.Size;
+    FRandomStream Rand(int32(At.X*13+At.Y*7+At.Z));
+    for(int32 I=0;I<Burst.Shards;++I) {
+        auto* M=NewObject<UStaticMeshComponent>(this);M->SetupAttachment(RootComponent);ASAssets::Style(M,TEXT("Cube"),Color,0,7);
+        M->SetCollisionEnabled(ECollisionEnabled::NoCollision);M->SetCastShadow(false);M->RegisterComponent();
+        const FVector Dir=(FVector(Rand.FRandRange(-1,1),Rand.FRandRange(-1,1),0).GetSafeNormal()*Rand.FRandRange(.5f,1.f)+FVector(0,0,Rand.FRandRange(.5f,1.1f))).GetSafeNormal();
+        const float Scale=Size*float(Rand.FRandRange(.035f,.075f));const FVector Base(Scale,Scale*Rand.FRandRange(.5f,1.f),Scale*Rand.FRandRange(1.f,2.2f));M->SetRelativeScale3D(Base);
+        Shards.Add({M,Dir*Burst.Speed*Rand.FRandRange(.55f,1.f),float(Rand.FRandRange(-720.f,720.f)),Base});
+    }
+    ++Active;
+    if(Burst.StopSeconds>0.f) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Tier>=2.5f?.7f:.4f,Tier>=2.5f?.7f:1.1f);
+}
+void AASShardBurst::Tick(float Delta) {
+    Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
+    Age+=Delta;if(Age>=Life) {Destroy();return;}
+    const float Fade=ASPresentation::ShardScale(Age,Life);
+    for(auto& Shard:Shards) if(Shard.Mesh) {
+        const FVector Flat=FVector(Shard.Velocity.X,Shard.Velocity.Y,0)*Age;
+        Shard.Mesh->SetRelativeLocation(Flat+FVector(0,0,ASPresentation::ShardHeight(Shard.Velocity.Z,Age)));
+        Shard.Mesh->AddLocalRotation(FRotator(Shard.Spin*Delta,Shard.Spin*Delta*.6f,0));
+        Shard.Mesh->SetRelativeScale3D(Shard.BaseScale*FMath::Max(.01f,Fade));
     }
 }
 AASVisualEffect::AASVisualEffect() {PrimaryActorTick.bCanEverTick=true;Visual=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Flash"));RootComponent=Visual;}

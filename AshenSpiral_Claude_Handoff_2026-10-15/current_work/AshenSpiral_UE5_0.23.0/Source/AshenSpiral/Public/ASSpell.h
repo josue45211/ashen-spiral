@@ -120,6 +120,20 @@ private:
     uint8 Kind=0;
 };
 
+// Cosmetic-only kill burst: a handful of glowing shards thrown outward with gravity. Spawned locally by the GameState effect multicast.
+UCLASS() class ASHENSPIRAL_API AASShardBurst : public AActor {
+    GENERATED_BODY()
+public:
+    AASShardBurst();
+    virtual void Tick(float Delta) override;
+    void Setup(const FVector& At,FLinearColor Color,float Tier);
+    static int32 Active;
+    virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+private:
+    struct FShard {TObjectPtr<UStaticMeshComponent> Mesh;FVector Velocity;float Spin;FVector BaseScale;};
+    TArray<FShard> Shards;float Age=0,Life=.65f,Size=1.f;FVector Origin=FVector::ZeroVector;
+};
+
 // Cosmetic-only hammer impact, spawned locally by the character's multicast.
 UCLASS() class ASHENSPIRAL_API AASHammerDebris : public AActor {
     GENERATED_BODY()

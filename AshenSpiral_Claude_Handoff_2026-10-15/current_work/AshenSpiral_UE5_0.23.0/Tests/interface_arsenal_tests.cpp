@@ -74,6 +74,13 @@ int main() {
         Check(BannerAt(BannerLife-.01f).Slide>0.f&&BannerAt(BannerLife-.01f).Alpha<.1f,"banner exits right while fading");
         for(float A=0;A<BannerLife;A+=.01f) {const auto B=BannerAt(A);Check(B.Alpha>=0&&B.Alpha<=1&&B.Slide>=-1.001f&&B.Slide<=1.001f&&B.Stretch>=0&&B.Stretch<=1.001f,"banner stays bounded");}
     }
+    {
+        const auto N=KillBurstFor(false,false),E=KillBurstFor(true,false),B=KillBurstFor(false,true);
+        Check(N.Shards<E.Shards&&E.Shards<B.Shards&&N.Size<E.Size&&E.Size<B.Size&&N.Life<E.Life&&E.Life<B.Life,"kill bursts grow with enemy tier");
+        Check(N.StopSeconds==0.f&&E.StopSeconds>0.f&&B.StopSeconds>E.StopSeconds&&B.StopSeconds<=.2f&&E.StopScale<1.f&&B.StopScale<=E.StopScale,"only elites and bosses hit-stop, bosses longest, always brief");
+        Check(Near(ShardHeight(500,0),0)&&ShardHeight(500,.25f)>0&&ShardHeight(500,1.2f)<0,"shards arc up then fall");
+        Check(ShardScale(0,.6f)==1.f&&ShardScale(.6f,.6f)==0.f&&ShardScale(.3f,.6f)==1.f,"shards hold full size then shrink away");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }

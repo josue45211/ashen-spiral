@@ -12,6 +12,8 @@
 #include "ASHUD.h"
 #include "ASRules.h"
 #include "Kismet/GameplayStatics.h"
+#include "ASPresentationRules.h"
+#include "ASData.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameSession.h"
@@ -174,10 +176,10 @@ void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
     S->Difficulty=ASExpedition::Difficulty(Difficulty);S->ForceNetUpdate();
     PC->Notify(FString::Printf(TEXT("%s portal chosen: %s. %s."),UTF8_TO_TCHAR(ASExpedition::PortalName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(S->Difficulty))));
 }
-void AASGameMode::ClearBeat() {
-    // TUNABLE: 0.45 real seconds at 30% speed. Real time, so the dilation itself cannot stretch the beat.
+void AASGameMode::ClearBeat(float Scale,float RealSeconds) {
+    // TUNABLE: wave clears use 0.45 real seconds at 30% speed; elite/boss kills use a much shorter hit-stop. Real time, so dilation cannot stretch it.
     if(ClearBeatEndsReal>0.f||!GetWorld()) return;
-    UGameplayStatics::SetGlobalTimeDilation(this,.3f);ClearBeatEndsReal=GetWorld()->GetRealTimeSeconds()+.45f;
+    UGameplayStatics::SetGlobalTimeDilation(this,FMath::Clamp(Scale,.05f,1.f));ClearBeatEndsReal=GetWorld()->GetRealTimeSeconds()+FMath::Clamp(RealSeconds,.02f,1.f);
 }
 void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
@@ -520,6 +522,14 @@ void AASGameMode::EnemyKilled(AASEnemy* E,AASCharacter* Killer) {
         PS->Record(ASCareer::Kills,1,E->Boss()?100:(E->Elite()?25:5));
         if(E->Boss()) PS->Record(ASCareer::Bosses);else if(E->Elite()) PS->Record(ASCareer::Elites);
         if(ASCareer::MultiStatus(E->StatusBits)) PS->Record(ASCareer::Elemental);
+    }
+    {
+        // Kill moment: element-coloured shard burst sized by tier; elites and bosses add a brief hit-stop.
+        const auto Burst=ASPresentation::KillBurstFor(E->Elite(),E->Boss());
+        FLinearColor Tint(1.f,.86f,.55f);
+        if(E->StatusBits&16) Tint=ASData::HitColor(EASHitKind::Bleed);else if(E->StatusBits&1) Tint=ASData::HitColor(EASHitKind::Burn);else if(E->StatusBits&2) Tint=ASData::HitColor(EASHitKind::Poison);else if(E->StatusBits&(4|8)) Tint=ASData::HitColor(EASHitKind::Frost);
+        S->Effect(11,E->GetActorLocation()+FVector(0,0,40),FVector::UpVector,Tint,E->Boss()?3.f:(E->Elite()?2.f:0.f));
+        if(Burst.StopSeconds>0.f) ClearBeat(Burst.StopScale,Burst.StopSeconds);
     }
     const int32 Base=E->Boss()?30:(E->Elite()?8:1);
     const int32 Gold=IsValid(Killer)?ASBuild::CreditKills(Base,Killer->TraitValue(ASBuild::Trait::Greed),Killer->GoldRemainder):Base;

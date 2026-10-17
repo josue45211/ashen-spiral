@@ -74,4 +74,15 @@ inline BannerPose BannerAt(float Age) {
     if(Age>BannerLife-BannerOut) {const float T=(Age-(BannerLife-BannerOut))/BannerOut;return {T*T,1.f-T,.5f};}
     return {0.f,1.f,.5f+.04f*std::sin((Age-BannerIn)*3.f)};
 }
+
+// ---- Kill moments (looks only): shard burst size by enemy tier, and the hit-stop that sells elite/boss deaths.
+struct KillBurst {int Shards;float Speed,Size,Life,StopScale,StopSeconds;};
+inline KillBurst KillBurstFor(bool Elite,bool Boss) {
+    if(Boss) return {30,720.f,2.6f,1.1f,.12f,.16f};
+    if(Elite) return {16,520.f,1.7f,.85f,.15f,.07f};
+    return {8,380.f,1.f,.65f,1.f,0.f};
+}
+// Ballistic shard: position offset from the burst centre after Age seconds (cm), launched at Velocity.
+inline float ShardHeight(float Vz,float Age) {return Vz*Age-.5f*980.f*Age*Age;}
+inline float ShardScale(float Age,float Life) {const float T=std::clamp(Age/std::max(.05f,Life),0.f,1.f);return T<.7f?1.f:(1.f-T)/.3f;}
 }
