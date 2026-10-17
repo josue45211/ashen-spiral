@@ -3,6 +3,7 @@
 #include "ASGameState.h"
 #include "ASWorld.h"
 #include "ASBuildRules.h"
+#include "ASHammerRules.h"
 #include "ASEnemy.h"
 #include "Components/CapsuleComponent.h"
 void UASMovementComponent::RefreshDashCollision() {
@@ -29,9 +30,10 @@ void UASMovementComponent::PerformMovement(float Delta) {
 }
 float UASMovementComponent::GetMaxSpeed() const {
     const auto* Hero=Cast<AASCharacter>(CharacterOwner);auto* S=AS::State(this);
-    if(Hero && (Hero->bDowned||Hero->HammerBusy())) return 0;
+    if(Hero && (Hero->bDowned||Hero->HammerLeapState!=0)) return 0;
     if(S && S->Frozen()) return 0;
-    const float Speed=Hero?Hero->RunningSpeed():640.f;
+    // The hammer finisher no longer roots: movement continues at 20% speed (80% slow).
+    const float Speed=(Hero?Hero->RunningSpeed():640.f)*(Hero&&Hero->HammerCommitted()?ASHammer::FinisherSpeedScale():1.f);
     if(S && S->Arena && S->Arena->InWater(CharacterOwner->GetActorLocation())) return Speed*.45f;
     return Speed;
 }
@@ -48,7 +50,7 @@ void UASMovementComponent::UpdateCharacterStateBeforeMovement(float Delta) {
         if(MovementMode==MOVE_Custom) SetMovementMode(MOVE_Falling);
         RefreshDashCollision();return;
     }
-    if(H&&H->HammerBusy()&&H->HammerLeapState!=2) {Velocity.X=0;Velocity.Y=0;}
+    if(H&&H->HammerLeapState!=0&&H->HammerLeapState!=2) {Velocity.X=0;Velocity.Y=0;}
     if(bWantsDash && H && !H->HammerBusy() && !H->bDowned && S && !S->Frozen() && ASRules::CanAirDash(IsMovingOnGround(),IsFalling(),AirDashesUsed,Capacity,DashCharges) && ASRules::CanUseWeapons(int(S->Phase))) {
         DashDirection=Acceleration.GetSafeNormal2D();if(DashDirection.IsNearlyZero()) DashDirection=H->GetActorForwardVector();
         DashDirection.Z=0;DashDirection.Normalize();DashRemaining=H->DashDuration();
