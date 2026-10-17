@@ -157,3 +157,4 @@ NOT DONE / QUEUED:
 - Verification pass: -DisableUnity build, crash-safety review of new RPCs (SynergyNumber, SynergyCue, EnterPortal, CloseMenuForPortal), the single launch gate.
 - Push: see Notes below for the result of the push to origin.
 - Bridge v3 security question is still open under Needs Josue.
+- Push result (2026-10-17): astra/0.23-handoff pushed to origin (c946608..dfd1608), no auth problems, no force needed. frankenstein/0.24-merge not created because backlog (a)-(c) are not green.
