@@ -269,6 +269,15 @@ void AASPlayerController::DamageNumber_Implementation(FVector_NetQuantize Positi
     auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
     if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);DamageNumbers.Add({Position,Value,AS::Time(this)+1.25f,Critical,Kind,FMath::FRandRange(-65.f,65.f),DamageLane});DamageLane=(DamageLane+1)%3;
 }
+void AASPlayerController::SynergyCue_Implementation(int32 Trigger) {
+    if(Trigger<0||Trigger>2) return;
+    // Placeholder cues reuse existing assets with distinct pitch per synergy; P2 audio pass to replace.
+    const TCHAR* Cues[]={TEXT("S_Hit"),TEXT("S_Collapse"),TEXT("S_Spiral")};const float Pitch[]={1.45f,1.f,.8f};
+    if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) UGameplayStatics::PlaySound2D(this,Cue,.8f,Pitch[Trigger]);
+    auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
+    if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);
+    DamageNumbers.Add({FVector::ZeroVector,0.f,AS::Time(this)+1.6f,false,EASHitKind::Physical,0.f,0,Trigger});
+}
 FKey AASPlayerController::BoundKey(FName Binding) const {
     auto* Settings=GetDefault<UInputSettings>();FName Axis;float Scale=1;
     if(Binding=="Forward"||Binding=="Backward") {Axis="MoveForward";Scale=Binding=="Forward"?1.f:-1.f;}

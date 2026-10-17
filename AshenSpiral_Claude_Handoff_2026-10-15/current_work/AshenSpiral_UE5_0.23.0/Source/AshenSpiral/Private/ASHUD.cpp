@@ -314,6 +314,16 @@ void AASHUD::DrawHUD() {
         if(E->bTrainingDummy) Text(TEXT("PRACTICE / RESETS AFTER 5s"),X-80,Y-25,ASHudMuted,.48f);
     }
     for(const auto& N:PC->DamageNumbers) {
+        if(N.Word>=0) {
+            // Synergy word: larger, coloured by synergy type, floats above the damage numbers.
+            const TCHAR* Words[]={TEXT("LIGHTNING BLAST"),TEXT("STORMBREAK"),TEXT("WILDFIRE")};
+            const FLinearColor Tint[]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
+            const float WordAge=1.6f-(N.Expires-S->SimTime);const float A=FMath::Clamp((N.Expires-S->SimTime)/.4f,0.f,1.f);
+            const float Rise=FMath::Min(1.f,WordAge/.25f)*18.f+WordAge*16.f;
+            const float WX=CX-170*AimScale,WY=CY-120*AimScale-Rise;
+            Text(Words[N.Word],WX+2,WY+2,FLinearColor(0,0,0,A),1.5f);Text(Words[N.Word],WX,WY,FLinearColor(Tint[N.Word].R,Tint[N.Word].G,Tint[N.Word].B,A),1.5f);
+            continue;
+        }
         const float Age=1.25f-(N.Expires-S->SimTime);const bool Incoming=N.Kind==EASHitKind::Received||N.Kind==EASHitKind::Shield;
 
         const float Alpha=FMath::Clamp((N.Expires-S->SimTime)/.4f,0.f,1.f);auto Color=ASData::HitColor(N.Kind);Color.A=Alpha;
