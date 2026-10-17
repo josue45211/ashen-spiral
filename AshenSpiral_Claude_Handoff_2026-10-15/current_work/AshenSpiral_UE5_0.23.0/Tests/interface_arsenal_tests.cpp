@@ -90,6 +90,13 @@ int main() {
         Check(PickupMagnetSpeed(PickupMagnetRadius)==0.f&&PickupMagnetSpeed(400)<PickupMagnetSpeed(200)&&PickupMagnetSpeed(200)<PickupMagnetSpeed(50),"magnet pull speeds up as the pickup closes in");
         Check(PickupMagnetSpeed(PickupGrabRadius)>PickupMagnetSpeed(PickupMagnetRadius-1)&&PickupGrabRadius<PickupMagnetRadius,"grab radius sits inside the magnet radius");
     }
+    {
+        Check(BossIntroAt(-1,false).Bars==0&&BossIntroAt(BossIntroLife,false).Bars==0&&BossIntroAt(BossIntroLife,false).NameAlpha==0,"boss intro is invisible outside its window");
+        Check(BossIntroAt(1.0f,false).Bars>.99f&&BossIntroAt(.05f,false).Bars<.5f&&BossIntroAt(1.95f,false).Bars<.1f,"bars close in fast, hold, and open before the boss can be hurt");
+        Check(BossIntroAt(.31f,false).NameScale>2.f&&Near(BossIntroAt(1.2f,false).NameScale,1.f)&&BossIntroAt(1.2f,false).NameAlpha>.99f,"boss name slams in oversized and settles");
+        Check(BossIntroAt(.9f,false).FovPush>5.f&&BossIntroAt(.9f,true).FovPush==0.f&&BossIntroAt(1.99f,false).FovPush<.5f,"camera push-in happens, is off under reduce-motion, and fully returns");
+        for(float A=0;A<BossIntroLife;A+=.01f) {const auto P=BossIntroAt(A,false);Check(P.Bars>=0&&P.Bars<=1.001f&&P.NameAlpha>=0&&P.NameAlpha<=1.001f&&P.FovPush>=0&&P.FovPush<=10.001f&&P.NameScale>=1.f&&P.NameScale<=2.7f,"boss intro stays bounded");}
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }

@@ -101,4 +101,17 @@ inline float PickupMagnetSpeed(float Distance) {
     if(Distance>=PickupMagnetRadius) return 0.f;
     const float Close=1.f-std::clamp(Distance/PickupMagnetRadius,0.f,1.f);return 380.f+2200.f*Close*Close;
 }
+
+// ---- Boss intro (looks only): letterbox bars, name slam and a camera push-in over the boss's 2s spawn protection.
+constexpr float BossIntroLife=2.f;
+struct BossIntroPose {float Bars,NameScale,NameAlpha,FovPush;}; // Bars 0..1 of full bar height; FovPush in degrees.
+inline float IntroSmooth(float T) {T=std::clamp(T,0.f,1.f);return T*T*(3.f-2.f*T);}
+inline BossIntroPose BossIntroAt(float Age,bool ReduceMotion) {
+    if(Age<0.f||Age>=BossIntroLife) return {0.f,1.f,0.f,0.f};
+    const float Bars=IntroSmooth(Age/.25f)*(1.f-IntroSmooth((Age-1.6f)/.4f));
+    float Scale=1.f,Alpha=0.f;
+    if(Age>=.3f) {const float Slam=std::exp(-(Age-.3f)/.09f);Scale=1.f+1.6f*Slam;Alpha=std::min(1.f,(Age-.3f)/.06f)*(1.f-IntroSmooth((Age-1.6f)/.4f));}
+    const float Push=ReduceMotion?0.f:10.f*IntroSmooth(Age/.5f)*(1.f-IntroSmooth((Age-1.3f)/.7f));
+    return {Bars,Scale,Alpha,Push};
+}
 }

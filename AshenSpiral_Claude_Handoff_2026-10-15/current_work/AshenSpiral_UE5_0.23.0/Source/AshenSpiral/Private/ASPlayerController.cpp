@@ -4,6 +4,7 @@
 #include "ASGameInstance.h"
 #include "ASGameMode.h"
 #include "ASGameState.h"
+#include "ASPresentationRules.h"
 #include "ASWorld.h"
 #include "SASMenu.h"
 #include "Camera/CameraComponent.h"
@@ -399,7 +400,7 @@ void AASPlayerController::ApplyCameraSettings() {
     H->Boom->TargetOffset.Z=GI->CameraHeight;
     H->Boom->SocketOffset.Y=GI->CameraShoulder;
     H->Camera->SetRelativeRotation(FRotator(GI->CameraPitch,0.f,0.f));
-    H->Camera->SetFieldOfView(GI->CameraFOV);
+    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush);}
     // Character animation is suspended during a party pause; settings still apply.
     if(auto* S=AS::State(this)) if(S->Frozen()) H->Boom->TargetArmLength=GI->CameraDistance;
 }

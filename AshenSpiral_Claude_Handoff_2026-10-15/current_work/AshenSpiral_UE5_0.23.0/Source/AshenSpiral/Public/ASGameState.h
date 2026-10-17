@@ -90,6 +90,8 @@ public:
     TArray<TWeakObjectPtr<AASField>> Fields;
     TArray<TWeakObjectPtr<AASBreakable>> Breakables;
     bool Frozen() const {return bPartyPaused||bConnectionHold;}
+    // Seconds since a boss appeared while still spawn-protected (the intro window); negative when no intro is playing.
+    float BossIntroAge() const;
     bool Fighting() const {return Phase==EASPhase::Combat || Phase==EASPhase::Countdown;}
     UFUNCTION(NetMulticast,Unreliable) void Effect(uint8 Kind,FVector_NetQuantize Position,FVector_NetQuantizeNormal Direction,FLinearColor Color,float Size);
 };

@@ -1,5 +1,7 @@
 #include "ASGameState.h"
 #include "ASSpell.h"
+#include "ASEnemy.h"
+#include "ASPresentationRules.h"
 #include "ASWorld.h"
 #include "ASPlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -39,3 +41,9 @@ bool ClearSight(UWorld* W,const FVector& A,const FVector& B) {
 }
 
 void AASPlayerState::OnOffersChanged() {if(auto* PC=Cast<AASPlayerController>(GetOwner())) PC->RefreshRewardMenu();}
+
+float AASGameState::BossIntroAge() const {
+    if(Phase!=EASPhase::Combat) return -1.f;
+    for(const auto& Weak:Enemies) if(const auto* E=Weak.Get()) if(E->Boss()&&SimTime<E->SpawnProtectedUntil) return ASPresentation::BossIntroLife-(E->SpawnProtectedUntil-SimTime);
+    return -1.f;
+}

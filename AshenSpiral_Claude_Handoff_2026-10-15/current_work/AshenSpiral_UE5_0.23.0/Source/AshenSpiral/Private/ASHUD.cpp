@@ -359,6 +359,18 @@ void AASHUD::DrawHUD() {
         const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}
     }
     DrawWaveBanner(S);
+    {
+        const float IntroAge=S->BossIntroAge();const auto Intro=ASPresentation::BossIntroAt(IntroAge,false);
+        if(IntroAge>=0.f&&Intro.Bars>0.f) {
+            // Cinematic bars and the boss name slamming in; the Ward index picks the name.
+            const float BarH=Height*.13f*Intro.Bars;Box(0,0,Width,BarH,FLinearColor(0,0,0,.92f));Box(0,Height-BarH,Width,BarH,FLinearColor(0,0,0,.92f));
+            const FString Name=ASData::Bosses[FMath::Clamp(ASRules::Ward(S->Room),0,3)];
+            if(Intro.NameAlpha>0.f) {
+                const float Size=2.6f*Intro.NameScale;const float NX=CX-float(Name.Len())*Size*10.f,NY=Height*.5f-Size*18.f;
+                Text(Name,NX+4,NY+4,FLinearColor(0,0,0,Intro.NameAlpha),Size);Text(Name,NX,NY,FLinearColor(1.f,.22f,.18f,Intro.NameAlpha),Size);
+            }
+        }
+    }
     if(S->bEnteringPortal) {Box(0,0,Width,Height,FLinearColor(0,0,0,.16f));Text(TEXT("ENTERING THE SPIRAL"),CX-145,Height*.75f,ASHudGold,.9f);}
     if(S->Frozen()) {
         Group(CX-380*UI,CY-45*UI,UI);
