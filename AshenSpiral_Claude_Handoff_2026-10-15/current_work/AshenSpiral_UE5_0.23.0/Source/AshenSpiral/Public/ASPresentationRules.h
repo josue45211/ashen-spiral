@@ -85,4 +85,20 @@ inline KillBurst KillBurstFor(bool Elite,bool Boss) {
 // Ballistic shard: position offset from the burst centre after Age seconds (cm), launched at Velocity.
 inline float ShardHeight(float Vz,float Age) {return Vz*Age-.5f*980.f*Age*Age;}
 inline float ShardScale(float Age,float Life) {const float T=std::clamp(Age/std::max(.05f,Life),0.f,1.f);return T<.7f?1.f:(1.f-T)/.3f;}
+
+// ---- Pickup flow (Crab Champions style): drops are tossed out, bounce, settle into a glowing hover, and are
+// pulled to a player who needs them with a whoosh that speeds up as they close in. Looks and feel only.
+constexpr float PickupMagnetRadius=520.f,PickupGrabRadius=170.f;
+inline float PickupHeight(float Age) {
+    Age=std::max(0.f,Age);
+    const float Bounce=std::fabs(std::sin(Age*8.f))*150.f*std::exp(-Age*2.6f);
+    const float Hover=(14.f+6.f*std::sin(Age*3.f))*(1.f-std::exp(-Age*3.f));
+    return Bounce+Hover;
+}
+inline float PickupPulse(float Age) {return 1.f+.08f*std::sin(Age*5.f);}
+// Pull speed (cm/s) at a distance from the player; rises steeply as the pickup closes in.
+inline float PickupMagnetSpeed(float Distance) {
+    if(Distance>=PickupMagnetRadius) return 0.f;
+    const float Close=1.f-std::clamp(Distance/PickupMagnetRadius,0.f,1.f);return 380.f+2200.f*Close*Close;
+}
 }

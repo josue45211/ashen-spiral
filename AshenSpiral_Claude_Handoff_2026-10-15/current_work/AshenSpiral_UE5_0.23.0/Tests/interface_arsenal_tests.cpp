@@ -81,6 +81,15 @@ int main() {
         Check(Near(ShardHeight(500,0),0)&&ShardHeight(500,.25f)>0&&ShardHeight(500,1.2f)<0,"shards arc up then fall");
         Check(ShardScale(0,.6f)==1.f&&ShardScale(.6f,.6f)==0.f&&ShardScale(.3f,.6f)==1.f,"shards hold full size then shrink away");
     }
+    {
+        Check(Near(PickupHeight(0),0.f)&&PickupHeight(.2f)>60.f,"pickups are tossed up when they spawn");
+        bool Bounced=false;float Prev=PickupHeight(.2f);bool Falling=false;for(float A=.2f;A<1.f;A+=.01f) {const float H=PickupHeight(A);if(H<Prev) Falling=true;if(Falling&&H>Prev+.5f) Bounced=true;Prev=H;}
+        Check(Bounced,"pickups bounce before settling");
+        float Lo=1e9f,Hi=-1e9f;for(float A=3.f;A<8.f;A+=.01f) {const float H=PickupHeight(A);Lo=std::min(Lo,H);Hi=std::max(Hi,H);}
+        Check(Lo>=7.f&&Hi<=21.f,"settled pickups hover within a small band");
+        Check(PickupMagnetSpeed(PickupMagnetRadius)==0.f&&PickupMagnetSpeed(400)<PickupMagnetSpeed(200)&&PickupMagnetSpeed(200)<PickupMagnetSpeed(50),"magnet pull speeds up as the pickup closes in");
+        Check(PickupMagnetSpeed(PickupGrabRadius)>PickupMagnetSpeed(PickupMagnetRadius-1)&&PickupGrabRadius<PickupMagnetRadius,"grab radius sits inside the magnet radius");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }

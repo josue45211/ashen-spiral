@@ -321,7 +321,7 @@ void AASField::Tick(float Delta) {
         if(Kind==0) S->Effect(6,GetActorLocation(),FVector::ForwardVector,FLinearColor(1,.1f,.05f),Radius);
     }
 }
-AASPickup::AASPickup() {bReplicates=true;SetReplicateMovement(true);PrimaryActorTick.bCanEverTick=true;Visual=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Pickup"));RootComponent=Visual;}
+AASPickup::AASPickup() {bReplicates=true;SetReplicateMovement(true);PrimaryActorTick.bCanEverTick=true;PickupRoot=CreateDefaultSubobject<USceneComponent>(TEXT("PickupRoot"));RootComponent=PickupRoot;Visual=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Pickup"));Visual->SetupAttachment(PickupRoot);Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);}
 AASPickup* AASPickup::Spawn(UWorld* W,const FVector& At,int32 Type,float Value) {
     auto* S=AS::State(W);if(!W||!S||W->GetNetMode()==NM_Client||S->Pickups.Num()>=70) return nullptr;
     const FTransform T(At);auto* P=W->SpawnActorDeferred<AASPickup>(StaticClass(),T,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
@@ -331,16 +331,28 @@ void AASPickup::RefreshLook() {
     ASAssets::Style(Visual,Kind==0?TEXT("SM_HealthPickup"):(Kind==1?TEXT("SM_ShieldPickup"):TEXT("SM_Crystal")),Kind==0?FLinearColor(.1f,1,.35f):(Kind==1?ASData::HitColor(EASHitKind::Shield):FLinearColor(1,.75f,.12f)),0,4);
     Visual->SetRelativeScale3D(Kind==2?FVector(.25f):FVector(1));
 }
-void AASPickup::BeginPlay() {Super::BeginPlay();if(auto* S=AS::State(this)) S->Pickups.AddUnique(this);Expires=AS::Time(this)+90;RefreshLook();}
+void AASPickup::BeginPlay() {Super::BeginPlay();if(auto* S=AS::State(this)) S->Pickups.AddUnique(this);Born=AS::Time(this);Expires=Born+90;RefreshLook();}
 void AASPickup::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Pickups.Remove(this);Super::EndPlay(R);}
 void AASPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASPickup,Kind);DOREPLIFETIME(AASPickup,Amount);}
 void AASPickup::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||S->Frozen()) return;
-    AddActorLocalRotation(FRotator(0,Delta*65,0));if(!HasAuthority()) return;
+    // Toss, bounce and hover are local and cosmetic; the server only moves the pickup toward a player who needs it.
+    const float Age=S->SimTime-Born;
+    Visual->SetRelativeLocation(FVector(0,0,ASPresentation::PickupHeight(Age)));Visual->AddLocalRotation(FRotator(0,Delta*(65.f+160.f*FMath::Exp(-Age*2.f)),0));
+    Visual->SetRelativeScale3D((Kind==2?FVector(.25f):FVector(1))*ASPresentation::PickupPulse(Age));
+    if(!HasAuthority()) return;
     if(S->SimTime>=Expires) {Destroy();return;}
+    if(Age>.55f) {
+        AASCharacter* Puller=nullptr;float Nearest=ASPresentation::PickupMagnetRadius;
+        for(auto W:S->Heroes) if(auto* H=W.Get()) if(!H->bDowned&&!(Kind==0&&H->Health>=H->MaxHealth-.1f)&&!(Kind==1&&H->Shield>=H->MaxHealth)) {
+            const float D=FVector::Dist(H->GetActorLocation(),GetActorLocation());if(D<Nearest) {Nearest=D;Puller=H;}
+        }
+        if(Puller) {const FVector To=Puller->GetActorLocation()-GetActorLocation();SetActorLocation(GetActorLocation()+To.GetSafeNormal()*FMath::Min(To.Size(),ASPresentation::PickupMagnetSpeed(Nearest)*Delta));}
+    }
     for(auto W:S->Heroes) if(auto* H=W.Get()) if(!H->bDowned&&FVector::DistSquared(H->GetActorLocation(),GetActorLocation())<170*170) {
         if(Kind==0&&H->Health>=H->MaxHealth-.1f) continue;
         if(Kind==1&&H->Shield>=H->MaxHealth) continue;
+        S->Effect(uint8(12+FMath::Clamp(Kind,0,2)),H->GetActorLocation(),FVector::UpVector,Kind==0?FLinearColor(.1f,1,.35f):(Kind==1?ASData::HitColor(EASHitKind::Shield):FLinearColor(1,.75f,.12f)),Kind==2?60.f:140.f);
         if(Kind==0) H->Heal(Amount);
         else if(Kind==1) H->Shield=FMath::Min(H->MaxHealth,H->Shield+Amount);
         else {S->Cinders=ASRules::Credit(S->Cinders,FMath::RoundToInt(Amount));H->OnCinderPickup();}
@@ -381,16 +393,22 @@ AASVisualEffect::AASVisualEffect() {PrimaryActorTick.bCanEverTick=true;Visual=Cr
 void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearColor C,float R) {
     Kind=T;Size=R;SetActorLocation(At);SetActorRotation(D.Rotation());
     ASAssets::Style(Visual,Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring"))),C,0,6);
-    Duration=Kind==8?.32f:(Kind==6?.48f:.24f);
+    Duration=Kind==8?.32f:(Kind==6?.48f:(Kind>=12?.34f:.24f));
     const TCHAR* Sound=Kind==1||Kind==2?TEXT("S_Attack"):(Kind==3?TEXT("S_Spiral"):(Kind==4?TEXT("S_Dash"):(Kind==5?TEXT("S_Hit"):(Kind==7?TEXT("S_Reward"):TEXT("S_Collapse")))));
     if(Kind==9||Kind==10) {SetActorLocation(At+D*R*.5f);Duration=.18f;return;}
     if(Kind==8) return;
+    if(Kind>=12) {
+        // Pickup chime: warm and low for health, bright for shield, a quick tick for cinders. Placeholder assets, distinct pitch.
+        const TCHAR* Chime=Kind==13?TEXT("S_Hit"):TEXT("S_Reward");const float Pitch=Kind==12?.85f:(Kind==13?1.6f:1.9f);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Chime,Chime))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Kind==14?.22f:.4f,Pitch);
+        return;
+    }
     if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Sound,Sound))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
 }
 void AASVisualEffect::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
     Age+=Delta;if(Age>=Duration) {Destroy();return;}
-    float T=Age/Duration;float Scale=Size/50.f*(Kind==2||Kind==5?1-T:(Kind==8?.3f+T*1.8f:.2f+T));
+    float T=Age/Duration;float Scale=Size/50.f*(Kind==2||Kind==5?1-T:(Kind==8||Kind>=12?.3f+T*1.8f:.2f+T));
     Visual->SetRelativeScale3D(Kind==9||Kind==10?FVector(Size/100.f,.05f*(1-T),.05f*(1-T)):FVector(Scale,Scale,Kind==2||Kind==5?Scale:1));
     if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),6*(1-T));
 }

@@ -105,8 +105,9 @@ public:
     UFUNCTION() void RefreshLook();
     static AASPickup* Spawn(UWorld* World,const FVector& At,int32 Kind,float Amount);
 private:
+    UPROPERTY() TObjectPtr<USceneComponent> PickupRoot;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Visual;
-    float Expires=0;
+    float Expires=0,Born=0;
 };
 UCLASS() class ASHENSPIRAL_API AASVisualEffect : public AActor {
     GENERATED_BODY()
