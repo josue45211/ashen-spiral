@@ -454,6 +454,8 @@ void AASGameMode::EndlessFinishWave() {
         PS->ShopBought=0;PS->Offers.Empty();PS->bRewardClaimed=false;PS->AvailableAsh=ASRules::Credit(PS->AvailableAsh,ASExpedition::CheckpointAsh(S->EndlessWave));
         AASCharacter* Hero=nullptr;for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->GetPlayerState<AASPlayerState>()==PS) {Hero=H;break;}
         RollOffers(PS,Hero);
+        PS->ShopOffer=-1;
+        if(S->bLuckyShop&&Hero) {const auto Picks=ASBuild::Offers(Hero->UpgradeContext(),Random.GetUnsignedInt(),1);PS->ShopOffer=Picks.empty()?-1:Picks[0];}
         if(S->bLuckyShop) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(S->bRareShop?TEXT("A LUCKY SHOP appears, with rare stock for Ash!"):TEXT("A LUCKY SHOP appears beside the chest."));
         if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(FString::Printf(TEXT("WAVE %d CLEARED. Claim your reward at the chest, then either player presses E to continue."),S->EndlessWave));
     }
@@ -701,6 +703,11 @@ void AASGameMode::BuyShopItem(AASPlayerController* PC,int32 Index) {
         TArray<int32> Rare;for(int32 I=0;I<ASBuild::Count;++I) if(ASBuild::Catalog[I].Rarity==2&&!ASBuild::Catalog[I].Instant&&H->CanApplyChoice(ASBuild::OfferBase+I)) Rare.Add(ASBuild::OfferBase+I);
         if(Rare.IsEmpty()) {PC->Notify(TEXT("No legendary trait fits your build right now. Nothing spent."));return;}
         Applied=H->ApplyChoice(Rare[Random.RandRange(0,Rare.Num()-1)]);
+    }
+    else if(Index==ASExpedition::ShopPickIndex) {
+        const int32 Pick=PS->ShopOffer;
+        if(Pick<0||!H->CanApplyChoice(Pick)) {PC->Notify(TEXT("The trader has nothing that fits your build right now. Nothing spent."));return;}
+        Applied=H->ApplyChoice(Pick);
     }
     else if(Index==4) {H->MaxHealth=FMath::Min(100000.f,H->MaxHealth+25.f);H->Health=FMath::Min(H->MaxHealth,H->Health+25.f);Applied=true;}
     if(!Applied) return;

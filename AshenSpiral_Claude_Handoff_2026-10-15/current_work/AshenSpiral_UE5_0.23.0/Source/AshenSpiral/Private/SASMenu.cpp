@@ -230,8 +230,16 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(FString::Printf(TEXT("Your Scrap: %d     Your Ash: %d (run earnings, banked when the run ends)"),PS?PS->AvailableScrap:0,PS?PS->AvailableAsh:0),16,ASMenuGold);
         for(int32 I=0;I<ASExpedition::ShopCount;++I) {
             const auto& Item=ASExpedition::ShopStock(I);if(Item.Rare&&!(S&&S->bRareShop)) continue;
+            FString Name=UTF8_TO_TCHAR(Item.Name),Description=UTF8_TO_TCHAR(Item.Description);bool Fits=true;
+            if(I==ASExpedition::ShopPickIndex) {
+                const int32 Offer=PS?PS->ShopOffer:-1;const bool Trait=ASBuild::IsTrait(Offer);
+                if(!Trait&&!ASRules::IsRunUpgradeOffer(Offer)) continue;
+                Name=FString(TEXT("Trader's Pick: "))+(Trait?FString(UTF8_TO_TCHAR(ASBuild::Catalog[Offer-ASBuild::OfferBase].Name)):FString(ASData::RunUpgrades[Offer-100].Name));
+                Description=Trait?FString(UTF8_TO_TCHAR(ASBuild::Catalog[Offer-ASBuild::OfferBase].Description)):FString(ASData::RunUpgrades[Offer-100].Desc);
+                const auto* PickHero=PC.IsValid()?Cast<AASCharacter>(PC->GetPawn()):nullptr;Fits=PickHero&&PickHero->CanApplyChoice(Offer);
+            }
             const FString Price=Item.Ash>0?FString::Printf(TEXT("%d ASH"),Item.Ash):FString::Printf(TEXT("%d SCRAP"),Item.Scrap);
-            Card(UTF8_TO_TCHAR(Item.Name),UTF8_TO_TCHAR(Item.Description),(PS&&(PS->ShopBought&(1<<I)))?FString(TEXT("BOUGHT")):Price,75,I,Open&&PS&&ASExpedition::CanBuyShopItem(I,PS->AvailableScrap,PS->AvailableAsh,PS->ShopBought,S->bRareShop));
+            Card(Name,Description,(PS&&(PS->ShopBought&(1<<I)))?FString(TEXT("BOUGHT")):Price,75,I,Fits&&Open&&PS&&ASExpedition::CanBuyShopItem(I,PS->AvailableScrap,PS->AvailableAsh,PS->ShopBought,S->bRareShop));
         }
     } else if(Page==22) {
         const bool Open=PS&&PS->bEndlessUnlocked;

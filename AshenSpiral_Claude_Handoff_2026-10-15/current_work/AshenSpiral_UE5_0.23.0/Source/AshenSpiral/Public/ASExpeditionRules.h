@@ -81,14 +81,16 @@ inline float SynergyDamage(int Kind,float MaxHP,float Power,bool Boss) {
 constexpr int ExclusiveBase=400,ExclusiveCount=4;
 // Lucky shop stock (TUNABLE). Scrap items always; rare Ash items only when the shop rolled rare.
 struct ShopItem {const char* Name;const char* Description;int Scrap,Ash;bool Rare;};
-constexpr int ShopCount=5;
+constexpr int ShopCount=6,ShopPickIndex=5;
 inline const ShopItem& ShopStock(int Index) {
     static const ShopItem Items[ShopCount]={
-        {"Field Dressing","Heal 60% of your maximum health.",40,0,false},
-        {"Ward Plate","Gain 40 shield.",35,0,false},
-        {"Reroll Token","Gain one extra reward reroll.",60,0,false},
-        {"Ember Core","Gain one random legendary-tier trait you can use.",0,20,true},
-        {"Heart of the Spiral","Gain 25 maximum health for this run.",0,15,true}};
+        {"Field Dressing","Heal 60% of your maximum health.",60,0,false},
+        {"Ward Plate","Gain 40 shield.",55,0,false},
+        {"Reroll Token","Gain one extra reward reroll.",90,0,false},
+        {"Ember Core","Gain one random legendary-tier trait you can use.",0,30,true},
+        {"Heart of the Spiral","Gain 25 maximum health for this run.",0,22,true},
+        // Ported from Astra: a trait rolled for this player's build when the shop opens. Good stock, high price (TUNABLE).
+        {"Trader's Pick","A trait the trader rolled for your build.",150,0,false}};
     return Items[std::clamp(Index,0,ShopCount-1)];
 }
 // Server-side purchase check: one purchase of each item per player per shop, exact funds, rare stock only when open.

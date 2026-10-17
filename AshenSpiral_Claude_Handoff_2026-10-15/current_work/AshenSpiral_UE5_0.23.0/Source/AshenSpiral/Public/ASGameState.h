@@ -18,6 +18,7 @@ public:
     UPROPERTY(Replicated) float RunDamageTaken=0;
     UPROPERTY(Replicated) int32 RunKills=0;
     UPROPERTY(Replicated) bool bShopClaimed=false;
+    UPROPERTY(Replicated) int32 ShopOffer=-1;
     UPROPERTY(Replicated) int32 ShopBought=0;
     UPROPERTY(Replicated) int32 LastGambleRoom=-100;
     UPROPERTY(Replicated) int32 CharacterLevel=1;
