@@ -359,6 +359,20 @@ void AASPickup::Tick(float Delta) {
         H->ForceNetUpdate();Destroy();return;
     }
 }
+int32 AASDashGhost::Active=0;
+AASDashGhost::AASDashGhost() {PrimaryActorTick.bCanEverTick=true;Visual=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Ghost"));RootComponent=Visual;Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);Visual->SetCastShadow(false);}
+void AASDashGhost::EndPlay(const EEndPlayReason::Type Reason) {Super::EndPlay(Reason);if(bCounted) {Active=FMath::Max(0,Active-1);bCounted=false;}}
+void AASDashGhost::Setup(const FVector& At,float Yaw,FLinearColor Color) {
+    if(Active>=ASPresentation::DashGhostCap) {Destroy();return;}
+    ++Active;bCounted=true;SetActorLocation(At);SetActorRotation(FRotator(0,Yaw,0));
+    ASAssets::Style(Visual,TEXT("Sphere"),Color,0,5);Visual->SetRelativeScale3D(FVector(1.3f,.5f,1.5f));
+}
+void AASDashGhost::Tick(float Delta) {
+    Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
+    Age+=Delta;if(Age>=ASPresentation::DashGhostLife) {Destroy();return;}
+    Visual->SetRelativeScale3D(FVector(1.3f,.5f,1.5f)*ASPresentation::DashGhostShrink(Age));
+    if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),5.f*ASPresentation::DashGhostAlpha(Age));
+}
 int32 AASShardBurst::Active=0;
 AASShardBurst::AASShardBurst() {PrimaryActorTick.bCanEverTick=true;RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));}
 void AASShardBurst::EndPlay(const EEndPlayReason::Type Reason) {Super::EndPlay(Reason);if(Shards.Num()>0) Active=FMath::Max(0,Active-1);}

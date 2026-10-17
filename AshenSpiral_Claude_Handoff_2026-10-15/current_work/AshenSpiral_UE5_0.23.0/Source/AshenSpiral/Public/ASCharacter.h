@@ -183,4 +183,5 @@ private:
     void CancelMelee(bool Force=false);
     void CastSpiral(bool Perfect);
     void Animate(float Delta);
+    float NextDashGhost=0;
 };

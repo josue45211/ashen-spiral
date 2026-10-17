@@ -148,4 +148,10 @@ inline float ChestPopScale(float Age) {
     if(Age<0.f||Age>=ChestPopLife) return 1.f;
     return 1.f+.28f*std::sin(3.14159265f*Age/ChestPopLife);
 }
+
+// ---- Dash trail: fading afterimages dropped while moving at dash speed. Looks only; spawned locally on every client.
+constexpr float DashGhostSpeed=1500.f,DashGhostSpacing=.03f,DashGhostLife=.28f;constexpr int DashGhostCap=20;
+inline bool DashGhostDue(float PlanarSpeed,float Now,float NextAt) {return std::isfinite(PlanarSpeed)&&PlanarSpeed>DashGhostSpeed&&Now>=NextAt;}
+inline float DashGhostAlpha(float Age) {const float T=std::clamp(Age/DashGhostLife,0.f,1.f);return (1.f-T)*(1.f-T);}
+inline float DashGhostShrink(float Age) {const float T=std::clamp(Age/DashGhostLife,0.f,1.f);return 1.f-.45f*T;}
 }

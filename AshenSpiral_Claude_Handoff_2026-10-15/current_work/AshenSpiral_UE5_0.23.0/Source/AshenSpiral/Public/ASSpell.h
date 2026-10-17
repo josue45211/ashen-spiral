@@ -135,6 +135,20 @@ private:
     TArray<FShard> Shards;float Age=0,Life=.65f,Size=1.f;FVector Origin=FVector::ZeroVector;
 };
 
+// Cosmetic-only dash afterimage: a stretched glowing body silhouette that fades and shrinks. Spawned locally.
+UCLASS() class ASHENSPIRAL_API AASDashGhost : public AActor {
+    GENERATED_BODY()
+public:
+    AASDashGhost();
+    virtual void Tick(float Delta) override;
+    virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+    void Setup(const FVector& At,float Yaw,FLinearColor Color);
+    static int32 Active;
+private:
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> Visual;
+    float Age=0;bool bCounted=false;
+};
+
 // Cosmetic-only hammer impact, spawned locally by the character's multicast.
 UCLASS() class ASHENSPIRAL_API AASHammerDebris : public AActor {
     GENERATED_BODY()

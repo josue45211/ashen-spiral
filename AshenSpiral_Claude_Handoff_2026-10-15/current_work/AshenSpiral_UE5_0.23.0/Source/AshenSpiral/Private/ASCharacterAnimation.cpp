@@ -4,6 +4,8 @@
 #include "ASMovementComponent.h"
 #include "ASGameState.h"
 #include "ASGameInstance.h"
+#include "ASSpell.h"
+#include "ASPresentationRules.h"
 #include "ASWorld.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
@@ -16,6 +18,11 @@ void AASCharacter::Animate(float Delta) {
     if(Parts.Num()!=21) return;
     const float Now=AS::Time(this),Speed=GetVelocity().Size2D();const bool Airborne=GetCharacterMovement()->IsFalling();
     const bool Dashing=Movement()->DashRemaining>0;
+    // Dash trail: afterimages while moving at dash speed (works on every client from the replicated velocity).
+    if(!bDowned&&ASPresentation::DashGhostDue(Speed,Now,NextDashGhost)) {
+        NextDashGhost=Now+ASPresentation::DashGhostSpacing;
+        if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->Setup(GetActorLocation(),GetVelocity().Rotation().Yaw,BodyColor());
+    }
     const bool Planted=Build.Weapon==1&&(HammerCommitted()||HammerLeapState==1||HammerLeapState==3);
     LocomotionWeight=FMath::Lerp(LocomotionWeight,FMath::Clamp(Planted?0.f:Speed/RunningSpeed(),0.f,1.f),ASAnimation::Blend(Delta,12.f));
     AirWeight=FMath::Lerp(AirWeight,Airborne?1.f:0.f,ASAnimation::Blend(Delta,13.f));

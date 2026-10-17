@@ -115,6 +115,12 @@ int main() {
         for(float A=0;A<FloatTextLife;A+=.01f) {const auto F=FloatTextAt(A,A>.8f);Check(F.Alpha>=0&&F.Alpha<=1&&F.Rise>=0&&F.Rise<=80.001f&&F.Scale>=1.f&&F.Scale<=2.f,"reward text stays bounded");}
         Check(Near(ChestPopScale(0),1.f)&&ChestPopScale(ChestPopLife*.5f)>1.25f&&ChestPopScale(ChestPopLife)==1.f&&ChestPopScale(-1)==1.f,"chest swells and settles back to its own size");
     }
+    {
+        Check(!DashGhostDue(640.f,1,0)&&DashGhostDue(2350.f,1,0)&&!DashGhostDue(2350.f,1,2)&&!DashGhostDue(std::numeric_limits<float>::quiet_NaN(),1,0),"afterimages only spawn at dash speed, on a timer, never from bad speed");
+        Check(DashGhostAlpha(0)==1.f&&DashGhostAlpha(DashGhostLife)==0.f&&DashGhostAlpha(DashGhostLife*.5f)<DashGhostAlpha(DashGhostLife*.25f),"afterimages fade out");
+        Check(DashGhostShrink(0)==1.f&&Near(DashGhostShrink(DashGhostLife),.55f)&&DashGhostCap>=10&&DashGhostCap<=30,"afterimages shrink and are capped");
+        Check(DashGhostSpacing*DashGhostCap>=DashGhostLife,"the cap never starves a continuous dash trail");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }
