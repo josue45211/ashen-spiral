@@ -174,6 +174,11 @@ void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
     S->Difficulty=ASExpedition::Difficulty(Difficulty);S->ForceNetUpdate();
     PC->Notify(FString::Printf(TEXT("%s portal chosen: %s. %s."),UTF8_TO_TCHAR(ASExpedition::PortalName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(S->Difficulty)),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(S->Difficulty))));
 }
+void AASGameMode::ClearBeat() {
+    // TUNABLE: 0.45 real seconds at 30% speed. Real time, so the dilation itself cannot stretch the beat.
+    if(ClearBeatEndsReal>0.f||!GetWorld()) return;
+    UGameplayStatics::SetGlobalTimeDilation(this,.3f);ClearBeatEndsReal=GetWorld()->GetRealTimeSeconds()+.45f;
+}
 void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
     if(!S||!S->Arena||!H||Portal<0||Portal>3||S->Phase!=EASPhase::Hub||S->bEnteringPortal) return;
@@ -282,6 +287,7 @@ void AASGameMode::QueueWave() {
 void AASGameMode::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||!S->Arena) return;
     const float RealNow=GetWorld()->GetTimeSeconds();
+    if(ClearBeatEndsReal>0.f&&(GetWorld()->GetRealTimeSeconds()>=ClearBeatEndsReal||S->Phase==EASPhase::Hub||S->bPartyPaused)) {UGameplayStatics::SetGlobalTimeDilation(this,1.f);ClearBeatEndsReal=0.f;}
     if(S->bEnteringPortal) {
         // Walk-in: each hero glides to the archway over 1.2s, then the run launches.
         const float Alpha=FMath::Clamp(1.f-(PortalFinish-RealNow)/1.2f,0.f,1.f);int32 I=0;
@@ -352,7 +358,7 @@ void AASGameMode::Tick(float Delta) {
     S->Enemies.RemoveAll([](const auto& W){return !W.IsValid();});S->LivingEnemies=S->Enemies.Num();
     if(S->bEndless) {EndlessTick(Delta);return;}
     if(Queued==0&&S->LivingEnemies==0) {
-        if(S->Wave+1<ASRules::WaveCount(S->Room)) {++S->Wave;QueueWave();}else FinishRoom();
+        if(S->Wave+1<ASRules::WaveCount(S->Room)) {++S->Wave;QueueWave();}else {if(!ASRules::Boss(S->Room)) ClearBeat();FinishRoom();}
     }
 }
 void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
@@ -477,7 +483,7 @@ void AASGameMode::ShuffleEndlessArena() {
     S->Effect(7,S->Arena->CellPosition(0)+FVector(0,0,50),FVector::UpVector,FLinearColor(.9f,.3f,.15f),3000.f);
 }
 void AASGameMode::EndlessFinishWave() {
-    auto* S=AS::State(this);if(!S) return;
+    auto* S=AS::State(this);if(!S) return;if(!ASExpedition::BossWave(S->EndlessWave)) ClearBeat();
     S->ClearedEndlessWave=S->EndlessWave;S->Phase=EASPhase::Reward;S->ChestKind=0;EndlessShuffleAt=-1.f;
     // TUNABLE: about 15% of checkpoints after wave 10 open a lucky shop; a quarter of those stock rare Ash items.
     S->bLuckyShop=ASExpedition::ShopAppears(S->EndlessWave,Random.FRand());S->bRareShop=S->bLuckyShop&&Random.FRand()<.25f;

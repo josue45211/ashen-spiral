@@ -20,6 +20,10 @@ private:
     float GroupScale=1.f;
     // Portal walk-in fade (run start) and sky-stage flash, both client-side and cosmetic.
     float TransitionStart=-10.f,StageFlashStart=-10.f;int32 LastHudPhase=-1,LastHudStage=0,TransitionTier=0;bool bTransitionEndless=false;
+    // Wave banner (cosmetic, driven by replicated wave/phase changes).
+    float BannerStart=-10.f;FString BannerTitle,BannerSub;FLinearColor BannerColor=FLinearColor::White;
+    int32 BannerRoom=-99,BannerWave=-99,BannerEndlessWave=-99,BannerCleared=-99,BannerPhase=-1;
+    void DrawWaveBanner(AASGameState* State);
     FVector2D GroupOrigin=FVector2D::ZeroVector;
     void Group(float X=0,float Y=0,float Size=1.f) {GroupOrigin=FVector2D(X,Y);GroupScale=Size;}
     void Text(const FString& Value,float X,float Y,FLinearColor Color=FLinearColor::White,float Size=1.f);

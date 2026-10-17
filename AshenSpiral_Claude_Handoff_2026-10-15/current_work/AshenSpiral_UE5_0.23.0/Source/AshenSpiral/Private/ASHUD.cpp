@@ -358,6 +358,7 @@ void AASHUD::DrawHUD() {
     if(S->SimTime-PC->LastCritAt<.2f) {
         const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}
     }
+    DrawWaveBanner(S);
     if(S->bEnteringPortal) {Box(0,0,Width,Height,FLinearColor(0,0,0,.16f));Text(TEXT("ENTERING THE SPIRAL"),CX-145,Height*.75f,ASHudGold,.9f);}
     if(S->Frozen()) {
         Group(CX-380*UI,CY-45*UI,UI);
@@ -371,4 +372,33 @@ void AASHUD::DrawHUD() {
         Text(TEXT("F9 hide  /  console: stat unit"),40,PartnerY+82,ASHudMuted,.65f);
     }
 
+}
+
+void AASHUD::DrawWaveBanner(AASGameState* S) {
+    if(!S) return;
+    const float Now=S->SimTime;
+    const bool Fighting=S->Phase==EASPhase::Combat;
+    // Detect transitions from replicated state; the first frame only records the baseline.
+    if(BannerPhase<0) {BannerRoom=S->Room;BannerWave=S->Wave;BannerEndlessWave=S->EndlessWave;BannerCleared=S->ClearedEndlessWave;BannerPhase=int32(S->Phase);}
+    auto Fire=[&](const FString& Title,const FString& Sub,FLinearColor Color) {BannerStart=Now;BannerTitle=Title;BannerSub=Sub;BannerColor=Color;};
+    if(S->bEndless) {
+        if(S->EndlessWave!=BannerEndlessWave&&S->EndlessWave>0&&S->Phase!=EASPhase::Hub) {
+            const bool Boss=ASExpedition::BossWave(S->EndlessWave);
+            Fire(FString::Printf(TEXT("WAVE %d"),S->EndlessWave),Boss?TEXT("BOSS"):TEXT(""),Boss?FLinearColor(1.f,.25f,.2f):FLinearColor(1.f,.78f,.3f));
+        } else if(S->ClearedEndlessWave!=BannerCleared&&S->ClearedEndlessWave>0&&S->Phase==EASPhase::Reward)
+            Fire(FString::Printf(TEXT("WAVE %d CLEARED"),S->ClearedEndlessWave),ASExpedition::RewardWave(S->ClearedEndlessWave)?TEXT("CHECKPOINT CHEST"):TEXT(""),FLinearColor(.5f,1.f,.7f));
+    } else if(Fighting&&(S->Room!=BannerRoom||S->Wave!=BannerWave)) {
+        const int32 Waves=ASRules::WaveCount(S->Room);const bool Boss=ASRules::Boss(S->Room);
+        Fire(Boss?FString(TEXT("BOSS")):FString::Printf(TEXT("WAVE %d"),S->Wave+1),Boss?TEXT(""):FString::Printf(TEXT("OF %d"),Waves),Boss?FLinearColor(1.f,.25f,.2f):FLinearColor(1.f,.78f,.3f));
+    } else if(S->Phase==EASPhase::Reward&&BannerPhase==int32(EASPhase::Combat)&&!S->bEndless)
+        Fire(TEXT("CHAMBER CLEARED"),TEXT(""),FLinearColor(.5f,1.f,.7f));
+    BannerRoom=S->Room;BannerWave=S->Wave;BannerEndlessWave=S->EndlessWave;BannerCleared=S->ClearedEndlessWave;BannerPhase=int32(S->Phase);
+    const auto Pose=ASPresentation::BannerAt(Now-BannerStart);if(Pose.Alpha<=0.f) return;
+    // A dark band with colour rails; the title slides with the band and the subtitle trails it.
+    const float BandH=118.f*Pose.Stretch*2.f,Y=Height*.22f-BandH*.5f,Off=Pose.Slide*Width;
+    Box(Off,Y,Width,BandH,FLinearColor(0,0,0,.62f*Pose.Alpha));
+    Box(Off,Y,Width,4,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha));Box(Off,Y+BandH-4,Width,4,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha));
+    const float TitleX=Off+Width*.5f-float(BannerTitle.Len())*22.f,TitleY=Y+BandH*.5f-34.f;
+    Text(BannerTitle,TitleX+3,TitleY+3,FLinearColor(0,0,0,Pose.Alpha),2.2f);Text(BannerTitle,TitleX,TitleY,FLinearColor(BannerColor.R,BannerColor.G,BannerColor.B,Pose.Alpha),2.2f);
+    if(!BannerSub.IsEmpty()) Text(BannerSub,Off*1.4f+Width*.5f-float(BannerSub.Len())*9.f,TitleY+54.f,FLinearColor(1,1,1,Pose.Alpha*.85f),.9f);
 }

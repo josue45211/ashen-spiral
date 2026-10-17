@@ -44,6 +44,9 @@ public:
     void BeginEndless(AASPlayerController* PC,int32 Seed);
     // Astra portal flow: E at an archway opens its page; the host's ENTER starts a short walk-in, then the run launches.
     void StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed);
+    // Brief server-side slow-motion on the last kill of a chamber or Endless wave (cosmetic, TUNABLE).
+    void ClearBeat();
+    float ClearBeatEndsReal=0;
     void EnterRoom(int32 Room);
     void EnemyKilled(AASEnemy* Enemy,AASCharacter* Killer);
     void Reward(AASPlayerController* PC,int32 Index);

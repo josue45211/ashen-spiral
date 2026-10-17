@@ -64,4 +64,14 @@ inline DamageLook DamageLookFor(NumberPersona P,float Age,float Life,float Seed)
     }
     return L;
 }
+
+// ---- Wave banner: a band sweeps in from the left, holds, then exits right. Looks only.
+constexpr float BannerLife=1.9f,BannerIn=.24f,BannerOut=.32f;
+struct BannerPose {float Slide,Alpha,Stretch;}; // Slide: -1 = off left, 0 = centred, +1 = off right.
+inline BannerPose BannerAt(float Age) {
+    if(Age<0.f||Age>=BannerLife) return {-1.f,0.f,0.f};
+    if(Age<BannerIn) {const float T=Age/BannerIn;const float Ease=1.f-(1.f-T)*(1.f-T)*(1.f-T);return {-1.f+Ease,std::min(1.f,T*2.f),1.f-.5f*Ease};}
+    if(Age>BannerLife-BannerOut) {const float T=(Age-(BannerLife-BannerOut))/BannerOut;return {T*T,1.f-T,.5f};}
+    return {0.f,1.f,.5f+.04f*std::sin((Age-BannerIn)*3.f)};
+}
 }

@@ -68,6 +68,12 @@ int main() {
         Check(DamageLookFor(NumberPersona::Poison,1.2f,1.25f,1.f).Y>0&&DamageLookFor(NumberPersona::Burn,.8f,1.25f,1.f).Rise>DamageLookFor(NumberPersona::Plain,.8f,1.25f,1.f).Rise,"poison drips late and burn climbs faster than plain");
         Check(IsSynergyPersona(NumberPersona::SynergyWild)&&!IsSynergyPersona(NumberPersona::Crit),"synergy persona grouping");
     }
+    {
+        Check(BannerAt(-1).Alpha==0&&BannerAt(BannerLife).Alpha==0,"banner is invisible outside its life");
+        Check(Near(BannerAt(0).Slide,-1.f)&&Near(BannerAt(BannerIn).Slide,0.f)&&BannerAt(.9f).Slide==0.f,"banner slides in from the left and holds centred");
+        Check(BannerAt(BannerLife-.01f).Slide>0.f&&BannerAt(BannerLife-.01f).Alpha<.1f,"banner exits right while fading");
+        for(float A=0;A<BannerLife;A+=.01f) {const auto B=BannerAt(A);Check(B.Alpha>=0&&B.Alpha<=1&&B.Slide>=-1.001f&&B.Slide<=1.001f&&B.Stretch>=0&&B.Stretch<=1.001f,"banner stays bounded");}
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }
