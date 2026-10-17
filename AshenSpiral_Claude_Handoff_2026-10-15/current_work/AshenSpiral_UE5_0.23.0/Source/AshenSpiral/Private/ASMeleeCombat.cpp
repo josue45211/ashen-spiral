@@ -78,11 +78,5 @@ void AASCharacter::ResolveMelee() {
         &&B->VisibleFrom(GetActorLocation())) {Contact=true;B->Strike(this,Damage*DamageScale(true));}
     if(Build.Weapon==1) {bHammerContact=Contact;HammerCue(uint8(MeleeStep),Contact,GetActorLocation()+Forward*(Slam?100.f:115.f)-FVector(0,0,Slam?85.f:10.f),Forward);ForceNetUpdate();}
     else S->Effect(1,GetActorLocation()-FVector(0,0,20),Forward,BodyColor(),Reach);
-    if(Build.Weapon==1) {
-        AASWell* Closest=nullptr;float Best=750;
-        for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&W->Hero.Get()==this) {
-            const float D=FVector::Dist2D(GetActorLocation(),W->GetActorLocation());if(D<Best) {Best=D;Closest=W.Get();}
-        }
-        if(Slam&&Closest) Closest->Collapse();else AASWell::Plant(this,GetActorLocation()+Forward*260-FVector(0,0,78),Slam,.8f);
-    }
+    // Hammer swings no longer plant or collapse gravity wells (removed 2026-10-16; may return reworked).
 }
