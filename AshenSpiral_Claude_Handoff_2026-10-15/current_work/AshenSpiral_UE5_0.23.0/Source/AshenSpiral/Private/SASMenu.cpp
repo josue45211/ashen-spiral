@@ -65,19 +65,7 @@ FString BuildSummary(const FASBuild& Build,const TArray<int32>& Run,const AASCha
 }
 float SASMenu::ScrollOffset() const {return Scroll.IsValid()?Scroll->GetScrollOffset():0.f;}
 void SASMenu::SetScrollOffset(float Value) {if(Scroll.IsValid()) Scroll->SetScrollOffset(Value);}
-FReply SASMenu::OnKeyUp(const FGeometry& G,const FKeyEvent& Event) {
-    // Hold-to-view: releasing TAB (or the controller's build button) closes the build panel.
-    if(Page==17&&PC.IsValid()&&(Event.GetKey()==PC->BoundKey("Build")||Event.GetKey()==EKeys::Gamepad_Special_Left)) {
-        const auto* GI=PC->GetGameInstance<UASGameInstance>();
-        if(GI&&GI->bHoldBuild) {PC->Action(0);return FReply::Handled();}
-    }
-    return SCompoundWidget::OnKeyUp(G,Event);
-}
 FReply SASMenu::OnKeyDown(const FGeometry& G,const FKeyEvent& Event) {
-    if(Page==17&&PC.IsValid()&&(Event.GetKey()==PC->BoundKey("Build")||Event.GetKey()==EKeys::Gamepad_Special_Left)) {
-        const auto* GI=PC->GetGameInstance<UASGameInstance>();
-        if(GI&&GI->bHoldBuild) return FReply::Handled(); // held key repeating: the panel stays open until release
-    }
     if((Page==17&&PC.IsValid()&&(Event.GetKey()==PC->BoundKey("Build")||Event.GetKey()==EKeys::Gamepad_Special_Left))||Event.GetKey()==EKeys::Escape||Event.GetKey()==EKeys::Gamepad_Special_Right||Event.GetKey()==EKeys::Gamepad_FaceButton_Right) {
         if(auto* C=PC.Get()) C->Action(0);return FReply::Handled();
     }

@@ -8,7 +8,6 @@ public:
     void Construct(const FArguments& Args);
     virtual bool SupportsKeyboardFocus() const override {return true;}
     virtual FReply OnKeyDown(const FGeometry& Geometry,const FKeyEvent& Event) override;
-    virtual FReply OnKeyUp(const FGeometry& Geometry,const FKeyEvent& Event) override;
     float ScrollOffset() const;void SetScrollOffset(float Value);
     int32 Page=0;
 private:

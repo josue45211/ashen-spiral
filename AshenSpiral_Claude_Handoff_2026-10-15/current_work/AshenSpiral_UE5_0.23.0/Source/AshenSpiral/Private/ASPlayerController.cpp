@@ -25,6 +25,8 @@
 #include "Slate/SceneViewport.h"
 #include "Input/Reply.h"
 #include "Widgets/SWindow.h"
+#include "Framework/Application/IInputProcessor.h"
+#include "Framework/Application/SlateApplication.h"
 #include "GenericPlatform/GenericWindow.h"
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -83,8 +85,36 @@ bool TryParseInt32Strict(const FString& Text, int32& OutValue)
 }
 }
 
+namespace {
+// Raw key listener for the hold-to-view build panel. It owns open/close in hold mode so no other input path can fight it.
+class FASBuildKeyProcessor : public IInputProcessor {
+public:
+    TWeakObjectPtr<AASPlayerController> Owner;
+    virtual void Tick(const float,FSlateApplication&,TSharedRef<ICursor>) override {}
+    virtual bool HandleKeyDownEvent(FSlateApplication&,const FKeyEvent& Event) override {auto* C=Owner.Get();return C&&C->HoldBuildKey(Event.GetKey(),true,Event.IsRepeat());}
+    virtual bool HandleKeyUpEvent(FSlateApplication&,const FKeyEvent& Event) override {auto* C=Owner.Get();return C&&C->HoldBuildKey(Event.GetKey(),false,false);}
+    virtual const TCHAR* GetDebugName() const override {return TEXT("ASBuildKeyProcessor");}
+};
+}
+bool AASPlayerController::HoldBuildKey(const FKey& Key,bool Down,bool Repeat) {
+    const auto* GI=GetGameInstance<UASGameInstance>();
+    if(!GI||!GI->bHoldBuild||!IsLocalController()) return false;
+    if(Key!=BoundKey("Build")&&Key!=EKeys::Gamepad_Special_Left) return false;
+    auto* Client=LocalViewport();if(!Client||!Client->Viewport||!Client->Viewport->IsForegroundWindow()) return false;
+    const bool Open=Menu.IsValid()&&Menu->Page==17;
+    if(Down&&!Open&&MenuOpen()) return false; // another menu is open: do not hijack its keys
+    switch(ASPresentation::HoldKeyAction(Down,Repeat,Open)) {
+        case ASPresentation::HoldAction::Open: OpenMenu(17);return true;
+        case ASPresentation::HoldAction::Close: CloseMenu();SetPartyPaused(false);return true;
+        default: return Down&&Open; // swallow key repeats while the panel is showing
+    }
+}
 void AASPlayerController::BeginPlay() {
     Super::BeginPlay();if(!IsLocalController()) return;ApplyGameplayInput();
+    if(FSlateApplication::IsInitialized()&&!BuildKeyProcessor.IsValid()) {
+        const TSharedRef<FASBuildKeyProcessor> Processor=MakeShared<FASBuildKeyProcessor>();Processor->Owner=this;
+        BuildKeyProcessor=Processor;FSlateApplication::Get().RegisterInputPreProcessor(Processor);
+    }
     if(auto* GI=GetGameInstance<UASGameInstance>()) {GI->SetQuality(GI->Quality);Notice=GI->LastMessage;}
     FTimerHandle Timer;GetWorldTimerManager().SetTimer(Timer,FTimerDelegate::CreateWeakLambda(this,[this]() {
         FVector ViewLocation;FRotator ViewRotation;GetPlayerViewPoint(ViewLocation,ViewRotation);
@@ -96,6 +126,7 @@ void AASPlayerController::BeginPlay() {
 }
 void AASPlayerController::EndPlay(const EEndPlayReason::Type Reason) {
     if(IsLocalController()) ASClipCursorToClientArea(nullptr,-1);
+    if(BuildKeyProcessor.IsValid()) {if(FSlateApplication::IsInitialized()) FSlateApplication::Get().UnregisterInputPreProcessor(BuildKeyProcessor);BuildKeyProcessor.Reset();}
     if(MenuLayer.IsValid()&&MenuViewport.IsValid()) MenuViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
     if(auto* Client=LocalViewport()) if(Client->Viewport&&Client->Viewport->HasMouseCapture()) {Client->Viewport->CaptureMouse(false);Client->Viewport->LockMouseToViewport(false);}
     Menu.Reset();MenuLayer.Reset();Super::EndPlay(Reason);
@@ -116,7 +147,6 @@ void AASPlayerController::SetupInputComponent() {
     InputComponent->BindAction("Reload",IE_Pressed,this,&AASPlayerController::Reload);
     InputComponent->BindAction("Rune",IE_Pressed,this,&AASPlayerController::Rune);
     InputComponent->BindAction("Build",IE_Pressed,this,&AASPlayerController::BuildMenu);
-    InputComponent->BindAction("Build",IE_Released,this,&AASPlayerController::BuildMenuReleased);
     InputComponent->BindAxis("Zoom",this,&AASPlayerController::Zoom);
     InputComponent->BindAction("RelockMouse",IE_Pressed,this,&AASPlayerController::ApplyGameplayInput);
 }
@@ -514,14 +544,9 @@ void AASPlayerController::ApplyGameplayInput() {
     Viewport->CaptureMouse(true);Viewport->LockMouseToViewport(true);
     bGameplayInputApplied=true;bMenuInputApplied=false;bCaptureRequested=false;
 }
-// Hold mode: the panel shows while TAB is held and closes on release. Toggle mode (default) is unchanged.
-void AASPlayerController::BuildMenuReleased() {
-    const auto* GI=GetGameInstance<UASGameInstance>();
-    if(GI&&GI->bHoldBuild&&Menu.IsValid()&&Menu->Page==17) {CloseMenu();SetPartyPaused(false);}
-}
 void AASPlayerController::BuildMenu() {
     const auto* GI=GetGameInstance<UASGameInstance>();const bool Hold=GI&&GI->bHoldBuild;
-    if(Hold&&Menu.IsValid()&&Menu->Page==17) return; // key repeat while held: stay open
+    if(Hold) return; // hold mode: the raw key processor opens and closes the panel
     if(Menu.IsValid()&&Menu->Page==17) {CloseMenu();return;}
     OpenMenu(17);
 }

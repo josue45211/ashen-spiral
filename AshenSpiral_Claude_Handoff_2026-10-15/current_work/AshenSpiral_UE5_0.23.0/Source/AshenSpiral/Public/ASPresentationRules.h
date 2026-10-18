@@ -157,6 +157,12 @@ inline EnemyDeathLook EnemyDeathAt(float Age) {
     const float Fall=std::min(1.f,T/.55f),Shrink=std::clamp((T-.55f)/.45f,0.f,1.f);
     return {Fall*Fall*(3.f-2.f*Fall),1.f-.97f*Shrink*Shrink,(1.f-T)*(1.f-T)};
 }
+// ---- Hold-to-view build panel: what a raw key event should do. Open on the first (non-repeat) press, close on release, ignore repeats.
+enum class HoldAction {None,Open,Close};
+inline HoldAction HoldKeyAction(bool Down,bool Repeat,bool PanelOpen) {
+    if(Down) return (!Repeat&&!PanelOpen)?HoldAction::Open:HoldAction::None;
+    return PanelOpen?HoldAction::Close:HoldAction::None;
+}
 // ---- Dash trail: fading afterimages dropped while moving at dash speed. Looks only; spawned locally on every client.
 constexpr float DashGhostSpacing=.06f,DashGhostLife=.28f;constexpr int DashGhostCap=12; // full-body copies cost ~20-40 meshes each, so fewer, spaced wider
 // TrailActive is true only while a dash or hammer leap is actually happening; walking and running never qualify.
