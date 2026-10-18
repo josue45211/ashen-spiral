@@ -31,6 +31,13 @@ inline bool Frontal(float DotForward) {return DotForward>0.f;}
 inline bool Committed(int Weapon,int Step,float Now,float Start,float Duration) {return Weapon==1&&Step==2&&Start>=0&&Now>=Start&&Now<Start+Duration;}
 inline bool LeapProtected(int State,float Now,float LandedAt) {return State==2||(State==3&&Now<LandedAt+Recovery);}
 inline float LeapDistance(float DashSeconds) {return 2350.f*DashSeconds*1.15f;}
+// TUNABLE (0.23.3): the leap must beat a full run. Its horizontal speed is never below 1.35x the player's current running speed.
+constexpr float LeapSpeedFactor=1.35f;
+inline float LeapSpeed(float RunSpeed,float DashSeconds) {return std::max(LeapDistance(DashSeconds)/Flight,RunSpeed*LeapSpeedFactor);}
+inline float LeapTravel(float RunSpeed,float DashSeconds) {return LeapSpeed(RunSpeed,DashSeconds)*Flight;}
+// Downward speed at the end of the scripted arc. Handing this (plus the horizontal speed) to the movement component when the arc ends
+// lets the fall continue as the same parabola, so a leap from a ledge keeps arcing instead of dropping straight down.
+inline float LeapEndFallSpeed() {return 4.f*Height/Flight;}
 // The contact hold lives inside the full cycle: haste and DPS stay proportional.
 inline float PosePhase(int Step,float Phase,bool Contact) {
     if(!Contact) return std::clamp(Phase,0.f,1.f);

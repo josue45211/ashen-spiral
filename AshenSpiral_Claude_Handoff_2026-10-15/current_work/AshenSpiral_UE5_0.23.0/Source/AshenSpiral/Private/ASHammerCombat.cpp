@@ -52,10 +52,12 @@ void AASCharacter::HammerMotion_Implementation(bool Launch,FVector_NetQuantizeNo
     // Collision is swept by CharacterMovement; walls/ceilings remain solid.
     auto Leap=MakeShared<FRootMotionSource_JumpForce>();Leap->InstanceName=FName(TEXT("HammerLeap"));
     Leap->Priority=600;Leap->AccumulateMode=ERootMotionAccumulateMode::Override;Leap->Rotation=FVector(Direction).Rotation();
-    Leap->Distance=ASHammer::LeapDistance(DashDuration());Leap->Height=ASHammer::Height;
+    const float LeapRunSpeed=RunningSpeed(),LeapDash=DashDuration();
+    Leap->Distance=ASHammer::LeapTravel(LeapRunSpeed,LeapDash);Leap->Height=ASHammer::Height;
     Leap->Duration=ASHammer::Flight;Leap->bDisableTimeout=false;
     Leap->FinishVelocityParams.Mode=ERootMotionFinishVelocityMode::SetVelocity;
-    Leap->FinishVelocityParams.SetVelocity=FVector(0,0,-100);
+    // Continuous physics: when the scripted arc ends, keep the arc's own velocity (forward speed and the matching fall speed).
+    Leap->FinishVelocityParams.SetVelocity=FVector(Direction).GetSafeNormal2D()*ASHammer::LeapSpeed(LeapRunSpeed,LeapDash)+FVector(0,0,-ASHammer::LeapEndFallSpeed());
     M->StopMovementImmediately();M->SetMovementMode(MOVE_Falling);M->ApplyRootMotionSource(Leap);M->RefreshDashCollision();
 }
 void AASCharacter::TickHammer(float Now) {
@@ -72,7 +74,7 @@ void AASCharacter::TickHammer(float Now) {
         if(Movement()->IsMovingOnGround()&&Now>HammerLeapStarted+ASHammer::Startup+.06f) {
             // Recovery for a missed Landed callback (e.g. correction), still requires actual floor contact.
             FHitResult Hit;Hit.ImpactPoint=GetActorLocation()-FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight());Landed(Hit);
-        } else if(Now>HammerLeapStarted+ASHammer::Startup+ASHammer::Flight+2.f) {
+        } else if(Now>HammerLeapStarted+ASHammer::Startup+ASHammer::Flight+4.f) { // longer allowance: a leap off a high ledge keeps falling
             // A missed platform must never grant permanent flight immunity or phantom landing damage.
             CancelHammerLeap();
         }

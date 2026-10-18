@@ -62,6 +62,8 @@ int main(int Argc,char** Argv) {
     Check(!Committed(1,2,1.188f,0,1.188f),"commitment releases at full animation recovery");
     Check(Near(FinisherSpeedScale(),.55f,.0001f)&&FinisherSpeedScale()>0.f,"finisher slows movement by 45 percent rather than rooting");
     Check(!LeapProtected(1,.1f,-10)&&LeapProtected(2,.2f,-10)&&LeapProtected(3,1.3f,1.2f)&&!LeapProtected(3,1.43f,1.2f)&&!LeapProtected(0,2,1.2f),"startup vulnerable; flight/recovery protected; recovery ends immunity");
+    for(float Run=640.f;Run<=640.f*1.6f;Run+=32.f) Check(LeapSpeed(Run,.24f)>Run*1.3f&&LeapSpeed(Run,.24f)>=LeapDistance(.24f)/Flight-.01f&&Near(LeapTravel(Run,.24f),LeapSpeed(Run,.24f)*Flight,.01f),"hammer leap covers more ground per second than a full run at every move-speed rank");
+    Check(Near(LeapEndFallSpeed(),std::sqrt(2.f*1568.f*Height),20.f),"the scripted arc ends with the fall speed real gravity would give, so the fall continues as one parabola");
     Check(Near(LeapDistance(.22f)/(2350.f*.22f),1.15f)&&Near(Height/(660.f*660.f/(2.f*1568.f)),1.5f,.001f),"leap has 15 percent extra dash reach and 50 percent extra jump height");
     Check(ASHammer::Cooldown>=7&&ASHammer::Cooldown<=8,"leap cooldown stays in approved range");
     for(int W=0;W<9;++W) if(W!=1) Check(!Committed(W,2,.5f,0,2),"all other weapons unaffected by hammer commitment");
