@@ -263,6 +263,11 @@ void AASPlayerController::AckReceipt_Implementation(const FString& ID,bool Succe
     }
 }
 void AASPlayerController::Notify_Implementation(const FString& Message) {
+    // Messages tagged "!BANNER|Title|Sub" go to the banner instead of the toast stack.
+    if(Message.StartsWith(TEXT("!BANNER|"))) {
+        TArray<FString> Parts;Message.ParseIntoArray(Parts,TEXT("|"),false);
+        AlertTitle=Parts.IsValidIndex(1)?Parts[1].Left(40):FString();AlertSub=Parts.IsValidIndex(2)?Parts[2].Left(40):FString();++AlertSeq;return;
+    }
     Notice=Message.Left(400);const float Now=GetWorld()->GetTimeSeconds();NoticeUntil=Now+ASPresentation::NoticeLife;
     Notifications.RemoveAll([Now](const FASNotice& N){return Now-N.Born>=ASPresentation::NoticeLife;});
     if(Notice.IsEmpty()) return;

@@ -10,6 +10,8 @@
 #include "ASGameInstance.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/Canvas.h"
+#include "CanvasItem.h"
+#include "RenderResource.h"
 #include "Widgets/SLeafWidget.h"
 #include "Rendering/DrawElementTypes.h"
 #include "Engine/GameViewportClient.h"
@@ -139,14 +141,24 @@ void AASHUD::DrawHUD() {
     const float HP=H->Health/FMath::Max(1.f,H->MaxHealth);
     TrailingHealth=HP>=TrailingHealth?HP:FMath::FInterpTo(TrailingHealth,HP,Delta,4.f);
     {
-        // Low-HP vignette: stacked frame bands with a soft falloff; fully off at full health.
+        // Low-HP vignette: four mitred gradient quads (per-vertex alpha), smooth to the eye; fully off at full health.
         const auto Vignette=ASPresentation::LowHpVignette(HP,Now);
-        if(Vignette.Alpha>.004f&&S->Phase!=EASPhase::Hub) {
-            Group();const float Band=Height*.03f;
-            for(int32 I=0;I<9;++I) {
-                const float Fall=1.f-float(I)/9.f;const FLinearColor C(.85f,.02f,.03f,Vignette.Alpha*Fall*Fall*.7f);const float Inset=I*Band;
-                Box(0,Inset,Width,Band,C);Box(0,Height-Inset-Band,Width,Band,C);Box(Inset,Inset+Band,Band,Height-2*(Inset+Band),C);Box(Width-Inset-Band,Inset+Band,Band,Height-2*(Inset+Band),C);
-            }
+        if(Vignette.Alpha>.004f&&S->Phase!=EASPhase::Hub&&Canvas) {
+            const float W=Canvas->ClipX,Ht=Canvas->ClipY,D=FMath::Min(W,Ht)*(.15f+.12f*FMath::Clamp(Vignette.Alpha,0.f,1.f));
+            const float Edge=FMath::Clamp(Vignette.Alpha*.9f,0.f,.85f);
+            const FLinearColor Outer(.85f,.02f,.03f,Edge),Inner(.85f,.02f,.03f,0.f);
+            FCanvasTriangleItem Item(FVector2D::ZeroVector,FVector2D::ZeroVector,FVector2D::ZeroVector,GWhiteTexture);
+            Item.BlendMode=SE_BLEND_Translucent;
+            auto Quad=[&Item,&Outer,&Inner](FVector2D P0,FVector2D P1,FVector2D P2,FVector2D P3) {
+                FCanvasUVTri T;T.V0_UV=T.V1_UV=T.V2_UV=FVector2D::ZeroVector;
+                T.V0_Pos=P0;T.V1_Pos=P1;T.V2_Pos=P2;T.V0_Color=T.V1_Color=Outer;T.V2_Color=Inner;Item.TriangleList.Add(T);
+                T.V0_Pos=P0;T.V1_Pos=P2;T.V2_Pos=P3;T.V0_Color=Outer;T.V1_Color=Inner;T.V2_Color=Inner;Item.TriangleList.Add(T);
+            };
+            Quad(FVector2D(0,0),FVector2D(W,0),FVector2D(W-D,D),FVector2D(D,D));
+            Quad(FVector2D(W,0),FVector2D(W,Ht),FVector2D(W-D,Ht-D),FVector2D(W-D,D));
+            Quad(FVector2D(W,Ht),FVector2D(0,Ht),FVector2D(D,Ht-D),FVector2D(W-D,Ht-D));
+            Quad(FVector2D(0,Ht),FVector2D(0,0),FVector2D(D,D),FVector2D(D,Ht-D));
+            Canvas->DrawItem(Item);
         }
     }
     Group(24,Height-24-100*UI,UI);Box(0,0,2,100,ASHudTeal);
@@ -434,6 +446,7 @@ void AASHUD::DrawWaveBanner(AASGameState* S) {
         Fire(Boss?FString(TEXT("BOSS")):(EliteWave?FString(TEXT("ELITE WAVE")):FString::Printf(TEXT("WAVE %d"),S->Wave+1)),Boss?TEXT(""):FString::Printf(TEXT("OF %d"),Waves),Boss?FLinearColor(1.f,.25f,.2f):(EliteWave?FLinearColor(1.f,.5f,.1f):FLinearColor(1.f,.78f,.3f)));
     } else if(S->Phase==EASPhase::Reward&&BannerPhase==int32(EASPhase::Combat)&&!S->bEndless)
         Fire(TEXT("CHAMBER CLEARED"),TEXT(""),FLinearColor(.5f,1.f,.7f));
+    if(const auto* AlertPC=Cast<AASPlayerController>(PlayerOwner)) if(AlertPC->AlertSeq!=BannerAlertSeen) {BannerAlertSeen=AlertPC->AlertSeq;Fire(AlertPC->AlertTitle,AlertPC->AlertSub,FLinearColor(1.f,.3f,.15f));}
     BannerRoom=S->Room;BannerWave=S->Wave;BannerEndlessWave=S->EndlessWave;BannerCleared=S->ClearedEndlessWave;BannerPhase=int32(S->Phase);
     const auto Pose=ASPresentation::BannerAt(Now-BannerStart);if(Pose.Alpha<=0.f) return;
     // A dark band with colour rails; the title slides with the band and the subtitle trails it.

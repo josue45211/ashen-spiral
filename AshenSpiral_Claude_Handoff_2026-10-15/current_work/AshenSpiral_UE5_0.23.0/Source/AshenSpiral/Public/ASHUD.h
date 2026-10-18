@@ -23,6 +23,7 @@ private:
     // Wave banner (cosmetic, driven by replicated wave/phase changes).
     float BannerStart=-10.f;FString BannerTitle,BannerSub;FLinearColor BannerColor=FLinearColor::White;
     int32 BannerRoom=-99,BannerWave=-99,BannerEndlessWave=-99,BannerCleared=-99,BannerPhase=-1;
+    int32 BannerAlertSeen=0;
     void DrawWaveBanner(AASGameState* State);
     FVector2D GroupOrigin=FVector2D::ZeroVector;
     void Group(float X=0,float Y=0,float Size=1.f) {GroupOrigin=FVector2D(X,Y);GroupScale=Size;}

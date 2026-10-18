@@ -420,7 +420,6 @@ void AASGameMode::QueueEndlessWave() {
     }
     Queued+=Count;S->PendingSpawns=Queued;EndlessWaveStart=S->SimTime;EndlessWaveSize=Queued+S->Enemies.Num();NextSpawn=FMath::Max(NextSpawn,S->SimTime+.5f);
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) {
-        PC->Notify(ASExpedition::BossWave(Wave)?FString::Printf(TEXT("WAVE %d / BOSS"),Wave):FString::Printf(TEXT("WAVE %d"),Wave));
         if(Wave==21) PC->Notify(TEXT("CHECKPOINT CHANGE: difficulty up, chests now every other wave."));
         if(Wave==51) PC->Notify(TEXT("THE SKY BLEEDS: enemies are faster and angrier. Chests only every third wave."));
     }
@@ -452,7 +451,7 @@ void AASGameMode::EndlessTick(float Delta) {
         EndlessShuffleClock+=Delta;
         if(EndlessShuffleClock>=EndlessShuffleTarget) {
             EndlessShuffleClock=0;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());EndlessShuffleAt=S->SimTime+3.f;
-            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("THE ARENA SHIFTS IN 3 SECONDS"));
+            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("!BANNER|THE ARENA SHIFTS|IN 3 SECONDS"));
         }
     }
     if(Queued>0) return;
@@ -467,7 +466,7 @@ void AASGameMode::EndlessTick(float Delta) {
         if(Wave<=50&&Wave>=NextShuffleWave) {
             NextShuffleWave=Wave+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
             EndlessShuffleAt=S->SimTime+3.f;
-            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("THE ARENA SHIFTS IN 3 SECONDS"));
+            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("!BANNER|THE ARENA SHIFTS|IN 3 SECONDS"));
         }
         QueueEndlessWave();
     }
@@ -504,7 +503,7 @@ void AASGameMode::EndlessFinishWave() {
         PS->ShopOffer=-1;
         if(S->bLuckyShop&&Hero) {const auto Picks=ASBuild::Offers(Hero->UpgradeContext(),Random.GetUnsignedInt(),1);PS->ShopOffer=Picks.empty()?-1:Picks[0];}
         if(S->bLuckyShop) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(S->bRareShop?TEXT("A LUCKY SHOP appears, with rare stock for Ash!"):TEXT("A LUCKY SHOP appears beside the chest."));
-        if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(FString::Printf(TEXT("WAVE %d CLEARED. Claim your reward at the chest, then either player presses E to continue."),S->EndlessWave));
+        if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("Claim your reward at the chest, then either player presses E to continue."));
     }
     if(S->Arena) S->Effect(7,S->Arena->ExitPoint()+FVector(0,0,100),FVector::ForwardVector,FLinearColor(1,.6f,.12f),2.f);
     S->ForceNetUpdate();
