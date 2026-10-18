@@ -12,7 +12,7 @@ enum class Trait : int {
     Greed,Fortune,Reroll,MendingCoin,RoomBlessing,DashStrike,Chain,Stillness,
     Momentum,Berserk,KillFlow,EchoShot,Volley,Area,Duration,ManaReserve,
     ManaRegen,RuneNova,Orbit,Sense,Vengeance,FullHeal=Vengeance,Cleanse,BloodPact,Refine,
-    Mystery,Duplicate,Conduit,Magazine,Reload,Precision,Count
+    Mystery,Duplicate,Conduit,Magazine,Reload,Precision,Attunement,Teamwork,Count
 };
 constexpr int Count=int(Trait::Count),OfferBase=200;
 // Original evolution bits stay stable; new utility traits do not evolve.
@@ -90,7 +90,10 @@ inline constexpr std::array<Definition,Count> Catalog{{
  {"Battle Conduit","Every 6 primary hits restores 12 Focus and shortens Spiral cooldown by 0.3 sec. Counts at most once per 0.15 sec.",1,2,Weapon|Spell,1,511,false},
  {"Deep Magazine","Add 20% of base ammunition/charge capacity per rank, rounding each rank up to whole rounds. Five ranks. Every pick adds at least one round; applies to ranged weapons only. Melee has no reload. Cannot evolve.",5,2,Weapon,0,476,false},
  {"Quick Hands","+15% reload speed per rank. Reload time = base time / (1 + 0.15 x rank). Ranged weapons only. Five ranks; cannot evolve.",5,2,Weapon,0,476,false},
- {"Tight Grouping","15% less spread per rank, up to 75%. Tightens pellets, rotary fire, Echo Shot, Fan of Sparks and Forked Flight. Cannot evolve.",5,2,Projectile,0,476,false}
+ {"Tight Grouping","15% less spread per rank, up to 75%. Tightens pellets, rotary fire, Echo Shot, Fan of Sparks and Forked Flight. Cannot evolve.",5,2,Projectile,0,476,false},
+ // 0.23.2 (TUNABLE): elemental damage, and a larger synergy-damage buff that only appears in co-op.
+ {"Attunement","+12% burn, poison and bleed damage per rank. Cannot evolve.",5,0,Element,0,511,false},
+ {"Teamwork","+20% synergy attack damage per rank, for you and for synergies you trigger with a partner. Co-op only. Cannot evolve.",5,0,Element|Echo,1,511,false}
 }};
 inline constexpr std::array<const char*,Count> Briefs{{
  "Boost weapon damage",
@@ -158,7 +161,9 @@ inline constexpr std::array<const char*,Count> Briefs{{
  "Hits restore Focus and cooldown",
  "More attacks per reload",
  "Reload and recharge faster",
- "Tighter pellets and bonus shots"
+ "Tighter pellets and bonus shots",
+ "Stronger burn, poison and bleed",
+ "Stronger synergy attacks"
 }};
 inline int Index(Trait T) {return int(T);}
 inline bool IsTrait(int Offer) {return Offer>=OfferBase&&Offer<OfferBase+Count;}
@@ -170,6 +175,10 @@ inline float DamageReduction(int Armor,int Defiance,bool Recent) {return std::mi
 inline float DashDuration(int RankValue) {return .24f*(1.f+.12f*std::clamp(RankValue,0,4));}
 inline float StatusDuration(int RankValue) {return 1.f+.20f*std::clamp(RankValue,0,4);}
 inline int MaxDashCharges(int RankValue) {return std::clamp(1+RankValue,1,3);}
+// 0.23.2 TUNABLE: the synergy buff per rank is deliberately larger than the elemental one (teamwork incentive).
+constexpr float AttunementPerRank=.12f,TeamworkPerRank=.20f;
+inline float ElementalDamageMultiplier(int RankValue) {return 1.f+AttunementPerRank*float(std::clamp(RankValue,0,10000));}
+inline float SynergyDamageMultiplier(int RankA,int RankB) {return 1.f+TeamworkPerRank*float(std::clamp(RankA,0,10000)+std::clamp(RankB,0,10000));}
 inline int CreditKills(int Base,int RankValue,float& Remainder) {
     const float Total=std::max(0,Base)*(1.f+.2f*std::clamp(RankValue,0,4))+Remainder;
     const int Whole=int(std::floor(Total+.00001f));Remainder=std::clamp(Total-Whole,0.f,.99999f);return Whole;
@@ -180,7 +189,7 @@ struct Context {
     std::uint64_t Evolutions=0;
     int Weapon=0,Room=0,Challenge=0,Last=-1,Curse=0,PermanentCooldown=0,PermanentCritical=0;
     int Difficulty=0,EndlessWave=0;
-    bool Hurt=false,MissingRelic=true,Endless=false;
+    bool Hurt=false,MissingRelic=true,Endless=false,Coop=false;
 };
 inline bool CanEvolve(const Context& C,int I) {
     return I>=0&&I<EvolutionLimit&&I!=Index(Trait::Sense)&&I!=Index(Trait::DashCharge)&&!Catalog[I].Instant&&Catalog[I].Max>1&&C.Traits[I]>0&&!Evolved(C.Evolutions,I);
@@ -208,6 +217,7 @@ inline bool CanChoose(const Context& C,int Offer,bool AllowSpecial=true) {
     if(T==Trait::Sense) return false; // Retired reward ID; preserve all other IDs.
     if(T==Trait::Mend&&!C.Hurt) return false;
     if(T==Trait::Cleanse&&C.Curse<=0) return false;
+    if(T==Trait::Teamwork&&!C.Coop) return false; // synergies need two players
     if(T==Trait::Mystery&&!C.MissingRelic) return false;
     if(T==Trait::Refine) {if(!AllowSpecial) return false;for(int J=0;J<Count;++J) if(CanEvolve(C,J)) return true;return false;}
     if(T==Trait::Duplicate) {

@@ -9,7 +9,12 @@ static void Check(bool OK,const char* What) {++Checks;if(!OK) {std::cerr<<"FAILE
 static bool Near(float A,float B,float E=.0005f) {return std::abs(A-B)<E;}
 int main() {
     using namespace ASBuild;
-    Check(Count==66,"stable trait count");
+    Check(Count==68,"stable trait count");
+    // 0.23.2: Attunement (elemental) and Teamwork (synergy). The synergy buff per rank must beat the elemental one, and Teamwork is co-op only.
+    Check(Near(ElementalDamageMultiplier(0),1.f)&&Near(ElementalDamageMultiplier(5),1.6f)&&Near(ElementalDamageMultiplier(-3),1.f),"Attunement: +12% per rank, no penalty below zero");
+    Check(Near(SynergyDamageMultiplier(0,0),1.f)&&Near(SynergyDamageMultiplier(5,0),2.f)&&Near(SynergyDamageMultiplier(2,3),2.f),"Teamwork: +20% per rank, summed over both players");
+    Check(TeamworkPerRank>AttunementPerRank&&SynergyDamageMultiplier(Catalog[Index(Trait::Teamwork)].Max,0)>ElementalDamageMultiplier(Catalog[Index(Trait::Attunement)].Max),"synergy buff is larger than the elemental buff");
+    {Context Solo,Duo;Duo.Coop=true;Check(!CanChoose(Solo,OfferBase+Index(Trait::Teamwork))&&CanChoose(Duo,OfferBase+Index(Trait::Teamwork))&&CanChoose(Solo,OfferBase+Index(Trait::Attunement)),"Teamwork is only offered in co-op; Attunement always");}
     Context C;
     for(int I=0;I<Count;++I) {
         const auto& D=Catalog[I];Check(D.Max>0&&D.Max<=5,"finite pick caps");
@@ -17,7 +22,7 @@ int main() {
         Check(D.WeaponMask>0&&D.WeaponMask<=ASRules::WeaponMask&&D.Tags>0,"valid eligibility and affinity masks");
         Check(IsTrait(OfferBase+I),"stable trait offer ID");
     }
-    Check(!IsTrait(199)&&!IsTrait(266),"offer range rejects neighbors");
+    Check(!IsTrait(199)&&!IsTrait(OfferBase+Count)&&IsTrait(OfferBase+Count-1),"offer range rejects neighbors");
     Check(!CanChoose(C,200+Index(Trait::Mend)),"full-health heroes do not get wasted healing offers");
     // FullHeal is now a compatibility alias of Vengeance (a lethal-hit save), not an instant heal; it must not be gated on missing health.
     Check(Trait::FullHeal==Trait::Vengeance,"FullHeal alias resolves to Vengeance");
@@ -116,7 +121,7 @@ int main() {
     Check(BladeContact(0,180,0,200)&&!BladeContact(0,100,100,200),"blades hit strips, not entire disc");
     Check(BladeContact(.25f,100,100,200),"rotating blades follow visual angle");
     for(int I=0;I<10000;++I) {const float P=TrapPhase(I*.13f,30);Check(P>=0&&P<6,"trap cycle bounded");}
-    std::cout<<"PASS: "<<Checks<<" buildcraft checks; 18000 weighted reward drafts; 66 stable trait IDs (65 selectable).\n";
+    std::cout<<"PASS: "<<Checks<<" buildcraft checks; 18000 weighted reward drafts; 68 stable trait IDs (67 selectable).\n";
         // 0.23 Endless offers: exclusives only in Endless, sidegrade shift after wave 15, deterministic.
     {
         Context N;N.Weapon=0;Context E=N;E.Endless=true;E.EndlessWave=20;

@@ -103,8 +103,8 @@ bool AASEnemy::TickElements(float Delta) {
         auto Apply=[this](float& Pending,TWeakObjectPtr<AASCharacter> Source,EASHitKind Type) {
             const float Amount=Pending;Pending=0;if(Amount<=0||!Source.IsValid()||!Source->CanDamage(this)) return false;
             const FVector P=GetActorLocation()+FVector(0,0,80);
-            if(auto* PC=Cast<AASPlayerController>(Source->GetController())) PC->DamageNumber(P,Amount,false,Type);
-            return Hit(Amount,Source.Get()); // DOT does not crit or trigger on-hit effects.
+            if(auto* PC=Cast<AASPlayerController>(Source->GetController())) PC->DamageNumber(P,Amount*Source->ElementalDamageMultiplier(),false,Type);
+            return Hit(Amount*Source->ElementalDamageMultiplier(),Source.Get()); // Attunement scales status damage; DOT does not crit or trigger on-hit effects.
         };
         if(Apply(BurnPending,BurnSource,EASHitKind::Burn)) return false;
         if(Apply(PoisonPending,PoisonSource,EASHitKind::Poison)) return false;
@@ -275,9 +275,9 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
     if(!HasAuthority()||!IsValid(Source)||SpawnProtected()||Health<=0||bTrainingDummy) return;
     auto* State=AS::State(this);if(!State||State->Phase!=EASPhase::Combat) return;
     const int32 Element=int32(Type);if(Element!=2&&Element!=3&&Element!=4&&Element!=8) return;
-    const float Now=State->SimTime;int32 Trigger=-1;
+    const float Now=State->SimTime;int32 Trigger=-1;const AASCharacter* Partner=nullptr;
     for(int32 I=0;I<9;++I) if(SynergySources[I].IsValid()&&SynergySources[I].Get()!=Source&&Now-SynergyTimes[I]<=3.f) {
-        Trigger=ASExpedition::Synergy(I,Element);if(Trigger>=0) break;
+        Trigger=ASExpedition::Synergy(I,Element);if(Trigger>=0) {Partner=SynergySources[I].Get();break;}
     }
     SynergySources[Element]=Source;SynergyTimes[Element]=Now;
     if(Trigger<0||Now<NextSynergy) return;
@@ -290,7 +290,7 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
     for(auto W:Targets) if(auto* Target=W.Get()) if(!Target->SpawnProtected()&&Target->Health>0&&FVector::DistSquared2D(At,Target->GetActorLocation())<470.f*470.f&&AS::ClearSight(GetWorld(),At,Target->GetActorLocation())) {
         Target->BeginHitReaction(Source->GetActorLocation(),true);
         if(Trigger==1) Target->SlowUntil=FMath::Max(Target->SlowUntil,Now+2.f);
-        const float SynergyAmount=ASExpedition::SynergyDamage(Trigger,Target->MaxHealth,Power,Target->Boss());const float SynergyBefore=Target->Health;
+        const float SynergyAmount=ASExpedition::SynergyDamage(Trigger,Target->MaxHealth,Power,Target->Boss())*ASBuild::SynergyDamageMultiplier(Source->TeamworkRank(),Partner?Partner->TeamworkRank():0);const float SynergyBefore=Target->Health;
         const bool SynergyKilled=Target->Hit(SynergyAmount,Source);
         const float SynergyDealt=SynergyKilled?SynergyBefore:FMath::Max(0.f,SynergyBefore-Target->Health);
         if(SynergyDealt>0) for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* RecipientPC=Cast<AASPlayerController>(Player->GetOwner())) RecipientPC->SynergyNumber(Target->GetActorLocation()+FVector(0,0,80),SynergyDealt,Trigger);
