@@ -523,6 +523,7 @@ void AASGameMode::EndlessFinishWave() {
         PS->ShopBought=0;PS->Offers.Empty();PS->bRewardClaimed=false;PS->AvailableAsh=ASRules::Credit(PS->AvailableAsh,ASExpedition::CheckpointAsh(S->EndlessWave));
         AASCharacter* Hero=nullptr;for(auto W:S->Heroes) if(auto* H=W.Get()) if(H->GetPlayerState<AASPlayerState>()==PS) {Hero=H;break;}
         RollOffers(PS,Hero);
+        if(ASExpedition::CheckpointAsh(S->EndlessWave)>0) if(auto* AshHero=Cast<AASCharacter>(PS->GetPawn())) AshHero->AddRunGain(ASExpedition::RunGainAsh);
         if(ASExpedition::CheckpointAsh(S->EndlessWave)>0) if(auto* AshPC=Cast<AASPlayerController>(PS->GetOwner())) AshPC->RewardText(FString::Printf(TEXT("+%d ASH"),ASExpedition::CheckpointAsh(S->EndlessWave)),FLinearColor(1.f,.6f,.2f),false);
         PS->ShopOffer=-1;
         if(S->bLuckyShop&&Hero) {const auto Picks=ASBuild::Offers(Hero->UpgradeContext(),Random.GetUnsignedInt(),1);PS->ShopOffer=Picks.empty()?-1:Picks[0];}
@@ -622,10 +623,11 @@ void AASGameMode::Reward(AASPlayerController* PC,int32 Index) {
     if(StatUpgrade) H->ApplyChoice(Choice);
     else if(S->ChestKind==2) H->Build.Style=Choice;
     else {if(H->Relic(Choice)) H->Shield=FMath::Min(H->MaxHealth,H->Shield+15);H->RelicMask|=1<<Choice;}
-    if(S->ChestKind==1) S->Cinders=ASRules::Credit(S->Cinders,40);
-    if(S->ChestKind==3) H->Heal(H->MaxHealth*.35f);
-    if(S->ChestKind==4&&Index==0) S->Cinders=ASRules::Credit(S->Cinders,10);
-    if(S->ChestKind==5) {H->Heal(15);H->Shield=FMath::Min(H->MaxHealth,H->Shield+10);}
+    if(!StatUpgrade) H->AddRunGain(S->ChestKind==2?ASExpedition::RunGainStyle:ASExpedition::RunGainRelic);
+    if(S->ChestKind==1) {S->Cinders=ASRules::Credit(S->Cinders,40);H->AddRunGain(ASExpedition::RunGainCinders);}
+    if(S->ChestKind==3) {H->Heal(H->MaxHealth*.35f);H->AddRunGain(ASExpedition::RunGainChestHeal);}
+    if(S->ChestKind==4&&Index==0) {S->Cinders=ASRules::Credit(S->Cinders,10);H->AddRunGain(ASExpedition::RunGainCinders);}
+    if(S->ChestKind==5) {H->Heal(15);H->Shield=FMath::Min(H->MaxHealth,H->Shield+10);H->AddRunGain(ASExpedition::RunGainChestKit);}
     H->RefreshLook();H->ForceNetUpdate();PS->bRewardClaimed=true;PS->ForceNetUpdate();
     PC->Notify(TEXT("Reward claimed. When both players have chosen, either player uses E at the chest to continue."));
     {
@@ -805,9 +807,9 @@ void AASGameMode::BuyShopItem(AASPlayerController* PC,int32 Index) {
         if(Pick<0||!H->CanApplyChoice(Pick)) {PC->Notify(TEXT("The trader has nothing that fits your build right now. Nothing spent."));return;}
         Applied=H->ApplyChoice(Pick);
     }
-    else if(Index==4) {H->MaxHealth=FMath::Min(100000.f,H->MaxHealth+25.f);H->Health=FMath::Min(H->MaxHealth,H->Health+25.f);Applied=true;}
+    else if(Index==4) {H->MaxHealth=FMath::Min(100000.f,H->MaxHealth+float(ASExpedition::HeartMaxHealth));H->Health=FMath::Min(H->MaxHealth,H->Health+float(ASExpedition::HeartMaxHealth));Applied=true;}
     if(!Applied) return;
-    PS->AvailableScrap=FMath::Max(0,PS->AvailableScrap-Item.Scrap);PS->AvailableAsh=FMath::Max(0,PS->AvailableAsh-Item.Ash);PS->ShopBought|=1<<Index;
+    PS->AvailableScrap=FMath::Max(0,PS->AvailableScrap-Item.Scrap);PS->AvailableAsh=FMath::Max(0,PS->AvailableAsh-Item.Ash);PS->ShopBought|=1<<Index;H->AddRunGain(Index);
     H->RefreshLook();H->ForceNetUpdate();PS->ForceNetUpdate();
     PC->Notify(FString::Printf(TEXT("Bought %s."),UTF8_TO_TCHAR(Item.Name)));
     // Trait-acquire fanfare for shop purchases that grant a trait.

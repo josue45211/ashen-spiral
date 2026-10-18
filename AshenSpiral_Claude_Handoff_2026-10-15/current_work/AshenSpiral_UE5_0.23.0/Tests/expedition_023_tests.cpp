@@ -74,5 +74,11 @@ int main() {
     }
     Check(std::string(PortalName(0))=="EMBER"&&std::string(PortalName(1))=="ASHEN"&&std::string(PortalName(2))=="BLOOD","portals are Ember, Ashen, Blood");
     Check(std::string(UnlockCondition(0)).empty()&&!std::string(UnlockCondition(1)).empty()&&!std::string(UnlockCondition(2)).empty(),"locked portals state their unlock condition; Ember has none");
+    // 0.23.2 run reward log: every shop purchase and chest reward has a code, a name and a line; Heart of the Spiral stacks.
+    for(int I=0;I<ShopCount;++I) Check(RunGainValid(I)&&std::string(RunGainName(I))==ShopStock(I).Name,"every shop item maps to a run-gain code with its shop name");
+    Check(RunGainValid(RunGainChestHeal)&&RunGainValid(RunGainChestKit)&&RunGainValid(RunGainRelic)&&RunGainValid(RunGainStyle)&&RunGainValid(RunGainCinders)&&RunGainValid(RunGainAsh),"chest and checkpoint rewards have run-gain codes");
+    Check(!RunGainValid(-1)&&!RunGainValid(6)&&!RunGainValid(7)&&!RunGainValid(RunGainCount),"invalid run-gain codes are rejected");
+    Check(RunGainLine(4,1)=="Heart of the Spiral  /  +25 max health this run"&&RunGainLine(4,3)=="Heart of the Spiral  x3  /  +75 max health this run","Heart of the Spiral stacks and shows the total");
+    Check(RunGainLine(0,0).empty()&&RunGainLine(99,2).empty()&&RunGainLine(0,2)=="Field Dressing  x2","run-gain lines skip empty and invalid entries");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

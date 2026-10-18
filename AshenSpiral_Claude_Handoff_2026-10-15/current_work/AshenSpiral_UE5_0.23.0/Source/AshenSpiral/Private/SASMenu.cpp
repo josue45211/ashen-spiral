@@ -294,22 +294,27 @@ void SASMenu::Construct(const FArguments& Args) {
         Card(TEXT("Offer an ember of vitality"),FString::Printf(TEXT("Cost: %.0f current HP (12%% of max HP). Gain one non-instant trait or core stat upgrade. Cannot kill you, and does not lower maximum HP."),Cost),TEXT("MAKE OFFERING"),62,0,Hero&&!Hero->bDowned&&PS&&!PS->bShrineUsed&&ASAdventure::CanSacrifice(Hero->Health,Hero->MaxHealth));
         if(PS&&PS->bShrineUsed) Text(TEXT("You have already used this shrine."),18,ASMenuGold);
     } else if(Page==17) {
-        Card(TEXT("Lifetime feats"),TEXT("View your cosmetic character level and achievement milestones."),TEXT("ACHIEVEMENTS"),10,19);
+        // Tab menu: current weapon, base stats with this run's modifiers, then ONLY what was gained this run (no permanent or skill-tree entries); the long stats block sits last.
         Text(FString::Printf(TEXT("%s  /  %s  /  %s"),ASData::Weapons[ActiveBuild.Weapon].Name,ASData::Styles[ActiveBuild.Style].Name,ASData::Abilities[ActiveBuild.Ability].Name),20,ASMenuGold);
         Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
-        Text(TEXT("Traits reset each expedition. Evolution adds one effective rank to an owned repeatable trait; its normal pick cap stays the same. Damage, survival and modifier choices are mixed, with up to twice the weight for existing synergies."));
-        if(Hero) Text(FString::Printf(TEXT("Focus %.0f / %.0f  |  Crit damage %.0f%%  |  Personal rerolls %d  |  Curse stacks %d"),Hero->Focus,Hero->MaxFocus(),Hero->CriticalPower()*100.f,Hero->Rerolls,Hero->CurseStacks),17,ASMenuGold);
+        Text(TEXT("YOUR RUN BUILD"),18,ASMenuGold);
+        bool Any=false;
         if(Hero) {
-            for(int32 I=0;I<ASRules::RunUpgradeCount;++I) if(Hero->RunRank(I)>0) Text(FString::Printf(TEXT("%s  /  run rank %d"),ASData::RunUpgrades[I].Name,Hero->RunRank(I)),17,ASMenuGold);
-            for(int32 I=0;I<24;++I) if(Hero->Relic(I)) Card(ASData::Relics[I].Name,ASData::Relics[I].Desc,TEXT("RELIC"),0,0,false);
-            for(int32 I=0;I<ASRules::HearthCount;++I) if(Hero->Rank(I)>0) Text(FString::Printf(TEXT("Permanent: %s  /  rank %d"),ASData::Hearth[I].Name,Hero->Rank(I)),15);
-            for(int32 I=0;I<12;++I) if(Hero->Talent(I)) Text(FString::Printf(TEXT("Talent: %s / %s"),ASData::Talents[I].Name,ASData::Talents[I].Desc),15);
+            for(int32 I=0;I<ASRules::RunUpgradeCount;++I) if(Hero->RunRank(I)>0) {Any=true;Text(FString::Printf(TEXT("%s  /  run rank %d"),ASData::RunUpgrades[I].Name,Hero->RunRank(I)),17,ASMenuGold);}
+            for(int32 I=0;I<ASExpedition::RunGainCount;++I) if(Hero->RunGain(I)>0) {Any=true;Text(UTF8_TO_TCHAR(ASExpedition::RunGainLine(I,Hero->RunGain(I)).c_str()),17,ASMenuGold);}
+            for(int32 I=0;I<24;++I) if(Hero->Relic(I)) {Any=true;Card(ASData::Relics[I].Name,ASData::Relics[I].Desc,TEXT("RELIC"),0,0,false);}
+            for(int32 I=0;I<4;++I) if(Hero->EndlessRanks.IsValidIndex(I)&&Hero->EndlessRanks[I]>0) {
+                Any=true;Card(FString::Printf(TEXT("%s   rank %d"),UTF8_TO_TCHAR(ASExpedition::ExclusiveName(ASExpedition::ExclusiveBase+I)),Hero->EndlessRanks[I]),UTF8_TO_TCHAR(ASExpedition::ExclusiveDescription(ASExpedition::ExclusiveBase+I)),TEXT("OWNED"),0,0,false);
+            }
+            for(int32 I=0;I<ASBuild::Count;++I) {
+                const auto& D=ASBuild::Catalog[I];const int32 Rank=Hero->TraitRank(ASBuild::Trait(I));if(Rank==0) continue;
+                const bool Evolved=ASBuild::Evolved(Hero->EvolutionMask,I);Any=true;
+                Card(FString::Printf(TEXT("%s   %d / %d%s"),UTF8_TO_TCHAR(D.Name),Rank,D.Max,Evolved?TEXT("  /  EVOLVED +1"):TEXT("")),UTF8_TO_TCHAR(D.Description),TEXT("OWNED"),0,0,false);
+            }
         }
-        for(int32 I=0;I<ASBuild::Count;++I) {
-            const auto& D=ASBuild::Catalog[I];const int32 Rank=Hero?Hero->TraitRank(ASBuild::Trait(I)):0;if(Rank==0) continue;
-            const bool Evolved=Hero&&ASBuild::Evolved(Hero->EvolutionMask,I);
-            Card(FString::Printf(TEXT("%s   %d / %d%s"),UTF8_TO_TCHAR(D.Name),Rank,D.Max,Evolved?TEXT("  /  EVOLVED +1"):TEXT("")),UTF8_TO_TCHAR(D.Description),Rank>0?TEXT("OWNED"):TEXT("IN REWARD POOL"),0,0,false);
-        }
+        if(!Any) Text(TEXT("Nothing gained yet this run."),15,ASMenuMuted);
+        if(Hero) Text(FString::Printf(TEXT("Focus %.0f / %.0f  |  Crit damage %.0f%%  |  Personal rerolls %d  |  Curse stacks %d"),Hero->Focus,Hero->MaxFocus(),Hero->CriticalPower()*100.f,Hero->Rerolls,Hero->CurseStacks),17,ASMenuGold);
+        Text(TEXT("Traits reset each expedition. Evolution adds one effective rank to an owned repeatable trait; its normal pick cap stays the same. Damage, survival and modifier choices are mixed, with up to twice the weight for existing synergies."));
     } else if(Page==15) {
         Text(TEXT("Ash, relic embers, tablets, materials, unlocks and permanent upgrades now save outside the extracted game folder. Future 0.13+ builds use this same location automatically. Cinders and chest stat ranks remain run-only."));
         Text(FString::Printf(TEXT("Ash: %d   Relic embers: %d   Tablets: %d   Skill points: %d"),P.Ash,P.RelicEmbers,P.Tablets,P.SkillPoints),18,ASMenuGold);

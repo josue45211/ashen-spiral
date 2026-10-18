@@ -68,7 +68,7 @@ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AASCharacter,TraitRanks);DOREPLIFETIME(AASCharacter,EvolutionMask);DOREPLIFETIME(AASCharacter,LastUpgrade);
     DOREPLIFETIME(AASCharacter,Rerolls);DOREPLIFETIME(AASCharacter,CurseStacks);DOREPLIFETIME(AASCharacter,Focus);DOREPLIFETIME(AASCharacter,NextRune);
     DOREPLIFETIME(AASCharacter,ConduitHits);DOREPLIFETIME(AASCharacter,bPhoenixUsed);
-    DOREPLIFETIME(AASCharacter,RunRanks);DOREPLIFETIME(AASCharacter,bReviving);DOREPLIFETIME(AASCharacter,AttackPoseDuration);
+    DOREPLIFETIME(AASCharacter,RunRanks);DOREPLIFETIME(AASCharacter,RunGains);DOREPLIFETIME(AASCharacter,bReviving);DOREPLIFETIME(AASCharacter,AttackPoseDuration);
     DOREPLIFETIME(AASCharacter,bHammerContact);DOREPLIFETIME(AASCharacter,HammerLeapState);
     DOREPLIFETIME(AASCharacter,HammerLeapStarted);DOREPLIFETIME(AASCharacter,HammerLandedAt);DOREPLIFETIME(AASCharacter,NextHammerLeap);
     DOREPLIFETIME(AASCharacter,AttackPoseStarted);DOREPLIFETIME(AASCharacter,MeleeStep);
@@ -78,7 +78,7 @@ void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
     if(auto* PS=GetPlayerState<AASPlayerState>()) {ColorIndex=PS->PlayerIndex;ColorChoice=PS->ColorChoice;}
     if(Fresh) {
         ResetTraits();bVengeanceUsed=bVengeanceFinisherReady=bEliminated=false;BleedRemaining=25.f;EndlessRanks.Init(0,4);
-        RunRanks.Init(0,ASRules::RunUpgradeCount);
+        RunRanks.Init(0,ASRules::RunUpgradeCount);RunGains.Init(0,ASExpedition::RunGainCount);
         MaxHealth=ASRules::StartingHealth(Rank(0),0);Health=MaxHealth;Shield=Rank(1)*5;RelicMask=0;
         bDowned=false;bMercyUsed=false;bSecondWindUsed=false;bNextCritical=false;bReviving=false;ReviveProgress=0;
         NextSpiral=NextAttack=NextHammerLeap=0;InvulnerableUntil=AS::Time(this)+2;Movement()->DashCooldown=0;Movement()->DashRemaining=0;Movement()->AirDashesUsed=0;Movement()->bAirDashing=false;

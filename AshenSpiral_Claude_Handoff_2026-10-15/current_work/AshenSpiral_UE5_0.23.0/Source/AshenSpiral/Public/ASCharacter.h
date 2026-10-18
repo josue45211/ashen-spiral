@@ -23,6 +23,10 @@ public:
     UPROPERTY(ReplicatedUsing=RefreshLook) FASBuild Build;
     UPROPERTY(Replicated) int32 RelicMask=0;
     UPROPERTY(Replicated) TArray<int32> RunRanks;
+    // Per-run reward log (counts by ASExpedition::RunGain code), reset on a fresh run; read by the tab menu.
+    UPROPERTY(Replicated) TArray<int32> RunGains;
+    void AddRunGain(int32 Code) {if(HasAuthority()&&ASExpedition::RunGainValid(Code)) {RunGains.SetNumZeroed(ASExpedition::RunGainCount);++RunGains[Code];ForceNetUpdate();}}
+    int32 RunGain(int32 Code) const {return RunGains.IsValidIndex(Code)?RunGains[Code]:0;}
     UPROPERTY(Replicated) float Health=110;
     UPROPERTY(Replicated) float MaxHealth=110;
     UPROPERTY(Replicated) float Shield=0;

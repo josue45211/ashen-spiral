@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <string>
 #include <cstdint>
 #include "ASRules.h"
 // Engine-independent expedition rules. Wave numbers are one-based; wave zero is a normal expedition.
@@ -131,5 +132,24 @@ inline const char* ExclusiveName(int Id) {const char* Names[]={"Bloodroot","Clos
 inline const char* ExclusiveDescription(int Id) {
     const char* Text[]={"Each kill adds 0.35 max HP per effective rank, healing that amount.","Kills within 350 cm restore 3 HP and grant 2 Scrap per rank.","Kills within 1 second of first engagement grant 3 Scrap per rank.","An endlessly stacking 8% primary attack damage bonus per effective rank."};
     return Text[std::clamp(Id-ExclusiveBase,0,3)];
+}
+// ---- 0.23.2 run reward log: counts of every reward bought or granted this run, shown in the tab menu.
+// Shop purchases use their ShopStock index (0..5); chest and checkpoint rewards use the codes below.
+constexpr int RunGainChestHeal=8,RunGainChestKit=9,RunGainRelic=10,RunGainStyle=11,RunGainCinders=12,RunGainAsh=13,RunGainCount=16,HeartMaxHealth=25;
+inline bool RunGainValid(int Code) {return Code>=0&&Code<RunGainCount&&(Code<ShopCount||(Code>=RunGainChestHeal&&Code<=RunGainAsh));}
+inline const char* RunGainName(int Code) {
+    switch(Code) {
+        case 0: return "Field Dressing";case 1: return "Ward Plate";case 2: return "Reroll Token";case 3: return "Ember Core";case 4: return "Heart of the Spiral";case 5: return "Trader's Pick";
+        case RunGainChestHeal: return "Chest: restorative";case RunGainChestKit: return "Chest: field kit";case RunGainRelic: return "Chest: relic";
+        case RunGainStyle: return "Chest: spiral style";case RunGainCinders: return "Chest: Cinders";case RunGainAsh: return "Checkpoint Ash";default: return "";
+    }
+}
+// One display line: name, count, and the stacked effect where there is one (Heart of the Spiral stacks +25 max health per purchase).
+inline std::string RunGainLine(int Code,int Count) {
+    if(!RunGainValid(Code)||Count<=0) return std::string();
+    std::string Line=RunGainName(Code);
+    if(Count>1) Line+="  x"+std::to_string(Count);
+    if(Code==4) Line+="  /  +"+std::to_string(HeartMaxHealth*Count)+" max health this run";
+    return Line;
 }
 }
