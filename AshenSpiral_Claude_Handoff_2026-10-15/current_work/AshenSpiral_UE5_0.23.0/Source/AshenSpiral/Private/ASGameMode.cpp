@@ -188,6 +188,8 @@ void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
     if(!AllReady()) {PC->Notify(TEXT("Both players must mark Ready and finish saving."));return;}
     const int32 StationId=Portal==3?22:31+Portal;const FVector Station=S->Arena->InteractionPoint(StationId)-FVector(0,0,150);
     if(FVector::DistSquared2D(H->GetActorLocation(),Station)>360.f*360.f) {PC->Notify(TEXT("Stand at the archway to enter."));return;}
+    // Every hero must be at the archway; the HUD shows the same "waiting for other players" state.
+    for(auto W:S->Heroes) if(const auto* Other=W.Get()) if(FVector::DistSquared2D(Other->GetActorLocation(),Station)>360.f*360.f) {PC->Notify(TEXT("Waiting for other players to reach the archway."));return;}
     const auto* HostState=PC->GetPlayerState<AASPlayerState>();
     if(Portal==3?(!HostState||!HostState->bEndlessUnlocked):(!HostState||!ASExpedition::DifficultyUnlocked(Portal,HostState->ClearedMask))) {PC->Notify(Portal==3?TEXT("The Endless portal is sealed. Beat Normal mode once to open it."):TEXT("That difficulty is locked."));return;}
     if(Portal<3) S->Difficulty=ASExpedition::Difficulty(Portal);

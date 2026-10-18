@@ -131,7 +131,9 @@ void AASPlayerController::Interact() {
     if(Page==9&&S->Phase==EASPhase::Victory) {InteractServer(9);return;}
     if(Page==220) {OpenMenu(18);return;}
     if(Page==221) {OpenMenu(21);return;}
-    if(Page>=31&&Page<=33) {SelectedPortal=Page-31;OpenMenu(24);return;}
+    // Portals use proximity interaction: E at the archway asks the server to start the walk-in (host only; the server checks range, locks and readiness).
+    if(S->Phase==EASPhase::Hub&&Page>=31&&Page<=33) {int32 Seed=1103;if(!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}SelectedPortal=Page-31;EnterPortal(SelectedPortal,Seed);return;}
+    if(S->Phase==EASPhase::Hub&&Page==22) {EnterPortal(3,FMath::Rand());return;}
     if(Page==222) {OpenMenu(23);return;}
     if(Page>=201&&Page<=203) {InteractServer(Page);return;}
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}

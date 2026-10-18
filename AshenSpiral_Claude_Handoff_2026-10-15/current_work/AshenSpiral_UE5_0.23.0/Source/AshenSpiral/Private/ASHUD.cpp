@@ -290,10 +290,22 @@ void AASHUD::DrawHUD() {
         if(StationId==201||StationId==202) {Done=(S->VaultMask&(1<<(StationId-201)))!=0;Station=Done?TEXT("SIGIL ACTIVATED"):TEXT("ACTIVATE SIGIL");}
         else if(StationId==203) {Done=S->bVaultClaimed;Station=Done?TEXT("VAULT COLLECTED"):(S->VaultMask==3?TEXT("OPEN RUNE VAULT"):TEXT("VAULT / ACTIVATE BOTH SIGILS"));}
         else if(StationId==220) Station=TEXT("EMBER BARGAIN / TRADE HEALTH");
-        else if(StationId>=31&&StationId<=33) {
-            const int32 D=StationId-31;const auto* Local=PC->GetPlayerState<AASPlayerState>();
-            const bool Open=ASExpedition::DifficultyUnlocked(D,Local?Local->ClearedMask:0);
-            Station=FString::Printf(TEXT("%s PORTAL / %s%s / %s%s"),UTF8_TO_TCHAR(ASExpedition::PortalName(D)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(D)),S->Difficulty==D?TEXT(" [CHOSEN]"):TEXT(""),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(D)),Open?TEXT(""):*(FString(TEXT(" / LOCKED: "))+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D))));
+        else if((StationId>=31&&StationId<=33)||(StationId==22&&S->Phase==EASPhase::Hub)) {
+            // One prompt for every portal: lock reason, modifiers, seed, and whether the party is gathered. Host profile owns unlocks.
+            const bool Endless=StationId==22;const int32 D=Endless?3:StationId-31;
+            const AASPlayerState* HostState=nullptr;for(auto V:S->PlayerArray) if(auto* Candidate=Cast<AASPlayerState>(V)) if(Candidate->PlayerIndex==0) HostState=Candidate;
+            const auto* Local=PC->GetPlayerState<AASPlayerState>();
+            const bool Open=Endless?(HostState&&HostState->bEndlessUnlocked):ASExpedition::DifficultyUnlocked(D,HostState?HostState->ClearedMask:0);
+            const FVector Archway=At-FVector(0,0,150);bool Gathered=true;
+            for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(FVector::DistSquared2D(Hero->GetActorLocation(),Archway)>360.f*360.f) Gathered=false;
+            const bool IsHost=Local&&Local->PlayerIndex==0;
+            FString Status;
+            if(!Open) Status=Endless?FString(TEXT("LOCKED: Beat Normal mode once")):FString(TEXT("LOCKED: "))+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D));
+            else if(!Gathered) Status=TEXT("WAITING FOR OTHER PLAYERS");
+            else if(!IsHost) Status=TEXT("WAITING FOR THE HOST TO ENTER");
+            else Status=TEXT("HOST: ENTER THE SPIRAL");
+            const FString Detail=Endless?FString(TEXT("ENDLESS PORTAL")):FString::Printf(TEXT("%s PORTAL / %s / %s / SEED %s"),UTF8_TO_TCHAR(ASExpedition::PortalName(D)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(D)),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(D)),*PC->SeedText);
+            Station=Detail+TEXT(" / ")+Status;
         }
         else if(StationId==222) Station=S->bLuckyShop?TEXT("LUCKY SHOP / SPEND SCRAP AND ASH"):TEXT("LUCKY SHOP / CLOSED");
         else if(StationId==221) Station=TEXT("WISHING WELL / STAKE CINDERS");

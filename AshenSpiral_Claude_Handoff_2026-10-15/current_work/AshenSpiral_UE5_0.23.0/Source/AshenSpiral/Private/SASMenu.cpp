@@ -226,7 +226,8 @@ void SASMenu::Construct(const FArguments& Args) {
             for(auto V:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(V)) Status+=FString::Printf(TEXT("PLAYER %d / LEVEL %d / %s\n%s   |   %s\n"),Player->PlayerIndex+1,Player->CharacterLevel,*ASData::CareerTitle(Player->TitleIndex,Player->TitleTier),Player->bProfileReady?(Player->bReady?TEXT("READY"):TEXT("NOT READY")):TEXT("LOADING PROFILE"),ASData::Weapons[Player->Build.Weapon].Name);
             return Txt(Status);})];
         Card(TEXT("Your readiness"),TEXT("Changing a weapon, style, or permanent upgrade resets your ready check. Solo expeditions do not require the ready toggle."),TEXT("TOGGLE READY"),30,0,Hub&&PS&&PS->bProfileReady);
-        Text(TEXT("To depart: mark Ready, then press E at the Ember, Ashen or Blood archway (or the Endless portal once unlocked). The host steps through for both players."),16,ASMenuGold);
+        Text(TEXT("To depart: mark Ready, gather every player at the Ember, Ashen or Blood archway (or the Endless portal once unlocked), and the host presses E. Everyone steps through together."),16,ASMenuGold);
+        Input(TEXT("Deterministic expedition seed (story portals)"),2);
         Card(TEXT("Choose equipment"),FString::Printf(TEXT("Equipped: %s  /  %s"),ASData::Weapons[P.Build.Weapon].Name,ASData::Styles[P.Build.Style].Name),TEXT("ARMORY"),10,2);
         Card(TEXT("Build your stats"),TEXT("Preview current and next values for permanent cooldown, attack-speed, damage, health, movement, and critical upgrades."),TEXT("UPGRADES"),10,4);
         Card(TEXT("Bring a partner"),TEXT("Host first, share the code and reachable IP, and wait for both ready checks."),TEXT("CO-OP"),10,7);
