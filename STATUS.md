@@ -211,4 +211,4 @@ UNVERIFIED playtest checklist (all of the above is compile + native tests only):
 - Item 11, arena shift cancels combos + freezes: not easily fixable. The shift rebuilds ALL arena geometry (floors too) in one frame. Real fix = partial rebuild of only the cover blocks. Recommendation: do it after the playtest together with the obstacle-visibility bug, since both are the same code and neither is verified. Not changed.
 - Item 13 confidence is LOW: I added a client-side safety rebuild but could not find the root cause by reading. Needs P2's client log if it still happens.
 - Count note: the 0.23.2 batch lists 21 items, not 22.
-- Not pushed yet (waiting for go-ahead).
+- Pushed: astra/0.23-handoff at 15018f2 (plain push, no force).
