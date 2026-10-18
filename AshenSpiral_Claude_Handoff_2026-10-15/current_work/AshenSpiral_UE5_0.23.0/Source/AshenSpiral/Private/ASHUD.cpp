@@ -308,24 +308,20 @@ void AASHUD::DrawHUD() {
         else if(StationId==203) {Done=S->bVaultClaimed;Station=Done?TEXT("VAULT COLLECTED"):(S->VaultMask==3?TEXT("OPEN RUNE VAULT"):TEXT("VAULT / ACTIVATE BOTH SIGILS"));}
         else if(StationId==220) Station=TEXT("EMBER BARGAIN / TRADE HEALTH");
         else if((StationId>=31&&StationId<=33)||(StationId==22&&S->Phase==EASPhase::Hub)) {
-            // One prompt for every portal. It only draws within the archway's range; waiting states go to the middle of the screen.
+            // One prompt for every portal, drawn only within the archway's range. The host departs; the prompt shows whether the party is gathered.
             const bool Endless=StationId==22;const int32 D=Endless?3:StationId-31;
-            const AASPlayerState* HostState=nullptr;bool GuestsReady=true;
-            for(auto V:S->PlayerArray) if(auto* Candidate=Cast<AASPlayerState>(V)) {if(Candidate->PlayerIndex==0) HostState=Candidate;else if(!Candidate->bReady) GuestsReady=false;}
+            const AASPlayerState* HostState=nullptr;
+            for(auto V:S->PlayerArray) if(auto* Candidate=Cast<AASPlayerState>(V)) if(Candidate->PlayerIndex==0) HostState=Candidate;
             const auto* Local=PC->GetPlayerState<AASPlayerState>();
             const bool Open=Endless?(HostState&&HostState->bEndlessUnlocked):ASExpedition::DifficultyUnlocked(D,HostState?HostState->ClearedMask:0);
             const FVector Archway=At-FVector(0,0,150);bool Gathered=true;
             for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(FVector::DistSquared2D(Hero->GetActorLocation(),Archway)>360.f*360.f) Gathered=false;
             const bool IsHost=Local&&Local->PlayerIndex==0;
             Station=Endless?FString(TEXT("ENDLESS PORTAL")):FString::Printf(TEXT("%s PORTAL / %s / %s / SEED %s"),UTF8_TO_TCHAR(ASExpedition::PortalName(D)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(D)),UTF8_TO_TCHAR(ASExpedition::PortalModifiers(D)),*PC->SeedText);
-            FString Wait;
             if(!Open) PromptExtra=Endless?FString(TEXT("LOCKED: beat Normal mode once to open the Endless portal")):FString(TEXT("LOCKED: "))+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D));
-            else if(!IsHost) PromptExtra=Local&&Local->bReady?FString(TEXT("READY  /  WAITING FOR THE HOST")):FString::Printf(TEXT("[%s] READY UP"),*Key("Interact"));
-            else if(!Gathered||!GuestsReady) PromptExtra=TEXT("HOST: WAITING FOR THE PARTY");
+            else if(!IsHost) PromptExtra=TEXT("THE HOST ENTERS FOR THE PARTY");
+            else if(!Gathered) PromptExtra=TEXT("HOST: WAITING FOR THE PARTY");
             else PromptExtra=FString::Printf(TEXT("[%s] ENTER THE SPIRAL"),*Key("Interact"));
-            if(Open&&!Gathered) Wait=TEXT("WAITING FOR OTHER PLAYERS");
-            else if(Open&&IsHost&&!GuestsReady) Wait=TEXT("WAITING FOR PLAYERS TO READY UP");
-            if(!Wait.IsEmpty()) {Group();Text(Wait,CX-float(Wait.Len())*8.f,CY+90,ASHudGold,.9f);}
         }
         else if(StationId==222) Station=S->bLuckyShop?TEXT("LUCKY SHOP / SPEND SCRAP AND ASH"):TEXT("LUCKY SHOP / CLOSED");
         else if(StationId==221) Station=TEXT("WISHING WELL / STAKE CINDERS");

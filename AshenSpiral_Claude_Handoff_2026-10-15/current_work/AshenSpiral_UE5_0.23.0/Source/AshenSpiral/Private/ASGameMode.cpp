@@ -170,11 +170,6 @@ void AASGameMode::Logout(AController* Exiting) {
     if(H) H->Destroy();Super::Logout(Exiting);
 }
 void AASGameMode::AbandonReconnect() {if(auto* S=AS::State(this)) {S->bConnectionHold=false;S->ReconnectRemaining=0;}Disconnected.Empty();}
-bool AASGameMode::PortalPartyReady() const {
-    auto* S=AS::State(this);if(!S||S->PlayerArray.IsEmpty()) return false;
-    for(auto P:S->PlayerArray) {auto* PS=Cast<AASPlayerState>(P);if(!PS||!PS->bProfileReady||PS->bSavePending||(PS->PlayerIndex!=0&&!PS->bReady)) return false;}
-    return true;
-}
 bool AASGameMode::AllReady() const {
     auto* S=AS::State(this);if(!S||S->PlayerArray.IsEmpty()) return false;
     for(auto P:S->PlayerArray) {auto* PS=Cast<AASPlayerState>(P);if(!PS||!PS->bProfileReady||PS->bSavePending||(S->PlayerArray.Num()>1&&!PS->bReady)) return false;}
@@ -195,8 +190,8 @@ void AASGameMode::ClearBeat(float Scale,float RealSeconds) {
 void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
     if(!S||!S->Arena||!H||Portal<0||Portal>3||S->Phase!=EASPhase::Hub||S->bEnteringPortal) return;
-    if(!Host(PC)) {PC->Notify(TEXT("Ready up at the archway; the host enters the portal for everyone."));return;}
-    if(!PortalPartyReady()) {PC->Notify(TEXT("Every other player must ready up at the archway, and all saves must finish."));return;}
+    if(!Host(PC)) {PC->Notify(TEXT("The host chooses when the party departs."));return;}
+    for(auto P:S->PlayerArray) {auto* Member=Cast<AASPlayerState>(P);if(!Member||!Member->bProfileReady||Member->bSavePending) {PC->Notify(TEXT("Everyone must finish loading and saving first."));return;}}
     const int32 StationId=Portal==3?22:31+Portal;const FVector Station=S->Arena->InteractionPoint(StationId)-FVector(0,0,150);
     if(FVector::DistSquared2D(H->GetActorLocation(),Station)>360.f*360.f) {PC->Notify(TEXT("Stand at the archway to enter."));return;}
     // Every hero must be at the archway; the HUD shows the same "waiting for other players" state.

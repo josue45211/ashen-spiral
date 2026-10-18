@@ -169,12 +169,12 @@ void AASPlayerController::Interact() {
         auto* PS=GetPlayerState<AASPlayerState>();if(PS&&!PS->bRewardClaimed) OpenMenu(9);else InteractServer();
     }
 }
-// E at an archway: guests toggle Ready; the host confirms the departure (the server re-checks range, locks and readiness).
+// E at an archway: only the host departs (the server re-checks range, locks and saves). Guests just walk up with the party.
 void AASPlayerController::PortalInteract(int32 Page) {
     auto* S=AS::State(this);auto* H=Cast<AASCharacter>(GetPawn());auto* PS=GetPlayerState<AASPlayerState>();if(!S||!S->Arena||!H||!PS) return;
     const FVector Archway=S->Arena->InteractionPoint(Page)-FVector(0,0,150);
     if(FVector::DistSquared2D(H->GetActorLocation(),Archway)>360.f*360.f) {Notify(TEXT("Stand at the archway."));return;}
-    if(PS->PlayerIndex!=0) {SetReady(!PS->bReady);return;}
+    if(PS->PlayerIndex!=0) {Notify(TEXT("The host chooses when to depart."));return;}
     int32 Seed=1103;
     if(Page!=22&&!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}
     SelectedPortal=Page==22?3:Page-31;EnterPortal(SelectedPortal,Page==22?FMath::Rand():Seed);
