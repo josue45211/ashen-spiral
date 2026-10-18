@@ -22,6 +22,12 @@
 #include "Materials/Material.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
+#include "ASGameInstance.h"
+#include "ASExpeditionRules.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundWave.h"
+#include "Sound/SoundWaveProcedural.h"
+#include "Kismet/GameplayStatics.h"
 namespace ASAssets {
 UStaticMesh* Mesh(const FString& Name) {
     if(Name==TEXT("Cube") || Name==TEXT("Sphere") || Name==TEXT("Cylinder") || Name==TEXT("Cone"))
@@ -124,13 +130,14 @@ void AASWorld::Tick(float Delta) {
         // Clients must hold exactly the geometry the server built. If the replicated config arrived but the blocks did not (or are stale), rebuild.
         if(BuiltGeneration==Config.Generation&&!Batches.IsEmpty()) ClientRebuildRetries=0;
         else if(ClientRebuildRetries<3) {
-            ++ClientRebuildRetries;BuiltGeneration=-1;Rebuild();
+            ++ClientRebuildRetries;BuiltGeneration=-1;BuiltEpoch=-1;Rebuild(); // force a FULL rebuild
             UE_LOG(LogTemp,Warning,TEXT("AshenVisual: client geometry safety rebuild %d (generation=%d batches=%d)"),ClientRebuildRetries,Config.Generation,Batches.Num());
         }
     }
     if(IsEndlessArena()) ApplyShopVisibility(ShopOpen());
     if(GetNetMode()==NM_DedicatedServer) return;
     const auto* S=AS::State(this);if(!S) return;
+    AnimateShift(S);
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
     const int32 Stage=ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave);
     if(Stage!=SkyTo) {SkyFrom=SkyTo;SkyTo=Stage;SkyBlendT=0.f;}
@@ -146,8 +153,56 @@ void AASWorld::Tick(float Delta) {
         PostVolume->Settings.bOverride_ColorGain=true;PostVolume->Settings.ColorGain=FVector4(Look.GainR,Look.GainG,Look.GainB,1.f);
     }
 }
+void AASWorld::RebuildEndlessCover() {
+    const double Start=FPlatformTime::Seconds();
+    for(auto It=Batches.CreateIterator();It;++It) if(It->Key.ToString().Contains(TEXT("EndlessCover"))) {if(It->Value) It->Value->DestroyComponent();It.RemoveCurrent();}
+    BuildEndlessCover(EndlessCenter);LastCoverDrop=-9999.f;
+    UE_LOG(LogTemp,Display,TEXT("AshenVisual: endless cover rebuilt shuffle=%d batches=%d in %.2f ms"),Config.Shuffle,Batches.Num(),(FPlatformTime::Seconds()-Start)*1000.0);
+}
+void AASWorld::StartSiren() {
+    if(SirenAudio) return;
+    // Placeholder siren synthesised in code (no new audio assets): a quiet two-note wail, gliding between 480 and 640 Hz about once a second.
+    auto* Wave=NewObject<USoundWaveProcedural>(this);if(!Wave) return;
+    Wave->SetSampleRate(22050);Wave->NumChannels=1;Wave->Duration=INDEFINITELY_LOOPING_DURATION;Wave->SoundGroup=SOUNDGROUP_Default;Wave->bLooping=false;
+    struct FSirenState {float Phase=0.f,Time=0.f;};
+    const TSharedRef<FSirenState> State=MakeShared<FSirenState>();
+    Wave->OnSoundWaveProceduralUnderflow.BindLambda([State](USoundWaveProcedural* Source,const int32 SamplesRequired) {
+        const int32 Count=FMath::Clamp(SamplesRequired,256,4096);TArray<int16> Samples;Samples.SetNumUninitialized(Count);
+        for(int32 I=0;I<Count;++I) {
+            State->Time+=1.f/22050.f;
+            const float Glide=.5f+.5f*FMath::Sin(State->Time*UE_TWO_PI*.9f);
+            State->Phase+=UE_TWO_PI*(480.f+160.f*Glide)/22050.f;if(State->Phase>UE_TWO_PI) State->Phase-=UE_TWO_PI;
+            Samples[I]=int16(FMath::Sin(State->Phase)*6500.f);
+        }
+        if(Source) Source->QueueAudio(reinterpret_cast<const uint8*>(Samples.GetData()),Count*int32(sizeof(int16)));
+    });
+    SirenAudio=UGameplayStatics::SpawnSound2D(this,Wave,.4f,1.f);
+}
+void AASWorld::StopSiren() {
+    if(SirenAudio) {SirenAudio->FadeOut(.25f,0.f);SirenAudio=nullptr;}
+}
+void AASWorld::AnimateShift(const AASGameState* S) {
+    if(!S||GetNetMode()==NM_DedicatedServer||!IsEndlessArena()) {StopSiren();return;}
+    const float Now=S->SimTime;
+    const auto* GI=GetGameInstance<UASGameInstance>();const bool Reduce=GI&&GI->bReduceMotion;
+    // Cover sinks into the floor during the last second of the warning, and the new cover rises for a second after the shift.
+    const float Drop=Reduce?0.f:ASExpedition::ShiftCoverDrop*ASExpedition::ShiftCoverSunk(Now,S->ShiftAt);
+    if(!FMath::IsNearlyEqual(Drop,LastCoverDrop,.5f)) {
+        for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessCover"))) Pair.Value->SetRelativeLocation(FVector(0,0,-Drop));
+        LastCoverDrop=Drop;
+    }
+    // Siren only inside the warning window; a concrete-on-concrete slide when the blocks swap.
+    const bool Warning=S->ShiftAt>0.f&&Now>=S->ShiftAt-ASExpedition::ShiftWarningSeconds&&Now<S->ShiftAt;
+    if(Warning) StartSiren();else StopSiren();
+    if(S->ShiftAt>0.f&&Now>=S->ShiftAt&&Now<S->ShiftAt+1.2f&&!FMath::IsNearlyEqual(SlidShiftAt,S->ShiftAt)) {
+        SlidShiftAt=S->ShiftAt;
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) UGameplayStatics::PlaySound2D(this,Cue,.8f,.55f);
+    }
+}
 void AASWorld::Rebuild() {
-    if(BuiltGeneration==Config.Generation) return;BuiltGeneration=Config.Generation;bVaultDimmed=false;
+    if(BuiltGeneration==Config.Generation) return;
+    if(Config.Room==ASRules::EndlessRoom&&BuiltRoom==Config.Room&&BuiltEpoch==Config.Epoch&&!Batches.IsEmpty()) {BuiltGeneration=Config.Generation;RebuildEndlessCover();return;}
+    BuiltGeneration=Config.Generation;BuiltEpoch=Config.Epoch;BuiltRoom=Config.Room;bVaultDimmed=false;LastCoverDrop=-9999.f;
     for(auto& P:Batches) if(P.Value) P.Value->DestroyComponent();Batches.Empty();
     for(auto C:Labels) if(C) C->DestroyComponent();Labels.Empty();
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
@@ -173,7 +228,8 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
             if(Group.StartsWith(TEXT("ArchiveBooks"))||Group.StartsWith(TEXT("ArchiveFolio"))||Group.StartsWith(TEXT("ArchiveDebris"))) Mat->SetScalarParameterValue(TEXT("SurfaceDetail"),.25f);
         }
         C->SetMaterial(0,Mat);
-        C->SetMobility(EComponentMobility::Static);C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
+        C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
+        C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
         C->SetCollisionObjectType(ECC_WorldStatic);C->SetCollisionResponseToAllChannels(ECR_Block);C->SetGenerateOverlapEvents(false);
         C->SetCanEverAffectNavigation(false);C->SetCullDistances(0,0);C->RegisterComponent();Batches.Add(Key,C);
     }
@@ -244,15 +300,18 @@ void AASWorld::MakeHub() {
     Text(TEXT("ASHEN SPIRAL"),FVector(1550,0,750),180,70);
     Text(TEXT("THE EMBER NEXUS"),FVector(1550,0,650),180,30);
 }
-void AASWorld::EndlessArena(const FVector& Center) {
-    // Placeholder identity: dark ruin stone with a faint red-gold chest sigil. P2 art-directs in 0.23.1.
-    const FLinearColor Stone(.17f,.16f,.17f),Sigil(.9f,.25f,.1f);
+void AASWorld::BuildEndlessCover(const FVector& Center) {
+    const FLinearColor Stone(.17f,.16f,.17f);
     std::array<ASRules::KeepOut,2> Keep;
     if(Config.KeepCount>0) Keep[0]={Config.KeepX0,Config.KeepY0,true};
     if(Config.KeepCount>1) Keep[1]={Config.KeepX1,Config.KeepY1,true};
     for(const auto& O:ASRules::EndlessProps(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep)) {
         Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=370?0:(O.Height>=290?1:2)),Center+FVector(O.X,O.Y,O.Height*.5f),FVector(O.Length/100.f,O.Thickness/100.f,O.Height/100.f),Stone*(O.Height>=370?1.15f:1.f),true,O.Yaw,0,.05f);
     }
+}
+void AASWorld::EndlessArena(const FVector& Center) {
+    // Placeholder identity: dark ruin stone with a faint red-gold chest sigil. P2 art-directs in 0.23.1.
+    EndlessCenter=Center;BuildEndlessCover(Center);
     Add(TEXT("Cube"),TEXT("EndlessShopStall"),ExitPoint()+FVector(0,380,60),FVector(1.6f,.8f,1.2f),FLinearColor(.25f,.15f,.07f),true);
     Text(TEXT("LUCKY SHOP / spend Scrap and Ash"),ExitPoint()+FVector(0,380,260),90,22);ShopLabel=Labels.IsEmpty()?nullptr:Labels.Last();ShopShown=-1;
     // The three glowing rings that used to sit under the chest (outer sigil, inner sigil, arrival glyph) are gone: they read as stray lights once the sky darkens after waves 20 and 50.

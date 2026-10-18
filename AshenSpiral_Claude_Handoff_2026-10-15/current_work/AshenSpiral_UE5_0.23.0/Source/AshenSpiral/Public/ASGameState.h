@@ -61,6 +61,8 @@ public:
     UPROPERTY(Replicated) float CountdownEnd=0;
     UPROPERTY(Replicated) int32 Difficulty=0;
     UPROPERTY(Replicated) bool bEnteringPortal=false;
+    // SimTime of the next scheduled Endless arena shift (warning ends and the shift happens then); <= 0 when none. Drives the sink/rise animation and sounds.
+    UPROPERTY(Replicated) float ShiftAt=-100.f;
     UPROPERTY(Replicated) bool bEndless=false;
     UPROPERTY(Replicated) int32 EndlessWave=0;
     UPROPERTY(Replicated) int32 ClearedEndlessWave=0;

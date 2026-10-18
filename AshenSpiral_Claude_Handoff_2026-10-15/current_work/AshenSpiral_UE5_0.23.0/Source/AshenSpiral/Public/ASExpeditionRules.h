@@ -168,4 +168,14 @@ inline std::string RunGainDetail(int Code,int Count) {
         default: return std::string();
     }
 }
+// ---- 0.23.3 arena shift sequence (looks and sound only; the shuffle itself is unchanged).
+// During the last second of the warning the old cover sinks into the floor; from the shift the new cover rises for a second.
+constexpr float ShiftWarningSeconds=3.f,ShiftSinkSeconds=1.f,ShiftRiseSeconds=1.f,ShiftCoverDrop=450.f;
+inline float ShiftSmooth(float X) {X=std::clamp(X,0.f,1.f);return X*X*(3.f-2.f*X);}
+// 0 = cover fully up, 1 = fully sunk. ShiftAt <= 0 means no shift is scheduled.
+inline float ShiftCoverSunk(float Now,float ShiftAt) {
+    if(!std::isfinite(Now)||!std::isfinite(ShiftAt)||ShiftAt<=0.f) return 0.f;
+    const float T=Now-ShiftAt;
+    return T<0.f?ShiftSmooth(1.f+T/ShiftSinkSeconds):1.f-ShiftSmooth(T/ShiftRiseSeconds);
+}
 }

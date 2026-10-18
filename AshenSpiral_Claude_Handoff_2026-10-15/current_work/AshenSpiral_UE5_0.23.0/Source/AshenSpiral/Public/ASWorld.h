@@ -4,7 +4,7 @@
 #include "ASRules.h"
 #include "ASAdventureRules.h"
 #include "ASWorld.generated.h"
-class ADirectionalLight;class AExponentialHeightFog;class ASkyLight;class APostProcessVolume;class UHierarchicalInstancedStaticMeshComponent;class UMaterialInstanceDynamic;class UStaticMesh;class UStaticMeshComponent;
+class AASGameState;class UAudioComponent;class ADirectionalLight;class AExponentialHeightFog;class ASkyLight;class APostProcessVolume;class UHierarchicalInstancedStaticMeshComponent;class UMaterialInstanceDynamic;class UStaticMesh;class UStaticMeshComponent;
 USTRUCT() struct FASLayoutConfig {
     GENERATED_BODY()
     UPROPERTY() int32 Room=-1;
@@ -86,6 +86,16 @@ private:
     UPROPERTY() TArray<TObjectPtr<UActorComponent>> Labels;
     UPROPERTY() TArray<TObjectPtr<AActor>> LocalLights;
     int32 BuiltGeneration=-1;
+    // Endless shuffles only rebuild the cover blocks (same epoch + room), never the floors, so nobody loses ground and the frame stays cheap.
+    int32 BuiltEpoch=-1,BuiltRoom=-99;
+    FVector EndlessCenter=FVector::ZeroVector;
+    float LastCoverDrop=-9999.f,SlidShiftAt=-1.f;
+    UPROPERTY() TObjectPtr<UAudioComponent> SirenAudio;
+    void BuildEndlessCover(const FVector& Center);
+    void RebuildEndlessCover();
+    void AnimateShift(const AASGameState* State);
+    void StartSiren();
+    void StopSiren();
     int32 ClientRebuildRetries=0; // client-side safety net: geometry that disagrees with the replicated config is rebuilt (max 3 tries)
     // Sky stages (Endless): lights and fog are driven toward the current stage's look on clients.
     UPROPERTY() TObjectPtr<ADirectionalLight> SunLight;
