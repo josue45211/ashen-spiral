@@ -120,6 +120,14 @@ void AASWorld::ApplyShopVisibility(bool bOpen) {
 }
 void AASWorld::Tick(float Delta) {
     Super::Tick(Delta);
+    if(!HasAuthority()&&Config.Room>=0) {
+        // Clients must hold exactly the geometry the server built. If the replicated config arrived but the blocks did not (or are stale), rebuild.
+        if(BuiltGeneration==Config.Generation&&!Batches.IsEmpty()) ClientRebuildRetries=0;
+        else if(ClientRebuildRetries<3) {
+            ++ClientRebuildRetries;BuiltGeneration=-1;Rebuild();
+            UE_LOG(LogTemp,Warning,TEXT("AshenVisual: client geometry safety rebuild %d (generation=%d batches=%d)"),ClientRebuildRetries,Config.Generation,Batches.Num());
+        }
+    }
     if(IsEndlessArena()) ApplyShopVisibility(ShopOpen());
     if(GetNetMode()==NM_DedicatedServer) return;
     const auto* S=AS::State(this);if(!S) return;

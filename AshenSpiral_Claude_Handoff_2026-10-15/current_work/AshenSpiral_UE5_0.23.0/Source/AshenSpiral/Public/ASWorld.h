@@ -84,6 +84,7 @@ private:
     UPROPERTY() TArray<TObjectPtr<UActorComponent>> Labels;
     UPROPERTY() TArray<TObjectPtr<AActor>> LocalLights;
     int32 BuiltGeneration=-1;
+    int32 ClientRebuildRetries=0; // client-side safety net: geometry that disagrees with the replicated config is rebuilt (max 3 tries)
     // Sky stages (Endless): lights and fog are driven toward the current stage's look on clients.
     UPROPERTY() TObjectPtr<ADirectionalLight> SunLight;
     UPROPERTY() TObjectPtr<AExponentialHeightFog> FogActor;
