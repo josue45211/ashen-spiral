@@ -233,12 +233,6 @@ void AASHUD::DrawHUD() {
         const float A=float(I)*UE_TWO_PI/32.f,B=float(I+1)*UE_TWO_PI/32.f;
         AimLine(CX+FMath::Cos(A)*R,CY+FMath::Sin(A)*R,CX+FMath::Cos(B)*R,CY+FMath::Sin(B)*R);
     }
-    if(PC->bAimBlocked) {
-        FVector2D Impact;if(PC->ProjectWorldLocationToScreen(PC->ShotImpact,Impact)) {
-            const float X=Impact.X/Scale,Y=Impact.Y/Scale;Line(X-7,Y-7,X+7,Y+7,ASHudRed,2);Line(X+7,Y-7,X-7,Y+7,ASHudRed,2);
-        }
-        Text(TEXT("COVER BLOCKS SHOT"),CX-95,CY+26,ASHudGold,.65f);
-    }
     FString Objective;
     if(S->Phase==EASPhase::Countdown) Objective=FString::Printf(TEXT("WAVE IN %.0f / WATCH RED MARKERS"),FMath::CeilToFloat(S->CountdownEnd-S->SimTime));
     else if(S->Phase==EASPhase::Victory) Objective=TEXT("EXPEDITION COMPLETE / RETURN PORTAL");

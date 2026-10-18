@@ -24,8 +24,8 @@ inline float Impact(int Step) {return Step==2?.76f:.56f;}
 inline float Hitstop(int Step) {return Step==2?.14f:.06f;}
 inline float Cycle(int Step) {return Step==2?1.188f:.72f;}
 inline float ComboWindow(float BaseInterval) {return 1.2f*BaseInterval/.72f;}
-// TUNABLE: the finisher slows movement by 80% instead of rooting the player.
-constexpr float FinisherSlow=.8f;
+// TUNABLE: the finisher slows movement by 45% (was 80%) instead of rooting the player.
+constexpr float FinisherSlow=.45f;
 inline float FinisherSpeedScale() {return 1.f-FinisherSlow;}
 inline bool Frontal(float DotForward) {return DotForward>0.f;}
 inline bool Committed(int Weapon,int Step,float Now,float Start,float Duration) {return Weapon==1&&Step==2&&Start>=0&&Now>=Start&&Now<Start+Duration;}

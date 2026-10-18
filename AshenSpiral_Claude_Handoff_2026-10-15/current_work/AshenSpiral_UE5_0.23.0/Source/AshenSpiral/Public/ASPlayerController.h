@@ -31,9 +31,8 @@ public:
     int32 ShopWeapon=0;
     float LastCritAt=-100,LastHurtAt=-100,NoticeUntil=0;
     FString AlertTitle,AlertSub;int32 AlertSeq=0; // banner alerts raised through Notify("!BANNER|..")
-    FVector AimTarget=FVector::ZeroVector,ShotImpact=FVector::ZeroVector;
+    FVector AimTarget=FVector::ZeroVector;
     int32 FocusedInteraction=-1;
-    bool bAimBlocked=false;
     UGameViewportClient* LocalViewport() const;
     bool WantsGameplayInput() const;
     void ApplyGameplayInput();

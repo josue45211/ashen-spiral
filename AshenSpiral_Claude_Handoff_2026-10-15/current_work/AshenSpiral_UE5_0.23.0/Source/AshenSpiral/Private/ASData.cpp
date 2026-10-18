@@ -11,7 +11,7 @@ const FASWeapon Weapons[ASRules::WeaponCount] = {
     {TEXT("Rift Scythe"), TEXT("No reload; attack speed accelerates the full scythe swing. Dash through a well for a wide crescent and extra invulnerability."), 55, 0.4f},
     {TEXT("Cinder Scattergun"), TEXT("Six burning pellets in a tight cone. Devastating nearby; damage falls with distance. One proc-carrying pellet per shot."), 65, ASArsenal::Rate(6)},
     {TEXT("Tempest Rotary"), TEXT("Rapid frost rounds. Sustained fire widens the cone; release briefly to recover accuracy."), 80, ASArsenal::Rate(7)},
-    {TEXT("Rift Mortar"), TEXT("Launch an ember rocket that bursts on contact. Splash respects cover, scales with area upgrades, and cannot hurt allies."), 95, ASArsenal::Rate(8)},
+    {TEXT("Rift Mortar"), TEXT("Launch an ember rocket that bursts on contact. Splash scales with area upgrades and cannot hurt allies."), 95, ASArsenal::Rate(8)},
 };
 const FASRelic Relics[24] = {
     {TEXT("ignite"), TEXT("Ashen Kindling"), TEXT("Wells ignite enemies inside.")},

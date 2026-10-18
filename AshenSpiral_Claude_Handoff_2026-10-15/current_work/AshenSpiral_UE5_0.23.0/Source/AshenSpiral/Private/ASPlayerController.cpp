@@ -496,10 +496,6 @@ void AASPlayerController::UpdateAim(bool Send) {
     for(auto Weak:S->Heroes) if(auto* Ally=Weak.Get()) Query.AddIgnoredActor(Ally);
     FHitResult Hit;const FVector End=Start+Direction*15000.f;
     AimTarget=GetWorld()->LineTraceSingleByChannel(Hit,Start,End,ECC_Visibility,Query)?Hit.ImpactPoint:End;
-    FHitResult Cover;FCollisionObjectQueryParams Objects(ECC_WorldStatic);
-    bAimBlocked=GetWorld()->SweepSingleByObjectType(Cover,H->MuzzleLocation(),AimTarget,FQuat::Identity,Objects,FCollisionShape::MakeSphere(9.f),Query)
-        &&FVector::DistSquared(Cover.ImpactPoint,AimTarget)>45.f*45.f;
-    ShotImpact=bAimBlocked?Cover.ImpactPoint:AimTarget;
     if(Send) H->SetAim(AimTarget);
     FocusedInteraction=-1;if(!S->Arena) return;
     TArray<int32> Ids;S->Arena->InteractionCandidates(Ids);float Best=.965f;

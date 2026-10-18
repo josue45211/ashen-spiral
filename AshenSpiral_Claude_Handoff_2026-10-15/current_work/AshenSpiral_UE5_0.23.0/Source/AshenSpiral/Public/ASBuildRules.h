@@ -12,7 +12,7 @@ enum class Trait : int {
     Greed,Fortune,Reroll,MendingCoin,RoomBlessing,DashStrike,Chain,Stillness,
     Momentum,Berserk,KillFlow,EchoShot,Volley,Area,Duration,ManaReserve,
     ManaRegen,RuneNova,Orbit,Sense,Vengeance,FullHeal=Vengeance,Cleanse,BloodPact,Refine,
-    Mystery,Duplicate,Conduit,Magazine,Reload,Precision,Attunement,Teamwork,Count
+    Mystery,Duplicate,Conduit,Magazine,Reload,Precision,Attunement,Teamwork,WideArc,Count
 };
 constexpr int Count=int(Trait::Count),OfferBase=200;
 // Original evolution bits stay stable; new utility traits do not evolve.
@@ -93,7 +93,9 @@ inline constexpr std::array<Definition,Count> Catalog{{
  {"Tight Grouping","15% less spread per rank, up to 75%. Tightens pellets, rotary fire, Echo Shot, Fan of Sparks and Forked Flight. Cannot evolve.",5,2,Projectile,0,476,false},
  // 0.23.2 (TUNABLE): elemental damage, and a larger synergy-damage buff that only appears in co-op.
  {"Attunement","+12% burn, poison and bleed damage per rank. Cannot evolve.",5,0,Element,0,511,false},
- {"Teamwork","+20% synergy attack damage per rank, for you and for synergies you trigger with a partner. Co-op only. Cannot evolve.",5,0,Element|Echo,1,511,false}
+ {"Teamwork","+20% synergy attack damage per rank, for you and for synergies you trigger with a partner. Co-op only. Cannot evolve.",5,0,Element|Echo,1,511,false},
+ // 0.23.3 (TUNABLE): melee reach, so swings and slams catch enemies further out. Sword, hammer and scythe only.
+ {"Wide Arc","+10% melee swing reach per rank, for sword, hammer and scythe. Cannot evolve.",5,0,Weapon,0,35,false}
 }};
 inline constexpr std::array<const char*,Count> Briefs{{
  "Boost weapon damage",
@@ -163,7 +165,8 @@ inline constexpr std::array<const char*,Count> Briefs{{
  "Reload and recharge faster",
  "Tighter pellets and bonus shots",
  "Stronger burn, poison and bleed",
- "Stronger synergy attacks"
+ "Stronger synergy attacks",
+ "Melee swings reach further"
 }};
 inline int Index(Trait T) {return int(T);}
 inline bool IsTrait(int Offer) {return Offer>=OfferBase&&Offer<OfferBase+Count;}
@@ -178,6 +181,8 @@ inline int MaxDashCharges(int RankValue) {return std::clamp(1+RankValue,1,3);}
 // 0.23.2 TUNABLE: the synergy buff per rank is deliberately larger than the elemental one (teamwork incentive).
 constexpr float AttunementPerRank=.12f,TeamworkPerRank=.20f;
 inline float ElementalDamageMultiplier(int RankValue) {return 1.f+AttunementPerRank*float(std::clamp(RankValue,0,10000));}
+constexpr float WideArcPerRank=.10f;
+inline float MeleeReachMultiplier(int RankValue) {return 1.f+WideArcPerRank*float(std::clamp(RankValue,0,10000));}
 inline float SynergyDamageMultiplier(int RankA,int RankB) {return 1.f+TeamworkPerRank*float(std::clamp(RankA,0,10000)+std::clamp(RankB,0,10000));}
 inline int CreditKills(int Base,int RankValue,float& Remainder) {
     const float Total=std::max(0,Base)*(1.f+.2f*std::clamp(RankValue,0,4))+Remainder;

@@ -110,6 +110,7 @@ public:
     float MaxFocus() const {return 60.f+10.f*TraitValue(ASBuild::Trait::ManaReserve);}
     float CriticalPower() const {return ASBuild::CriticalMultiplier(TraitValue(ASBuild::Trait::Deadeye));}
     float ElementalDamageMultiplier() const {return ASBuild::ElementalDamageMultiplier(TraitValue(ASBuild::Trait::Attunement));}
+    float MeleeReachMultiplier() const {return ASBuild::MeleeReachMultiplier(TraitValue(ASBuild::Trait::WideArc));}
     int32 TeamworkRank() const {return TraitValue(ASBuild::Trait::Teamwork);}
     float PrimaryDamageBonus() const {return 4.f*TraitValue(ASBuild::Trait::Sharpened);}
     float DashDuration() const {return ASBuild::DashDuration(TraitValue(ASBuild::Trait::LongDash));}

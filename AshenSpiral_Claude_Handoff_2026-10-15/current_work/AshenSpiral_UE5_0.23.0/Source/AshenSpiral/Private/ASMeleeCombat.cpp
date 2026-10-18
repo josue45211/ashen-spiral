@@ -55,7 +55,7 @@ void AASCharacter::TickMelee(float Now) {
 void AASCharacter::ResolveMelee() {
     auto* S=AS::State(this);if(!HasAuthority()||!S||!CanUseWeapons()||PendingMeleeWeapon!=Build.Weapon) return;
     const bool Slam=Build.Weapon==1&&MeleeStep==2;
-    const float Reach=Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==0&&MeleeStep==2?320.f:280.f));
+    const float Reach=MeleeReachMultiplier()*(Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==0&&MeleeStep==2?320.f:280.f)));
     const float Oath=MeleeStep==2&&bVengeanceFinisherReady?ASBuild::VengeanceFinisherMultiplier:1.f;
     if(Oath>1.f) bVengeanceFinisherReady=false;
     const float Damage=Oath*ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASMelee::DamageScale(Build.Weapon,MeleeStep);

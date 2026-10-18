@@ -60,7 +60,7 @@ int main(int Argc,char** Argv) {
     for(int Angle=-180;Angle<=180;++Angle) {const float D=std::cos(Angle*.0174532925199433f);Check(Frontal(D)==(D>0),"every combo step excludes the rear hemisphere");}
     Check(Committed(1,2,.5f,0,1.188f)&&!Committed(1,1,.5f,0,.72f)&&!Committed(0,2,.5f,0,1),"commitment affects hammer finisher only");
     Check(!Committed(1,2,1.188f,0,1.188f),"commitment releases at full animation recovery");
-    Check(Near(FinisherSpeedScale(),.2f,.0001f)&&FinisherSpeedScale()>0.f,"finisher slows movement by 80 percent rather than rooting");
+    Check(Near(FinisherSpeedScale(),.55f,.0001f)&&FinisherSpeedScale()>0.f,"finisher slows movement by 45 percent rather than rooting");
     Check(!LeapProtected(1,.1f,-10)&&LeapProtected(2,.2f,-10)&&LeapProtected(3,1.3f,1.2f)&&!LeapProtected(3,1.43f,1.2f)&&!LeapProtected(0,2,1.2f),"startup vulnerable; flight/recovery protected; recovery ends immunity");
     Check(Near(LeapDistance(.22f)/(2350.f*.22f),1.15f)&&Near(Height/(660.f*660.f/(2.f*1568.f)),1.5f,.001f),"leap has 15 percent extra dash reach and 50 percent extra jump height");
     Check(ASHammer::Cooldown>=7&&ASHammer::Cooldown<=8,"leap cooldown stays in approved range");
