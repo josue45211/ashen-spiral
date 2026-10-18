@@ -56,7 +56,16 @@ void AASHUD::Text(const FString& V,float X,float Y,FLinearColor C,float Size) {
 }
 void AASHUD::Box(float X,float Y,float W,float H,FLinearColor C) {DrawRect(C,(GroupOrigin.X+X*GroupScale)*Scale,(GroupOrigin.Y+Y*GroupScale)*Scale,W*GroupScale*Scale,H*GroupScale*Scale);}
 void AASHUD::Line(float X,float Y,float X2,float Y2,FLinearColor C,float Thick) {DrawLine((GroupOrigin.X+X*GroupScale)*Scale,(GroupOrigin.Y+Y*GroupScale)*Scale,(GroupOrigin.X+X2*GroupScale)*Scale,(GroupOrigin.Y+Y2*GroupScale)*Scale,C,Thick*GroupScale*Scale);}
-void AASHUD::Bar(float X,float Y,float W,float H,float F,FLinearColor C) {Box(X,Y,W,H,FLinearColor(.06f,.075f,.1f,.9f));Box(X,Y,W*FMath::Clamp(F,0.f,1.f),H,C);}
+void AASHUD::Bar(float X,float Y,float W,float H,float F,FLinearColor C) {
+    Box(X-1,Y-1,W+2,H+2,FLinearColor(0,0,0,.55f));            // outline
+    Box(X,Y,W,H,FLinearColor(.045f,.058f,.08f,.92f));           // track
+    const float Fill=W*FMath::Clamp(F,0.f,1.f);
+    Box(X,Y,Fill,H,C);
+    if(Fill>2.f&&H>=4.f) {
+        Box(X,Y,Fill,FMath::Max(1.f,H*.28f),FLinearColor(FMath::Min(1.f,C.R+.25f),FMath::Min(1.f,C.G+.25f),FMath::Min(1.f,C.B+.25f),.55f)); // top sheen
+        Box(X+Fill-2.f,Y,2.f,H,FLinearColor(1.f,1.f,1.f,.55f));                                                                               // bright end cap
+    }
+}
 void AASHUD::Map(AASGameState* S,AASCharacter* Hero) {
     if(!S->Arena) return;auto* A=S->Arena.Get();const float Size=176,Left=8,Top=8,MidX=Left+Size/2,MidY=Top+Size/2;
     
@@ -124,7 +133,7 @@ void AASHUD::DrawHUD() {
     const auto* Preferences=PC->GetGameInstance<UASGameInstance>();
     const float UI=Preferences?ASPresentation::HUDScale(Preferences->HUDScale):1.f;
     const float Delta=GetWorld()->GetDeltaSeconds(),Now=GetWorld()->GetTimeSeconds();
-    Group(24,24,UI);Box(0,0,2,82,ASHudTeal);
+    Group(24,24,UI);Box(-12,-10,340,102,FLinearColor(.01f,.015f,.022f,.42f));Box(0,0,2,82,ASHudTeal);
     Text(S->Phase==EASPhase::Hub?TEXT("EMBER NEXUS"):ASData::Biomes[ASAdventure::Biome(S->Room)],14,10,ASHudGold,.83f);
     Text(S->Phase==EASPhase::Hub?TEXT("EXPEDITION HUB"):(S->bEndless?FString::Printf(TEXT("ENDLESS     WAVE %d     CLEARED %d     ENEMIES %d"),S->EndlessWave,S->ClearedEndlessWave,S->LivingEnemies+S->PendingSpawns):FString::Printf(TEXT("CHAMBER %02d / 32     WAVE %d / %d"),S->Room+1,S->Wave+1,ASRules::WaveCount(S->Room))),14,36,ASHudMuted,.65f);
     if(S->Phase==EASPhase::Hub&&Preferences) Text(FString::Printf(TEXT("LEVEL %d    ASH %d    EMBERS %d"),ASCareer::Level(Preferences->Profile.Experience),Preferences->Profile.Ash,Preferences->Profile.RelicEmbers),14,58,ASHudMuted,.65f);
@@ -161,7 +170,7 @@ void AASHUD::DrawHUD() {
             Canvas->DrawItem(Item);
         }
     }
-    Group(24,Height-24-100*UI,UI);Box(0,0,2,100,ASHudTeal);
+    Group(24,Height-24-100*UI,UI);Box(-12,-10,330,122,FLinearColor(.01f,.015f,.022f,.42f));Box(0,0,2,100,ASHudTeal);
     Text(ASData::Weapons[H->Build.Weapon].Name,14,10,FLinearColor::White,.85f);
     if(ASMelee::IsMelee(H->Build.Weapon)) {
         const bool Swing=S->SimTime<H->AttackPoseStarted+H->AttackPoseDuration;
