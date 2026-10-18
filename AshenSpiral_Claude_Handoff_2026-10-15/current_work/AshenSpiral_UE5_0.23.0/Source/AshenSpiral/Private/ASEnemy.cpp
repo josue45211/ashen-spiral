@@ -31,6 +31,7 @@ AASEnemy::AASEnemy() {
     Body=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));Body->SetupAttachment(RootComponent);
     Eye=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Eyes"));Eye->SetupAttachment(RootComponent);
     Tell=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Anticipation"));Tell->SetupAttachment(RootComponent);
+    FoeMark=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FoeMark"));FoeMark->SetupAttachment(RootComponent);
     Crown=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Crown"));Crown->SetupAttachment(RootComponent);
     Beam=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SniperSight"));Beam->SetupAttachment(RootComponent);
     Aura=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ElementAura"));Aura->SetupAttachment(RootComponent);
@@ -59,6 +60,10 @@ void AASEnemy::RefreshLook() {
     ASAssets::Style(Eye,TEXT("Cube"),Kind==8?FLinearColor(.1f,.7f,1):FLinearColor(1,.09f,.025f),0,7);Eye->SetRelativeLocation(FVector(33*S,0,55*S));Eye->SetRelativeScale3D(FVector(.08f,.44f,.065f)*S);Eye->SetVisibility(Kind<5);
     Crown->SetVisibility(false); // Crystals grow in the environment, never on enemy heads.
     ASAssets::Style(Tell,TEXT("SM_Ring"),Kind==8?FLinearColor(.1f,.65f,1):FLinearColor(1,.1f,.02f),0,5);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+4));Tell->SetRelativeScale3D(FVector(Boss()?9:4,Boss()?9:4,1));
+    if(FoeMark) {
+        ASAssets::Style(FoeMark,TEXT("SM_Ring"),FLinearColor(.8f,.04f,.03f),0,1.8f);FoeMark->SetCastShadow(false);
+        FoeMark->SetRelativeLocation(FVector(0,0,-HalfHeight+3));FoeMark->SetRelativeScale3D(FVector(Boss()?6.f:(Elite()?3.4f:2.1f),Boss()?6.f:(Elite()?3.4f:2.1f),1));FoeMark->SetVisibility(!bTrainingDummy);
+    }
     ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(.1f,.65f,1),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
     if(Humanoid) {
         const TCHAR* Meshes[]={TEXT("SM_Torso"),TEXT("SM_EnemyHelm"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_EnemyCape"),TEXT("SM_ArmorCore")};
