@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ASSpell.generated.h"
-class USceneComponent;class UStaticMeshComponent;class AASCharacter;class AASEnemy;
+class USceneComponent;class UStaticMeshComponent;class UMaterialInstanceDynamic;class AASCharacter;class AASEnemy;
 UCLASS() class ASHENSPIRAL_API AASProjectile : public AActor {
     GENERATED_BODY()
 public:
@@ -143,9 +143,13 @@ public:
     virtual void Tick(float Delta) override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     void Setup(const FVector& At,float Yaw,FLinearColor Color);
+    // Afterimage of the character itself: copies its current body parts, cape and weapon at their present pose, tinted in the player's colour.
+    void SetupFromCharacter(const AASCharacter* Source,FLinearColor Color);
     static int32 Active;
 private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Visual;
+    UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Copies;
+    UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Shared;
     float Age=0;bool bCounted=false;
 };
 

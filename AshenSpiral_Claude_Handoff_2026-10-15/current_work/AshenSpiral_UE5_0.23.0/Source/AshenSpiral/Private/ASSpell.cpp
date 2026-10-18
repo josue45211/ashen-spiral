@@ -367,11 +367,35 @@ void AASDashGhost::Setup(const FVector& At,float Yaw,FLinearColor Color) {
     ++Active;bCounted=true;SetActorLocation(At);SetActorRotation(FRotator(0,Yaw,0));
     ASAssets::Style(Visual,TEXT("Sphere"),Color,0,5);Visual->SetRelativeScale3D(FVector(1.3f,.5f,1.5f));
 }
+void AASDashGhost::SetupFromCharacter(const AASCharacter* Source,FLinearColor Color) {
+    if(!Source||Active>=ASPresentation::DashGhostCap) {Destroy();return;}
+    ++Active;bCounted=true;
+    SetActorLocation(Source->GetActorLocation());
+    TArray<UStaticMeshComponent*> Meshes;Source->CollectTrailMeshes(Meshes);
+    if(Meshes.IsEmpty()) {Destroy();return;}
+    // One material shared by every copy keeps the cost to a single dynamic instance per afterimage.
+    Shared=ASAssets::Material(this,Color,0.f,3.5f);
+    for(auto* Piece:Meshes) {
+        if(!Piece||!Piece->GetStaticMesh()||Copies.Num()>=40) continue;
+        auto* Copy=NewObject<UStaticMeshComponent>(this);Copy->SetStaticMesh(Piece->GetStaticMesh());
+        Copy->SetCollisionEnabled(ECollisionEnabled::NoCollision);Copy->SetGenerateOverlapEvents(false);Copy->SetCastShadow(false);
+        Copy->SetMaterial(0,Shared);Copy->SetupAttachment(RootComponent);Copy->RegisterComponent();
+        Copy->SetWorldTransform(Piece->GetComponentTransform());Copies.Add(Copy);
+    }
+    if(Copies.IsEmpty()) Destroy();
+}
 void AASDashGhost::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
     Age+=Delta;if(Age>=ASPresentation::DashGhostLife) {Destroy();return;}
-    Visual->SetRelativeScale3D(FVector(1.3f,.5f,1.5f)*ASPresentation::DashGhostShrink(Age));
-    if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),5.f*ASPresentation::DashGhostAlpha(Age));
+    const float Alpha=ASPresentation::DashGhostAlpha(Age);
+    if(Copies.IsEmpty()) {
+        Visual->SetRelativeScale3D(FVector(1.3f,.5f,1.5f)*ASPresentation::DashGhostShrink(Age));
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),5.f*Alpha);
+        return;
+    }
+    // The silhouette dims and thins out toward its own centre so the trail dissolves instead of popping out.
+    Visual->SetRelativeScale3D(FVector(FMath::Max(.05f,ASPresentation::DashGhostShrink(Age)*(.2f+.8f*FMath::Sqrt(Alpha)))));
+    if(Shared) Shared->SetScalarParameterValue(TEXT("Emission"),3.5f*Alpha);
 }
 int32 AASShardBurst::Active=0;
 AASShardBurst::AASShardBurst() {PrimaryActorTick.bCanEverTick=true;RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));}

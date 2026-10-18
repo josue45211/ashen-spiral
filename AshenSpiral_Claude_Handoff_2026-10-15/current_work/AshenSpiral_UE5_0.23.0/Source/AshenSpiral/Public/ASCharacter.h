@@ -145,6 +145,8 @@ public:
     UFUNCTION(Server,Unreliable) void SetAim(FVector_NetQuantize Position);
     UFUNCTION(Server,Reliable) void SetRevive(bool Held);
     void ResetInput(bool Force=false);
+    // Meshes that make up this character right now (body parts, cape, weapon); the dash trail copies them as afterimages.
+    void CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const;
 private:
     UPROPERTY() TObjectPtr<USceneComponent> Figure;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Parts;
@@ -189,5 +191,5 @@ private:
     void CancelMelee(bool Force=false);
     void CastSpiral(bool Perfect);
     void Animate(float Delta);
-    float NextDashGhost=0;
+    float NextDashGhost=0;FVector LastTrailLocation=FVector::ZeroVector;bool bHasTrailLocation=false;
 };

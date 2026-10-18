@@ -19,9 +19,17 @@ void AASCharacter::Animate(float Delta) {
     const float Now=AS::Time(this),Speed=GetVelocity().Size2D();const bool Airborne=GetCharacterMovement()->IsFalling();
     const bool Dashing=Movement()->DashRemaining>0;
     // Dash trail: afterimages while moving at dash speed (works on every client from the replicated velocity).
-    if(!bDowned&&ASPresentation::DashGhostDue(Speed,Now,NextDashGhost)) {
-        NextDashGhost=Now+ASPresentation::DashGhostSpacing;
-        if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->Setup(GetActorLocation(),GetVelocity().Rotation().Yaw,BodyColor());
+    // Speed also comes from how far the actor actually moved, so a remote player's trail does not depend on the replicated velocity.
+    {
+        const FVector Here=GetActorLocation();
+        const float Moved=bHasTrailLocation&&Delta>KINDA_SMALL_NUMBER?(Here-LastTrailLocation).Size2D()/Delta:0.f;
+        LastTrailLocation=Here;bHasTrailLocation=true;
+        const float TrailSpeed=FMath::Max(Speed,FMath::Min(Moved,4000.f)); // ignore teleports and rubber-banding spikes
+        const bool Leaping=Build.Weapon==1&&HammerLeapState==2;           // hammer leap flight leaves afterimages too
+        if(!bDowned&&(ASPresentation::DashGhostDue(TrailSpeed,Now,NextDashGhost)||(Leaping&&Now>=NextDashGhost))) {
+            NextDashGhost=Now+ASPresentation::DashGhostSpacing;
+            if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->SetupFromCharacter(this,BodyColor());
+        }
     }
     const bool Planted=Build.Weapon==1&&(HammerCommitted()||HammerLeapState==1||HammerLeapState==3);
     LocomotionWeight=FMath::Lerp(LocomotionWeight,FMath::Clamp(Planted?0.f:Speed/RunningSpeed(),0.f,1.f),ASAnimation::Blend(Delta,12.f));
@@ -211,4 +219,10 @@ void AASCharacter::AnimateCape(float Delta,float AttackFlare,float BodyTwist) {
         C->SetRelativeRotation(FRotationMatrix::MakeFromZX(-Down,FVector::ForwardVector).Rotator());
         C->SetRelativeScale3D(FVector(1.f,ASAnimation::CapeWidth(T)*Spread/36.f /* SM_Cape half-width is 36 */,Length/55.f*1.08f));
     }
+}
+
+void AASCharacter::CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const {
+    for(const auto& Part:Parts) if(Part&&Part->GetStaticMesh()&&Part->IsVisible()) Out.Add(Part.Get());
+    for(const auto& Piece:FlowingCape) if(Piece&&Piece->GetStaticMesh()&&Piece->IsVisible()) Out.Add(Piece.Get());
+    if(WeaponMesh&&WeaponMesh->GetStaticMesh()&&WeaponMesh->IsVisible()) Out.Add(WeaponMesh.Get());
 }
