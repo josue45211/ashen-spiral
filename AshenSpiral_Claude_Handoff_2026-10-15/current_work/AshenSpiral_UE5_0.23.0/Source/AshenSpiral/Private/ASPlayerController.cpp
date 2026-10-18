@@ -25,6 +25,32 @@
 #include "UnrealClient.h"
 #include "Slate/SceneViewport.h"
 #include "Input/Reply.h"
+#include "Widgets/SWindow.h"
+#include "GenericPlatform/GenericWindow.h"
+#if PLATFORM_WINDOWS
+#include "Windows/AllowWindowsPlatformTypes.h"
+#include "Windows/WindowsHWrapper.h"
+#include "Windows/HideWindowsPlatformTypes.h"
+#endif
+namespace {
+#if PLATFORM_WINDOWS
+// The engine's own cursor lock can be a pixel or two too generous at high DPI (a 4096x2160 display leaked on the right and bottom edges).
+// While playing in fullscreen we additionally clip the cursor to the window's real client rectangle, inset by Inset pixels.
+// A negative Inset releases the clip.
+void ASClipCursorToClientArea(const TSharedPtr<SWindow>& Window,int32 Inset) {
+    if(Inset<0||!Window.IsValid()) {::ClipCursor(nullptr);return;}
+    const TSharedPtr<FGenericWindow> Native=Window->GetNativeWindow();if(!Native.IsValid()) return;
+    HWND Handle=static_cast<HWND>(Native->GetOSWindowHandle());if(!Handle) return;
+    RECT Client;if(!::GetClientRect(Handle,&Client)) return;
+    POINT TopLeft={Client.left,Client.top},BottomRight={Client.right,Client.bottom};
+    ::ClientToScreen(Handle,&TopLeft);::ClientToScreen(Handle,&BottomRight);
+    const RECT Clip={TopLeft.x+Inset,TopLeft.y+Inset,BottomRight.x-Inset,BottomRight.y-Inset};
+    if(Clip.right>Clip.left+8&&Clip.bottom>Clip.top+8) ::ClipCursor(&Clip);
+}
+#else
+void ASClipCursorToClientArea(const TSharedPtr<SWindow>&,int32) {}
+#endif
+}
 
 namespace {
 bool TryParseInt32Strict(const FString& Text, int32& OutValue)
@@ -70,6 +96,7 @@ void AASPlayerController::BeginPlay() {
     }),.8f,false);
 }
 void AASPlayerController::EndPlay(const EEndPlayReason::Type Reason) {
+    if(IsLocalController()) ASClipCursorToClientArea(nullptr,-1);
     if(MenuLayer.IsValid()&&MenuViewport.IsValid()) MenuViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
     if(auto* Client=LocalViewport()) if(Client->Viewport&&Client->Viewport->HasMouseCapture()) {Client->Viewport->CaptureMouse(false);Client->Viewport->LockMouseToViewport(false);}
     Menu.Reset();MenuLayer.Reset();Super::EndPlay(Reason);
@@ -200,7 +227,10 @@ void AASPlayerController::PlayerTick(float Delta) {
             if(!bGameplayInputApplied||bCaptureRequested||!Viewport->HasMouseCapture()) ApplyGameplayInput();
             // Refresh confinement every tick, independently of capture, including after a resize or alt-tab.
             Viewport->LockMouseToViewport(true);
-            if(Viewport->IsFullscreen()) if(auto* Local=GetLocalPlayer()) if(auto Widget=Client->GetGameViewportWidget()) Local->GetSlateOperations().LockMouseToWidget(Widget.ToSharedRef());
+            if(Viewport->IsFullscreen()) {
+                if(auto* Local=GetLocalPlayer()) if(auto Widget=Client->GetGameViewportWidget()) Local->GetSlateOperations().LockMouseToWidget(Widget.ToSharedRef());
+                ASClipCursorToClientArea(Client->GetWindow(),2);
+            }
         }
     } else if(!bMenuInputApplied) ApplyMenuInput();
     bHadViewportFocus=Focused;
@@ -451,6 +481,7 @@ bool AASPlayerController::WantsGameplayInput() const {
 }
 void AASPlayerController::QueueGameplayCapture() {bCaptureRequested=true;bMenuInputApplied=false;}
 void AASPlayerController::ViewportFocusLost() {
+    ASClipCursorToClientArea(nullptr,-1);
     bHadViewportFocus=false;bGameplayInputApplied=false;bMenuInputApplied=false;bCaptureRequested=false;
     CancelActions();if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();
 }
@@ -467,6 +498,7 @@ void AASPlayerController::ApplyMenuInput() {
     Viewport->CaptureMouse(false);
     Viewport->LockMouseToViewport(false);
     if(auto* Local=GetLocalPlayer()) Local->GetSlateOperations().ReleaseMouseLock();
+    ASClipCursorToClientArea(nullptr,-1);
 }
 void AASPlayerController::ApplyGameplayInput() {
     if(!WantsGameplayInput()) {ApplyMenuInput();return;}

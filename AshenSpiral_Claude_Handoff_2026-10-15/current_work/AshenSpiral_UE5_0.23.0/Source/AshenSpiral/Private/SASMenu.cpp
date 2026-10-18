@@ -454,6 +454,7 @@ void SASMenu::Construct(const FArguments& Args) {
         for(int32 I=0;I<4;++I) Card(Names[I],I==0?TEXT("Low scalability, 65% internal resolution; prioritizes frame rate."):(I==1?TEXT("Medium scalability, 80% internal resolution."):TEXT("Full internal resolution. Higher effects and lighting cost.")),GI->Quality==I?TEXT("ACTIVE"):TEXT("APPLY"),40,I,GI->Quality!=I);
         Card(TEXT("Mouse sensitivity"),FString::Printf(TEXT("Current multiplier: %.2f"),GI->Sensitivity),TEXT("INCREASE"),41,1);Card(TEXT("Lower sensitivity"),TEXT("Sensitivity changes are saved when the game closes normally."),TEXT("DECREASE"),41,-1);
         Card(TEXT("Borderless fullscreen"),TEXT("Fill the desktop at its native resolution. Available in Standalone Game or packaged builds."),TEXT("FULLSCREEN"),51,1);
+        Card(TEXT("Exclusive fullscreen"),TEXT("Take over the display at its native resolution. Try this if the cursor can leave the game window in borderless mode. Standalone Game or packaged builds."),TEXT("EXCLUSIVE"),51,2);
         Card(TEXT("Windowed mode"),TEXT("Return to a movable 1280 x 720 window."),TEXT("WINDOWED"),51,0);
         Card(TEXT("TV text size"),FString::Printf(TEXT("HUD text is rendered at native output resolution. Current size: %.0f%%. Use borderless fullscreen for your display's native resolution."),GI->HUDTextScale*100.f),TEXT("CHANGE SIZE"),53);
         Card(TEXT("Damage numbers"),TEXT("At most 64 recent numbers are drawn. Turn them off for a cleaner combat view."),GI->bShowNumbers?TEXT("ON - TOGGLE"):TEXT("OFF - TOGGLE"),42);

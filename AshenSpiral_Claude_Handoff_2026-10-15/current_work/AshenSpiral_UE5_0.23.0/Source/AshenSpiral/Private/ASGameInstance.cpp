@@ -257,12 +257,13 @@ void UASGameInstance::SetQuality(int32 Preset) {
     }
 }
 void UASGameInstance::SetDisplayMode(int32 Mode) {
-    if(!GetWorld()||GetWorld()->WorldType==EWorldType::PIE) {LastMessage=TEXT("Borderless fullscreen is available in Standalone Game or a packaged build. Use the editor viewport's immersive mode for viewport play.");return;}
+    if(!GetWorld()||GetWorld()->WorldType==EWorldType::PIE) {LastMessage=TEXT("Fullscreen modes are available in Standalone Game or a packaged build. Use the editor viewport's immersive mode for viewport play.");return;}
     if(auto* Settings=UGameUserSettings::GetGameUserSettings()) {
-        const bool Borderless=Mode!=0;Settings->SetFullscreenMode(Borderless?EWindowMode::WindowedFullscreen:EWindowMode::Windowed);
-        Settings->SetScreenResolution(Borderless?Settings->GetDesktopResolution():FIntPoint(1280,720));
+        const bool Full=Mode!=0,Exclusive=Mode==2;
+        Settings->SetFullscreenMode(Exclusive?EWindowMode::Fullscreen:(Full?EWindowMode::WindowedFullscreen:EWindowMode::Windowed));
+        Settings->SetScreenResolution(Full?Settings->GetDesktopResolution():FIntPoint(1280,720));
         Settings->ApplySettings(false);Settings->ConfirmVideoMode();Settings->SaveSettings();
-        LastMessage=Borderless?TEXT("Borderless fullscreen applied at desktop resolution."):TEXT("1280 x 720 window applied.");
+        LastMessage=Exclusive?TEXT("Exclusive fullscreen applied at desktop resolution."):(Full?TEXT("Borderless fullscreen applied at desktop resolution."):TEXT("1280 x 720 window applied."));
     }
 }
 void UASGameInstance::NetworkFailure(UWorld* World,UNetDriver* Driver,ENetworkFailure::Type Type,const FString& Error) {
