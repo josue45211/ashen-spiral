@@ -144,12 +144,28 @@ inline const char* RunGainName(int Code) {
         case RunGainStyle: return "Chest: spiral style";case RunGainCinders: return "Chest: Cinders";case RunGainAsh: return "Checkpoint Ash";default: return "";
     }
 }
-// One display line: name, count, and the stacked effect where there is one (Heart of the Spiral stacks +25 max health per purchase).
+// Uniform acquisition format for the tab menu: title "NAME  xN" and a one-line effect, for every run reward.
+inline std::string AcquisitionTitle(const std::string& Name,int Count) {return Name+"  x"+std::to_string(Count<1?1:Count);}
 inline std::string RunGainLine(int Code,int Count) {
     if(!RunGainValid(Code)||Count<=0) return std::string();
-    std::string Line=RunGainName(Code);
-    if(Count>1) Line+="  x"+std::to_string(Count);
-    if(Code==4) Line+="  /  +"+std::to_string(HeartMaxHealth*Count)+" max health this run";
-    return Line;
+    return AcquisitionTitle(RunGainName(Code),Count);
+}
+inline std::string RunGainDetail(int Code,int Count) {
+    if(!RunGainValid(Code)||Count<=0) return std::string();
+    switch(Code) {
+        case 0: return "Healed 60% of maximum health"+std::string(Count>1?" each time.":".");
+        case 1: return "Gained 40 shield"+std::string(Count>1?" each time.":".");
+        case 2: return "Extra reward rerolls gained.";
+        case 3: return "A random legendary-tier trait.";
+        case 4: return "+"+std::to_string(HeartMaxHealth*Count)+" maximum health this run ("+std::to_string(HeartMaxHealth)+" each).";
+        case 5: return "A trait the trader rolled for your build.";
+        case RunGainChestHeal: return "Restored 35% of maximum health.";
+        case RunGainChestKit: return "Restored 15 health and gained 10 shield.";
+        case RunGainRelic: return "A relic from the chest.";
+        case RunGainStyle: return "A new Spiral style from the chest.";
+        case RunGainCinders: return "Cinders from the chest.";
+        case RunGainAsh: return "Ash earned at checkpoints (banked when the run ends).";
+        default: return std::string();
+    }
 }
 }

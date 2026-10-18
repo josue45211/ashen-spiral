@@ -78,7 +78,9 @@ int main() {
     for(int I=0;I<ShopCount;++I) Check(RunGainValid(I)&&std::string(RunGainName(I))==ShopStock(I).Name,"every shop item maps to a run-gain code with its shop name");
     Check(RunGainValid(RunGainChestHeal)&&RunGainValid(RunGainChestKit)&&RunGainValid(RunGainRelic)&&RunGainValid(RunGainStyle)&&RunGainValid(RunGainCinders)&&RunGainValid(RunGainAsh),"chest and checkpoint rewards have run-gain codes");
     Check(!RunGainValid(-1)&&!RunGainValid(6)&&!RunGainValid(7)&&!RunGainValid(RunGainCount),"invalid run-gain codes are rejected");
-    Check(RunGainLine(4,1)=="Heart of the Spiral  /  +25 max health this run"&&RunGainLine(4,3)=="Heart of the Spiral  x3  /  +75 max health this run","Heart of the Spiral stacks and shows the total");
-    Check(RunGainLine(0,0).empty()&&RunGainLine(99,2).empty()&&RunGainLine(0,2)=="Field Dressing  x2","run-gain lines skip empty and invalid entries");
+    Check(RunGainLine(4,1)=="Heart of the Spiral  x1"&&RunGainLine(4,3)=="Heart of the Spiral  x3"&&RunGainDetail(4,3)=="+75 maximum health this run (25 each).","Heart of the Spiral stacks and the detail shows the total");
+    Check(RunGainLine(0,0).empty()&&RunGainLine(99,2).empty()&&RunGainLine(0,2)=="Field Dressing  x2"&&RunGainDetail(0,0).empty()&&RunGainDetail(99,1).empty(),"run-gain lines skip empty and invalid entries");
+    for(int I=0;I<RunGainCount;++I) if(RunGainValid(I)) Check(RunGainLine(I,1)==AcquisitionTitle(RunGainName(I),1)&&!RunGainDetail(I,1).empty(),"every run gain uses the uniform title plus a detail line");
+    Check(AcquisitionTitle("Attack Speed",2)=="Attack Speed  x2"&&AcquisitionTitle("X",0)=="X  x1","uniform acquisition title format");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

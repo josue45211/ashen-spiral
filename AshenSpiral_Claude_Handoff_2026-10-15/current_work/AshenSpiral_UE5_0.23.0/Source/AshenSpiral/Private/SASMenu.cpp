@@ -312,17 +312,17 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
         Text(TEXT("YOUR RUN BUILD"),18,ASMenuGold);
         bool Any=false;
+        // Every acquisition uses the same card: title "NAME  xN", one effect line, and a tag for where it came from.
+        auto Acquired=[&](const FString& Title,const FString& Detail,const TCHAR* Source) {Any=true;Card(Title,Detail,Source,0,0,false);};
         if(Hero) {
-            for(int32 I=0;I<ASRules::RunUpgradeCount;++I) if(Hero->RunRank(I)>0) {Any=true;Text(FString::Printf(TEXT("%s  /  run rank %d"),ASData::RunUpgrades[I].Name,Hero->RunRank(I)),17,ASMenuGold);}
-            for(int32 I=0;I<ASExpedition::RunGainCount;++I) if(Hero->RunGain(I)>0) {Any=true;Text(UTF8_TO_TCHAR(ASExpedition::RunGainLine(I,Hero->RunGain(I)).c_str()),17,ASMenuGold);}
-            for(int32 I=0;I<24;++I) if(Hero->Relic(I)) {Any=true;Card(ASData::Relics[I].Name,ASData::Relics[I].Desc,TEXT("RELIC"),0,0,false);}
-            for(int32 I=0;I<4;++I) if(Hero->EndlessRanks.IsValidIndex(I)&&Hero->EndlessRanks[I]>0) {
-                Any=true;Card(FString::Printf(TEXT("%s   rank %d"),UTF8_TO_TCHAR(ASExpedition::ExclusiveName(ASExpedition::ExclusiveBase+I)),Hero->EndlessRanks[I]),UTF8_TO_TCHAR(ASExpedition::ExclusiveDescription(ASExpedition::ExclusiveBase+I)),TEXT("OWNED"),0,0,false);
-            }
+            for(int32 I=0;I<ASRules::RunUpgradeCount;++I) if(Hero->RunRank(I)>0) Acquired(FString::Printf(TEXT("%s  x%d"),ASData::RunUpgrades[I].Name,Hero->RunRank(I)),ASData::RunUpgrades[I].Desc,TEXT("CORE STAT"));
+            for(int32 I=0;I<ASExpedition::RunGainCount;++I) if(Hero->RunGain(I)>0) Acquired(UTF8_TO_TCHAR(ASExpedition::RunGainLine(I,Hero->RunGain(I)).c_str()),UTF8_TO_TCHAR(ASExpedition::RunGainDetail(I,Hero->RunGain(I)).c_str()),I<ASExpedition::ShopCount?TEXT("SHOP"):TEXT("CHEST"));
+            for(int32 I=0;I<24;++I) if(Hero->Relic(I)) Acquired(FString::Printf(TEXT("%s  x1"),ASData::Relics[I].Name),ASData::Relics[I].Desc,TEXT("RELIC"));
+            for(int32 I=0;I<4;++I) if(Hero->EndlessRanks.IsValidIndex(I)&&Hero->EndlessRanks[I]>0) Acquired(UTF8_TO_TCHAR(ASExpedition::AcquisitionTitle(ASExpedition::ExclusiveName(ASExpedition::ExclusiveBase+I),Hero->EndlessRanks[I]).c_str()),UTF8_TO_TCHAR(ASExpedition::ExclusiveDescription(ASExpedition::ExclusiveBase+I)),TEXT("ENDLESS"));
             for(int32 I=0;I<ASBuild::Count;++I) {
                 const auto& D=ASBuild::Catalog[I];const int32 Rank=Hero->TraitRank(ASBuild::Trait(I));if(Rank==0) continue;
-                const bool Evolved=ASBuild::Evolved(Hero->EvolutionMask,I);Any=true;
-                Card(FString::Printf(TEXT("%s   %d / %d%s"),UTF8_TO_TCHAR(D.Name),Rank,D.Max,Evolved?TEXT("  /  EVOLVED +1"):TEXT("")),UTF8_TO_TCHAR(D.Description),TEXT("OWNED"),0,0,false);
+                const bool Evolved=ASBuild::Evolved(Hero->EvolutionMask,I);
+                Acquired(UTF8_TO_TCHAR(ASExpedition::AcquisitionTitle(D.Name,Rank).c_str()),FString::Printf(TEXT("Rank %d of %d%s. %s"),Rank,D.Max,Evolved?TEXT(", evolved +1"):TEXT(""),UTF8_TO_TCHAR(D.Description)),TEXT("TRAIT"));
             }
         }
         if(!Any) Text(TEXT("Nothing gained yet this run."),15,ASMenuMuted);
@@ -519,7 +519,7 @@ FString ShortEffect(const FString& Detail) {
 TSharedRef<SWidget> SASMenu::DetailStrip() {
     return SNew(SBox).MinDesiredHeight(66)
         [SNew(STextBlock).Font(Font(15)).ColorAndOpacity(FLinearColor(.89f,.94f,.95f)).WrapTextAt(Page==9?1100.f:740.f)
-            .Text_Lambda([this](){return Txt(!HoverDetails.IsEmpty()&&FSlateApplication::Get().GetModifierKeys().IsShiftDown()?HoverDetails:TEXT("Hover a card + hold SHIFT for exact values and conditions."));})];
+            .Text_Lambda([this](){return Txt(!HoverDetails.IsEmpty()?HoverDetails:TEXT("Hover a card for exact values and conditions."));})];
 }
 TSharedRef<SWidget> SASMenu::ChoiceTile(const FString& Title,const FString& Brief,const FString& Detail,const FString& Type,int32 Icon,int32 Rarity,const FString& Label,int32 Code,int32 Index,bool Enabled,float TileWidth) {
     const auto Weak=PC;
@@ -581,8 +581,7 @@ void SASMenu::RewardScreen() {
                     +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Font(Font(13)).ColorAndOpacity(ASMenuMuted).WrapTextAt(1100)
                         .Text_Lambda([Weak](){auto* C=Weak.Get();auto* S=C?AS::State(C):nullptr;if(!S) return Txt(TEXT(""));int32 Votes=0;for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(PS->bWagerVote) ++Votes;
                             const int32 Tier=ASBuild::ChallengeTier(S->Challenge,S->PlayerArray.Num(),Votes);
-                            if(FSlateApplication::Get().GetModifierKeys().IsShiftDown()) return Txt(FString::Printf(TEXT("NEXT TIER %d / Per tier: +20%% enemy HP, +12%% damage, +3 Ash, +15 Cinders. After clearing: rare weight +12%%, legendary +20%%. Both players must opt in."),Tier));
-                            return Txt(FString::Printf(TEXT("%d/%d STAKES VOTES   /   NEXT CHAMBER: %s   /   Hold SHIFT for stakes details"),Votes,S->PlayerArray.Num(),Tier>0?*FString::Printf(TEXT("TIER %d"),Tier):TEXT("NORMAL")));})]]]]];
+                            return Txt(FString::Printf(TEXT("%d/%d STAKES VOTES   /   NEXT CHAMBER: %s\nPer tier: +20%% enemy HP, +12%% damage, +3 Ash, +15 Cinders. After clearing: rare weight +12%%, legendary +20%%. Both players must opt in."),Votes,S->PlayerArray.Num(),Tier>0?*FString::Printf(TEXT("TIER %d"),Tier):TEXT("NORMAL")));})]]]]];
     if(!State||!Me||!Hero||State->Phase!=EASPhase::Reward) return;
     if(Me->bRewardClaimed) {Choices->AddSlot()[SNew(STextBlock).Text(Txt(TEXT("REWARD CLAIMED / Close and use E at the chest when both players are ready."))).Font(Font(22)).ColorAndOpacity(ASMenuGold)];return;}
     for(int32 Slot=0;Slot<Me->Offers.Num();++Slot) {
