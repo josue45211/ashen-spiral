@@ -58,6 +58,8 @@ public:
     UPROPERTY(Replicated) int32 MeleeStep=0;
     UPROPERTY(Replicated) bool bHammerContact=false;
     UPROPERTY(Replicated) uint8 HammerLeapState=0;
+    // True while the server sees this character dashing; lets every remote machine draw the dash trail. Skipped for the owner.
+    UPROPERTY(Replicated) bool bDashActive=false;
     UPROPERTY(Replicated) float HammerLeapStarted=-10;
     UPROPERTY(Replicated) float HammerLandedAt=-10;
     UPROPERTY(Replicated) float NextHammerLeap=0;
@@ -193,5 +195,5 @@ private:
     void CancelMelee(bool Force=false);
     void CastSpiral(bool Perfect);
     void Animate(float Delta);
-    float NextDashGhost=0;FVector LastTrailLocation=FVector::ZeroVector;bool bHasTrailLocation=false;
+    float NextDashGhost=0;
 };

@@ -69,7 +69,7 @@ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AASCharacter,TraitRanks);DOREPLIFETIME(AASCharacter,EvolutionMask);DOREPLIFETIME(AASCharacter,LastUpgrade);
     DOREPLIFETIME(AASCharacter,Rerolls);DOREPLIFETIME(AASCharacter,CurseStacks);DOREPLIFETIME(AASCharacter,Focus);DOREPLIFETIME(AASCharacter,NextRune);
     DOREPLIFETIME(AASCharacter,ConduitHits);DOREPLIFETIME(AASCharacter,bPhoenixUsed);
-    DOREPLIFETIME(AASCharacter,RunRanks);DOREPLIFETIME(AASCharacter,RunGains);DOREPLIFETIME(AASCharacter,bReviving);DOREPLIFETIME(AASCharacter,AttackPoseDuration);
+    DOREPLIFETIME(AASCharacter,RunRanks);DOREPLIFETIME_CONDITION(AASCharacter,bDashActive,COND_SkipOwner);DOREPLIFETIME(AASCharacter,RunGains);DOREPLIFETIME(AASCharacter,bReviving);DOREPLIFETIME(AASCharacter,AttackPoseDuration);
     DOREPLIFETIME(AASCharacter,bHammerContact);DOREPLIFETIME(AASCharacter,HammerLeapState);
     DOREPLIFETIME(AASCharacter,HammerLeapStarted);DOREPLIFETIME(AASCharacter,HammerLandedAt);DOREPLIFETIME(AASCharacter,NextHammerLeap);
     DOREPLIFETIME(AASCharacter,AttackPoseStarted);DOREPLIFETIME(AASCharacter,MeleeStep);
@@ -137,6 +137,7 @@ void AASCharacter::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S || S->Frozen()) return;
     if(GetNetMode()!=NM_DedicatedServer) Animate(Delta);
     if(!HasAuthority()) return;
+    {const bool DashNow=!bDowned&&Movement()->DashRemaining>0;if(DashNow!=bDashActive) {bDashActive=DashNow;ForceNetUpdate();}}
     const float Now=S->SimTime;
     if(GetCharacterMovement()->IsMovingOnGround() && GetActorLocation().Z>40) LastSafe=GetActorLocation();
     if(GetActorLocation().Z<-600) {ResetInput(true);SetActorLocation(S->Arena?S->Arena->SpawnPoint(ColorIndex):LastSafe,false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();Hurt(18);}

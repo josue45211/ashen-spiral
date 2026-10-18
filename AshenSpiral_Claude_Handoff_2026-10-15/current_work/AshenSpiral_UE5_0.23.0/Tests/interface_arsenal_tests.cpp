@@ -116,7 +116,7 @@ int main() {
         Check(Near(ChestPopScale(0),1.f)&&ChestPopScale(ChestPopLife*.5f)>1.25f&&ChestPopScale(ChestPopLife)==1.f&&ChestPopScale(-1)==1.f,"chest swells and settles back to its own size");
     }
     {
-        Check(!DashGhostDue(640.f,1,0)&&DashGhostDue(2350.f,1,0)&&!DashGhostDue(2350.f,1,2)&&!DashGhostDue(std::numeric_limits<float>::quiet_NaN(),1,0),"afterimages only spawn at dash speed, on a timer, never from bad speed");
+        Check(!DashGhostDue(false,1,0)&&DashGhostDue(true,1,0)&&!DashGhostDue(true,1,2)&&!DashGhostDue(true,std::numeric_limits<float>::quiet_NaN(),0),"afterimages only spawn during a dash or leap, on a timer; walking never spawns one");
         Check(DashGhostAlpha(0)==1.f&&DashGhostAlpha(DashGhostLife)==0.f&&DashGhostAlpha(DashGhostLife*.5f)<DashGhostAlpha(DashGhostLife*.25f),"afterimages fade out");
         Check(DashGhostShrink(0)==1.f&&Near(DashGhostShrink(DashGhostLife),.55f)&&DashGhostCap>=10&&DashGhostCap<=30,"afterimages shrink and are capped");
         Check(DashGhostSpacing*DashGhostCap>=DashGhostLife,"the cap never starves a continuous dash trail");

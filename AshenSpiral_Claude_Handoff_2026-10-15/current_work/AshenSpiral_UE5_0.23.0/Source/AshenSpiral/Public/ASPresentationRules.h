@@ -150,8 +150,9 @@ inline float ChestPopScale(float Age) {
 }
 
 // ---- Dash trail: fading afterimages dropped while moving at dash speed. Looks only; spawned locally on every client.
-constexpr float DashGhostSpeed=1500.f,DashGhostSpacing=.06f,DashGhostLife=.28f;constexpr int DashGhostCap=12; // full-body copies cost ~20-40 meshes each, so fewer, spaced wider
-inline bool DashGhostDue(float PlanarSpeed,float Now,float NextAt) {return std::isfinite(PlanarSpeed)&&PlanarSpeed>DashGhostSpeed&&Now>=NextAt;}
+constexpr float DashGhostSpacing=.06f,DashGhostLife=.28f;constexpr int DashGhostCap=12; // full-body copies cost ~20-40 meshes each, so fewer, spaced wider
+// TrailActive is true only while a dash or hammer leap is actually happening; walking and running never qualify.
+inline bool DashGhostDue(bool TrailActive,float Now,float NextAt) {return TrailActive&&std::isfinite(Now)&&Now>=NextAt;}
 inline float DashGhostAlpha(float Age) {const float T=std::clamp(Age/DashGhostLife,0.f,1.f);return (1.f-T)*(1.f-T);}
 inline float DashGhostShrink(float Age) {const float T=std::clamp(Age/DashGhostLife,0.f,1.f);return 1.f-.45f*T;}
 

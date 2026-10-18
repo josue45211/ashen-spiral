@@ -19,14 +19,11 @@ void AASCharacter::Animate(float Delta) {
     const float Now=AS::Time(this),Speed=GetVelocity().Size2D();const bool Airborne=GetCharacterMovement()->IsFalling();
     const bool Dashing=Movement()->DashRemaining>0;
     // Dash trail: afterimages while moving at dash speed (works on every client from the replicated velocity).
-    // Speed also comes from how far the actor actually moved, so a remote player's trail does not depend on the replicated velocity.
+    // Trails come only from an explicit dash (predicted locally, or the server-replicated flag on other machines) or hammer leap flight.
+    // They never depend on measured speed, so walking and running cannot spawn one on any machine.
     {
-        const FVector Here=GetActorLocation();
-        const float Moved=bHasTrailLocation&&Delta>KINDA_SMALL_NUMBER?(Here-LastTrailLocation).Size2D()/Delta:0.f;
-        LastTrailLocation=Here;bHasTrailLocation=true;
-        const float TrailSpeed=FMath::Max(Speed,FMath::Min(Moved,4000.f)); // ignore teleports and rubber-banding spikes
-        const bool Leaping=Build.Weapon==1&&HammerLeapState==2;           // hammer leap flight leaves afterimages too
-        if(!bDowned&&(ASPresentation::DashGhostDue(TrailSpeed,Now,NextDashGhost)||(Leaping&&Now>=NextDashGhost))) {
+        const bool TrailActive=!bDowned&&(Dashing||bDashActive||(Build.Weapon==1&&HammerLeapState==2));
+        if(ASPresentation::DashGhostDue(TrailActive,Now,NextDashGhost)) {
             NextDashGhost=Now+ASPresentation::DashGhostSpacing;
             if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->SetupFromCharacter(this,BodyColor());
         }
