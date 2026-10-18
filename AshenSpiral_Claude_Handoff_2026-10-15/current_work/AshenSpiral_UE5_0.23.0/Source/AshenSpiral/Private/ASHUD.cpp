@@ -397,7 +397,14 @@ void AASHUD::DrawHUD() {
     for(const auto& T:PC->FloatTexts) {
         const float Age=Now-T.Born;const auto Pose=ASPresentation::FloatTextAt(Age,T.Big);if(Pose.Alpha<=0.f) continue;
         const float Size=(T.Big?1.5f:.95f)*Pose.Scale;
-        const float TX=CX-float(T.Text.Len())*Size*9.f,TY=(T.Big?Height*.34f:Height*.60f-T.Slot*30.f)-Pose.Rise;
+        float TX=CX-float(T.Text.Len())*Size*9.f,TY=(T.Big?Height*.34f:Height*.60f-T.Slot*30.f)-Pose.Rise;
+        if(T.Anchor>=0) {
+            // Partner trait banner: float above the acquiring player's body; skip it if they are off screen or gone.
+            const AASCharacter* Source=nullptr;
+            for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(const auto* HeroState=Hero->GetPlayerState<AASPlayerState>()) if(HeroState->PlayerIndex==T.Anchor) Source=Hero;
+            FVector2D Screen;if(!Source||!PC->ProjectWorldLocationToScreen(Source->GetActorLocation()+FVector(0,0,230),Screen)) continue;
+            TX=Screen.X/Scale-float(T.Text.Len())*Size*9.f;TY=Screen.Y/Scale-Pose.Rise;
+        }
         Text(T.Text,TX+2,TY+2,FLinearColor(0,0,0,Pose.Alpha),Size);Text(T.Text,TX,TY,FLinearColor(T.Color.R,T.Color.G,T.Color.B,Pose.Alpha),Size);
     }
     {

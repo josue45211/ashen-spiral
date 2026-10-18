@@ -286,12 +286,18 @@ void AASPlayerController::SynergyCue_Implementation(int32 Trigger) {
     const TCHAR* Cues[]={TEXT("S_Hit"),TEXT("S_Collapse"),TEXT("S_Spiral")};const float Pitch[]={1.45f,1.f,.8f};
     if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) UGameplayStatics::PlaySound2D(this,Cue,.8f,Pitch[Trigger]);
 }
-void AASPlayerController::RewardText_Implementation(const FString& Text,FLinearColor Color,bool Big) {
+void AASPlayerController::RewardText_Implementation(const FString& InText,FLinearColor Color,bool Big) {
+    if(InText.IsEmpty()) return;
+    FString Text=InText;int32 Anchor=-1;
+    if(InText.StartsWith(TEXT("@"))) {
+        int32 Bar=INDEX_NONE;
+        if(InText.FindChar(TEXT('|'),Bar)&&Bar>1&&Bar<6) {Anchor=FMath::Clamp(FCString::Atoi(*InText.Mid(1,Bar-1)),0,7);Text=InText.Mid(Bar+1);}
+    }
     if(Text.IsEmpty()) return;
     const float Now=GetWorld()?GetWorld()->GetTimeSeconds():0.f;
     FloatTexts.RemoveAll([Now](const FASFloatText& T){return Now-T.Born>=ASPresentation::FloatTextLife;});
     if(FloatTexts.Num()>=6) FloatTexts.RemoveAt(0);
-    FloatTexts.Add({Text.Left(60),Color,Now,Big,FloatSlot});FloatSlot=(FloatSlot+1)%4;
+    FloatTexts.Add({Text.Left(60),Color,Now,Big,FloatSlot,Anchor});FloatSlot=(FloatSlot+1)%4;
     // Placeholder audio hook for trait acquisition; P2 audio pass to replace.
     if(Big) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) UGameplayStatics::PlaySound2D(this,Cue,.7f,1.15f);
 }

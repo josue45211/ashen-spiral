@@ -5,7 +5,7 @@
 #include "ASPlayerController.generated.h"
 class SASMenu;class SWidget;class UGameViewportClient;
 struct FASNotice {FString Message;float Born=0,Offset=0;};
-struct FASFloatText {FString Text;FLinearColor Color=FLinearColor::White;float Born=0;bool Big=false;int32 Slot=0;};
+struct FASFloatText {FString Text;FLinearColor Color=FLinearColor::White;float Born=0;bool Big=false;int32 Slot=0;int32 Anchor=-1;}; // Anchor >= 0: show above that player index (partner trait banner)
 struct FASDamageNumber {FVector Position;float Value=0,Expires=0;bool Critical=false;EASHitKind Kind=EASHitKind::Physical;float Drift=0;int32 Lane=0;int32 Synergy=-1;float Life=1.25f,Seed=0;};
 UCLASS() class ASHENSPIRAL_API AASPlayerController : public APlayerController {
     GENERATED_BODY()
@@ -77,7 +77,7 @@ public:
     // Synergy feedback: a coloured word above the damage numbers plus a cue. Trigger indexes ASExpedition::Synergy results.
     UFUNCTION(Client,Unreliable) void SynergyCue(int32 Trigger);
     // Reward fanfare: floating "+X" text; Big is the trait-acquire banner and also plays the placeholder sound hook.
-    UFUNCTION(Client,Reliable) void RewardText(const FString& Text,FLinearColor Color,bool Big);
+    UFUNCTION(Client,Reliable) void RewardText(const FString& InText,FLinearColor Color,bool Big);
     UFUNCTION(Client,Unreliable) void SynergyNumber(FVector_NetQuantize Position,float Value,int32 Trigger);
     UFUNCTION(Client,Unreliable) void DamageNumber(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind);
     UFUNCTION(Exec) void ASPerformance();

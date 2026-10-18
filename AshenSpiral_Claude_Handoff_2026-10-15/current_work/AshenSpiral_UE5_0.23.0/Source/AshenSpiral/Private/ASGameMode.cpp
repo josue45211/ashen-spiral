@@ -19,6 +19,12 @@
 #include "GameFramework/GameSession.h"
 
 namespace {
+    // Partner copy of a trait-acquire banner: same RewardText RPC, tagged "@<player index>|" so the receiver anchors it above the acquirer.
+    void ASShareTraitBannerWithPartners(AASGameState* State,const AASPlayerController* Acquirer,const FString& Name,FLinearColor Color) {
+        const auto* AcquirerState=Acquirer?Acquirer->GetPlayerState<AASPlayerState>():nullptr;if(!State||!AcquirerState) return;
+        for(auto P:State->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(PS!=AcquirerState) if(auto* Partner=Cast<AASPlayerController>(PS->GetOwner()))
+            Partner->RewardText(FString::Printf(TEXT("@%d|%s"),AcquirerState->PlayerIndex,*Name),Color,true);
+    }
 void CaptureTraits(AASCharacter* H,AASPlayerState* PS,FASReconnect& R) {
     R.PendingExperience=PS->PendingExperience;R.PendingCareer=PS->PendingCareer;R.RoomDamaged=PS->bRoomDamaged;R.RoomEligible=PS->bRoomEligible;
     R.Ammo=H->Ammo;R.ReloadStart=H->ReloadStart;R.ReloadEnd=H->ReloadEnd;R.NextAttack=H->NextAttack;R.NextHammerLeap=H->NextHammerLeap;
@@ -609,7 +615,10 @@ void AASGameMode::Reward(AASPlayerController* PC,int32 Index) {
         S->Effect(15,Exit+FVector(0,0,52),FVector::UpVector,FLinearColor(.5f,.29f,.09f),1.2f);
         S->Effect(8,Exit+FVector(0,0,60),FVector::UpVector,FLinearColor(1.f,.78f,.25f),160.f);
         const FLinearColor Gold(1.f,.82f,.3f);
-        if(ASBuild::IsTrait(Choice)) PC->RewardText(FString::Printf(TEXT("+ %s"),UTF8_TO_TCHAR(ASBuild::Catalog[Choice-ASBuild::OfferBase].Name)),FLinearColor(.78f,.55f,1.f),true);
+        if(ASBuild::IsTrait(Choice)) {
+            PC->RewardText(FString::Printf(TEXT("+ %s"),UTF8_TO_TCHAR(ASBuild::Catalog[Choice-ASBuild::OfferBase].Name)),FLinearColor(.78f,.55f,1.f),true);
+            ASShareTraitBannerWithPartners(S,PC,FString::Printf(TEXT("+ %s"),UTF8_TO_TCHAR(ASBuild::Catalog[Choice-ASBuild::OfferBase].Name)),FLinearColor(.78f,.55f,1.f));
+        }
         else if(ASRules::IsRunUpgradeOffer(Choice)) PC->RewardText(FString::Printf(TEXT("+ %s"),ASData::RunUpgrades[Choice-100].Name),Gold,false);
         else PC->RewardText(S->ChestKind==2?TEXT("+ NEW SPIRAL STYLE"):TEXT("+ NEW RELIC"),Gold,false);
         if(S->ChestKind==1) PC->RewardText(TEXT("+40 CINDERS"),FLinearColor(1.f,.75f,.12f),false);
@@ -783,9 +792,14 @@ void AASGameMode::BuyShopItem(AASPlayerController* PC,int32 Index) {
     H->RefreshLook();H->ForceNetUpdate();PS->ForceNetUpdate();
     PC->Notify(FString::Printf(TEXT("Bought %s."),UTF8_TO_TCHAR(Item.Name)));
     // Trait-acquire fanfare for shop purchases that grant a trait.
-    if(Index==ASExpedition::ShopPickIndex&&(ASBuild::IsTrait(PS->ShopOffer)||ASRules::IsRunUpgradeOffer(PS->ShopOffer)))
-        PC->RewardText(FString::Printf(TEXT("+ %s"),ASBuild::IsTrait(PS->ShopOffer)?UTF8_TO_TCHAR(ASBuild::Catalog[PS->ShopOffer-ASBuild::OfferBase].Name):ASData::RunUpgrades[PS->ShopOffer-100].Name),FLinearColor(.78f,.55f,1.f),true);
-    else if(Index==3) PC->RewardText(TEXT("+ LEGENDARY TRAIT"),FLinearColor(1.f,.6f,.2f),true);
+    if(Index==ASExpedition::ShopPickIndex&&(ASBuild::IsTrait(PS->ShopOffer)||ASRules::IsRunUpgradeOffer(PS->ShopOffer))) {
+        const FString PickName=FString::Printf(TEXT("+ %s"),ASBuild::IsTrait(PS->ShopOffer)?UTF8_TO_TCHAR(ASBuild::Catalog[PS->ShopOffer-ASBuild::OfferBase].Name):ASData::RunUpgrades[PS->ShopOffer-100].Name);
+        PC->RewardText(PickName,FLinearColor(.78f,.55f,1.f),true);
+        ASShareTraitBannerWithPartners(AS::State(this),PC,PickName,FLinearColor(.78f,.55f,1.f));
+    } else if(Index==3) {
+        PC->RewardText(TEXT("+ LEGENDARY TRAIT"),FLinearColor(1.f,.6f,.2f),true);
+        ASShareTraitBannerWithPartners(AS::State(this),PC,TEXT("+ LEGENDARY TRAIT"),FLinearColor(1.f,.6f,.2f));
+    }
     else PC->RewardText(FString::Printf(TEXT("+ %s"),UTF8_TO_TCHAR(Item.Name)),FLinearColor(1.f,.82f,.3f),false);
 }
 void AASGameMode::UseShrine(AASPlayerController* PC) {
@@ -802,5 +816,7 @@ void AASGameMode::UseShrine(AASPlayerController* PC) {
     if(!H->ApplyChoice(Choice)) return;
     H->Health=FMath::Max(1.f,H->Health-Cost);PS->bShrineUsed=true;H->LastDamageAt=S->SimTime;H->ForceNetUpdate();PS->ForceNetUpdate();
     const FString Name=ASBuild::IsTrait(Choice)?FString(UTF8_TO_TCHAR(ASBuild::Catalog[Choice-ASBuild::OfferBase].Name)):FString(ASData::RunUpgrades[Choice-100].Name);
-    PC->Notify(FString::Printf(TEXT("Ember bargain: %s gained for %.0f HP."),*Name,Cost));S->Effect(7,At,FVector::UpVector,FLinearColor(1,.6f,.16f),200);
+    PC->Notify(FString::Printf(TEXT("Ember bargain: %s gained for %.0f HP."),*Name,Cost));
+    PC->RewardText(FString::Printf(TEXT("+ %s"),*Name),FLinearColor(1.f,.6f,.2f),true);
+    ASShareTraitBannerWithPartners(S,PC,FString::Printf(TEXT("+ %s"),*Name),FLinearColor(1.f,.6f,.2f));S->Effect(7,At,FVector::UpVector,FLinearColor(1,.6f,.16f),200);
 }
