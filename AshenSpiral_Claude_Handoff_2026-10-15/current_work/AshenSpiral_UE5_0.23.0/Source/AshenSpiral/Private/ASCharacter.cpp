@@ -88,7 +88,7 @@ void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
 }
 void AASCharacter::RefreshLook() {
     if(Parts.Num()!=21) return;
-    const FLinearColor Fire=ColorChoice<0?FLinearColor(.08f,.55f,1.f):BodyColor(),Dark(.07f,.085f,.11f),Metal(.20f,.23f,.28f),Cloth(.012f,.016f,.023f);
+    const FLinearColor Fire=ColorChoice<0&&IsLocallyControlled()?FLinearColor(.08f,.55f,1.f):ViewColor(),Dark(.07f,.085f,.11f),Metal(.20f,.23f,.28f),Cloth(.012f,.016f,.023f);
     const TCHAR* Meshes[21]={TEXT("SM_Torso"),TEXT("SM_Helmet"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_CapeLower"),TEXT("SM_ArmorCore")};
     const FVector Positions[21]={FVector(0,0,111),FVector(0,0,165),FVector(0,0,78),FVector(0,-34,115),FVector(0,-38,78),FVector(0,34,115),FVector(0,38,78),FVector(0,-16,59),FVector(0,-16,25),FVector(0,16,59),FVector(0,16,25),FVector(6,-16,10),FVector(6,16,10),FVector(0,-34,135),FVector(0,34,135),FVector(-22,0,141),FVector::ZeroVector,FVector(12,-38,66),FVector(34,52,82),FVector(-3,0,-55),FVector::ZeroVector};
     for(int32 I=0;I<21;++I) {
@@ -109,7 +109,7 @@ void AASCharacter::RefreshLook() {
     for(auto W:Wisps) {ASAssets::Style(W,TEXT("SM_Crystal"),FLinearColor(1,.42f,.06f),0,4);W->SetRelativeScale3D(FVector(.12f));}
     if(FriendRing) {
         // Friend marker: a soft ring in the player's own colour on the ground (dim and red-tinged while downed). Enemies get a red ring instead.
-        ASAssets::Style(FriendRing,TEXT("SM_Ring"),bDowned?FLinearColor(.3f,.02f,.025f):BodyColor(),0,bDowned?.8f:2.6f);
+        ASAssets::Style(FriendRing,TEXT("SM_Ring"),bDowned?FLinearColor(.3f,.02f,.025f):ViewColor(),0,bDowned?.8f:2.6f);
         FriendRing->SetCastShadow(false);FriendRing->SetRelativeLocation(FVector(0,0,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+4.f));FriendRing->SetRelativeScale3D(FVector(2.3f,2.3f,1.f));
     }
     ASAssets::Style(ArrowMesh,TEXT("SM_Arrow"),FLinearColor(.55f,.38f,.17f),.25f);ArrowMesh->SetVisibility(Build.Weapon==2);

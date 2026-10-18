@@ -25,7 +25,7 @@ void AASCharacter::Animate(float Delta) {
         const bool TrailActive=!bDowned&&(Dashing||bDashActive||(Build.Weapon==1&&HammerLeapState==2));
         if(ASPresentation::DashGhostDue(TrailActive,Now,NextDashGhost)) {
             NextDashGhost=Now+ASPresentation::DashGhostSpacing;
-            if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->SetupFromCharacter(this,BodyColor());
+            if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->SetupFromCharacter(this,ViewColor());
         }
     }
     const bool Planted=Build.Weapon==1&&(HammerCommitted()||HammerLeapState==1||HammerLeapState==3);

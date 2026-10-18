@@ -74,6 +74,8 @@ public:
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorIndex=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorChoice=-1;
     FLinearColor BodyColor() const {return ASData::ArmorColor(ColorChoice,ColorIndex);}
+    // What THIS machine's viewer sees: their own character in its own colour, every other player tinted green (ally).
+    FLinearColor ViewColor() const {return IsLocallyControlled()?BodyColor():FMath::Lerp(BodyColor(),FLinearColor(.12f,.95f,.30f),.65f);}
     UPROPERTY(Replicated) TArray<int32> TraitRanks;
     UPROPERTY(Replicated) uint64 EvolutionMask=0;
     UPROPERTY(Replicated) int32 LastUpgrade=-1;
@@ -195,5 +197,5 @@ private:
     void CancelMelee(bool Force=false);
     void CastSpiral(bool Perfect);
     void Animate(float Delta);
-    float NextDashGhost=0;
+    float NextDashGhost=0;int8 LastTintLocal=-1;
 };
