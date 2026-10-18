@@ -4,6 +4,8 @@
 #include "ASHammerRules.h"
 // Shared timing and grip foundation. One complete pose cycle is one attack.
 namespace ASMelee {
+// A pending swing stays valid while the game phase and the arena epoch are unchanged. An Endless arena shuffle does not change the epoch.
+inline bool ContextValid(int PhaseThen,int PhaseNow,int EpochThen,int EpochNow) {return PhaseThen==PhaseNow&&EpochThen==EpochNow;}
 inline bool IsMelee(int W) {return W==0||W==1||W==5;}
 inline int ComboLength(int W) {return W==0||W==1?3:1;}
 inline float BaseSeconds(int W) {return W==0?.28f:(W==1?.72f:.40f);}

@@ -23,6 +23,9 @@ static std::vector<V> Mesh(const std::string& Root,const std::string& Name) {
     return Out;
 }
 int main(int Argc,char** Argv) {
+    // 0.23.3: a swing survives an Endless arena shuffle (same phase and epoch) but not a room or phase change.
+    Check(ASMelee::ContextValid(2,2,7,7),"pending swing stays valid when nothing changed (including across a shuffle, which keeps the epoch)");
+    Check(!ASMelee::ContextValid(2,2,7,8)&&!ASMelee::ContextValid(2,3,7,7),"pending swing is cancelled by a new room epoch or a phase change");
     Check(Argc==2,"project path supplied");const std::string Root=Argv[1];
     for(int Capacity=1;Capacity<=3;++Capacity) {
         int Used=0,Available=Capacity;

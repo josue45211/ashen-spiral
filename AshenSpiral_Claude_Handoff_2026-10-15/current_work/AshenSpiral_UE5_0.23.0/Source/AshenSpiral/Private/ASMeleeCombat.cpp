@@ -34,7 +34,7 @@ void AASCharacter::TickMelee(float Now) {
     if(!bMeleePending) return;
     auto* S=AS::State(this);
     if(!S||!CanUseWeapons()||bReviving||PendingMeleeWeapon!=Build.Weapon||PendingMeleePhase!=int32(S->Phase)
-        ||!S->Arena||PendingMeleeGeneration!=S->Arena->Config.Generation) {CancelMelee(true);return;}
+        ||!S->Arena||!ASMelee::ContextValid(PendingMeleePhase,int32(S->Phase),PendingMeleeGeneration,S->Arena->Config.Epoch)) {CancelMelee(true);return;}
     if(Build.Weapon==0&&MeleeStep==2&&!bMeleeMotionStarted&&Now>=MeleeMotionAt) {
         bMeleeMotionStarted=true;
         if(Now<MeleeImpactAt&&Movement()->IsMovingOnGround()&&Movement()->DashRemaining<=0) {

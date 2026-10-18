@@ -52,9 +52,9 @@ void AASWorld::ConfigureEndless(int32 Seed,int32 Shuffle,const TArray<FVector>& 
     Config.Room=ASRules::EndlessRoom;Config.Seed=Seed;Config.Shuffle=Shuffle;Config.KeepCount=FMath::Min(2,Keep.Num());
     Config.KeepX0=Keep.IsValidIndex(0)?Keep[0].X:0.f;Config.KeepY0=Keep.IsValidIndex(0)?Keep[0].Y:0.f;
     Config.KeepX1=Keep.IsValidIndex(1)?Keep[1].X:0.f;Config.KeepY1=Keep.IsValidIndex(1)?Keep[1].Y:0.f;
-    ++Config.Generation;Rebuild();ForceNetUpdate();
+    ++Config.Generation;if(Shuffle==0) ++Config.Epoch;Rebuild();ForceNetUpdate();
 }
-void AASWorld::Configure(int32 Room,int32 Seed) {if(!HasAuthority()) return;Config.Room=Room;Config.Seed=Seed;++Config.Generation;Rebuild();ForceNetUpdate();}
+void AASWorld::Configure(int32 Room,int32 Seed) {if(!HasAuthority()) return;Config.Room=Room;Config.Seed=Seed;++Config.Generation;++Config.Epoch;Rebuild();ForceNetUpdate();}
 void AASWorld::BeginPlay() {
     Super::BeginPlay();Rebuild();
     if(GetNetMode()==NM_DedicatedServer) return;
@@ -255,8 +255,7 @@ void AASWorld::EndlessArena(const FVector& Center) {
     }
     Add(TEXT("Cube"),TEXT("EndlessShopStall"),ExitPoint()+FVector(0,380,60),FVector(1.6f,.8f,1.2f),FLinearColor(.25f,.15f,.07f),true);
     Text(TEXT("LUCKY SHOP / spend Scrap and Ash"),ExitPoint()+FVector(0,380,260),90,22);ShopLabel=Labels.IsEmpty()?nullptr:Labels.Last();ShopShown=-1;
-    Add(TEXT("SM_Ring"),TEXT("EndlessSigilOuter"),Center+FVector(0,0,9),FVector(12,12,1),Sigil,false,0,1.5f);
-    Add(TEXT("SM_Ring"),TEXT("EndlessSigilInner"),Center+FVector(0,0,9),FVector(7,7,1),Sigil,false,0,2.5f);
+    // The three glowing rings that used to sit under the chest (outer sigil, inner sigil, arrival glyph) are gone: they read as stray lights once the sky darkens after waves 20 and 50.
     Light(Center+FVector(0,0,600),FLinearColor(1,.35f,.2f),2200,3200);
 }
 void AASWorld::BossArena(const FVector& Center) {
@@ -336,7 +335,7 @@ void AASWorld::MakeRoom() {
             Light(Lamp+FVector(0,0,60),FLinearColor(1,.68f,.38f),2200,1600);
             if(Biome()==4&&I%3==0) Light(P+FVector(Half.X*.65f,-Half.Y*.6f,90),Glow,450,700);
         } else if(I%3==0) Light(P+FVector(-370,370,190),Glow,650,1200);
-        if(I==0 || I==Layout.Exit) Add(TEXT("SM_Ring"),TEXT("ArrivalGlyph"),P+FVector(0,0,13),FVector(4,4,1),Glow,false,0,3);
+        if((I==0 || I==Layout.Exit)&&!IsEndlessArena()) Add(TEXT("SM_Ring"),TEXT("ArrivalGlyph"),P+FVector(0,0,13),FVector(4,4,1),Glow,false,0,3);
         // Floating underside rock spires and distant ruins provide depth without collision or ticking actors.
         Add(TEXT("SM_Rock"),TEXT("Underside"),P+FVector(0,0,-450),FVector(5,5,5),Floor*.5f,false);
     }

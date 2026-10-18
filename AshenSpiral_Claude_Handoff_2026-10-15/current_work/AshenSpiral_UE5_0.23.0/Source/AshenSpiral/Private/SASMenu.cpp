@@ -314,7 +314,6 @@ void SASMenu::Construct(const FArguments& Args) {
         }
         if(!Any) Text(TEXT("Nothing gained yet this run."),15,ASMenuMuted);
         if(Hero) Text(FString::Printf(TEXT("Focus %.0f / %.0f  |  Crit damage %.0f%%  |  Personal rerolls %d  |  Curse stacks %d"),Hero->Focus,Hero->MaxFocus(),Hero->CriticalPower()*100.f,Hero->Rerolls,Hero->CurseStacks),17,ASMenuGold);
-        Text(TEXT("Traits reset each expedition. Evolution adds one effective rank to an owned repeatable trait; its normal pick cap stays the same. Damage, survival and modifier choices are mixed, with up to twice the weight for existing synergies."));
     } else if(Page==15) {
         Text(TEXT("Ash, relic embers, tablets, materials, unlocks and permanent upgrades now save outside the extracted game folder. Future 0.13+ builds use this same location automatically. Cinders and chest stat ranks remain run-only."));
         Text(FString::Printf(TEXT("Ash: %d   Relic embers: %d   Tablets: %d   Skill points: %d"),P.Ash,P.RelicEmbers,P.Tablets,P.SkillPoints),18,ASMenuGold);

@@ -235,7 +235,7 @@ void AASCharacter::Attack() {
     FVector Forward=(AimPoint-GetActorLocation()).GetSafeNormal2D();if(Forward.IsNearlyZero()) Forward=GetActorForwardVector();
     if(Melee) {
         bMeleePending=true;bMeleeMotionStarted=false;bMeleeCritical=Critical;PendingMeleeWeapon=Build.Weapon;
-        PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Generation:-1;
+        PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Epoch:-1;
         MeleeImpactAt=S->SimTime+Interval*ASMelee::ImpactFraction(Build.Weapon,MeleeStep);
         MeleeMotionAt=S->SimTime+Interval*ASMelee::MotionFraction(Build.Weapon);LastMeleeEnd=NextAttack;
     } else {

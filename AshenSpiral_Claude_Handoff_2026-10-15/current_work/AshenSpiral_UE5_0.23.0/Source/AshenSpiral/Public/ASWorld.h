@@ -10,6 +10,8 @@ USTRUCT() struct FASLayoutConfig {
     UPROPERTY() int32 Room=-1;
     UPROPERTY() int32 Seed=1103;
     UPROPERTY() int32 Generation=0;
+    // Epoch changes only on a real room or run change, never on an Endless arena shuffle; melee and hammer swings survive a shuffle.
+    UPROPERTY() int32 Epoch=0;
     // Endless arena: shuffle counter plus up to two keep-clear points (player positions) so new cover never lands on anyone.
     UPROPERTY() int32 Shuffle=0;
     UPROPERTY() int32 KeepCount=0;

@@ -41,7 +41,7 @@ void AASCharacter::RequestHammerLeap_Implementation() {
     CancelMelee(true);bCharging=false;StopJumping();
     HammerLeapDirection=(AimPoint-GetActorLocation()).GetSafeNormal2D();if(HammerLeapDirection.IsNearlyZero()) HammerLeapDirection=GetActorForwardVector();
     HammerLeapState=1;HammerLeapStarted=S->SimTime;HammerLandedAt=-10;NextHammerLeap=S->SimTime+ASHammer::Cooldown;
-    PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Generation:-1;
+    PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Epoch:-1;
     M->StopMovementImmediately();ForceNetUpdate();
 }
 void AASCharacter::HammerMotion_Implementation(bool Launch,FVector_NetQuantizeNormal Direction) {
@@ -62,7 +62,7 @@ void AASCharacter::TickHammer(float Now) {
     if(Build.Weapon!=1&&HammerLeapState) {CancelHammerLeap();return;}
     const auto* S=AS::State(this);
     const bool Active=HammerLeapState||HammerCommitted()||bMeleePending;
-    if(Build.Weapon==1&&Active&&(!S||!CanUseWeapons()||!S->Arena||PendingMeleePhase!=int32(S->Phase)||PendingMeleeGeneration!=S->Arena->Config.Generation)) {
+    if(Build.Weapon==1&&Active&&(!S||!CanUseWeapons()||!S->Arena||PendingMeleePhase!=int32(S->Phase)||!ASMelee::ContextValid(PendingMeleePhase,int32(S->Phase),PendingMeleeGeneration,S->Arena->Config.Epoch))) {
         CancelMelee(true);CancelHammerLeap();return;
     }
     if(HammerLeapState==1&&Now>=HammerLeapStarted+ASHammer::Startup) {
@@ -82,7 +82,7 @@ void AASCharacter::Landed(const FHitResult& Hit) {
     Super::Landed(Hit);
     if(!HasAuthority()||Build.Weapon!=1||HammerLeapState!=2||bDowned) return;
     auto* S=AS::State(this);
-    if(!S||!CanUseWeapons()||!S->Arena||PendingMeleePhase!=int32(S->Phase)||PendingMeleeGeneration!=S->Arena->Config.Generation) {CancelHammerLeap();return;}
+    if(!S||!CanUseWeapons()||!S->Arena||PendingMeleePhase!=int32(S->Phase)||!ASMelee::ContextValid(PendingMeleePhase,int32(S->Phase),PendingMeleeGeneration,S->Arena->Config.Epoch)) {CancelHammerLeap();return;}
     HammerLeapState=3;HammerLandedAt=S->SimTime;NextAttack=FMath::Max(NextAttack,HammerLandedAt+ASHammer::Recovery);
     HammerMotion(false,HammerLeapDirection);Movement()->StopMovementImmediately();Movement()->RefreshDashCollision();
     ResolveHammerLanding(Hit.ImpactPoint);ForceNetUpdate();
