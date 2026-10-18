@@ -1,4 +1,5 @@
 #include "SASMenu.h"
+#include "ASUITheme.h"
 #include "SASEffectIcon.h"
 #include "Widgets/Layout/SWrapBox.h"
 #include "Widgets/Input/SCheckBox.h"
@@ -96,7 +97,7 @@ TSharedRef<SWidget> SASMenu::Button(const FString& Title,int32 Code,int32 Index)
     const auto Weak=PC;
     const TSharedRef<FASButtonJuice> Juice=MakeShared<FASButtonJuice>();
     return SNew(SButton).ContentPadding(FMargin(14,10)).HAlign(HAlign_Center).VAlign(VAlign_Center)
-        .ButtonColorAndOpacity(FLinearColor(.055f,.16f,.18f)).ForegroundColor(FLinearColor::White)
+        .ButtonColorAndOpacity_Lambda([Juice](){return Juice->Hover?ASUI::ButtonHover:ASUI::ButtonIdle;}).ForegroundColor(FLinearColor::White)
         .RenderTransformPivot(FVector2D(.5f,.5f))
         .RenderTransform_Lambda([Juice](){const float Scale=ButtonJuiceScale(*Juice);return TOptional<FSlateRenderTransform>(FSlateRenderTransform(FScale2D(Scale)));})
         .OnHovered_Lambda([Weak,Juice](){
@@ -116,17 +117,27 @@ void SASMenu::Text(const FString& Value,int32 Size,FLinearColor Color) {
         .Justification(ETextJustify::Left).WrapTextAt(BodyTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)];
 }
 void SASMenu::Card(const FString& Title,const FString& Description,const FString& Label,int32 Code,int32 Index,bool Enabled) {
+    // Rounded card with an accent bar on the left and a brighter edge while hovered. Content and button are unchanged.
+    const TSharedRef<TWeakPtr<SBorder>> Self=MakeShared<TWeakPtr<SBorder>>();
+    TSharedPtr<SBorder> CardBorder;
     Body->AddSlot().AutoHeight().Padding(0,0,0,9)
-    [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(.027f,.040f,.052f)).Padding(12)
+    [SAssignNew(CardBorder,SBorder).BorderImage_Lambda([Self]()->const FSlateBrush* {const auto Border=Self->Pin();return Border.IsValid()&&Border->IsHovered()?ASUI::CardHoverBrush():ASUI::CardBrush();})
+        .BorderBackgroundColor(FLinearColor::White).Padding(FMargin(0))
         [SNew(SHorizontalBox)
-            +SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).Padding(0,0,18,0)
-                [SNew(SVerticalBox)
-                    +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Title)).Font(Font(19,true)).ColorAndOpacity(ASMenuGold)
-                        .WrapTextAt(CardTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]
-                    +SVerticalBox::Slot().AutoHeight().Padding(0,6,0,0)[SNew(STextBlock).Text(Txt(Description)).Font(Font(14)).ColorAndOpacity(ASMenuMuted)
-                        .WrapTextAt(CardTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]]
-            +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
-                [SNew(SBox).WidthOverride(ButtonWidth).IsEnabled(Enabled)[Button(Label,Code,Index)]]]];
+            +SHorizontalBox::Slot().AutoWidth()
+                [SNew(SBox).WidthOverride(4)[SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(Enabled?ASUI::Gold:ASUI::Muted*.45f)]]
+            +SHorizontalBox::Slot().FillWidth(1)
+                [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("NoBrush")).Padding(12)
+                    [SNew(SHorizontalBox)
+                        +SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).Padding(0,0,18,0)
+                            [SNew(SVerticalBox)
+                                +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Title)).Font(Font(19,true)).ColorAndOpacity(ASMenuGold)
+                                    .WrapTextAt(CardTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]
+                                +SVerticalBox::Slot().AutoHeight().Padding(0,6,0,0)[SNew(STextBlock).Text(Txt(Description)).Font(Font(14)).ColorAndOpacity(ASMenuMuted)
+                                    .WrapTextAt(CardTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]]
+                        +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+                            [SNew(SBox).WidthOverride(ButtonWidth).IsEnabled(Enabled)[Button(Label,Code,Index)]]]]]];
+    *Self=CardBorder;
 }
 void SASMenu::Input(const FString& Label,int32 Field) {
     Text(Label,14);auto* C=PC.Get();const FString Value=!C?TEXT(""):(Field==0?C->JoinAddress:(Field==1?C->JoinCode:(Field==2?C->SeedText:(C->ProgressImportPath.IsEmpty()?C->GetGameInstance<UASGameInstance>()->DefaultImportPath():C->ProgressImportPath))));const auto Weak=PC;
@@ -175,7 +186,7 @@ void SASMenu::Construct(const FArguments& Args) {
     [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(0,0,0,.28f)).Padding(24)
         [SNew(SScaleBox).Stretch(EStretch::ScaleToFit).StretchDirection(EStretchDirection::DownOnly).HAlign(HAlign_Center).VAlign(VAlign_Center)
             [SNew(SBox).WidthOverride(PanelWidth).HeightOverride(PanelHeight)
-                [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(ASMenuInk).Padding(FMargin(32,28))
+                [SNew(SBorder).BorderImage(ASUI::PanelBrush()).BorderBackgroundColor(FLinearColor::White).Padding(FMargin(32,28))
                     [SNew(SVerticalBox)
                         +SVerticalBox::Slot().AutoHeight()
                             [SNew(SHorizontalBox)
@@ -185,7 +196,9 @@ void SASMenu::Construct(const FArguments& Args) {
                                         +SVerticalBox::Slot().AutoHeight().Padding(0,8,0,8)[SNew(STextBlock).Text(Txt(Title)).Font(Font(29,true)).ColorAndOpacity(FLinearColor::White)
                                             .WrapTextAt(HeaderTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)]]
                                 +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[Button(TEXT("CLOSE   /   ESC"),0)]]
-                        +SVerticalBox::Slot().AutoHeight().Padding(0,5,0,15)
+                        +SVerticalBox::Slot().AutoHeight().Padding(0,2,0,0)
+                            [SNew(SBox).HeightOverride(2)[SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(.98f,.64f,.25f,.65f))]]
+                        +SVerticalBox::Slot().AutoHeight().Padding(0,9,0,15)
                             [SNew(STextBlock).Font(Font(13)).ColorAndOpacity(ASMenuMuted).WrapTextAt(BodyTextWidth).Text_Lambda([Weak](){
                                 auto* P=Weak.Get();auto* G=P?P->GetGameInstance<UASGameInstance>():nullptr;if(!G) return Txt(TEXT("Loading profile..."));
                                 const auto& D=G->Profile;return Txt(FString::Printf(TEXT("ASH  %d     RELIC EMBERS  %d     TABLETS  %d     SKILL POINTS  %d"),D.Ash,D.RelicEmbers,D.Tablets,D.SkillPoints));})]
