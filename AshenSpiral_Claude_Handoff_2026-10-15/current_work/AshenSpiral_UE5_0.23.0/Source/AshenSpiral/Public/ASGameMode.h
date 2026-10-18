@@ -47,10 +47,6 @@ public:
     // Brief server-side slow-motion on the last kill of a chamber or Endless wave (cosmetic, TUNABLE).
     void ClearBeat(float Scale=.3f,float RealSeconds=.45f);
     float ClearBeatEndsReal=0;
-    // Final-kill beat: TUNABLE 30% speed for 1.0 real second while both cameras turn toward the last kill (via the engine's ClientSetRotation; no new RPC).
-    void FinalKillBeat();
-    struct FCamTurn {TWeakObjectPtr<AASPlayerController> Controller;FRotator Rotation;};
-    TArray<FCamTurn> CamTurns;FVector LastKillLocation=FVector::ZeroVector;float LastCamTurnReal=0;
     void EnterRoom(int32 Room);
     void EnemyKilled(AASEnemy* Enemy,AASCharacter* Killer);
     void Reward(AASPlayerController* PC,int32 Index);

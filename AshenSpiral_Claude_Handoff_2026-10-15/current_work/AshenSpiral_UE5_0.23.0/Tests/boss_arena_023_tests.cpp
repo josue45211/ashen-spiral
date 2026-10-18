@@ -82,6 +82,7 @@ int main() {
             for(const auto& O:EndlessProps(Seed,Keep)) for(const auto& K:Keep)
                 Check(std::hypot(O.X-K.X,O.Y-K.Y)>=EndlessKeepRadius,"a shuffle never places cover on a player");
         }
+        for(int Seed2=1;Seed2<=30;++Seed2) for(const auto& O:EndlessProps(Seed2,None)) Check(O.Height==EndlessWallHeight||O.Height==EndlessLowHeight,"every endless pillar and wall is the tallest height; only low blocks are lower");
         Check(EndlessProps(1,None).size()!=0&&(EndlessProps(1,None)[0].X!=EndlessProps(2,None)[0].X||EndlessProps(1,None)[0].Y!=EndlessProps(2,None)[0].Y),"different seeds give different layouts");
     }
     std::cout<<"PASS: "<<Checks<<" boss arena structure checks.\n";

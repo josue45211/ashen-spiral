@@ -156,7 +156,6 @@ private:
     UPROPERTY() TObjectPtr<USceneComponent> Figure;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Parts;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WeaponMesh;
-    UPROPERTY() TObjectPtr<UStaticMeshComponent> FriendRing; // player-colour ring under every player, so allies read at a glance
     UPROPERTY() TObjectPtr<UStaticMeshComponent> ChargeMesh;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> ArrowMesh;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> BowStrings;

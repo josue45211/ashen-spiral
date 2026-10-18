@@ -16,7 +16,7 @@ int main() {
     Check(TeamworkPerRank>AttunementPerRank&&SynergyDamageMultiplier(Catalog[Index(Trait::Teamwork)].Max,0)>ElementalDamageMultiplier(Catalog[Index(Trait::Attunement)].Max),"synergy buff is larger than the elemental buff");
     {Context Solo,Duo;Duo.Coop=true;Check(!CanChoose(Solo,OfferBase+Index(Trait::Teamwork))&&CanChoose(Duo,OfferBase+Index(Trait::Teamwork))&&CanChoose(Solo,OfferBase+Index(Trait::Attunement)),"Teamwork is only offered in co-op; Attunement always");}
     // 0.23.3: Wide Arc is a melee-only reach trait, +10% per rank.
-    Check(Near(MeleeReachMultiplier(0),1.f)&&Near(MeleeReachMultiplier(5),1.5f)&&Near(MeleeReachMultiplier(-2),1.f),"Wide Arc: +10% reach per rank");
+    Check(Near(MeleeReachMultiplier(0),1.f)&&Near(MeleeReachMultiplier(5),2.0f)&&Near(MeleeReachMultiplier(-2),1.f),"Wide Arc: +20% reach per rank");
     {const int Arc=OfferBase+Index(Trait::WideArc);Context Sword,Bow;Sword.Weapon=0;Bow.Weapon=3;Check(CanChoose(Sword,Arc)&&!CanChoose(Bow,Arc),"Wide Arc is offered for melee weapons only");}
     Context C;
     for(int I=0;I<Count;++I) {

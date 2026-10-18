@@ -192,13 +192,6 @@ void AASGameMode::ClearBeat(float Scale,float RealSeconds) {
     if(ClearBeatEndsReal>0.f||!GetWorld()) return;
     UGameplayStatics::SetGlobalTimeDilation(this,FMath::Clamp(Scale,.05f,1.f));ClearBeatEndsReal=GetWorld()->GetRealTimeSeconds()+FMath::Clamp(RealSeconds,.02f,3.f);
 }
-void AASGameMode::FinalKillBeat() {
-    auto* S=AS::State(this);if(!S||!GetWorld()||S->bPartyPaused) return;
-    // A last-kill hit-stop may already be running; the dramatic beat replaces it.
-    ClearBeatEndsReal=0.f;ClearBeat(.3f,1.f); // TUNABLE: 30% speed for 1.0 real second (was 2.0)
-    CamTurns.Reset();LastCamTurnReal=GetWorld()->GetRealTimeSeconds();
-    for(auto W:S->Heroes) if(const auto* H=W.Get()) if(auto* PC=Cast<AASPlayerController>(H->GetController())) CamTurns.Add({PC,PC->GetControlRotation()});
-}
 void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;
     if(!S||!S->Arena||!H||Portal<0||Portal>3||S->Phase!=EASPhase::Hub||S->bEnteringPortal) return;
@@ -310,16 +303,6 @@ void AASGameMode::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||!S->Arena) return;
     const float RealNow=GetWorld()->GetTimeSeconds();
     if(ClearBeatEndsReal>0.f&&(GetWorld()->GetRealTimeSeconds()>=ClearBeatEndsReal||S->Phase==EASPhase::Hub||S->bPartyPaused)) {UGameplayStatics::SetGlobalTimeDilation(this,1.f);ClearBeatEndsReal=0.f;}
-    if(ClearBeatEndsReal<=0.f) CamTurns.Reset();
-    else if(!CamTurns.IsEmpty()&&GetWorld()->GetRealTimeSeconds()>=LastCamTurnReal+.1f) {
-        // Ease each player's view toward the last kill about ten times a second of real time (the world is slowed, so Delta is not used).
-        const float RealDelta=FMath::Clamp(GetWorld()->GetRealTimeSeconds()-LastCamTurnReal,.01f,.5f);LastCamTurnReal=GetWorld()->GetRealTimeSeconds();
-        for(auto& Turn:CamTurns) if(auto* PC=Turn.Controller.Get()) if(const auto* H=Cast<AASCharacter>(PC->GetPawn())) {
-            const FVector Dir=(LastKillLocation-(H->GetActorLocation()+FVector(0,0,60))).GetSafeNormal();if(Dir.IsNearlyZero()) continue;
-            FRotator Target=Dir.Rotation();Target.Pitch=FMath::Clamp(Target.Pitch,-35.f,10.f);Target.Roll=0.f;
-            Turn.Rotation=FMath::RInterpTo(Turn.Rotation,Target,RealDelta,6.f);PC->ClientSetRotation(Turn.Rotation);
-        }
-    }
     if(S->bEnteringPortal) {
         // Walk-in: each hero glides to the archway over 1.2s, then the run launches.
         const float Alpha=FMath::Clamp(1.f-(PortalFinish-RealNow)/1.2f,0.f,1.f);int32 I=0;
@@ -391,7 +374,7 @@ void AASGameMode::Tick(float Delta) {
     S->Enemies.RemoveAll([](const auto& W){return !W.IsValid();});S->LivingEnemies=S->Enemies.Num();
     if(S->bEndless) {EndlessTick(Delta);return;}
     if(Queued==0&&S->LivingEnemies==0) {
-        if(S->Wave+1<ASRules::WaveCount(S->Room)) {++S->Wave;QueueWave();}else {if(!ASRules::Boss(S->Room)) FinalKillBeat();FinishRoom();}
+        if(S->Wave+1<ASRules::WaveCount(S->Room)) {++S->Wave;QueueWave();}else {FinishRoom();}
     }
 }
 void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
@@ -521,7 +504,7 @@ void AASGameMode::RelocateBuriedEnemies() {
     }
 }
 void AASGameMode::EndlessFinishWave() {
-    auto* S=AS::State(this);if(!S) return;if(!ASExpedition::BossWave(S->EndlessWave)) FinalKillBeat();
+    auto* S=AS::State(this);if(!S) return;
     S->ClearedEndlessWave=S->EndlessWave;S->Phase=EASPhase::Reward;S->ChestKind=0;EndlessShuffleAt=-1.f;if(S->SimTime<S->ShiftAt) S->ShiftAt=-100.f; // a cancelled warning also cancels the animation
     // TUNABLE: about 15% of checkpoints after wave 10 open a lucky shop; a quarter of those stock rare Ash items.
     S->bLuckyShop=ASExpedition::ShopAppears(S->EndlessWave,Random.FRand());S->bRareShop=S->bLuckyShop&&Random.FRand()<.25f;
@@ -567,7 +550,6 @@ void AASGameMode::EnemyKilled(AASEnemy* E,AASCharacter* Killer) {
         FLinearColor Tint(1.f,.86f,.55f);
         if(E->StatusBits&16) Tint=ASData::HitColor(EASHitKind::Bleed);else if(E->StatusBits&1) Tint=ASData::HitColor(EASHitKind::Burn);else if(E->StatusBits&2) Tint=ASData::HitColor(EASHitKind::Poison);else if(E->StatusBits&(4|8)) Tint=ASData::HitColor(EASHitKind::Frost);
         S->Effect(11,E->GetActorLocation()+FVector(0,0,40),FVector::UpVector,Tint,E->Boss()?3.f:(E->Elite()?2.f:0.f));
-        LastKillLocation=E->GetActorLocation()+FVector(0,0,40);
         if(Burst.StopSeconds>0.f) ClearBeat(Burst.StopScale,Burst.StopSeconds);
     }
     const int32 Base=E->Boss()?30:(E->Elite()?8:1);

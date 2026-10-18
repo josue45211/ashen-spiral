@@ -60,7 +60,6 @@ private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Eye;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;
-    UPROPERTY() TObjectPtr<UStaticMeshComponent> FoeMark; // always-on red ground ring: enemies never read as allies
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Crown;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Aura;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Beam;

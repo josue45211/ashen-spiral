@@ -95,7 +95,7 @@ inline constexpr std::array<Definition,Count> Catalog{{
  {"Attunement","+12% burn, poison and bleed damage per rank. Cannot evolve.",5,0,Element,0,511,false},
  {"Teamwork","+20% synergy attack damage per rank, for you and for synergies you trigger with a partner. Co-op only. Cannot evolve.",5,0,Element|Echo,1,511,false},
  // 0.23.3 (TUNABLE): melee reach, so swings and slams catch enemies further out. Sword, hammer and scythe only.
- {"Wide Arc","+10% melee swing reach per rank, for sword, hammer and scythe. Cannot evolve.",5,0,Weapon,0,35,false}
+ {"Wide Arc","+20% melee swing reach per rank, for sword, hammer and scythe. Cannot evolve.",5,0,Weapon,0,35,false}
 }};
 inline constexpr std::array<const char*,Count> Briefs{{
  "Boost weapon damage",
@@ -181,7 +181,7 @@ inline int MaxDashCharges(int RankValue) {return std::clamp(1+RankValue,1,3);}
 // 0.23.2 TUNABLE: the synergy buff per rank is deliberately larger than the elemental one (teamwork incentive).
 constexpr float AttunementPerRank=.12f,TeamworkPerRank=.20f;
 inline float ElementalDamageMultiplier(int RankValue) {return 1.f+AttunementPerRank*float(std::clamp(RankValue,0,10000));}
-constexpr float WideArcPerRank=.10f;
+constexpr float WideArcPerRank=.20f; // TUNABLE (0.23.4): was .10, barely noticeable; rank 5 doubles melee reach
 inline float MeleeReachMultiplier(int RankValue) {return 1.f+WideArcPerRank*float(std::clamp(RankValue,0,10000));}
 inline float SynergyDamageMultiplier(int RankA,int RankB) {return 1.f+TeamworkPerRank*float(std::clamp(RankA,0,10000)+std::clamp(RankB,0,10000));}
 inline int CreditKills(int Base,int RankValue,float& Remainder) {

@@ -45,7 +45,6 @@ AASCharacter::AASCharacter(const FObjectInitializer& Init):Super(Init.SetDefault
     // its large negative pitch and drove the blade back through the body.
     WeaponMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon"));WeaponMesh->SetupAttachment(Parts[18]);
     ChargeMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SpiralCharge"));ChargeMesh->SetupAttachment(Parts[17]);
-    FriendRing=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("FriendRing"));FriendRing->SetupAttachment(RootComponent);
     for(int32 I=0;I<3;++I) {auto* W=CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("OrbitWisp%d"),I));W->SetupAttachment(RootComponent);Wisps.Add(W);}
     ArrowMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("NockedArrow"));ArrowMesh->SetupAttachment(Figure);
     for(int32 I=0;I<2;++I) {auto* C=CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("BowString%d"),I));C->SetupAttachment(Figure);BowStrings.Add(C);}
@@ -107,11 +106,6 @@ void AASCharacter::RefreshLook() {
     WeaponMesh->SetRelativeLocation(FVector::ZeroVector);WeaponMesh->SetRelativeRotation(FRotator::ZeroRotator);
     if(Build.Weapon==2) Parts[17]->SetRelativeLocation(FVector(82,-5,123));
     for(auto W:Wisps) {ASAssets::Style(W,TEXT("SM_Crystal"),FLinearColor(1,.42f,.06f),0,4);W->SetRelativeScale3D(FVector(.12f));}
-    if(FriendRing) {
-        // Friend marker: a soft ring in the player's own colour on the ground (dim and red-tinged while downed). Enemies get a red ring instead.
-        ASAssets::Style(FriendRing,TEXT("SM_Ring"),bDowned?FLinearColor(.3f,.02f,.025f):ViewColor(),0,bDowned?.8f:2.6f);
-        FriendRing->SetCastShadow(false);FriendRing->SetRelativeLocation(FVector(0,0,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+4.f));FriendRing->SetRelativeScale3D(FVector(2.3f,2.3f,1.f));
-    }
     ASAssets::Style(ArrowMesh,TEXT("SM_Arrow"),FLinearColor(.55f,.38f,.17f),.25f);ArrowMesh->SetVisibility(Build.Weapon==2);
     for(auto* C: {BowStrings[0].Get(),BowStrings[1].Get()}) {ASAssets::Style(C,TEXT("Cylinder"),FLinearColor(.78f,.74f,.61f));C->SetVisibility(Build.Weapon==2);}
     Parts[18]->SetRelativeLocation(FVector(34,62,82));Parts[18]->SetRelativeRotation(FRotator::ZeroRotator);

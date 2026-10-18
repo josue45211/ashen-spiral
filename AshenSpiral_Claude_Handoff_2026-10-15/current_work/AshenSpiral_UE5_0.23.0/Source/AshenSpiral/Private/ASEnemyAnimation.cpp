@@ -42,7 +42,7 @@ void AASEnemy::AnimateDeath() {
     const float Now=AS::Time(this);
     if(DeathSeenAt<0.f) {
         DeathSeenAt=Now;
-        for(auto* Piece:{Tell.Get(),Beam.Get(),Eye.Get(),FoeMark.Get(),Aura.Get(),Crown.Get()}) if(Piece) Piece->SetVisibility(false);
+        for(auto* Piece:{Tell.Get(),Beam.Get(),Eye.Get(),Aura.Get(),Crown.Get()}) if(Piece) Piece->SetVisibility(false);
     }
     // Topples backward and shrinks away with a brief glow, over EnemyDeathSeconds.
     const auto Look=ASPresentation::EnemyDeathAt(Now-DeathSeenAt);
