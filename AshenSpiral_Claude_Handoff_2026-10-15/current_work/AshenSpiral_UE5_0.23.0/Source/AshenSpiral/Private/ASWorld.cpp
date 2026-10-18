@@ -106,7 +106,7 @@ void AASWorld::BeginPlay() {
         Post->Settings.AutoExposureApplyPhysicalCameraExposure=false;
         Post->Settings.bOverride_AutoExposureBias=true;Post->Settings.AutoExposureBias=1.f;
     }
-    UE_LOG(LogTemp,Display,TEXT("AshenVisual 0.22.0: sun=%s rotation=%s fill=%s sky=%s exposureVolume=%s"),
+    UE_LOG(LogTemp,Display,TEXT("AshenVisual 0.23.2: sun=%s rotation=%s fill=%s sky=%s exposureVolume=%s"),
         *GetNameSafe(Sun),Sun?*Sun->GetActorRotation().ToString():TEXT("MISSING"),
         *GetNameSafe(Fill),*GetNameSafe(Sky),*GetNameSafe(Post));
 }
