@@ -67,6 +67,8 @@ public:
     void AbandonReconnect();
     bool Host(const AASPlayerController* PC) const;
     bool AllReady() const;
+    // Portal departure: everyone loaded and saved, every non-host player ready (the host presses E to confirm).
+    bool PortalPartyReady() const;
     int32 PortalSelection=0,PortalSeed=0;float PortalFinish=0;TWeakObjectPtr<AASPlayerController> PortalLeader;TArray<FVector> PortalStarts;FVector PortalTarget=FVector::ZeroVector;
 private:
     int32 RunSeed=1103;

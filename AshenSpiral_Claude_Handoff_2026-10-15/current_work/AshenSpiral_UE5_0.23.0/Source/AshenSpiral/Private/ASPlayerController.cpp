@@ -132,8 +132,7 @@ void AASPlayerController::Interact() {
     if(Page==220) {OpenMenu(18);return;}
     if(Page==221) {OpenMenu(21);return;}
     // Portals use proximity interaction: E at the archway asks the server to start the walk-in (host only; the server checks range, locks and readiness).
-    if(S->Phase==EASPhase::Hub&&Page>=31&&Page<=33) {int32 Seed=1103;if(!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}SelectedPortal=Page-31;EnterPortal(SelectedPortal,Seed);return;}
-    if(S->Phase==EASPhase::Hub&&Page==22) {EnterPortal(3,FMath::Rand());return;}
+    if(S->Phase==EASPhase::Hub&&((Page>=31&&Page<=33)||Page==22)) {PortalInteract(Page);return;}
     if(Page==222) {OpenMenu(23);return;}
     if(Page>=201&&Page<=203) {InteractServer(Page);return;}
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}
@@ -141,6 +140,16 @@ void AASPlayerController::Interact() {
     else if(S->Phase==EASPhase::Reward&&Page==9) {
         auto* PS=GetPlayerState<AASPlayerState>();if(PS&&!PS->bRewardClaimed) OpenMenu(9);else InteractServer();
     }
+}
+// E at an archway: guests toggle Ready; the host confirms the departure (the server re-checks range, locks and readiness).
+void AASPlayerController::PortalInteract(int32 Page) {
+    auto* S=AS::State(this);auto* H=Cast<AASCharacter>(GetPawn());auto* PS=GetPlayerState<AASPlayerState>();if(!S||!S->Arena||!H||!PS) return;
+    const FVector Archway=S->Arena->InteractionPoint(Page)-FVector(0,0,150);
+    if(FVector::DistSquared2D(H->GetActorLocation(),Archway)>360.f*360.f) {Notify(TEXT("Stand at the archway."));return;}
+    if(PS->PlayerIndex!=0) {SetReady(!PS->bReady);return;}
+    int32 Seed=1103;
+    if(Page!=22&&!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}
+    SelectedPortal=Page==22?3:Page-31;EnterPortal(SelectedPortal,Page==22?FMath::Rand():Seed);
 }
 void AASPlayerController::ToggleMenu() {
     if(MenuOpen()) {CloseMenu();SetPartyPaused(false);return;}

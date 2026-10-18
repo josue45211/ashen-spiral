@@ -74,6 +74,7 @@ public:
     UFUNCTION(Client,Reliable) void Notify(const FString& Message);
     UFUNCTION(Client,Reliable) void ProfileRejected(const FString& KeptProfileId);
     void ResubmitProfile();
+    void PortalInteract(int32 Page);
     // Synergy feedback: a coloured word above the damage numbers plus a cue. Trigger indexes ASExpedition::Synergy results.
     UFUNCTION(Client,Unreliable) void SynergyCue(int32 Trigger);
     // Reward fanfare: floating "+X" text; Big is the trait-acquire banner and also plays the placeholder sound hook.
