@@ -212,3 +212,22 @@ UNVERIFIED playtest checklist (all of the above is compile + native tests only):
 - Item 13 confidence is LOW: I added a client-side safety rebuild but could not find the root cause by reading. Needs P2's client log if it still happens.
 - Count note: the 0.23.2 batch lists 21 items, not 22.
 - Pushed: astra/0.23-handoff at 15018f2 (plain push, no force).
+
+## 0.23.3 batch (2026-10-17/18 night) - 19 items + chest circles done, none verified in-engine
+Bar: UBT editor build per item (unity), one full -DisableUnity build on HEAD f457c8a: Succeeded, no project warnings; Tests/run_tests.py exit 0 (inside vcvars64) per item; crash-safety review per item. f457c8a is the last code commit. Details, root causes and confidence are in MERGE_LOG.md (entries dated 2026-10-17/18). NOTE: commit 56aedd3 is a partial, unbuilt intermediate (colour change); bf69498 fixes it. Use HEAD.
+
+Done: 1 cursor (exclusive fullscreen + 2px OS clip) | 2-5 portal prompt/ready/centre text/lock reason | 6 arena shift sink/rise/siren/slide | 6a combo-cancel fix (epoch) + cover-only rebuild | 7 slow-mo 1.0s, look lock, enemy death | 8 tab text | 9 uniform tab cards | 10 dash trail (replicated, no walk trails) | 11 friend/foe colour | 12+14 hammer leap arc + speed | 13 finisher slow 45% | 15 info by default | 16 cover-blocks-shots removed (narrow) | 17 UI revamp (theme, menu chrome, HUD bars) | 18 hold-TAB setting | 19 Wide Arc trait | chest circles (3 Endless rings) removed.
+
+UNVERIFIED 0.23.3 checklist (playtest):
+1. P2 at 4096x2160: cursor cannot leave on any edge in borderless AND exclusive fullscreen; free in pause/menu.
+2. Portals: prompt only at the archway; guest E = ready, host E = enter; centre "waiting" text; locked portals say what to clear; Endless portal works the same; hub menu has an "Endless records and upgrades" card.
+3. Arena shift: 3s banner + quiet siren, blocks sink in the last second, new blocks rise for a second after a concrete-slide sound; NO combo cancel/freeze when a shift lands mid-combo (try a 3-hit and a hammer finisher); P2 sees every block. Report siren quality.
+4. Final-kill slow-mo is about 1s, both cameras turn to the kill, mouse-look is locked during it, the enemy topples instead of vanishing.
+5. Tab: no explainer text; every acquisition card is "NAME xN" + effect + tag; Hold-TAB setting works (default off).
+6. Dash trails: both players see both players' trails; NO trails while walking/running; trails on the hammer leap.
+7. Colours: other player reads green, enemies read red, your own character keeps its colour.
+8. Hammer RMB: the arc continues from ledges (no vertical drop) and is faster than a full run; the 3rd attack slow feels right (45%).
+9. Shift-hold info is now always shown; no "COVER BLOCKS SHOT" anywhere.
+10. Wide Arc trait appears for melee weapons only and widens swings.
+11. UI: menus (rounded panel, cards, hover) and HUD bars/backing read well; keyboard/controller navigation still works on every page.
+Needs Josue: nothing blocking. Decisions I made on my own are listed as IFFY in MERGE_LOG.md. Not pushed: no push order was given for this batch.
