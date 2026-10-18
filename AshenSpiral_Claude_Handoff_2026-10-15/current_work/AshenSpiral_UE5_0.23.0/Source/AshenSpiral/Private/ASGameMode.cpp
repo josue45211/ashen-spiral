@@ -1,4 +1,5 @@
 #include "ASGameMode.h"
+#include "ASLightning.h"
 #include "ASPortal.h"
 #include "Components/CapsuleComponent.h"
 #include "ASPlayerController.h"
@@ -390,7 +391,7 @@ void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
 void AASGameMode::EnterEndless() {
     auto* S=AS::State(this);if(!S||!S->Arena) return;
     ClearCombat();S->Room=ASRules::EndlessRoom;S->Wave=0;S->VaultMask=0;S->bVaultClaimed=false;bAdvancePending=false;RoomStarted=S->SimTime;
-    bEndlessBossPending=false;EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;S->ShiftAt=-100.f;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
+    bEndlessBossPending=false;EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;NextLightningAt=-1.f;ActiveStrikes.Empty();S->ShiftAt=-100.f;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
     NextShuffleWave=1+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
     S->Arena->ConfigureEndless(RunSeed,0,TArray<FVector>());
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
@@ -408,6 +409,7 @@ void AASGameMode::EnterEndless() {
 }
 void AASGameMode::QueueEndlessWave() {
     auto* S=AS::State(this);if(!S||!S->Arena) return;
+    NextLightningAt=-1.f; // re-arm with a delay so a strike never lands the instant a wave starts
     ++S->EndlessWave;const int32 Wave=S->EndlessWave,Players=S->PlayerArray.Num();
     // Chained waves add to whatever is still alive; stragglers are never removed for a reward.
     int32 Count=ASExpedition::EnemyCount(Wave,Players);
@@ -450,6 +452,7 @@ void AASGameMode::ConfigureEndlessEnemy(AASEnemy* E) {
 }
 void AASGameMode::EndlessTick(float Delta) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Combat) return;
+    LightningTick(S);
     const int32 Wave=S->EndlessWave;const int32 Living=S->LivingEnemies;
     // A pending shuffle was announced three seconds ago.
     if(EndlessShuffleAt>=0.f&&S->SimTime>=EndlessShuffleAt) {EndlessShuffleAt=-1.f;ShuffleEndlessArena();}
@@ -486,6 +489,37 @@ void AASGameMode::ShuffleEndlessArena() {
     // The new cover rises over ShiftRiseSeconds, so enemies it ends up on are moved to open ground once it has finished rising.
     PendingRelocateAt=S->SimTime+ASExpedition::ShiftRiseSeconds+.1f;
     S->Effect(7,S->Arena->CellPosition(0)+FVector(0,0,50),FVector::UpVector,FLinearColor(.9f,.3f,.15f),3000.f);
+}
+void AASGameMode::LightningTick(AASGameState* S) {
+    if(!S||!S->Arena||!GetWorld()||S->Frozen()||!ASExpedition::LightningActive(S->bEndless,S->EndlessWave)) return;
+    // Each new combat wave re-arms the timer with a delay, so a strike never lands the instant a wave begins.
+    if(NextLightningAt<0.f) {NextLightningAt=S->SimTime+ASExpedition::LightningInterval(S->EndlessWave,Random.FRand());return;}
+    if(S->SimTime<NextLightningAt) return;
+    ActiveStrikes.RemoveAll([](const TWeakObjectPtr<AASLightningStrike>& Strike){return !Strike.IsValid();});
+    if(ActiveStrikes.Num()>=ASExpedition::LightningMaxAtOnce(S->EndlessWave)) {NextLightningAt=S->SimTime+.5f;return;}
+    // Candidates: every standing player and every living enemy; clusters are weighted up so strikes favour crowds.
+    TArray<FVector> Points;
+    for(auto W:S->Heroes) if(const auto* H=W.Get()) if(!H->bDowned) Points.Add(H->GetActorLocation());
+    for(auto W:S->Enemies) if(const auto* E=W.Get()) if(E->Health>0&&!E->bTrainingDummy) Points.Add(E->GetActorLocation());
+    if(Points.IsEmpty()) {NextLightningAt=S->SimTime+1.f;return;}
+    std::vector<float> Weights;Weights.reserve(Points.Num());
+    for(int32 I=0;I<Points.Num();++I) {
+        int32 Near=0;for(int32 J=0;J<Points.Num();++J) if(J!=I&&FVector::Dist2D(Points[I],Points[J])<=ASExpedition::LightningClusterRadius) ++Near;
+        Weights.push_back(ASExpedition::LightningClusterWeight(Near));
+    }
+    const int32 Pick=ASExpedition::LightningPickIndex(Weights,Random.FRand());if(!Points.IsValidIndex(Pick)) return;
+    // Random but not pin-point: a little jitter around the chosen point, then down to the floor.
+    const float Angle=Random.FRand()*UE_TWO_PI,Spread=Random.FRand()*ASExpedition::LightningJitter;
+    FVector Aim=Points[Pick]+FVector(FMath::Cos(Angle)*Spread,FMath::Sin(Angle)*Spread,0.f);
+    FHitResult Floor;FCollisionObjectQueryParams Solid(ECC_WorldStatic);
+    Aim=GetWorld()->LineTraceSingleByObjectType(Floor,Aim+FVector(0,0,300),Aim-FVector(0,0,1500),Solid)?Floor.ImpactPoint+FVector(0,0,4):Aim-FVector(0,0,85);
+    for(const auto& Strike:ActiveStrikes) if(const auto* Other=Strike.Get()) if(FVector::Dist2D(Other->GetActorLocation(),Aim)<ASExpedition::LightningMinSeparation) {NextLightningAt=S->SimTime+.4f;return;}
+    const FTransform Where(Aim);
+    if(auto* Strike=GetWorld()->SpawnActorDeferred<AASLightningStrike>(AASLightningStrike::StaticClass(),Where,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn)) {
+        Strike->StrikeAt=S->SimTime+ASExpedition::LightningTelegraph;Strike->Radius=ASExpedition::LightningRadius;
+        UGameplayStatics::FinishSpawningActor(Strike,Where);ActiveStrikes.Add(Strike);
+    }
+    NextLightningAt=S->SimTime+ASExpedition::LightningInterval(S->EndlessWave,Random.FRand());
 }
 void AASGameMode::RelocateBuriedEnemies() {
     auto* S=AS::State(this);if(!S||!S->Arena||!S->bEndless) return;

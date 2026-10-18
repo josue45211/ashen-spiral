@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <string>
+#include <vector>
 #include <cstdint>
 #include "ASRules.h"
 // Engine-independent expedition rules. Wave numbers are one-based; wave zero is a normal expedition.
@@ -181,4 +182,29 @@ inline float ShiftCoverSunk(float Now,float ShiftAt) {
 }
 // Collision never moves; it switches on and off at discrete moments of the sequence, so machines can only disagree by one network delay.
 inline bool ShiftCoverSolid(float Now,float ShiftAt) {return ShiftCoverSunk(Now,ShiftAt)<ShiftSolidBelow;}
+// ---- Lightning strikes (0.23.4): Endless wave 50+. Everything here is TUNABLE.
+// A strike shows a floor indicator for LightningTelegraph seconds, then hits everyone inside LightningRadius.
+constexpr int LightningFirstWave=50;
+constexpr float LightningTelegraph=.5f,LightningRadius=220.f,LightningJitter=150.f,LightningClusterRadius=450.f,LightningMinSeparation=420.f;
+constexpr float LightningPlayerFraction=.20f,LightningPlayerMinimum=40.f,LightningEnemyFraction=.30f,LightningBossFraction=.03f;
+inline bool LightningActive(bool Endless,int Wave) {return Endless&&Wave>=LightningFirstWave;}
+// Seconds until the next strike: about 6-9 at wave 50, shrinking with the wave, never below 2.5. Roll is a 0..1 random number.
+inline float LightningInterval(int Wave,float Roll) {
+    const float Base=std::max(2.5f,8.f-.05f*float(std::max(0,Wave-LightningFirstWave)));
+    return Base*(.75f+.5f*std::clamp(std::isfinite(Roll)?Roll:.5f,0.f,1.f));
+}
+inline int LightningMaxAtOnce(int Wave) {return Wave>=80?3:(Wave>=65?2:1);}
+inline float LightningPlayerDamage(float MaxHealth) {return std::max(LightningPlayerMinimum,std::isfinite(MaxHealth)?MaxHealth*LightningPlayerFraction:0.f);}
+inline float LightningEnemyDamage(float MaxHealth,bool Boss) {return std::isfinite(MaxHealth)?MaxHealth*(Boss?LightningBossFraction:LightningEnemyFraction):0.f;}
+// Crowds attract strikes: weight grows with the square of how many others stand nearby.
+inline float LightningClusterWeight(int Neighbours) {const float N=1.f+float(std::max(0,Neighbours));return N*N;}
+// Weighted pick; Roll in 0..1. Returns -1 for no candidates.
+inline int LightningPickIndex(const std::vector<float>& Weights,float Roll) {
+    if(Weights.empty()) return -1;
+    float Total=0.f;for(float W:Weights) Total+=std::max(0.f,std::isfinite(W)?W:0.f);
+    if(Total<=0.f) return 0;
+    float Target=std::clamp(std::isfinite(Roll)?Roll:0.f,0.f,.99999f)*Total;
+    for(std::size_t I=0;I<Weights.size();++I) {Target-=std::max(0.f,std::isfinite(Weights[I])?Weights[I]:0.f);if(Target<0.f) return int(I);}
+    return int(Weights.size())-1;
+}
 }

@@ -95,5 +95,16 @@ int main() {
     for(float T=-4.f;T<3.f;T+=.01f) Check(ShiftCoverSunk(100.f+T,100.f)>=0.f&&ShiftCoverSunk(100.f+T,100.f)<=1.f,"sunk fraction stays within 0..1");
     Check(ShiftCoverSolid(95.f,100.f)&&ShiftCoverSolid(99.f,100.f)&&!ShiftCoverSolid(99.9f,100.f)&&!ShiftCoverSolid(100.f,100.f)&&!ShiftCoverSolid(100.5f,100.f)&&ShiftCoverSolid(100.9f,100.f)&&ShiftCoverSolid(120.f,100.f)&&ShiftCoverSolid(5.f,-100.f),"collision is off only while the blocks are mostly sunk");
     Check(ShiftCoverSunk(std::numeric_limits<float>::quiet_NaN(),10.f)==0.f&&ShiftCoverDrop>=400.f,"bad times do nothing; the drop clears the tallest block");
+    // 0.23.4 lightning strikes (Endless wave 50+)
+    Check(!LightningActive(false,80)&&!LightningActive(true,49)&&LightningActive(true,50)&&LightningActive(true,200),"lightning only in Endless from wave 50");
+    Check(LightningInterval(50,0.f)>=6.f-.01f&&LightningInterval(50,1.f)<=10.f+.01f&&LightningInterval(500,0.f)>=2.5f*.75f-.001f,"strike cadence: about 6-10s at wave 50, never faster than the floor");
+    for(int W=50;W<400;++W) Check(LightningInterval(W+1,.5f)<=LightningInterval(W,.5f)+.0001f&&LightningInterval(W,std::numeric_limits<float>::quiet_NaN())>0.f,"strikes never get slower with the wave and survive a bad roll");
+    Check(LightningMaxAtOnce(50)==1&&LightningMaxAtOnce(65)==2&&LightningMaxAtOnce(80)==3&&LightningMaxAtOnce(500)==3,"concurrent strikes grow with the wave to three");
+    Check(Near(LightningPlayerDamage(100.f),40.f)&&Near(LightningPlayerDamage(500.f),100.f)&&LightningPlayerDamage(std::numeric_limits<float>::quiet_NaN())==LightningPlayerMinimum,"player damage: 20% of max health with a floor");
+    Check(Near(LightningEnemyDamage(100.f,false),30.f)&&Near(LightningEnemyDamage(1000.f,true),30.f)&&LightningEnemyDamage(std::numeric_limits<float>::infinity(),false)==0.f,"enemy damage: 30% of max health, 3% for bosses");
+    Check(LightningClusterWeight(0)==1.f&&LightningClusterWeight(5)==36.f&&LightningClusterWeight(-3)==1.f,"clusters attract strikes quadratically");
+    {const std::vector<float> Weights{1.f,9.f};Check(LightningPickIndex(Weights,.05f)==0&&LightningPickIndex(Weights,.5f)==1&&LightningPickIndex(Weights,1.f)==1&&LightningPickIndex({},.5f)==-1&&LightningPickIndex({0.f,0.f},.7f)==0,"weighted pick follows the weights and handles edge cases");
+     int Hits=0;for(int I=0;I<1000;++I) if(LightningPickIndex(Weights,float(I)/1000.f)==1) ++Hits;Check(Hits>=890&&Hits<=910,"a weight of 9 against 1 is picked about 90% of the time");}
+    Check(LightningTelegraph==.5f&&LightningRadius>=200.f&&LightningMinSeparation>LightningRadius*1.5f,"half-second dodge window and a readable radius");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

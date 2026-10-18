@@ -3,7 +3,7 @@
 #include "GameFramework/GameModeBase.h"
 #include "ASData.h"
 #include "ASGameMode.generated.h"
-class AASPlayerController;class AASPlayerState;class AASEnemy;class AASCharacter;
+class AASLightningStrike;class AASGameState;class AASPlayerController;class AASPlayerState;class AASEnemy;class AASCharacter;
 struct FASReconnect {
     FASBuild Build;
     int32 PendingExperience=0;TArray<int32> PendingCareer;bool RoomDamaged=false,RoomEligible=false;
@@ -64,6 +64,8 @@ public:
     bool Host(const AASPlayerController* PC) const;
     bool AllReady() const;
     float PendingRelocateAt=-1.f;void RelocateBuriedEnemies();
+    // Endless wave 50+ lightning: next strike time and the strikes still in flight.
+    float NextLightningAt=-1.f;TArray<TWeakObjectPtr<AASLightningStrike>> ActiveStrikes;void LightningTick(AASGameState* State);
     int32 PortalSelection=0,PortalSeed=0;float PortalFinish=0;TWeakObjectPtr<AASPlayerController> PortalLeader;TArray<FVector> PortalStarts;FVector PortalTarget=FVector::ZeroVector;
 private:
     int32 RunSeed=1103;
