@@ -83,12 +83,17 @@ int main() {
     Check(RunGainLine(0,0).empty()&&RunGainLine(99,2).empty()&&RunGainLine(0,2)=="Field Dressing  x2"&&RunGainDetail(0,0).empty()&&RunGainDetail(99,1).empty(),"run-gain lines skip empty and invalid entries");
     for(int I=0;I<RunGainCount;++I) if(RunGainValid(I)) Check(RunGainLine(I,1)==AcquisitionTitle(RunGainName(I),1)&&!RunGainDetail(I,1).empty(),"every run gain uses the uniform title plus a detail line");
     Check(AcquisitionTitle("Attack Speed",2)=="Attack Speed  x2"&&AcquisitionTitle("X",0)=="X  x1","uniform acquisition title format");
-    // 0.23.3 arena shift: cover sinks in the last second of the warning and the new cover rises for a second after the shift, with no jump at the swap.
-    Check(ShiftCoverSunk(0.f,0.f)==0.f&&ShiftCoverSunk(5.f,-100.f)==0.f&&ShiftCoverSunk(1.f,100.f)==0.f&&ShiftCoverSunk(100.f,100.f-ShiftWarningSeconds-.5f)==0.f,"no scheduled shift or far from it: cover stays up");
-    Check(ShiftCoverSunk(99.f-1.f,99.f)==0.f&&Near(ShiftCoverSunk(98.5f,99.f),.5f)&&Near(ShiftCoverSunk(99.f,99.f),1.f),"sinks over the last second before the shift");
-    Check(Near(ShiftCoverSunk(98.9999f,99.f),ShiftCoverSunk(99.0001f,99.f),.001f)&&ShiftCoverSunk(99.f,99.f)==1.f,"the swap from old to new cover has no jump");
-    Check(Near(ShiftCoverSunk(99.5f,99.f),.5f)&&ShiftCoverSunk(100.f,99.f)==0.f&&ShiftCoverSunk(150.f,99.f)==0.f,"new cover rises over a second after the shift, then stays up");
-    for(float T=-4.f;T<3.f;T+=.05f) Check(ShiftCoverSunk(100.f+T,100.f)>=0.f&&ShiftCoverSunk(100.f+T,100.f)<=1.f,"sunk fraction stays within 0..1");
+    // 0.23.4 arena shift v2: 0-1s banner, 1-2s the old cover sinks (ease-in), swap at 2s, 2-3s the new cover rises (ease-in).
+    Check(ShiftWarningSeconds==2.f&&ShiftWarningSeconds+ShiftRiseSeconds==ShiftBannerSeconds&&ShiftSinkSeconds==1.f,"timeline: banner 3s = 1s quiet + 1s sink + 1s rise, swap at 2s");
+    Check(ShiftCoverSunk(0.f,0.f)==0.f&&ShiftCoverSunk(5.f,-100.f)==0.f&&ShiftCoverSunk(1.f,100.f)==0.f&&ShiftCoverSunk(100.f,96.5f)==0.f,"no scheduled shift or far from it: cover stays up");
+    Check(ShiftCoverSunk(98.f,100.f)==0.f&&ShiftCoverSunk(99.f,100.f)==0.f&&Near(ShiftCoverSunk(99.5f,100.f),.125f)&&Near(ShiftCoverSunk(100.f,100.f),1.f),"sinking happens only in the second before the swap and ends fully sunk");
+    Check(ShiftCoverSunk(99.1f,100.f)<.01f&&ShiftCoverSunk(99.9f,100.f)>.7f,"sink starts slowly and is fast at the end (slam flush)");
+    Check(ShiftCoverSunk(100.1f,100.f)>.99f&&ShiftCoverSunk(100.9f,100.f)<.3f&&Near(ShiftCoverSunk(101.f,100.f),0.f)&&ShiftCoverSunk(150.f,100.f)==0.f,"rise starts slowly and is fast at the end (slam into place), then stays up");
+    Check((ShiftCoverSunk(99.9f,100.f)-ShiftCoverSunk(99.8f,100.f))>(ShiftCoverSunk(99.2f,100.f)-ShiftCoverSunk(99.1f,100.f))*5.f,"sinking accelerates");
+    Check((ShiftCoverSunk(100.2f,100.f)-ShiftCoverSunk(100.3f,100.f))<(ShiftCoverSunk(100.8f,100.f)-ShiftCoverSunk(100.9f,100.f))/5.f,"rising accelerates");
+    Check(Near(ShiftCoverSunk(99.9999f,100.f),ShiftCoverSunk(100.0001f,100.f),.001f),"the swap from old to new cover has no jump");
+    for(float T=-4.f;T<3.f;T+=.01f) Check(ShiftCoverSunk(100.f+T,100.f)>=0.f&&ShiftCoverSunk(100.f+T,100.f)<=1.f,"sunk fraction stays within 0..1");
+    Check(ShiftCoverSolid(95.f,100.f)&&ShiftCoverSolid(99.f,100.f)&&!ShiftCoverSolid(99.9f,100.f)&&!ShiftCoverSolid(100.f,100.f)&&!ShiftCoverSolid(100.5f,100.f)&&ShiftCoverSolid(100.9f,100.f)&&ShiftCoverSolid(120.f,100.f)&&ShiftCoverSolid(5.f,-100.f),"collision is off only while the blocks are mostly sunk");
     Check(ShiftCoverSunk(std::numeric_limits<float>::quiet_NaN(),10.f)==0.f&&ShiftCoverDrop>=400.f,"bad times do nothing; the drop clears the tallest block");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

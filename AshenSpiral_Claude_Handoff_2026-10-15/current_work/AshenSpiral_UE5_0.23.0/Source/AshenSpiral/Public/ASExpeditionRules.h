@@ -168,14 +168,17 @@ inline std::string RunGainDetail(int Code,int Count) {
         default: return std::string();
     }
 }
-// ---- 0.23.3 arena shift sequence (looks and sound only; the shuffle itself is unchanged).
-// During the last second of the warning the old cover sinks into the floor; from the shift the new cover rises for a second.
-constexpr float ShiftWarningSeconds=3.f,ShiftSinkSeconds=1.f,ShiftRiseSeconds=1.f,ShiftCoverDrop=450.f;
-inline float ShiftSmooth(float X) {X=std::clamp(X,0.f,1.f);return X*X*(3.f-2.f*X);}
+// ---- Arena shift sequence v2 (0.23.4). Timeline from the banner: 0-1s banner only, 1-2s the old cover sinks, the swap happens at 2s,
+// 2-3s the new cover rises. Looks and sound only; the shuffle itself is unchanged.
+constexpr float ShiftWarningSeconds=2.f,ShiftSinkSeconds=1.f,ShiftRiseSeconds=1.f,ShiftBannerSeconds=3.f,ShiftCoverDrop=450.f,ShiftSolidBelow=.55f;
+// Ease-in: slow start, picking up speed, then an abrupt stop ("slam"). TUNABLE exponent 3.
+inline float ShiftEaseIn(float X) {X=std::clamp(X,0.f,1.f);return X*X*X;}
 // 0 = cover fully up, 1 = fully sunk. ShiftAt <= 0 means no shift is scheduled.
 inline float ShiftCoverSunk(float Now,float ShiftAt) {
     if(!std::isfinite(Now)||!std::isfinite(ShiftAt)||ShiftAt<=0.f) return 0.f;
     const float T=Now-ShiftAt;
-    return T<0.f?ShiftSmooth(1.f+T/ShiftSinkSeconds):1.f-ShiftSmooth(T/ShiftRiseSeconds);
+    return T<0.f?ShiftEaseIn(1.f+T/ShiftSinkSeconds):1.f-ShiftEaseIn(T/ShiftRiseSeconds);
 }
+// Collision never moves; it switches on and off at discrete moments of the sequence, so machines can only disagree by one network delay.
+inline bool ShiftCoverSolid(float Now,float ShiftAt) {return ShiftCoverSunk(Now,ShiftAt)<ShiftSolidBelow;}
 }

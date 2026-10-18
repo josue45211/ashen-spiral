@@ -70,6 +70,7 @@ int main() {
     }
     {
         Check(BannerAt(-1).Alpha==0&&BannerAt(BannerLife).Alpha==0,"banner is invisible outside its life");
+        Check(BannerAt(2.5f).Alpha==0&&BannerAt(2.5f,3.f).Alpha>0&&BannerAt(3.f,3.f).Alpha==0,"a banner can be given a longer life (the 3-second arena shift banner)");
         Check(Near(BannerAt(0).Slide,-1.f)&&Near(BannerAt(BannerIn).Slide,0.f)&&BannerAt(.9f).Slide==0.f,"banner slides in from the left and holds centred");
         Check(BannerAt(.06f).TitleScale>1.8f&&Near(BannerAt(1.f).TitleScale,1.f)&&BannerAt(.5f).TitleScale<1.05f,"banner title scales in fast then settles");
         Check(BannerAt(BannerLife-.01f).Slide>0.f&&BannerAt(BannerLife-.01f).Alpha<.1f,"banner exits right while fading");

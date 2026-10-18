@@ -459,7 +459,7 @@ void AASGameMode::EndlessTick(float Delta) {
         EndlessShuffleClock+=Delta;
         if(EndlessShuffleClock>=EndlessShuffleTarget) {
             EndlessShuffleClock=0;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());EndlessShuffleAt=S->SimTime+ASExpedition::ShiftWarningSeconds;S->ShiftAt=EndlessShuffleAt;S->ForceNetUpdate();
-            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("!BANNER|THE ARENA SHIFTS|IN 3 SECONDS"));
+            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("!BANNER|THE ARENA SHIFTS|THE WALLS MOVE"));
         }
     }
     if(Queued>0) return;
@@ -474,7 +474,7 @@ void AASGameMode::EndlessTick(float Delta) {
         if(Wave<=50&&Wave>=NextShuffleWave) {
             NextShuffleWave=Wave+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
             EndlessShuffleAt=S->SimTime+ASExpedition::ShiftWarningSeconds;S->ShiftAt=EndlessShuffleAt;S->ForceNetUpdate();
-            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("!BANNER|THE ARENA SHIFTS|IN 3 SECONDS"));
+            for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(auto* PC=Cast<AASPlayerController>(PS->GetOwner())) PC->Notify(TEXT("!BANNER|THE ARENA SHIFTS|THE WALLS MOVE"));
         }
         QueueEndlessWave();
     }
@@ -489,6 +489,7 @@ void AASGameMode::ShuffleEndlessArena() {
 }
 void AASGameMode::RelocateBuriedEnemies() {
     auto* S=AS::State(this);if(!S||!S->Arena||!S->bEndless) return;
+    S->Effect(7,S->Arena->CellPosition(0)+FVector(0,0,50),FVector::UpVector,FLinearColor(.75f,.6f,.45f),1800.f); // dust as the new cover slams into place
     FCollisionObjectQueryParams Solid;Solid.AddObjectTypesToQuery(ECC_WorldStatic);
     auto Enemies=S->Enemies;
     for(auto W:Enemies) if(auto* E=W.Get()) {

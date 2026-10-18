@@ -454,7 +454,7 @@ void AASHUD::DrawWaveBanner(AASGameState* S) {
     const bool Fighting=S->Phase==EASPhase::Combat;
     // Detect transitions from replicated state; the first frame only records the baseline.
     if(BannerPhase<0) {BannerRoom=S->Room;BannerWave=S->Wave;BannerEndlessWave=S->EndlessWave;BannerCleared=S->ClearedEndlessWave;BannerPhase=int32(S->Phase);}
-    auto Fire=[&](const FString& Title,const FString& Sub,FLinearColor Color) {BannerStart=Now;BannerTitle=Title;BannerSub=Sub;BannerColor=Color;};
+    auto Fire=[&](const FString& Title,const FString& Sub,FLinearColor Color,float Life=1.9f) {BannerStart=Now;BannerTitle=Title;BannerSub=Sub;BannerColor=Color;BannerLifeNow=Life;};
     if(S->bEndless) {
         if(S->EndlessWave!=BannerEndlessWave&&S->EndlessWave>0&&S->Phase!=EASPhase::Hub) {
             const bool Boss=ASExpedition::BossWave(S->EndlessWave);
@@ -467,9 +467,9 @@ void AASHUD::DrawWaveBanner(AASGameState* S) {
         Fire(Boss?FString(TEXT("BOSS")):(EliteWave?FString(TEXT("ELITE WAVE")):FString::Printf(TEXT("WAVE %d"),S->Wave+1)),Boss?TEXT(""):FString::Printf(TEXT("OF %d"),Waves),Boss?FLinearColor(1.f,.25f,.2f):(EliteWave?FLinearColor(1.f,.5f,.1f):FLinearColor(1.f,.78f,.3f)));
     } else if(S->Phase==EASPhase::Reward&&BannerPhase==int32(EASPhase::Combat)&&!S->bEndless)
         Fire(TEXT("CHAMBER CLEARED"),TEXT(""),FLinearColor(.5f,1.f,.7f));
-    if(const auto* AlertPC=Cast<AASPlayerController>(PlayerOwner)) if(AlertPC->AlertSeq!=BannerAlertSeen) {BannerAlertSeen=AlertPC->AlertSeq;Fire(AlertPC->AlertTitle,AlertPC->AlertSub,FLinearColor(1.f,.3f,.15f));}
+    if(const auto* AlertPC=Cast<AASPlayerController>(PlayerOwner)) if(AlertPC->AlertSeq!=BannerAlertSeen) {BannerAlertSeen=AlertPC->AlertSeq;Fire(AlertPC->AlertTitle,AlertPC->AlertSub,FLinearColor(1.f,.3f,.15f),ASExpedition::ShiftBannerSeconds);}
     BannerRoom=S->Room;BannerWave=S->Wave;BannerEndlessWave=S->EndlessWave;BannerCleared=S->ClearedEndlessWave;BannerPhase=int32(S->Phase);
-    const auto Pose=ASPresentation::BannerAt(Now-BannerStart);if(Pose.Alpha<=0.f) return;
+    const auto Pose=ASPresentation::BannerAt(Now-BannerStart,BannerLifeNow);if(Pose.Alpha<=0.f) return;
     // A dark band with colour rails; the title slides with the band and the subtitle trails it.
     const float BandH=118.f*Pose.Stretch*2.f,Y=Height*.22f-BandH*.5f,Off=Pose.Slide*Width;
     Box(Off,Y,Width,BandH,FLinearColor(0,0,0,.62f*Pose.Alpha));

@@ -21,7 +21,7 @@ private:
     // Portal walk-in fade (run start) and sky-stage flash, both client-side and cosmetic.
     float TransitionStart=-10.f,StageFlashStart=-10.f;int32 LastHudPhase=-1,LastHudStage=0,TransitionTier=0;bool bTransitionEndless=false;
     // Wave banner (cosmetic, driven by replicated wave/phase changes).
-    float BannerStart=-10.f;FString BannerTitle,BannerSub;FLinearColor BannerColor=FLinearColor::White;
+    float BannerStart=-10.f,BannerLifeNow=1.9f;FString BannerTitle,BannerSub;FLinearColor BannerColor=FLinearColor::White;
     int32 BannerRoom=-99,BannerWave=-99,BannerEndlessWave=-99,BannerCleared=-99,BannerPhase=-1;
     int32 BannerAlertSeen=0;
     void DrawWaveBanner(AASGameState* State);

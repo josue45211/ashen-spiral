@@ -24,9 +24,7 @@
 #include "Net/UnrealNetwork.h"
 #include "ASGameInstance.h"
 #include "ASExpeditionRules.h"
-#include "Components/AudioComponent.h"
-#include "Sound/SoundWave.h"
-#include "Sound/SoundWaveProcedural.h"
+#include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
 namespace ASAssets {
 UStaticMesh* Mesh(const FString& Name) {
@@ -135,9 +133,9 @@ void AASWorld::Tick(float Delta) {
         }
     }
     if(IsEndlessArena()) ApplyShopVisibility(ShopOpen());
+    if(const auto* ShiftState=AS::State(this)) AnimateShift(ShiftState); // runs on dedicated servers too (collision); visuals and sound only where there is a screen
     if(GetNetMode()==NM_DedicatedServer) return;
     const auto* S=AS::State(this);if(!S) return;
-    AnimateShift(S);
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
     const int32 Stage=ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave);
     if(Stage!=SkyTo) {SkyFrom=SkyTo;SkyTo=Stage;SkyBlendT=0.f;}
@@ -155,54 +153,45 @@ void AASWorld::Tick(float Delta) {
 }
 void AASWorld::RebuildEndlessCover() {
     const double Start=FPlatformTime::Seconds();
-    for(auto It=Batches.CreateIterator();It;++It) if(It->Key.ToString().Contains(TEXT("EndlessCover"))) {if(It->Value) It->Value->DestroyComponent();It.RemoveCurrent();}
-    BuildEndlessCover(EndlessCenter);LastCoverDrop=-9999.f;
+    for(auto It=Batches.CreateIterator();It;++It) if(It->Key.ToString().Contains(TEXT("EndlessCover"))||It->Key.ToString().Contains(TEXT("EndlessSolid"))) {if(It->Value) It->Value->DestroyComponent();It.RemoveCurrent();}
+    BuildEndlessCover(EndlessCenter);LastCoverDrop=-9999.f;SolidState=-1;
+    if(const auto* State=AS::State(this)) AnimateShift(State); // apply the right height and collision this frame
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: endless cover rebuilt shuffle=%d batches=%d in %.2f ms"),Config.Shuffle,Batches.Num(),(FPlatformTime::Seconds()-Start)*1000.0);
 }
-void AASWorld::StartSiren() {
-    if(SirenAudio) return;
-    // Placeholder siren synthesised in code (no new audio assets): a quiet two-note wail, gliding between 480 and 640 Hz about once a second.
-    auto* Wave=NewObject<USoundWaveProcedural>(this);if(!Wave) return;
-    Wave->SetSampleRate(22050);Wave->NumChannels=1;Wave->Duration=INDEFINITELY_LOOPING_DURATION;Wave->SoundGroup=SOUNDGROUP_Default;Wave->bLooping=false;
-    struct FSirenState {float Phase=0.f,Time=0.f;};
-    const TSharedRef<FSirenState> State=MakeShared<FSirenState>();
-    Wave->OnSoundWaveProceduralUnderflow.BindLambda([State](USoundWaveProcedural* Source,const int32 SamplesRequired) {
-        const int32 Count=FMath::Clamp(SamplesRequired,256,4096);TArray<int16> Samples;Samples.SetNumUninitialized(Count);
-        for(int32 I=0;I<Count;++I) {
-            State->Time+=1.f/22050.f;
-            const float Glide=.5f+.5f*FMath::Sin(State->Time*UE_TWO_PI*.9f);
-            State->Phase+=UE_TWO_PI*(480.f+160.f*Glide)/22050.f;if(State->Phase>UE_TWO_PI) State->Phase-=UE_TWO_PI;
-            Samples[I]=int16(FMath::Sin(State->Phase)*6500.f);
-        }
-        if(Source) Source->QueueAudio(reinterpret_cast<const uint8*>(Samples.GetData()),Count*int32(sizeof(int16)));
-    });
-    SirenAudio=UGameplayStatics::SpawnSound2D(this,Wave,.4f,1.f);
-}
-void AASWorld::StopSiren() {
-    if(SirenAudio) {SirenAudio->FadeOut(.25f,0.f);SirenAudio=nullptr;}
-}
 void AASWorld::AnimateShift(const AASGameState* S) {
-    if(!S||GetNetMode()==NM_DedicatedServer||!IsEndlessArena()) {StopSiren();return;}
+    if(!S||!IsEndlessArena()) return;
     const float Now=S->SimTime;
     const auto* GI=GetGameInstance<UASGameInstance>();const bool Reduce=GI&&GI->bReduceMotion;
-    // Cover sinks into the floor during the last second of the warning, and the new cover rises for a second after the shift.
+    // Collision never moves. It switches off while the blocks are mostly sunk and on again once the new ones are mostly risen,
+    // in discrete steps, so every machine agrees up to one network delay (moving collision made P2 hit invisible walls).
+    const int8 Solid=(Reduce||S->ShiftAt<=0.f||ASExpedition::ShiftCoverSolid(Now,S->ShiftAt))?1:0;
+    if(Solid!=SolidState) {
+        SolidState=Solid;
+        for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessSolid"))) Pair.Value->SetCollisionEnabled(Solid?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
+    }
+    if(GetNetMode()==NM_DedicatedServer) return;
+    // Visual blocks sink (ease-in, then slam flush) in the second before the swap, and the new ones rise (ease-in, slam into place) after it.
     const float Drop=Reduce?0.f:ASExpedition::ShiftCoverDrop*ASExpedition::ShiftCoverSunk(Now,S->ShiftAt);
     if(!FMath::IsNearlyEqual(Drop,LastCoverDrop,.5f)) {
         for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessCover"))) Pair.Value->SetRelativeLocation(FVector(0,0,-Drop));
         LastCoverDrop=Drop;
     }
-    // Siren only inside the warning window; a concrete-on-concrete slide when the blocks swap.
-    const bool Warning=S->ShiftAt>0.f&&Now>=S->ShiftAt-ASExpedition::ShiftWarningSeconds&&Now<S->ShiftAt;
-    if(Warning) StartSiren();else StopSiren();
-    if(S->ShiftAt>0.f&&Now>=S->ShiftAt&&Now<S->ShiftAt+1.2f&&!FMath::IsNearlyEqual(SlidShiftAt,S->ShiftAt)) {
-        SlidShiftAt=S->ShiftAt;
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) UGameplayStatics::PlaySound2D(this,Cue,.8f,.55f);
-    }
+    if(S->ShiftAt<=0.f) return;
+    // Placeholder tomb sounds (existing assets, pitched low); each plays once per shift.
+    const auto Cue=[&](float& Last,float At,const TCHAR* Path,float Volume,float Pitch) {
+        if(Now<At||Now>=At+.6f||FMath::IsNearlyEqual(Last,S->ShiftAt)) return;
+        Last=S->ShiftAt;
+        if(auto* Sound=LoadObject<USoundBase>(nullptr,Path)) UGameplayStatics::PlaySound2D(this,Sound,Volume,Pitch);
+    };
+    Cue(SinkSoundAt,S->ShiftAt-ASExpedition::ShiftSinkSeconds,TEXT("/Game/Audio/S_Collapse.S_Collapse"),.7f,.4f);
+    Cue(ThudDownAt,S->ShiftAt,TEXT("/Game/Audio/S_HammerHit.S_HammerHit"),.65f,.55f);
+    Cue(RiseSoundAt,S->ShiftAt,TEXT("/Game/Audio/S_Collapse.S_Collapse"),.8f,.5f);
+    Cue(ThudUpAt,S->ShiftAt+ASExpedition::ShiftRiseSeconds,TEXT("/Game/Audio/S_HammerSmash.S_HammerSmash"),.75f,.6f);
 }
 void AASWorld::Rebuild() {
     if(BuiltGeneration==Config.Generation) return;
     if(Config.Room==ASRules::EndlessRoom&&BuiltRoom==Config.Room&&BuiltEpoch==Config.Epoch&&!Batches.IsEmpty()) {BuiltGeneration=Config.Generation;RebuildEndlessCover();return;}
-    BuiltGeneration=Config.Generation;BuiltEpoch=Config.Epoch;BuiltRoom=Config.Room;bVaultDimmed=false;LastCoverDrop=-9999.f;
+    BuiltGeneration=Config.Generation;BuiltEpoch=Config.Epoch;BuiltRoom=Config.Room;bVaultDimmed=false;LastCoverDrop=-9999.f;SolidState=-1;
     for(auto& P:Batches) if(P.Value) P.Value->DestroyComponent();Batches.Empty();
     for(auto C:Labels) if(C) C->DestroyComponent();Labels.Empty();
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
@@ -231,7 +220,9 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
         C->SetCollisionObjectType(ECC_WorldStatic);C->SetCollisionResponseToAllChannels(ECR_Block);C->SetGenerateOverlapEvents(false);
-        C->SetCanEverAffectNavigation(false);C->SetCullDistances(0,0);C->RegisterComponent();Batches.Add(Key,C);
+        C->SetCanEverAffectNavigation(false);C->SetCullDistances(0,0);
+        if(Group.StartsWith(TEXT("EndlessSolid"))) {C->SetVisibility(false);C->SetHiddenInGame(true);C->SetCastShadow(false);} // collision-only proxy
+        C->RegisterComponent();Batches.Add(Key,C);
     }
     C->AddInstance(FTransform(FRotator(0,Yaw,0),P,Scale),true);
 }
@@ -306,7 +297,10 @@ void AASWorld::BuildEndlessCover(const FVector& Center) {
     if(Config.KeepCount>0) Keep[0]={Config.KeepX0,Config.KeepY0,true};
     if(Config.KeepCount>1) Keep[1]={Config.KeepX1,Config.KeepY1,true};
     for(const auto& O:ASRules::EndlessProps(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep)) {
-        Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=370?0:(O.Height>=290?1:2)),Center+FVector(O.X,O.Y,O.Height*.5f),FVector(O.Length/100.f,O.Thickness/100.f,O.Height/100.f),Stone*(O.Height>=370?1.15f:1.f),true,O.Yaw,0,.05f);
+        const FVector At=Center+FVector(O.X,O.Y,O.Height*.5f),Scale(O.Length/100.f,O.Thickness/100.f,O.Height/100.f);
+        const FLinearColor Tint=Stone*(O.Height>=ASRules::EndlessWallHeight-10.f?1.15f:1.f);
+        Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=ASRules::EndlessWallHeight-10.f?0:2),At,Scale,Tint,false,O.Yaw,0,.05f); // visual, animated
+        Add(TEXT("Cube"),TEXT("EndlessSolid"),At,Scale,Tint,true,O.Yaw,0,.05f);                                                                  // collision proxy, fixed
     }
 }
 void AASWorld::EndlessArena(const FVector& Center) {
