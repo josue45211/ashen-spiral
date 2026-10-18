@@ -359,8 +359,9 @@ void AASGameMode::Tick(float Delta) {
             E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);const int32 Pool[]={0,1,2,5,6,7,8,9};
             E->Kind=ASRules::Boss(S->Room)?4:((ASRules::Elite(S->Room)&&S->Wave==2&&Queued==1)?3:Pool[Random.RandRange(0,FMath::Min(7,3+S->Room/2))]);
             if(!E->Elite()&&S->Room>=6&&Random.FRand()<.45f) {const int32 Themes[5][3]={{1,6,8},{0,5,7},{2,6,8},{0,5,9},{5,6,8}};E->Kind=Themes[E->Theme][Random.RandRange(0,2)];}
+            if(!E->Boss()&&!E->Elite()&&ASExpedition::SpawnsFlier(false,S->Room,Random.FRand())) E->Kind=ASExpedition::FlierKind; // after the theme override so it sticks
             E->MaxHealth=(E->Boss()?1100.f+450.f*E->Ward:(E->Elite()?300.f:70.f)+E->Ward*22.f)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);
-            E->MaxHealth*=ASBuild::ChallengeHealth(S->Challenge)*(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:1.f)));
+            E->MaxHealth*=ASBuild::ChallengeHealth(S->Challenge)*(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:(E->Kind==ASExpedition::FlierKind?ASExpedition::FlierHealthScale:1.f))));
             if(S->bEndless) ConfigureEndlessEnemy(E);
             E->Health=E->MaxHealth;UGameplayStatics::FinishSpawningActor(E,FTransform(At));E->RefreshLook();
             S->Effect(3,At,FVector::ForwardVector,ASData::BiomeColor(E->Theme),1.3f);
@@ -446,9 +447,10 @@ void AASGameMode::ConfigureEndlessEnemy(AASEnemy* E) {
         if(Random.FRand()<EliteChance) {E->Kind=3;Tier=1;}
         else E->Kind=Pool[Random.RandRange(0,FMath::Min(7,2+Wave/4))];
     }
+    if(!E->Boss()&&!E->Elite()&&ASExpedition::SpawnsFlier(true,Wave,Random.FRand())) E->Kind=ASExpedition::FlierKind;
     const float Base=E->Boss()?1100.f+450.f*E->Ward:(E->Elite()?300.f:70.f)+E->Ward*22.f;
     E->MaxHealth=Base*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty,Wave,Tier);
-    E->MaxHealth*=(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:1.f)));
+    E->MaxHealth*=(E->Kind==6?1.8f:(E->Kind==9?1.5f:(E->Kind==5?.85f:(E->Kind==ASExpedition::FlierKind?ASExpedition::FlierHealthScale:1.f))));
 }
 void AASGameMode::EndlessTick(float Delta) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Combat) return;

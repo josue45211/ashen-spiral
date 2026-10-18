@@ -1,4 +1,5 @@
 #include "ASEnemy.h"
+#include "ASExpeditionRules.h"
 #include "ASPresentationRules.h"
 #include "ASCharacter.h"
 #include "ASAnimationRules.h"
@@ -42,7 +43,7 @@ void AASEnemy::AnimateDeath() {
     const float Now=AS::Time(this);
     if(DeathSeenAt<0.f) {
         DeathSeenAt=Now;
-        for(auto* Piece:{Tell.Get(),Beam.Get(),Eye.Get(),Aura.Get(),Crown.Get()}) if(Piece) Piece->SetVisibility(false);
+        for(auto* Piece:{Tell.Get(),Beam.Get(),Eye.Get(),Aura.Get(),Crown.Get(),WingL.Get(),WingR.Get()}) if(Piece) Piece->SetVisibility(false);
     }
     // Topples backward and shrinks away with a brief glow, over EnemyDeathSeconds.
     const auto Look=ASPresentation::EnemyDeathAt(Now-DeathSeenAt);
@@ -51,4 +52,12 @@ void AASEnemy::AnimateDeath() {
     if(Body) {Body->SetRelativeRotation(Fall);Body->SetRelativeScale3D(FVector(BodyScale*Fade));
         if(auto* M=Cast<UMaterialInstanceDynamic>(Body->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),7.f*Look.Glow);}
     if(ArmorFigure) {ArmorFigure->SetRelativeRotation(Fall);ArmorFigure->SetRelativeScale3D(FVector(Fade));}
+}
+
+void AASEnemy::AnimateFlier() {
+    // Wings flap faster and wider while the dive is being telegraphed.
+    const float Now=AS::Time(this);
+    const float Degrees=FMath::Sin(Now*(bWinding?26.f:15.f)+float(GetUniqueID()%5))*(bWinding?32.f:20.f);
+    if(WingL) WingL->SetRelativeRotation(FRotator(0.f,0.f,-Degrees));
+    if(WingR) WingR->SetRelativeRotation(FRotator(0.f,0.f,Degrees));
 }

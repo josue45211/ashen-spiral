@@ -1,4 +1,5 @@
 #include "ASEnemy.h"
+#include "ASExpeditionRules.h"
 #include "ASPresentationRules.h"
 #include "ASMeleeRules.h"
 #include "ASExpeditionRules.h"
@@ -32,6 +33,8 @@ AASEnemy::AASEnemy() {
     Body=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));Body->SetupAttachment(RootComponent);
     Eye=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Eyes"));Eye->SetupAttachment(RootComponent);
     Tell=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Anticipation"));Tell->SetupAttachment(RootComponent);
+    WingL=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingL"));WingL->SetupAttachment(RootComponent);
+    WingR=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingR"));WingR->SetupAttachment(RootComponent);
     Crown=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Crown"));Crown->SetupAttachment(RootComponent);
     Beam=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SniperSight"));Beam->SetupAttachment(RootComponent);
     Aura=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ElementAura"));Aura->SetupAttachment(RootComponent);
@@ -43,7 +46,7 @@ void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetime
     DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);
 }
 void AASEnemy::RefreshLook() {
-    const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9;
+    const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
     for(auto Part:ArmorParts) Part->SetVisibility(Humanoid);
     ArmorWeapon->SetVisibility(Humanoid);ArmorShield->SetVisibility(Humanoid&&Kind==6);Body->SetVisibility(!Humanoid);
     if(bTrainingDummy) {
@@ -55,11 +58,21 @@ void AASEnemy::RefreshLook() {
     const TCHAR* Models[]={TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Brute"),TEXT("SM_Brute"),TEXT("SM_RiftLeaper"),TEXT("SM_Bulwark"),TEXT("SM_EmberShaman"),TEXT("SM_RiftSniper"),TEXT("SM_Broodcaller")};
     const FLinearColor Colors[]={FLinearColor(.1f,.2f,.26f),FLinearColor(.2f,.1f,.35f),FLinearColor(.25f,.3f,.14f),FLinearColor(.32f,.065f,.05f),ASData::BiomeColor(Ward),FLinearColor(.28f,.1f,.5f),FLinearColor(.42f,.35f,.19f),FLinearColor(.55f,.12f,.025f),FLinearColor(.03f,.32f,.45f),FLinearColor(.1f,.38f,.12f)};
     ASAssets::Style(Body,Models[FMath::Clamp(Kind,0,9)],FMath::Lerp(FMath::Lerp(Colors[FMath::Clamp(Kind,0,9)],ASData::BiomeColor(Theme),.35f),FLinearColor(.95f,.07f,.05f),.22f),Kind==6?.8f:.4f); // red cast: enemies read as foes
+    if(Kind==ASExpedition::FlierKind) ASAssets::Style(Body,TEXT("SM_Wraith"),FLinearColor(.30f,.05f,.38f),.3f,1.f); // Gloomwing body
     const float HalfHeight=Elite()?187.5f*S*.5f:83.f;GetCapsuleComponent()->SetCapsuleHalfHeight(HalfHeight);
     Body->SetRelativeLocation(FVector(0,0,Elite()?62.5f*S-HalfHeight:-HalfHeight));Body->SetRelativeScale3D(FVector(S));
-    ASAssets::Style(Eye,TEXT("Cube"),Kind==8?FLinearColor(.1f,.7f,1):FLinearColor(1,.09f,.025f),0,7);Eye->SetRelativeLocation(FVector(33*S,0,55*S));Eye->SetRelativeScale3D(FVector(.08f,.44f,.065f)*S);Eye->SetVisibility(Kind<5);
+    ASAssets::Style(Eye,TEXT("Cube"),Kind==8?FLinearColor(.1f,.7f,1):FLinearColor(1,.09f,.025f),0,7);Eye->SetRelativeLocation(FVector(33*S,0,55*S));Eye->SetRelativeScale3D(FVector(.08f,.44f,.065f)*S);Eye->SetVisibility(Kind<5||Kind==ASExpedition::FlierKind);
     Crown->SetVisibility(false); // Crystals grow in the environment, never on enemy heads.
     ASAssets::Style(Tell,TEXT("SM_Ring"),Kind==8?FLinearColor(.1f,.65f,1):FLinearColor(1,.1f,.02f),0,5);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+4));Tell->SetRelativeScale3D(FVector(Boss()?9:4,Boss()?9:4,1));
+    {   // Flier wings: flat glowing slabs that flap. Fliers also pass over walls (no world-static collision), so v1 needs no pathfinding.
+        const bool Flier=Kind==ASExpedition::FlierKind;
+        for(auto* Wing:{WingL.Get(),WingR.Get()}) if(Wing) {Wing->SetVisibility(Flier);if(Flier) {ASAssets::Style(Wing,TEXT("Cube"),FLinearColor(.16f,.03f,.26f),.2f,2.5f);Wing->SetCastShadow(false);}}
+        if(Flier&&WingL&&WingR) {
+            WingL->SetRelativeLocation(FVector(-8,-70,30));WingR->SetRelativeLocation(FVector(-8,70,30));
+            WingL->SetRelativeScale3D(FVector(.6f,1.2f,.05f));WingR->SetRelativeScale3D(FVector(.6f,1.2f,.05f));
+            GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic,ECR_Ignore);GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);
+        }
+    }
     ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(.1f,.65f,1),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
     if(Humanoid) {
         const TCHAR* Meshes[]={TEXT("SM_Torso"),TEXT("SM_EnemyHelm"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_EnemyCape"),TEXT("SM_ArmorCore")};
@@ -121,7 +134,7 @@ void AASEnemy::Tick(float Delta) {
     Tell->SetVisibility(bWinding&&!bTrainingDummy);Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy);
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
-        if(GetNetMode()!=NM_DedicatedServer) AnimateArmor(Delta,T);
+        if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Kind==ASExpedition::FlierKind) AnimateFlier();}
         Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*(Kind==5?.30f:.12f))));
         Body->SetRelativeRotation(FRotator(bWinding?(Kind==5?-15.f:-7.f)*T:0,0,0));
         if(bWinding) {Tell->SetRelativeRotation(FRotator(0,S->SimTime*100,0));if(auto* M=Cast<UMaterialInstanceDynamic>(Tell->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+T*6);}
@@ -143,6 +156,7 @@ void AASEnemy::Tick(float Delta) {
     AASCharacter* Target=nullptr;float Best=FLT_MAX;
     for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) {float D=FVector::DistSquared2D(GetActorLocation(),H->GetActorLocation());if(D<Best){Best=D;Target=H.Get();}}
     if(!Target) return;
+    if(Kind==ASExpedition::FlierKind) {TickFlier(Delta,Target,Best);return;}
     if(GetActorLocation().Z<-500 && S->Arena) {SetActorLocation(S->Arena->SafeEnemyPoint(GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();}
     if(LeapUntil>S->SimTime) {
         GetCharacterMovement()->MaxWalkSpeed=1100;StuckFor=0;
@@ -302,4 +316,38 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
         const float SynergyDealt=SynergyKilled?SynergyBefore:FMath::Max(0.f,SynergyBefore-Target->Health);
         if(SynergyDealt>0) for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* RecipientPC=Cast<AASPlayerController>(Player->GetOwner())) RecipientPC->SynergyNumber(Target->GetActorLocation()+FVector(0,0,80),SynergyDealt,Trigger);
     }
+}
+
+void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared) {
+    auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
+    if(Move->MovementMode!=MOVE_Flying) Move->SetMovementMode(MOVE_Flying);
+    const float Now=S->SimTime;const FVector Here=GetActorLocation(),There=Target->GetActorLocation();
+    const float FloorZ=There.Z-88.f; // the target's feet: fliers hover relative to the fight, not to the terrain under them
+    Move->MaxFlySpeed=330.f*ASArsenal::EnemySpeedScale(false)*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f);
+    if(DiveUntil>Now) {
+        // Dive: fast, straight through where the player was; one contact hit; pull up on arrival or near the floor.
+        Move->Velocity=DiveDirection*ASExpedition::FlierDiveSpeed;
+        if(FVector::Dist(Here,There)<170.f&&Now>LastContact&&Here.Z>FloorZ-60.f) {LastContact=Now+.6f;Target->Hurt(ASExpedition::FlierContactDamage,this);}
+        if(Here.Z<=FloorZ+70.f||FVector::Dist(Here,DiveTarget)<80.f) DiveUntil=0.f;
+        return;
+    }
+    if(bWinding) {
+        Move->StopMovementImmediately();SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
+        if(Now>=WindupEnd) {
+            bWinding=false;DiveTarget=There;DiveDirection=((There-FVector(0,0,20.f))-Here).GetSafeNormal();
+            DiveUntil=Now+ASExpedition::FlierDiveSeconds;NextAttack=Now+ASExpedition::FlierAttackDelay(FMath::FRand());ForceNetUpdate();
+        }
+        return;
+    }
+    if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f)) {
+        Aim=(There-Here).GetSafeNormal2D();WindupStart=Now;WindupEnd=Now+ASExpedition::FlierWindup;bWinding=true;ForceNetUpdate();return;
+    }
+    // Circle the target at a fixed radius and hover height, with a slow bob.
+    if(OrbitAngle==0.f) {OrbitSign=(GetUniqueID()&1)?1.f:-1.f;OrbitAngle=float(GetUniqueID()%628)/100.f+.01f;}
+    OrbitAngle+=Delta*.9f*OrbitSign;
+    const FVector Orbit=There+FVector(FMath::Cos(OrbitAngle),FMath::Sin(OrbitAngle),0.f)*ASExpedition::FlierOrbitRadius;
+    const float Bob=FMath::Sin(Now*2.3f+float(GetUniqueID()%7))*18.f;
+    const FVector Delta3=FVector(Orbit.X,Orbit.Y,FloorZ+ASExpedition::FlierHover+Bob)-Here;
+    AddMovementInput(Delta3.GetSafeNormal(),FMath::Clamp(Delta3.Size()/200.f,.2f,1.f),true);
+    SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
 }

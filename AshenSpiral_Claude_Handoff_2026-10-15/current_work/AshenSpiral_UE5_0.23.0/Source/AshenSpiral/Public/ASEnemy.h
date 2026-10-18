@@ -56,9 +56,14 @@ private:
     bool bVisualInitialized=false;
     void AnimateArmor(float Delta,float Windup);
     void AnimateDeath();
+    void AnimateFlier();
+    void TickFlier(float Delta,AASCharacter* Target,float DistanceSquared);
+    FVector DiveDirection=FVector::ForwardVector,DiveTarget=FVector::ZeroVector;float DiveUntil=0,OrbitAngle=0,OrbitSign=1;
     float DeathSeenAt=-1.f;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Eye;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> WingL; // Gloomwing (flier) wings; hidden on every other kind
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> WingR;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Crown;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Aura;

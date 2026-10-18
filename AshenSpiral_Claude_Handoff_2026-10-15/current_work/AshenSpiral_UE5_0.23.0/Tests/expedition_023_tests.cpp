@@ -106,5 +106,11 @@ int main() {
     {const std::vector<float> Weights{1.f,9.f};Check(LightningPickIndex(Weights,.05f)==0&&LightningPickIndex(Weights,.5f)==1&&LightningPickIndex(Weights,1.f)==1&&LightningPickIndex({},.5f)==-1&&LightningPickIndex({0.f,0.f},.7f)==0,"weighted pick follows the weights and handles edge cases");
      int Hits=0;for(int I=0;I<1000;++I) if(LightningPickIndex(Weights,float(I)/1000.f)==1) ++Hits;Check(Hits>=890&&Hits<=910,"a weight of 9 against 1 is picked about 90% of the time");}
     Check(LightningTelegraph==.5f&&LightningRadius>=200.f&&LightningMinSeparation>LightningRadius*1.5f,"half-second dodge window and a readable radius");
+    // 0.23.4 flying monster
+    Check(!SpawnsFlier(true,7,0.f)&&SpawnsFlier(true,8,.05f)&&!SpawnsFlier(true,8,.2f)&&!SpawnsFlier(false,3,0.f)&&SpawnsFlier(false,4,.1f)&&!SpawnsFlier(false,4,.2f),"fliers appear from Endless wave 8 and story room 4, at a modest rate");
+    Check(SpawnsFlier(true,1000,.27f)&&!SpawnsFlier(true,1000,.29f)&&SpawnsFlier(false,500,.24f)&&!SpawnsFlier(false,500,.26f)&&!SpawnsFlier(true,50,std::numeric_limits<float>::quiet_NaN()),"flier rate is capped and ignores a bad roll");
+    Check(FlierKind==10&&FlierHealthScale<1.f&&FlierHover-88.f<230.f,"a flier hovers within melee's vertical reach (230 cm) of a standing player");
+    Check(FlierAttackDelay(0.f)==4.f&&FlierAttackDelay(1.f)==6.f&&FlierAttackDelay(std::numeric_limits<float>::quiet_NaN())==5.f,"dives come every 4-6 seconds");
+    Check(FlierDiveSpeed*FlierDiveSeconds>=700.f&&FlierWindup>=.5f&&FlierContactDamage>0.f,"a dive covers enough ground and is telegraphed for at least half a second");
     std::cout<<"PASS: "<<Checks<<" expedition rule checks.\n";
 }

@@ -207,4 +207,15 @@ inline int LightningPickIndex(const std::vector<float>& Weights,float Roll) {
     for(std::size_t I=0;I<Weights.size();++I) {Target-=std::max(0.f,std::isfinite(Weights[I])?Weights[I]:0.f);if(Target<0.f) return int(I);}
     return int(Weights.size())-1;
 }
+// ---- Flying monster (0.23.4): the "Gloomwing" (enemy Kind 10). It hovers low enough for melee to reach it, circles the nearest player,
+// telegraphs, then dives in a straight line through where the player stood. v1 is deliberately simple. Everything here is TUNABLE.
+constexpr int FlierKind=10;
+constexpr float FlierHealthScale=.55f,FlierHover=200.f,FlierOrbitRadius=520.f,FlierDiveSpeed=1500.f,FlierDiveSeconds=.55f,FlierWindup=.7f,FlierContactDamage=18.f;
+inline float FlierAttackDelay(float Roll) {return 4.f+2.f*std::clamp(std::isfinite(Roll)?Roll:.5f,0.f,1.f);}
+// Level is the room (story) or the wave (Endless). Roll is a 0..1 random number.
+inline bool SpawnsFlier(bool Endless,int Level,float Roll) {
+    if(!std::isfinite(Roll)) return false;
+    const float Chance=Endless?(Level>=8?std::min(.28f,.08f+.004f*float(Level-8)):0.f):(Level>=4?std::min(.25f,.15f+.01f*float(Level-4)):0.f);
+    return Roll<Chance;
+}
 }
