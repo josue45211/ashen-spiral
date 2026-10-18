@@ -176,3 +176,39 @@ NOT DONE / QUEUED:
 - Checks before export: unity AND -DisableUnity UBT editor builds Succeeded (zero errors, no warnings in project files), run_tests.py exit 0. No game launch was done by me.
 - Playtest checklist: Docs/PLAYTEST_0.23.2.md (also in the zip), 21 numbered items plus known gaps.
 - Not in this build: death slow-mo + stats reveal (Part 2 #10), the rest of the Astra port list, spawn-telegraph / hammer-slam / wave-50 juice, the dash challenge.
+
+## 0.23.2 playtest-fix batch (2026-10-17 evening) - 19 of 21 items done, 2 need Josue
+Bar per item: UBT editor build OK, Tests/run_tests.py exit 0 (run inside the MSVC env: `vcvars64.bat` first, otherwise the native tests are skipped and the script exits 2), crash-safety self-review. Full `-DisableUnity` editor build run once at the end on HEAD b424959: Succeeded, no warnings from project files. NOTHING verified in-engine (no runs, per orders). Details and confidence notes for every choice are in MERGE_LOG.md.
+
+Done (commit, item):
+- 3080d2a P0 cursor: confined only during active gameplay (re-applied every tick); free in menus/pause; windowed unchanged.
+- 8130fa4 Portals: one proximity "press E" prompt for Ember/Ashen/Blood/Endless; all players must be at the archway; host-only; lock reasons, seed, modifiers in the prompt. Old portal pages are dead code.
+- 68fe942 HUD: duplicate wave toasts removed; arena-shift warning is a banner; low-HP vignette is a smooth gradient.
+- cc94f9e Trait banner shown to the partner above the acquirer (chest, Trader's Pick, legendary, Ember Bargain).
+- 420c737 Boss IMMUNE tag; menu buttons keep words intact (buttons widened 166->196).
+- 0c3665f Final-kill slow-mo 30% for 2.0s with both cameras turning to the kill (engine ClientSetRotation, no new RPC); both downed = run ends at once (also Endless/solo).
+- d66f5c8 Obstacles invisible to P2: client safety rebuild (LOW confidence, see below).
+- 2dd99ef Run reward log + reworked tab menu (weapon, base stats, run-only build, long block last, no achievements/permanent entries). Heart of the Spiral and every shop/chest/checkpoint reward now listed.
+- 5d305d5 New traits Attunement (+12%/rank status damage) and Teamwork (+20%/rank synergy damage, co-op only).
+- 14ed528 Dash trail: character-shaped afterimages, driven by real movement (both players see both), plus hammer leap.
+- b424959 Friend/foe rings (player-colour under players, red under enemies); character flair = same ring.
+- fef9f6e Version label 0.23.2.
+
+UNVERIFIED playtest checklist (all of the above is compile + native tests only):
+1. Cursor: fullscreen, dual monitor. Free while paused/menu; cannot escape while playing. P2 at 4096x2160: if one edge still leaks, tell me which edge (plan: inset clip rect 1-2px).
+2. Portals: walk up, prompt text correct per portal; "waiting for other players" when one is away; only host can press E; locked portals show the reason; seed field is now on hub menu page 1.
+3. Wave banner is the only wave-state text; arena-shift banner appears 3s before a shift; vignette smooth, pulses faster as HP drops, off at full HP and in the hub.
+4. Trait banner: P2 sees P1's banner above P1 (chest pick, Trader's Pick, Ember Bargain).
+5. Boss spawn: grey IMMUNE tag during the intro. Menu: "ACHIEVEMENTS" etc. on one line, no card text colliding with buttons (pages 2/4/9).
+6. Slow-mo: last kill of a chamber, and Endless reward waves only; both cameras turn to the kill; 2s feels like a beat, not lag; camera snap-back acceptable? Both players downed ends the run immediately (solo Endless too).
+7. Arena blocks: P2 sees every block the host sees. If not, send P2's client log (look for "AshenVisual: client geometry safety rebuild").
+8. Tab menu: lists Heart of the Spiral (x N, +25 max HP each), shop items, chest rewards, Endless exclusives, traits; no permanent/skill-tree lines; stats show permanent values.
+9. Traits: Attunement raises burn/poison/bleed numbers; Teamwork only offered in co-op and raises synergy damage for both players.
+10. Dash trail reads as the character, fades cleanly, visible for both players, also on hammer leap; performance OK. Friend/foe rings readable, not too loud.
+
+## Needs Josue (0.23.2 batch)
+- Item 21, circles by the chest after waves 20/50: I can't tell which visual this is (candidates: next-wave spawn-warning markers, chest arrival glyph, chest effect rings; nothing in code is keyed to 20/50). What do they look like (colour, flat on floor or floating)? Not changed.
+- Item 11, arena shift cancels combos + freezes: not easily fixable. The shift rebuilds ALL arena geometry (floors too) in one frame. Real fix = partial rebuild of only the cover blocks. Recommendation: do it after the playtest together with the obstacle-visibility bug, since both are the same code and neither is verified. Not changed.
+- Item 13 confidence is LOW: I added a client-side safety rebuild but could not find the root cause by reading. Needs P2's client log if it still happens.
+- Count note: the 0.23.2 batch lists 21 items, not 22.
+- Not pushed yet (waiting for go-ahead).
