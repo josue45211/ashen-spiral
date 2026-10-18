@@ -231,3 +231,21 @@ UNVERIFIED 0.23.3 checklist (playtest):
 10. Wide Arc trait appears for melee weapons only and widens swings.
 11. UI: menus (rounded panel, cards, hover) and HUD bars/backing read well; keyboard/controller navigation still works on every page.
 Needs Josue: nothing blocking. Decisions I made on my own are listed as IFFY in MERGE_LOG.md. Not pushed: no push order was given for this batch.
+
+## 0.23.4 batch (2026-10-18) - all 15 items done, none verified in-engine
+Bar: UBT editor build per item (unity), one full -DisableUnity build on HEAD: Succeeded, no project warnings; Tests/run_tests.py exit 0 (inside vcvars64) per item; crash-safety review per item. Last code commit: 671fade. Details, root causes and confidence in MERGE_LOG.md (entries dated 2026-10-18). Correction: the 0.23.3 section above says "Not pushed"; it WAS pushed (ab85081).
+
+Done: 1 slow-mo removed (hit-stop and topple kept) | 2 host-driven portals | 3 siren removed | 4 player AND enemy rings removed | 5 hold-TAB single key listener | 6 P2 wall collision split from animation | 7 uniform wall height (380) | 8 shift v2 timeline + tomb sounds | 9 ease-in blocks with slam thuds | 10 Wide Arc +20%/rank | 11 triangle ally marker | 12 hammer leap aims at the crosshair incl. height | 13 lightning strikes (Endless 50+) | 14 melee hit-confirm + edge-of-reach cue | 15 Gloomwing flying enemy.
+
+UNVERIFIED 0.23.4 checklist (playtest):
+1. No slow-mo on the last kill; enemies still topple and fade.
+2. Portals: only the host can depart, when everyone is in range; no ready prompts, no centred message; locked portals still show their reason.
+3. No siren. Shift: banner 3s; 1-2s blocks sink with a low tomb sound; at 2s a thud; 2-3s new walls rise (second tomb sound); thud and dust when they finish; blocks visibly accelerate. P2 walks into sinking/rising walls: collision matches what P2 sees (host too).
+4. No ring under any player or enemy; hue tints remain; a green triangle with "P2"/"P1" follows the other player (edge pointer off screen, red when downed).
+5. Hold-TAB (setting on) on P2: the panel stays open while held and closes on release, no flashing. Toggle mode still works.
+6. All pillars and walls are the same tall height; low blocks are still jumpable.
+7. Wide Arc is clearly noticeable (rank 5 doubles reach); every melee hit ticks faintly and edge-of-reach hits get a brighter tick and a gold ring.
+8. Hammer RMB: aim up at a ledge/down off a ledge and the leap lands on the crosshair point; continuous arc from elevation; still fast.
+9. Endless wave 50+: lightning strikes show a floor outline with a filling ring, hit after 0.5s, favour crowds, hurt players and enemies; check damage feel (20% / 30%).
+10. Gloomwings: appear in story from room 4 and Endless from wave 8; hover low, circle, telegraph, dive; melee and ranged can hit them; both players see them move, flap and die (topple).
+Needs Josue: nothing blocking. Judgment calls are IFFY in MERGE_LOG.md. Not pushed: no push order was given for this batch.
