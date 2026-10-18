@@ -51,6 +51,7 @@ public:
     float HUDScale=1.f;
     bool bShowNumbers=true;
     bool bReduceMotion=false;
+    bool bHoldBuild=false; // "Hold TAB to view build": the build panel shows only while the key is held. Default off (toggle).
     bool bRaiseStakes=false;
 private:
     FString Slot,BaseSlot;

@@ -64,7 +64,19 @@ FString BuildSummary(const FASBuild& Build,const TArray<int32>& Run,const AASCha
 }
 float SASMenu::ScrollOffset() const {return Scroll.IsValid()?Scroll->GetScrollOffset():0.f;}
 void SASMenu::SetScrollOffset(float Value) {if(Scroll.IsValid()) Scroll->SetScrollOffset(Value);}
+FReply SASMenu::OnKeyUp(const FGeometry& G,const FKeyEvent& Event) {
+    // Hold-to-view: releasing TAB (or the controller's build button) closes the build panel.
+    if(Page==17&&PC.IsValid()&&(Event.GetKey()==PC->BoundKey("Build")||Event.GetKey()==EKeys::Gamepad_Special_Left)) {
+        const auto* GI=PC->GetGameInstance<UASGameInstance>();
+        if(GI&&GI->bHoldBuild) {PC->Action(0);return FReply::Handled();}
+    }
+    return SCompoundWidget::OnKeyUp(G,Event);
+}
 FReply SASMenu::OnKeyDown(const FGeometry& G,const FKeyEvent& Event) {
+    if(Page==17&&PC.IsValid()&&(Event.GetKey()==PC->BoundKey("Build")||Event.GetKey()==EKeys::Gamepad_Special_Left)) {
+        const auto* GI=PC->GetGameInstance<UASGameInstance>();
+        if(GI&&GI->bHoldBuild) return FReply::Handled(); // held key repeating: the panel stays open until release
+    }
     if((Page==17&&PC.IsValid()&&(Event.GetKey()==PC->BoundKey("Build")||Event.GetKey()==EKeys::Gamepad_Special_Left))||Event.GetKey()==EKeys::Escape||Event.GetKey()==EKeys::Gamepad_Special_Right||Event.GetKey()==EKeys::Gamepad_FaceButton_Right) {
         if(auto* C=PC.Get()) C->Action(0);return FReply::Handled();
     }
@@ -434,6 +446,7 @@ void SASMenu::Construct(const FArguments& Args) {
         CameraSlider(TEXT("Shoulder offset (negative = left, positive = right)"),&UASGameInstance::CameraShoulder,-220.f,220.f,5.f,TEXT(" cm"));
         CameraSlider(TEXT("Camera distance / zoom"),&UASGameInstance::CameraDistance,360.f,780.f,1.f,TEXT(" cm"));
         CameraSlider(TEXT("Field of view (higher = wider view)"),&UASGameInstance::CameraFOV,65.f,105.f,1.f,TEXT(" degrees"));
+        Card(TEXT("Hold TAB to view build"),TEXT("OFF: TAB toggles the build panel. ON: the panel shows only while TAB is held and closes when you let go."),GI->bHoldBuild?TEXT("ON / HOLD"):TEXT("OFF / TOGGLE"),77);
         Card(TEXT("Motion sickness reduction"),TEXT("Disable all hammer camera shake. Attack timing and impact sounds stay the same."),GI->bReduceMotion?TEXT("ON / NO SHAKE"):TEXT("OFF / SHAKE ENABLED"),70);
         Card(TEXT("Restore camera defaults"),TEXT("Reset tilt, height, shoulder offset, distance and field of view. Mouse wheel still zooms; Q swaps your selected shoulder offset."),TEXT("RESET CAMERA"),54);
         Text(TEXT("60 FPS is a design target, not a measured guarantee. Start with Balanced or High, then use F9 and Unreal's stat unit command to measure on your PC."));

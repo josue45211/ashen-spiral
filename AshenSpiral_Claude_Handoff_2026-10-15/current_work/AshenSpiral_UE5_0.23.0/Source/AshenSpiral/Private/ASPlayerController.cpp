@@ -89,6 +89,7 @@ void AASPlayerController::SetupInputComponent() {
     InputComponent->BindAction("Reload",IE_Pressed,this,&AASPlayerController::Reload);
     InputComponent->BindAction("Rune",IE_Pressed,this,&AASPlayerController::Rune);
     InputComponent->BindAction("Build",IE_Pressed,this,&AASPlayerController::BuildMenu);
+    InputComponent->BindAction("Build",IE_Released,this,&AASPlayerController::BuildMenuReleased);
     InputComponent->BindAxis("Zoom",this,&AASPlayerController::Zoom);
     InputComponent->BindAction("RelockMouse",IE_Pressed,this,&AASPlayerController::ApplyGameplayInput);
 }
@@ -405,6 +406,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Difficulty is chosen in the hub.");return;}
         SetDifficulty(Index);Notice=TEXT("Difficulty selection sent to the host.");
     }
+    else if(Code==77) {GI->bHoldBuild=!GI->bHoldBuild;GI->SaveCameraSettings();Notice=GI->bHoldBuild?TEXT("Hold TAB to view your build."):TEXT("TAB toggles your build panel.");OpenMenu(CurrentPage,true);return;}
     else if(Code==70) {GI->bReduceMotion=!GI->bReduceMotion;GI->SaveCameraSettings();ApplyCameraSettings();}
     else if(Code==54) {GI->ResetCameraSettings();ApplyCameraSettings();Notice=TEXT("Camera defaults restored and saved. Close this menu to check your view.");}
     else if(Code==55) {GI->CrosshairStyle=(GI->CrosshairStyle+1)%4;GI->SaveHUDSettings();}
@@ -480,7 +482,14 @@ void AASPlayerController::ApplyGameplayInput() {
     Viewport->CaptureMouse(true);Viewport->LockMouseToViewport(true);
     bGameplayInputApplied=true;bMenuInputApplied=false;bCaptureRequested=false;
 }
+// Hold mode: the panel shows while TAB is held and closes on release. Toggle mode (default) is unchanged.
+void AASPlayerController::BuildMenuReleased() {
+    const auto* GI=GetGameInstance<UASGameInstance>();
+    if(GI&&GI->bHoldBuild&&Menu.IsValid()&&Menu->Page==17) {CloseMenu();SetPartyPaused(false);}
+}
 void AASPlayerController::BuildMenu() {
+    const auto* GI=GetGameInstance<UASGameInstance>();const bool Hold=GI&&GI->bHoldBuild;
+    if(Hold&&Menu.IsValid()&&Menu->Page==17) return; // key repeat while held: stay open
     if(Menu.IsValid()&&Menu->Page==17) {CloseMenu();return;}
     OpenMenu(17);
 }

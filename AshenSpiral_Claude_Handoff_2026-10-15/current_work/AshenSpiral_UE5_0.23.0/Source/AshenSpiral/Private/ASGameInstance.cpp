@@ -74,6 +74,7 @@ void UASGameInstance::Init() {
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CameraShoulder"),CameraShoulder,GGameUserSettingsIni);
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CameraPitch"),CameraPitch,GGameUserSettingsIni);
     GConfig->GetBool(TEXT("AshenSpiral"),TEXT("ReduceMotion"),bReduceMotion,GGameUserSettingsIni);
+    GConfig->GetBool(TEXT("AshenSpiral"),TEXT("HoldBuild"),bHoldBuild,GGameUserSettingsIni);
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CameraFOV"),CameraFOV,GGameUserSettingsIni);
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("HUDTextScale"),HUDTextScale,GGameUserSettingsIni);
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("HUDScale"),HUDScale,GGameUserSettingsIni);
@@ -116,6 +117,7 @@ void UASGameInstance::SanitizeCameraSettings() {
 void UASGameInstance::SaveCameraSettings() {
     SanitizeCameraSettings();
     GConfig->SetBool(TEXT("AshenSpiral"),TEXT("ReduceMotion"),bReduceMotion,GGameUserSettingsIni);
+    GConfig->SetBool(TEXT("AshenSpiral"),TEXT("HoldBuild"),bHoldBuild,GGameUserSettingsIni);
     GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("CameraDistance"),CameraDistance,GGameUserSettingsIni);
     GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("CameraHeight"),CameraHeight,GGameUserSettingsIni);
     GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("CameraShoulder"),CameraShoulder,GGameUserSettingsIni);
