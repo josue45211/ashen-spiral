@@ -149,6 +149,14 @@ inline float ChestPopScale(float Age) {
     return 1.f+.28f*std::sin(3.14159265f*Age/ChestPopLife);
 }
 
+// ---- Enemy death: topple, glow, shrink. Looks only; every machine animates it from Health<=0.
+constexpr float EnemyDeathSeconds=.75f;
+struct EnemyDeathLook {float Topple,Scale,Glow;};
+inline EnemyDeathLook EnemyDeathAt(float Age) {
+    const float T=std::isfinite(Age)?std::clamp(Age/EnemyDeathSeconds,0.f,1.f):1.f;
+    const float Fall=std::min(1.f,T/.55f),Shrink=std::clamp((T-.55f)/.45f,0.f,1.f);
+    return {Fall*Fall*(3.f-2.f*Fall),1.f-.97f*Shrink*Shrink,(1.f-T)*(1.f-T)};
+}
 // ---- Dash trail: fading afterimages dropped while moving at dash speed. Looks only; spawned locally on every client.
 constexpr float DashGhostSpacing=.06f,DashGhostLife=.28f;constexpr int DashGhostCap=12; // full-body copies cost ~20-40 meshes each, so fewer, spaced wider
 // TrailActive is true only while a dash or hammer leap is actually happening; walking and running never qualify.

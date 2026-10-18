@@ -1,4 +1,5 @@
 #include "ASPlayerController.h"
+#include "GameFramework/WorldSettings.h"
 #include "ASCharacter.h"
 #include "ASMovementComponent.h"
 #include "ASGameInstance.h"
@@ -95,8 +96,12 @@ void AASPlayerController::SetupInputComponent() {
 }
 void AASPlayerController::MoveForward(float V) {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->AddMovementInput(FRotationMatrix(FRotator(0,GetControlRotation().Yaw,0)).GetUnitAxis(EAxis::X),V);}
 void AASPlayerController::MoveRight(float V) {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->AddMovementInput(FRotationMatrix(FRotator(0,GetControlRotation().Yaw,0)).GetUnitAxis(EAxis::Y),V);}
-void AASPlayerController::Turn(float V) {if(!MenuOpen()) {auto* GI=GetGameInstance<UASGameInstance>();AddYawInput(V*(GI?GI->Sensitivity:.85f));}}
-void AASPlayerController::Look(float V) {if(!MenuOpen()) {auto* GI=GetGameInstance<UASGameInstance>();AddPitchInput(V*(GI?GI->Sensitivity:.85f));}}
+bool AASPlayerController::CameraLocked() const {
+    const auto* World=GetWorld();const auto* Settings=World?World->GetWorldSettings():nullptr;
+    return Settings&&Settings->GetEffectiveTimeDilation()<.9f; // the final-kill slow-mo
+}
+void AASPlayerController::Turn(float V) {if(!MenuOpen()&&!CameraLocked()) {auto* GI=GetGameInstance<UASGameInstance>();AddYawInput(V*(GI?GI->Sensitivity:.85f));}}
+void AASPlayerController::Look(float V) {if(!MenuOpen()&&!CameraLocked()) {auto* GI=GetGameInstance<UASGameInstance>();AddPitchInput(V*(GI?GI->Sensitivity:.85f));}}
 void AASPlayerController::TurnStick(float V) {Turn(V*GetWorld()->GetDeltaSeconds()*115.f);}
 void AASPlayerController::LookStick(float V) {Look(V*GetWorld()->GetDeltaSeconds()*90.f);}
 void AASPlayerController::AttackDown() {if(!MenuOpen()) UpdateAim(true);if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->SetAttack(true);}

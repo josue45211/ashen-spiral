@@ -195,7 +195,7 @@ void AASGameMode::ClearBeat(float Scale,float RealSeconds) {
 void AASGameMode::FinalKillBeat() {
     auto* S=AS::State(this);if(!S||!GetWorld()||S->bPartyPaused) return;
     // A last-kill hit-stop may already be running; the dramatic beat replaces it.
-    ClearBeatEndsReal=0.f;ClearBeat(.3f,2.f);
+    ClearBeatEndsReal=0.f;ClearBeat(.3f,1.f); // TUNABLE: 30% speed for 1.0 real second (was 2.0)
     CamTurns.Reset();LastCamTurnReal=GetWorld()->GetRealTimeSeconds();
     for(auto W:S->Heroes) if(const auto* H=W.Get()) if(auto* PC=Cast<AASPlayerController>(H->GetController())) CamTurns.Add({PC,PC->GetControlRotation()});
 }
@@ -317,7 +317,7 @@ void AASGameMode::Tick(float Delta) {
         for(auto& Turn:CamTurns) if(auto* PC=Turn.Controller.Get()) if(const auto* H=Cast<AASCharacter>(PC->GetPawn())) {
             const FVector Dir=(LastKillLocation-(H->GetActorLocation()+FVector(0,0,60))).GetSafeNormal();if(Dir.IsNearlyZero()) continue;
             FRotator Target=Dir.Rotation();Target.Pitch=FMath::Clamp(Target.Pitch,-35.f,10.f);Target.Roll=0.f;
-            Turn.Rotation=FMath::RInterpTo(Turn.Rotation,Target,RealDelta,4.f);PC->ClientSetRotation(Turn.Rotation);
+            Turn.Rotation=FMath::RInterpTo(Turn.Rotation,Target,RealDelta,6.f);PC->ClientSetRotation(Turn.Rotation);
         }
     }
     if(S->bEnteringPortal) {

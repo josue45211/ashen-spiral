@@ -55,6 +55,8 @@ private:
     bool bFootPlanted[2]={false,false};
     bool bVisualInitialized=false;
     void AnimateArmor(float Delta,float Windup);
+    void AnimateDeath();
+    float DeathSeenAt=-1.f;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Eye;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;

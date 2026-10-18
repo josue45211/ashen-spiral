@@ -75,6 +75,7 @@ public:
     void ResubmitProfile();
     void PortalInteract(int32 Page);
     void BuildMenuReleased();
+    bool CameraLocked() const;
     // Synergy feedback: a coloured word above the damage numbers plus a cue. Trigger indexes ASExpedition::Synergy results.
     UFUNCTION(Client,Unreliable) void SynergyCue(int32 Trigger);
     // Reward fanfare: floating "+X" text; Big is the trait-acquire banner and also plays the placeholder sound hook.

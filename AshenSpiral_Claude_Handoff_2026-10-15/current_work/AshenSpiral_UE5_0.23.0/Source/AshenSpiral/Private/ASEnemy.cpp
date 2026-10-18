@@ -1,4 +1,5 @@
 #include "ASEnemy.h"
+#include "ASPresentationRules.h"
 #include "ASMeleeRules.h"
 #include "ASExpeditionRules.h"
 #include "ASCharacter.h"
@@ -121,6 +122,7 @@ void AASEnemy::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S) return;
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
+    if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
     Tell->SetVisibility(bWinding&&!bTrainingDummy);Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy);
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
@@ -255,7 +257,12 @@ bool AASEnemy::Hit(float Damage,AASCharacter* Source) {
     LastDamageTime=AS::Time(this);Health=FMath::Max(bTrainingDummy?1.f:0.f,Health-Damage);ForceNetUpdate();
     if(Health<=0) {
         if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->EnemyKilled(this,Source);
-        Destroy();return true;
+        // Death animation: the enemy leaves every target list and loses collision now, but stays visible while it topples (all machines
+        // see Health<=0 and animate), then the server destroys it.
+        if(auto* S=AS::State(this)) S->Enemies.Remove(this);
+        GetCharacterMovement()->StopMovementImmediately();GetCharacterMovement()->DisableMovement();
+        GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        SetLifeSpan(ASPresentation::EnemyDeathSeconds);ForceNetUpdate();return true;
     }
     return false;
 }

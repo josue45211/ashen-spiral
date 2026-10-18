@@ -1,4 +1,5 @@
 #include "ASEnemy.h"
+#include "ASPresentationRules.h"
 #include "ASCharacter.h"
 #include "ASAnimationRules.h"
 #include "ASMeleeRules.h"
@@ -36,3 +37,18 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     ArmorFigure->SetRelativeLocation(FVector(Push.X*Recoil*12.f+Release*6.f,Push.Y*Recoil*12.f,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
 }
 
+
+void AASEnemy::AnimateDeath() {
+    const float Now=AS::Time(this);
+    if(DeathSeenAt<0.f) {
+        DeathSeenAt=Now;
+        for(auto* Piece:{Tell.Get(),Beam.Get(),Eye.Get(),FoeMark.Get(),Aura.Get(),Crown.Get()}) if(Piece) Piece->SetVisibility(false);
+    }
+    // Topples backward and shrinks away with a brief glow, over EnemyDeathSeconds.
+    const auto Look=ASPresentation::EnemyDeathAt(Now-DeathSeenAt);
+    const FRotator Fall(-82.f*Look.Topple,0.f,10.f*Look.Topple);
+    const float Fade=FMath::Max(.02f,Look.Scale);
+    if(Body) {Body->SetRelativeRotation(Fall);Body->SetRelativeScale3D(FVector(BodyScale*Fade));
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Body->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),7.f*Look.Glow);}
+    if(ArmorFigure) {ArmorFigure->SetRelativeRotation(Fall);ArmorFigure->SetRelativeScale3D(FVector(Fade));}
+}
