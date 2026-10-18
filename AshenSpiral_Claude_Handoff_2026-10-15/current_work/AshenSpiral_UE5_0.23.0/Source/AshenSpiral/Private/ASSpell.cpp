@@ -435,6 +435,12 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
     const TCHAR* Sound=Kind==1||Kind==2?TEXT("S_Attack"):(Kind==3?TEXT("S_Spiral"):(Kind==4?TEXT("S_Dash"):(Kind==5?TEXT("S_Hit"):(Kind==7?TEXT("S_Reward"):TEXT("S_Collapse")))));
     if(Kind==9||Kind==10) {SetActorLocation(At+D*R*.5f);Duration=.18f;return;}
     if(Kind==8) return;
+    if(Kind==16) {
+        // Melee hit-confirm: a faint tick for any contact; contact at the edge of reach (Size > 0) gets a brighter tick and a crisp ring on the ground.
+        const bool Edge=R>0.f;if(!Edge) Visual->SetVisibility(false);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Edge?.17f:.08f,Edge?2.1f:1.5f);
+        return;
+    }
     if(Kind==15) {if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.45f,.8f);return;}
     if(Kind>=12) {
         // Pickup chime: warm and low for health, bright for shield, a quick tick for cinders. Placeholder assets, distinct pitch.

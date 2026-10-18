@@ -408,6 +408,7 @@ void AASHUD::DrawHUD() {
         const auto C=FLinearColor(1,.78f,.24f);for(int32 I=0;I<4;++I) {const float A=UE_PI*.25f+I*UE_PI*.5f;Line(CX+FMath::Cos(A)*13*AimScale,CY+FMath::Sin(A)*13*AimScale,CX+FMath::Cos(A)*21*AimScale,CY+FMath::Sin(A)*21*AimScale,C,2);}
     }
     DrawWaveBanner(S);
+    DrawAllyMarkers(S,PC,H);
     for(const auto& T:PC->FloatTexts) {
         const float Age=Now-T.Born;const auto Pose=ASPresentation::FloatTextAt(Age,T.Big);if(Pose.Alpha<=0.f) continue;
         const float Size=(T.Big?1.5f:.95f)*Pose.Scale;
@@ -448,6 +449,54 @@ void AASHUD::DrawHUD() {
 
 }
 
+// A modern triangle that follows each other player: above their head when visible, pinned to the screen edge as a pointer when not.
+// Labelled with that player's number, so P1 sees "P2" and P2 sees "P1". Green for an ally, red while they are downed.
+void AASHUD::DrawAllyMarkers(AASGameState* S,AASPlayerController* PC,AASCharacter* Local) {
+    if(!Canvas||!S||!PC||!Local) return;
+    FVector CameraAt;FRotator CameraRotation;PC->GetPlayerViewPoint(CameraAt,CameraRotation);
+    const FRotationMatrix CameraAxes(CameraRotation);
+    const float Pulse=.8f+.2f*FMath::Sin(S->SimTime*5.f);
+    for(auto W:S->Heroes) {
+        const AASCharacter* Ally=W.Get();if(!Ally||Ally==Local) continue;
+        const auto* AllyState=Ally->GetPlayerState<AASPlayerState>();const int32 Number=AllyState?AllyState->PlayerIndex+1:2;
+        const FLinearColor Base=Ally->bDowned?FLinearColor(1.f,.18f,.2f):FLinearColor(.15f,.95f,.35f);
+        const FLinearColor Fill(Base.R,Base.G,Base.B,Ally->bDowned?Pulse:.95f);
+        const FVector Head=Ally->GetActorLocation()+FVector(0,0,Ally->bDowned?150.f:225.f);
+        const float Meters=FVector::Dist(Local->GetActorLocation(),Ally->GetActorLocation())/100.f;
+        const float Size=FMath::Clamp(26.f-Meters*.4f,16.f,26.f)*Scale; // pixels; shrinks a little with distance
+        const float Margin=60.f*Scale;
+        FVector2D At;const bool Front=PC->ProjectWorldLocationToScreen(Head,At);
+        const bool OnScreen=Front&&At.X>=Margin&&At.X<=Canvas->ClipX-Margin&&At.Y>=Margin&&At.Y<=Canvas->ClipY-Margin;
+        FVector2D Tip,BaseA,BaseB,Label;
+        if(OnScreen) {
+            // Point down at the ally from above their head.
+            Tip=FVector2D(At.X,At.Y);BaseA=FVector2D(At.X-Size*.62f,At.Y-Size*.95f);BaseB=FVector2D(At.X+Size*.62f,At.Y-Size*.95f);
+            Label=FVector2D(At.X/Scale-14.f,At.Y/Scale-52.f);
+        } else {
+            // Off screen: pin to the edge of the screen pointing toward them.
+            const FVector Toward=(Head-CameraAt).GetSafeNormal();
+            FVector2D Direction(FVector::DotProduct(Toward,CameraAxes.GetUnitAxis(EAxis::Y)),-FVector::DotProduct(Toward,CameraAxes.GetUnitAxis(EAxis::Z)));
+            if(!Front) Direction.Y=FMath::Abs(Direction.Y)+.35f;               // behind the camera: lean toward the bottom edge
+            if(Direction.IsNearlyZero()) Direction=FVector2D(0.f,1.f);
+            Direction.Normalize();
+            const FVector2D Centre(Canvas->ClipX*.5f,Canvas->ClipY*.5f);
+            const float ReachX=Direction.X!=0.f?(Centre.X-Margin)/FMath::Abs(Direction.X):1.e9f,ReachY=Direction.Y!=0.f?(Centre.Y-Margin)/FMath::Abs(Direction.Y):1.e9f;
+            const FVector2D Pin=Centre+Direction*FMath::Min(ReachX,ReachY);
+            const FVector2D Side(-Direction.Y,Direction.X);
+            Tip=Pin+Direction*Size*.5f;BaseA=Pin-Direction*Size*.7f+Side*Size*.62f;BaseB=Pin-Direction*Size*.7f-Side*Size*.62f;
+            Label=FVector2D(Pin.X/Scale-14.f-Direction.X*30.f,Pin.Y/Scale-10.f-Direction.Y*30.f);
+        }
+        // Dark outline triangle first (slightly larger), then the filled colour.
+        const FVector2D Centroid=(Tip+BaseA+BaseB)/3.f;
+        auto Draw=[this,&Centroid](const FVector2D& A,const FVector2D& B,const FVector2D& C,const FLinearColor& Color,float Grow) {
+            FCanvasTriangleItem Item(Centroid+(A-Centroid)*Grow,Centroid+(B-Centroid)*Grow,Centroid+(C-Centroid)*Grow,GWhiteTexture);
+            Item.SetColor(Color);Item.BlendMode=SE_BLEND_Translucent;Canvas->DrawItem(Item);
+        };
+        Draw(Tip,BaseA,BaseB,FLinearColor(0.f,0.f,0.f,.75f),1.35f);
+        Draw(Tip,BaseA,BaseB,Fill,1.f);
+        Group();Text(FString::Printf(TEXT("P%d"),Number),Label.X,Label.Y,Base,.8f);
+    }
+}
 void AASHUD::DrawWaveBanner(AASGameState* S) {
     if(!S) return;
     const float Now=S->SimTime;

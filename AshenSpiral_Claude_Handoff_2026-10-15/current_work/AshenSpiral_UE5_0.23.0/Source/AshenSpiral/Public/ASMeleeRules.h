@@ -4,6 +4,10 @@
 #include "ASHammerRules.h"
 // Shared timing and grip foundation. One complete pose cycle is one attack.
 namespace ASMelee {
+// Hit feedback (0.23.4): every melee contact ticks faintly; contact near the edge of the reach gets a distinct cue, so players learn how far a swing really goes.
+constexpr float EdgeBandStart=.85f;
+inline float ReachRatio(float Distance,float Reach) {return Reach>0.f&&std::isfinite(Distance)?std::clamp(Distance/Reach,0.f,2.f):2.f;}
+inline bool EdgeHit(float Distance,float Reach) {const float R=ReachRatio(Distance,Reach);return R>=EdgeBandStart&&R<=1.f;}
 // A pending swing stays valid while the game phase and the arena epoch are unchanged. An Endless arena shuffle does not change the epoch.
 inline bool ContextValid(int PhaseThen,int PhaseNow,int EpochThen,int EpochNow) {return PhaseThen==PhaseNow&&EpochThen==EpochNow;}
 inline bool IsMelee(int W) {return W==0||W==1||W==5;}

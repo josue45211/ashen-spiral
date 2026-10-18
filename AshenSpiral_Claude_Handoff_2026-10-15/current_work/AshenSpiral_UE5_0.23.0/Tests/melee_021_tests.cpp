@@ -3,6 +3,7 @@
 #include "../Source/AshenSpiral/Public/ASBuildRules.h"
 #include "../Source/AshenSpiral/Public/ASArchiveRules.h"
 #include <iostream>
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <set>
@@ -23,6 +24,9 @@ static std::vector<V> Mesh(const std::string& Root,const std::string& Name) {
     return Out;
 }
 int main(int Argc,char** Argv) {
+    // 0.23.4: the edge-of-reach cue only fires in the outer band of the real reach.
+    Check(ASMelee::EdgeHit(260.f,300.f)&&ASMelee::EdgeHit(300.f,300.f)&&!ASMelee::EdgeHit(200.f,300.f)&&!ASMelee::EdgeHit(301.f,300.f)&&!ASMelee::EdgeHit(100.f,0.f),"edge cue: outer 15% of reach only");
+    Check(!ASMelee::EdgeHit(std::numeric_limits<float>::quiet_NaN(),300.f)&&ASMelee::ReachRatio(150.f,300.f)==.5f&&ASMelee::EdgeHit(560.f,600.f)&&!ASMelee::EdgeHit(560.f,800.f),"edge band scales with the effective reach (Wide Arc) and survives bad distances");
     // 0.23.3: a swing survives an Endless arena shuffle (same phase and epoch) but not a room or phase change.
     Check(ASMelee::ContextValid(2,2,7,7),"pending swing stays valid when nothing changed (including across a shuffle, which keeps the epoch)");
     Check(!ASMelee::ContextValid(2,2,7,8)&&!ASMelee::ContextValid(2,3,7,7),"pending swing is cancelled by a new room epoch or a phase change");

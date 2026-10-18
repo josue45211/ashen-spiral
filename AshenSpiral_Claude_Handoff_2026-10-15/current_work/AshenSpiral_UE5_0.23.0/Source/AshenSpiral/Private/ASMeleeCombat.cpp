@@ -60,7 +60,7 @@ void AASCharacter::ResolveMelee() {
     if(Oath>1.f) bVengeanceFinisherReady=false;
     const float Damage=Oath*ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASMelee::DamageScale(Build.Weapon,MeleeStep);
     FVector Forward=(AimPoint-GetActorLocation()).GetSafeNormal2D();if(Forward.IsNearlyZero()) Forward=GetActorForwardVector();
-    bool Contact=false;
+    bool Contact=false,RangeTicked=false;
     const auto Targets=S->Enemies;
     for(auto W:Targets) if(auto* E=W.Get()) if(E->Health>0&&CanDamage(E)
         &&FMath::Abs(GetActorLocation().Z-E->GetActorLocation().Z)<230.f
@@ -68,7 +68,13 @@ void AASCharacter::ResolveMelee() {
         &&(Build.Weapon==1?ASHammer::Frontal(FVector::DotProduct(Forward,(E->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())):FVector::DotProduct(Forward,(E->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>-.05f)
         &&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation()))
         {
-            Contact=true;HitEnemy(E,Damage+(Build.Weapon==0&&E->PulledUntil>S->SimTime?25.f:0.f),bMeleeCritical,ASData::WeaponElement(Build.Weapon),true);
+            Contact=true;
+            {   // Hit-confirm tick (once per swing) and the edge-of-reach cue (for every edge contact), so players learn the swing's real range.
+                const float Full=Reach+E->GetCapsuleComponent()->GetScaledCapsuleRadius();
+                const bool Edge=ASMelee::EdgeHit(FVector::Dist2D(GetActorLocation(),E->GetActorLocation()),Full);
+                if(Edge||!RangeTicked) {RangeTicked=true;S->Effect(16,E->GetActorLocation()-FVector(0,0,E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-4.f),FVector::UpVector,Edge?FLinearColor(1.f,.85f,.35f):FLinearColor::White,Edge?70.f:0.f);}
+            }
+            HitEnemy(E,Damage+(Build.Weapon==0&&E->PulledUntil>S->SimTime?25.f:0.f),bMeleeCritical,ASData::WeaponElement(Build.Weapon),true);
             if(Build.Weapon==1&&IsValid(E)&&E->Health>0) E->Control(0,Forward,Slam?950.f:230.f);
         }
     const auto Props=S->Breakables;

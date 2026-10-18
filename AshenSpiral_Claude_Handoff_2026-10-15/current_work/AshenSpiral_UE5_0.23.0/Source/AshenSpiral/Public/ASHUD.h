@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "ASHUD.generated.h"
-class UGameViewportClient;class AASGameState;class AASCharacter;class SWidget;class AASRouteGuide;
+class UGameViewportClient;class AASPlayerController;class AASGameState;class AASCharacter;class SWidget;class AASRouteGuide;
 struct FASHUDLabel {FString Value;FVector2D Position;FLinearColor Color;int32 Pixels=16;};
 UCLASS() class ASHENSPIRAL_API AASHUD : public AHUD {
     GENERATED_BODY()
@@ -25,6 +25,7 @@ private:
     int32 BannerRoom=-99,BannerWave=-99,BannerEndlessWave=-99,BannerCleared=-99,BannerPhase=-1;
     int32 BannerAlertSeen=0;
     void DrawWaveBanner(AASGameState* State);
+    void DrawAllyMarkers(AASGameState* State,AASPlayerController* Controller,AASCharacter* Local);
     FVector2D GroupOrigin=FVector2D::ZeroVector;
     void Group(float X=0,float Y=0,float Size=1.f) {GroupOrigin=FVector2D(X,Y);GroupScale=Size;}
     void Text(const FString& Value,float X,float Y,FLinearColor Color=FLinearColor::White,float Size=1.f);
