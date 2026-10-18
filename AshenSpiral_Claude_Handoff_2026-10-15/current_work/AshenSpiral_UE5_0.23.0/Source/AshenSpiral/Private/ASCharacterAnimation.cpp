@@ -16,6 +16,8 @@
 #include "Engine/World.h"
 void AASCharacter::Animate(float Delta) {
     if(Parts.Num()!=21) return;
+    // Ownership can arrive after the first look pass; recolour once when this machine learns whether the character is its own.
+    {const int8 LocalNow=IsLocallyControlled()?1:0;if(LocalNow!=LastTintLocal) {LastTintLocal=LocalNow;RefreshLook();}}
     const float Now=AS::Time(this),Speed=GetVelocity().Size2D();const bool Airborne=GetCharacterMovement()->IsFalling();
     const bool Dashing=Movement()->DashRemaining>0;
     // Dash trail: afterimages while moving at dash speed (works on every client from the replicated velocity).

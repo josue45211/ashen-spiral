@@ -55,7 +55,7 @@ void AASEnemy::RefreshLook() {
     const float S=Boss()?2.15f:(Elite()?1.45f:1.f);BodyScale=S;
     const TCHAR* Models[]={TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Brute"),TEXT("SM_Brute"),TEXT("SM_RiftLeaper"),TEXT("SM_Bulwark"),TEXT("SM_EmberShaman"),TEXT("SM_RiftSniper"),TEXT("SM_Broodcaller")};
     const FLinearColor Colors[]={FLinearColor(.1f,.2f,.26f),FLinearColor(.2f,.1f,.35f),FLinearColor(.25f,.3f,.14f),FLinearColor(.32f,.065f,.05f),ASData::BiomeColor(Ward),FLinearColor(.28f,.1f,.5f),FLinearColor(.42f,.35f,.19f),FLinearColor(.55f,.12f,.025f),FLinearColor(.03f,.32f,.45f),FLinearColor(.1f,.38f,.12f)};
-    ASAssets::Style(Body,Models[FMath::Clamp(Kind,0,9)],FMath::Lerp(Colors[FMath::Clamp(Kind,0,9)],ASData::BiomeColor(Theme),.35f),Kind==6?.8f:.4f);
+    ASAssets::Style(Body,Models[FMath::Clamp(Kind,0,9)],FMath::Lerp(FMath::Lerp(Colors[FMath::Clamp(Kind,0,9)],ASData::BiomeColor(Theme),.35f),FLinearColor(.95f,.07f,.05f),.22f),Kind==6?.8f:.4f); // red cast: enemies read as foes
     const float HalfHeight=Elite()?187.5f*S*.5f:83.f;GetCapsuleComponent()->SetCapsuleHalfHeight(HalfHeight);
     Body->SetRelativeLocation(FVector(0,0,Elite()?62.5f*S-HalfHeight:-HalfHeight));Body->SetRelativeScale3D(FVector(S));
     ASAssets::Style(Eye,TEXT("Cube"),Kind==8?FLinearColor(.1f,.7f,1):FLinearColor(1,.09f,.025f),0,7);Eye->SetRelativeLocation(FVector(33*S,0,55*S));Eye->SetRelativeScale3D(FVector(.08f,.44f,.065f)*S);Eye->SetVisibility(Kind<5);
@@ -68,7 +68,7 @@ void AASEnemy::RefreshLook() {
     ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(.1f,.65f,1),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
     if(Humanoid) {
         const TCHAR* Meshes[]={TEXT("SM_Torso"),TEXT("SM_EnemyHelm"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_EnemyCape"),TEXT("SM_ArmorCore")};
-        const FLinearColor Metal=FMath::Lerp(FLinearColor(.10f,.12f,.15f),Colors[FMath::Clamp(Kind,0,9)],.18f),Fire(1.f,.065f,.025f);
+        const FLinearColor Metal=FMath::Lerp(FMath::Lerp(FLinearColor(.10f,.12f,.15f),Colors[FMath::Clamp(Kind,0,9)],.18f),FLinearColor(.45f,.05f,.04f),.2f),Fire(1.f,.065f,.025f);
         for(int32 I=0;I<21;++I) {const bool Glow=I==16||I==20,Fabric=I==15||I==19;ASAssets::Armor(ArmorParts[I],Meshes[I],Glow?Fire:(Fabric?FLinearColor(.018f,.008f,.012f):Metal),Fabric?0.f:.78f,Glow?4.f:0.f,Fabric?.96f:.45f);}
         ArmorFigure->SetRelativeLocation(FVector(0,0,-HalfHeight));ArmorFigure->SetRelativeScale3D(FVector(.82f,.70f,1.f)*(Elite()?S:.90f));
         ArmorParts[0]->SetRelativeLocation(FVector(0,0,111));ArmorParts[1]->SetRelativeLocation(FVector(0,0,165));ArmorParts[2]->SetRelativeLocation(FVector(0,0,78));
