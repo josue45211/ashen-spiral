@@ -64,7 +64,7 @@ public:
     UPROPERTY(Replicated) float HammerLandedAt=-10;
     UPROPERTY(Replicated) float NextHammerLeap=0;
     UFUNCTION(Server,Reliable) void RequestHammerLeap();
-    UFUNCTION(NetMulticast,Reliable) void HammerMotion(bool Launch,FVector_NetQuantizeNormal Direction);
+    UFUNCTION(NetMulticast,Reliable) void HammerMotion(bool Launch,FVector_NetQuantizeNormal Direction,float PlanDistance,float PlanHeight);
     UFUNCTION(NetMulticast,Reliable) void HammerCue(uint8 Kind,bool Contact,FVector_NetQuantize At,FVector_NetQuantizeNormal Direction);
     bool HammerCommitted() const;
     bool HammerBusy() const {return Build.Weapon==1&&(HammerCommitted()||HammerLeapState!=0);}
@@ -173,6 +173,7 @@ private:
     int32 NextMeleeStep=0,PendingMeleeWeapon=-1,PendingMeleePhase=-1,PendingMeleeGeneration=-1;
     float MeleeImpactAt=0,MeleeMotionAt=0,LastMeleeEnd=-10,HammerComboWindow=1.2f;
     FVector HammerLeapDirection=FVector::ForwardVector;
+    FVector2D HammerLeapPlan=FVector2D::ZeroVector; // planned arc (distance, height) toward the crosshair point; sent with the launch
     float HammerShakeAge=10,HammerShakeStrength=0;
     void TickHammer(float Now);
     void CancelHammerLeap();

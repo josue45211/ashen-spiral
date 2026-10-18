@@ -32,7 +32,7 @@ void AASCharacter::CancelHammerLeap() {
     const bool Active=HammerLeapState!=0;
     HammerLeapState=0;HammerLeapStarted=HammerLandedAt=-10;
     Movement()->RemoveRootMotionSource(FName(TEXT("HammerLeap")));Movement()->RefreshDashCollision();
-    if(HasAuthority()&&Active) {HammerMotion(false,FVector::ForwardVector);ForceNetUpdate();}
+    if(HasAuthority()&&Active) {HammerMotion(false,FVector::ForwardVector,0.f,0.f);ForceNetUpdate();}
 }
 void AASCharacter::RequestHammerLeap_Implementation() {
     auto* S=AS::State(this);auto* M=Movement();
@@ -40,11 +40,16 @@ void AASCharacter::RequestHammerLeap_Implementation() {
         ||!M->IsMovingOnGround()||M->DashRemaining>0) return;
     CancelMelee(true);bCharging=false;StopJumping();
     HammerLeapDirection=(AimPoint-GetActorLocation()).GetSafeNormal2D();if(HammerLeapDirection.IsNearlyZero()) HammerLeapDirection=GetActorForwardVector();
+    {   // Aim at the crosshair point in 3D: how far, and how much higher or lower than the feet.
+        const float Half=GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+        const auto Shot=ASHammer::PlanLeap(FVector::Dist2D(GetActorLocation(),AimPoint),AimPoint.Z+Half-GetActorLocation().Z,RunningSpeed(),DashDuration(),FMath::Abs(M->GetGravityZ()));
+        HammerLeapPlan=FVector2D(Shot.Distance,Shot.Height);
+    }
     HammerLeapState=1;HammerLeapStarted=S->SimTime;HammerLandedAt=-10;NextHammerLeap=S->SimTime+ASHammer::Cooldown;
     PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Epoch:-1;
     M->StopMovementImmediately();ForceNetUpdate();
 }
-void AASCharacter::HammerMotion_Implementation(bool Launch,FVector_NetQuantizeNormal Direction) {
+void AASCharacter::HammerMotion_Implementation(bool Launch,FVector_NetQuantizeNormal Direction,float PlanDistance,float PlanHeight) {
     auto* M=Movement();M->RemoveRootMotionSource(FName(TEXT("HammerLeap")));
     if(!Launch) {M->RefreshDashCollision();return;}
     if(!HasAuthority()&&!IsLocallyControlled()) return;
@@ -53,11 +58,14 @@ void AASCharacter::HammerMotion_Implementation(bool Launch,FVector_NetQuantizeNo
     auto Leap=MakeShared<FRootMotionSource_JumpForce>();Leap->InstanceName=FName(TEXT("HammerLeap"));
     Leap->Priority=600;Leap->AccumulateMode=ERootMotionAccumulateMode::Override;Leap->Rotation=FVector(Direction).Rotation();
     const float LeapRunSpeed=RunningSpeed(),LeapDash=DashDuration();
-    Leap->Distance=ASHammer::LeapTravel(LeapRunSpeed,LeapDash);Leap->Height=ASHammer::Height;
+    // The planned arc (toward the crosshair point, with its height); a missing plan falls back to the flat full-range leap.
+    const bool Planned=std::isfinite(PlanDistance)&&std::isfinite(PlanHeight)&&PlanDistance>1.f&&PlanHeight>1.f;
+    const float LeapDistance=Planned?PlanDistance:ASHammer::LeapTravel(LeapRunSpeed,LeapDash),LeapHeight=Planned?PlanHeight:ASHammer::Height;
+    Leap->Distance=LeapDistance;Leap->Height=LeapHeight;
     Leap->Duration=ASHammer::Flight;Leap->bDisableTimeout=false;
     Leap->FinishVelocityParams.Mode=ERootMotionFinishVelocityMode::SetVelocity;
     // Continuous physics: when the scripted arc ends, keep the arc's own velocity (forward speed and the matching fall speed).
-    Leap->FinishVelocityParams.SetVelocity=FVector(Direction).GetSafeNormal2D()*ASHammer::LeapSpeed(LeapRunSpeed,LeapDash)+FVector(0,0,-ASHammer::LeapEndFallSpeed());
+    Leap->FinishVelocityParams.SetVelocity=FVector(Direction).GetSafeNormal2D()*(LeapDistance/ASHammer::Flight)+FVector(0,0,-4.f*LeapHeight/ASHammer::Flight);
     M->StopMovementImmediately();M->SetMovementMode(MOVE_Falling);M->ApplyRootMotionSource(Leap);M->RefreshDashCollision();
 }
 void AASCharacter::TickHammer(float Now) {
@@ -69,7 +77,7 @@ void AASCharacter::TickHammer(float Now) {
     }
     if(HammerLeapState==1&&Now>=HammerLeapStarted+ASHammer::Startup) {
         // Frame 2: launch. Frame 1's crouch receives normal incoming damage.
-        HammerLeapState=2;HammerMotion(true,HammerLeapDirection);HammerCue(4,false,GetActorLocation(),HammerLeapDirection);ForceNetUpdate();
+        HammerLeapState=2;HammerMotion(true,HammerLeapDirection,float(HammerLeapPlan.X),float(HammerLeapPlan.Y));HammerCue(4,false,GetActorLocation(),HammerLeapDirection);ForceNetUpdate();
     } else if(HammerLeapState==2) {
         if(Movement()->IsMovingOnGround()&&Now>HammerLeapStarted+ASHammer::Startup+.06f) {
             // Recovery for a missed Landed callback (e.g. correction), still requires actual floor contact.
@@ -86,7 +94,7 @@ void AASCharacter::Landed(const FHitResult& Hit) {
     auto* S=AS::State(this);
     if(!S||!CanUseWeapons()||!S->Arena||PendingMeleePhase!=int32(S->Phase)||!ASMelee::ContextValid(PendingMeleePhase,int32(S->Phase),PendingMeleeGeneration,S->Arena->Config.Epoch)) {CancelHammerLeap();return;}
     HammerLeapState=3;HammerLandedAt=S->SimTime;NextAttack=FMath::Max(NextAttack,HammerLandedAt+ASHammer::Recovery);
-    HammerMotion(false,HammerLeapDirection);Movement()->StopMovementImmediately();Movement()->RefreshDashCollision();
+    HammerMotion(false,HammerLeapDirection,0.f,0.f);Movement()->StopMovementImmediately();Movement()->RefreshDashCollision();
     ResolveHammerLanding(Hit.ImpactPoint);ForceNetUpdate();
 }
 void AASCharacter::ResolveHammerLanding(const FVector& At) {

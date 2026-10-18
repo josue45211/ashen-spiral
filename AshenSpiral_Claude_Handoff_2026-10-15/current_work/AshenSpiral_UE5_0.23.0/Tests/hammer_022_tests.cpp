@@ -2,6 +2,7 @@
 #include "../Source/AshenSpiral/Public/ASArsenalRules.h"
 #include "../Source/AshenSpiral/Public/ASRules.h"
 #include <iostream>
+#include <limits>
 #include <fstream>
 #include <sstream>
 #include <vector>
@@ -62,6 +63,26 @@ int main(int Argc,char** Argv) {
     Check(!Committed(1,2,1.188f,0,1.188f),"commitment releases at full animation recovery");
     Check(Near(FinisherSpeedScale(),.55f,.0001f)&&FinisherSpeedScale()>0.f,"finisher slows movement by 45 percent rather than rooting");
     Check(!LeapProtected(1,.1f,-10)&&LeapProtected(2,.2f,-10)&&LeapProtected(3,1.3f,1.2f)&&!LeapProtected(3,1.43f,1.2f)&&!LeapProtected(0,2,1.2f),"startup vulnerable; flight/recovery protected; recovery ends immunity");
+    {   // 0.23.4: the planned leap lands on the aimed point, including its height.
+        const float Run=640.f,Dash=.24f,Max=LeapTravel(Run,Dash),G=1568.f;
+        const auto Flat=PlanLeap(Max,0.f,Run,Dash);
+        Check(Near(Flat.Distance,Max,.01f)&&Near(Flat.Height,Height,.01f)&&Near(Flat.FallSpeed,LeapEndFallSpeed(),.01f),"a flat aim at full range is the old leap");
+        for(float Dist=Max*.4f;Dist<=Max;Dist+=Max*.1f) for(float Rise=-600.f;Rise<=250.f;Rise+=50.f) {
+            const auto Shot=PlanLeap(Dist,Rise,Run,Dash,G);float Landed=-1.f;
+            if(Rise>1.f) {   // descending branch of the scripted arc crosses the target height at the aimed distance
+                const float F=.5f*(1.f+std::sqrt(1.f-Rise/Shot.Height));Landed=Shot.Distance*F;Check(Near(4.f*Shot.Height*F*(1.f-F),Rise,.5f),"higher target: the arc is at the target height there");
+            } else if(Rise<-1.f) {   // after the arc ends, free fall at the arc's own velocity onto the lower target
+                const float T=(-Shot.FallSpeed+std::sqrt(Shot.FallSpeed*Shot.FallSpeed+2.f*G*(-Rise)))/G;Landed=Shot.Distance+Shot.Speed*T;
+            } else Landed=Shot.Distance;
+            Check(Near(Landed,Dist,Rise>1.f?Dist*.2f:2.f)||(Rise>1.f&&Shot.Distance>=Max*1.19f),"the leap lands at the aimed distance (higher targets may be capped at 120% of max travel)");
+            Check(Shot.Height>=Height-.01f&&Shot.Distance>0.f&&Shot.Distance<=Max*1.2f+.01f,"planned arc is never lower than the base arc and stays within range");
+        }
+        const auto Near2=PlanLeap(10.f,0.f,Run,Dash),Far=PlanLeap(1.e9f,0.f,Run,Dash),Sky=PlanLeap(Max,1.e9f,Run,Dash),Pit=PlanLeap(Max,-1.e9f,Run,Dash);
+        Check(Near(Near2.Distance,Max*LeapMinFraction,.01f)&&Near(Far.Distance,Max,.01f),"range is clamped to 35%..100% of the maximum travel");
+        Check(Sky.Height<=LeapMaxRise*1.3f+.01f&&Sky.Distance<=Max*1.2f+.01f&&Pit.Distance>0.f&&Pit.Distance<Max,"extreme rise and drop are clamped");
+        const auto Bad=PlanLeap(std::numeric_limits<float>::quiet_NaN(),std::numeric_limits<float>::quiet_NaN(),Run,Dash,std::numeric_limits<float>::quiet_NaN());
+        Check(Near(Bad.Distance,Max,.01f)&&Near(Bad.Height,Height,.01f),"bad inputs fall back to a flat full-range leap");
+    }
     for(float Run=640.f;Run<=640.f*1.6f;Run+=32.f) Check(LeapSpeed(Run,.24f)>Run*1.3f&&LeapSpeed(Run,.24f)>=LeapDistance(.24f)/Flight-.01f&&Near(LeapTravel(Run,.24f),LeapSpeed(Run,.24f)*Flight,.01f),"hammer leap covers more ground per second than a full run at every move-speed rank");
     Check(Near(LeapEndFallSpeed(),std::sqrt(2.f*1568.f*Height),20.f),"the scripted arc ends with the fall speed real gravity would give, so the fall continues as one parabola");
     Check(Near(LeapDistance(.22f)/(2350.f*.22f),1.15f)&&Near(Height/(660.f*660.f/(2.f*1568.f)),1.5f,.001f),"leap has 15 percent extra dash reach and 50 percent extra jump height");

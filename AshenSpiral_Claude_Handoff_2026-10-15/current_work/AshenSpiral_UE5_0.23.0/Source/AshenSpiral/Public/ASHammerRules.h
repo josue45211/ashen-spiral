@@ -38,6 +38,28 @@ inline float LeapTravel(float RunSpeed,float DashSeconds) {return LeapSpeed(RunS
 // Downward speed at the end of the scripted arc. Handing this (plus the horizontal speed) to the movement component when the arc ends
 // lets the fall continue as the same parabola, so a leap from a ledge keeps arcing instead of dropping straight down.
 inline float LeapEndFallSpeed() {return 4.f*Height/Flight;}
+// 0.23.4: the leap lands where the crosshair points, including up and down.
+// The scripted arc is the parabola z(f)=H*4f(1-f), x(f)=D*f over the fixed flight time, and the physics handoff at its end (above) continues the same
+// parabola. A HIGHER target gets a taller arc that crosses the target height on its way down; a LOWER target gets a shorter scripted arc whose
+// continuation falls onto the target. Range is clamped to [35%, 100%] of the maximum travel; height to a reachable rise/drop.
+constexpr float LeapMinFraction=.35f,LeapMaxRise=260.f,LeapMaxDrop=900.f;
+struct LeapShot {float Distance,Height,Speed,FallSpeed;};
+inline LeapShot PlanLeap(float TargetDistance,float TargetRise,float RunSpeed,float DashSeconds,float Gravity=1568.f) {
+    const float Max=LeapTravel(RunSpeed,DashSeconds);
+    const float d=std::isfinite(TargetDistance)?std::clamp(TargetDistance,Max*LeapMinFraction,Max):Max;
+    const float dz=std::isfinite(TargetRise)?std::clamp(TargetRise,-LeapMaxDrop,LeapMaxRise):0.f;
+    const float g=std::isfinite(Gravity)&&Gravity>100.f?Gravity:1568.f;
+    float H=Height,D=d;
+    if(dz>1.f) {
+        H=std::max(Height,dz*1.3f);
+        const float f=.5f*(1.f+std::sqrt(std::max(0.f,1.f-dz/H))); // descending point where the arc is at the target height
+        D=std::min(d/f,Max*1.2f);
+    } else if(dz<-1.f) {
+        const float Vz=4.f*H/Flight,T=(-Vz+std::sqrt(Vz*Vz+2.f*g*(-dz)))/g; // time to fall the extra depth after the scripted arc ends
+        D=d/(1.f+T/Flight);
+    }
+    return {D,H,D/Flight,4.f*H/Flight};
+}
 // The contact hold lives inside the full cycle: haste and DPS stay proportional.
 inline float PosePhase(int Step,float Phase,bool Contact) {
     if(!Contact) return std::clamp(Phase,0.f,1.f);
