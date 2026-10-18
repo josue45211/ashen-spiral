@@ -32,7 +32,7 @@ const FLinearColor ASMenuGold(.98f,.64f,.25f),ASMenuMuted(.67f,.73f,.79f),ASMenu
 // Leave room for the scroll bar, border padding, and button style padding.
 constexpr float PanelWidth=880.f,PanelHeight=680.f;
 constexpr float BodyTextWidth=760.f,CardTextWidth=520.f,HeaderTextWidth=570.f;
-constexpr float ButtonWidth=166.f,ButtonTextWidth=122.f;
+constexpr float ButtonWidth=196.f,ButtonTextWidth=152.f;
 FSlateFontInfo Font(int32 Size,bool Bold=false) {return FCoreStyle::GetDefaultFontStyle(Bold?"Bold":"Regular",FMath::Max(14,Size));}
 FText Txt(const FString& Value) {return FText::FromString(Value);}
 int32 PermanentStatIndex(int32 Stat) {const int32 Indices[]={14,16,17,0,18,19};return Indices[FMath::Clamp(Stat,0,5)];}
@@ -97,7 +97,7 @@ TSharedRef<SWidget> SASMenu::Button(const FString& Title,int32 Code,int32 Index)
         .OnReleased_Lambda([Juice](){ButtonJuiceSet(*Juice,Juice->Hover,false);})
         .OnClicked_Lambda([Weak,Code,Index](){if(auto* C=Weak.Get()) C->Action(Code,Index);return FReply::Handled();})
         [SNew(STextBlock).Text(Txt(Title)).Font(Font(14,true)).Justification(ETextJustify::Center)
-            .WrapTextAt(ButtonTextWidth).WrappingPolicy(ETextWrappingPolicy::AllowPerCharacterWrapping)];
+            .WrapTextAt(ButtonTextWidth).WrappingPolicy(ETextWrappingPolicy::DefaultWrapping)];
 }
 void SASMenu::Text(const FString& Value,int32 Size,FLinearColor Color) {
     Body->AddSlot().AutoHeight().Padding(0,6)[SNew(STextBlock).Text(Txt(Value)).Font(Font(Size)).ColorAndOpacity(Color)

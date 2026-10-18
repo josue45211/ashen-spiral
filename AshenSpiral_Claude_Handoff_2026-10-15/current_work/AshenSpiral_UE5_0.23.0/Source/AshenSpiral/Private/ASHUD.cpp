@@ -348,6 +348,14 @@ void AASHUD::DrawHUD() {
         for(int32 I=0;I<4;++I) if(E->StatusBits&(I==3?16:1<<I)) {auto Color=ASData::HitColor(I==3?EASHitKind::Bleed:EASHitKind(I+2));Color.A=Alpha;Box(X-9+I*7,Y+11,5,3,Color);}
         if(E->bTrainingDummy) Text(TEXT("PRACTICE / RESETS AFTER 5s"),X-80,Y-25,ASHudMuted,.48f);
     }
+    // Boss spawn protection: a grey IMMUNE tag (no damage numbers while protected) until the intro ends.
+    for(auto W:S->Enemies) if(const auto* E=W.Get()) if(E->Boss()&&E->SpawnProtected()&&E->Health>0) {
+        const FVector Top=E->GetActorLocation()+FVector(0,0,E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+60);
+        FVector2D P;if(!PC->ProjectWorldLocationToScreen(Top,P)) continue;
+        const float X=P.X/Scale,Y=P.Y/Scale,Pulse=.7f+.3f*FMath::Sin(S->SimTime*7.f);const FLinearColor Grey(.62f,.65f,.7f,Pulse);
+        Box(X-62,Y-4,124,28,FLinearColor(.03f,.04f,.05f,.75f*Pulse));Box(X-62,Y-4,124,2,Grey);Box(X-62,Y+22,124,2,Grey);
+        Text(TEXT("IMMUNE"),X-44,Y-1,Grey,.75f);
+    }
     for(const auto& N:PC->DamageNumbers) {
         const float Age=N.Life-(N.Expires-S->SimTime);const bool Incoming=N.Kind==EASHitKind::Received||N.Kind==EASHitKind::Shield;
         // Persona decides how the number moves and pops; colour comes from the element or the synergy type.
