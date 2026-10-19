@@ -1,6 +1,7 @@
 // Native tests for the 0.24 enemy pose system (Tier 0 animation): Unreal-faithful math, track structure, the rig solver against the old hard-coded walking pose, and sweeps over
 // every ability's track. Plain C++ over ASEnemyPose.h; Unreal rendering and the component hierarchy are not executed (the offline preview draws the same numbers).
 #include "../Source/AshenSpiral/Public/ASEnemyPose.h"
+#include "../Source/AshenSpiral/Public/ASEnemyDeathTracks.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -68,11 +69,11 @@ int main() {
             Check(C.Channel<ChannelCount,"a curve drives a real channel");
             Check(Channels.insert(C.Channel).second,"a channel is driven by one curve per track");
             int N=0;while(N<MaxKeys&&C.Keys[N].T>=0.f) ++N;
-            Check(N>=2&&N<=MaxKeys,"a curve has between two and nine keys");
+            Check(N>=2&&N<=MaxKeys,"a curve has between two keys and the maximum");
             Check(C.Keys[0].T==0.f&&C.Keys[0].V==0.f,"every curve starts at neutral at the very start");
             Check(C.Keys[N-1].T==TrackEnd&&C.Keys[N-1].V==0.f,"... and ends at neutral exactly at the end of the recovery");
             for(int K=1;K<N;++K) Check(C.Keys[K].T>C.Keys[K-1].T&&C.Keys[K].T<=TrackEnd,"keys are strictly increasing inside the track");
-            const float Limit=C.Channel==ChPlant?1.f:(C.Channel>=ChScaleX&&C.Channel<=ChScaleZ?.8f:(C.Channel==ChCrouch?30.f:(C.Channel==ChLeanX||C.Channel==ChLeanY?40.f:(C.Channel>=ChHandLX&&C.Channel<=ChHandRZ?140.f:(C.Channel==ChFootLX||C.Channel==ChFootRX?40.f:(C.Channel==ChStance?30.f:(C.Channel==ChGlow?3.f:120.f)))))));
+            const float Limit=C.Channel==ChPlant?1.f:(C.Channel==ChBend||C.Channel==ChBendRoll?120.f:(C.Channel>=ChScaleX&&C.Channel<=ChScaleZ?.8f:(C.Channel==ChCrouch?30.f:(C.Channel==ChLeanX||C.Channel==ChLeanY?40.f:(C.Channel>=ChHandLX&&C.Channel<=ChHandRZ?140.f:(C.Channel==ChFootLX||C.Channel==ChFootRX?40.f:(C.Channel==ChStance?30.f:(C.Channel==ChGlow?3.f:120.f))))))));
             for(int K=0;K<N;++K) Check(std::fabs(C.Keys[K].V)<=Limit&&std::isfinite(C.Keys[K].V),"every key stays inside its channel's sane range");
             float Previous=EvalCurve(C,0.f);
             for(float U=.005f;U<=TrackEnd+.0001f;U+=.005f) {const float V=EvalCurve(C,U);Check(std::fabs(V-Previous)<=Limit*.35f,"a curve has no jumps");Previous=V;}
@@ -143,6 +144,23 @@ int main() {
         Check(NearV(G.Part[HandL].Loc,V3{76,-5,133})&&NearV(G.Part[HandR].Loc,V3{54,25,119}),"the sniper holds its rifle at the old fixed hand positions");
     }
 
+    // ---- Solver: the upper body hinges about the hips ----
+    {
+        float D[ChannelCount];ClearChannels(D);
+        RigInput In;RigOut Flat,Back;Solve(In,D,Flat);
+        D[ChBend]=90.f;Solve(In,D,Back);Xf WFlat[SlotCount],WBack[SlotCount];ToFigureSpace(Flat,WFlat);ToFigureSpace(Back,WBack);
+        const V3 Pivot{0.f,0.f,79.f};
+        Check(NearV(Back.Part[Torso].Loc,V3{-32.f,0.f,79.f},.01f),"leaning back 90 degrees swings the chest from above the hips to behind them");
+        Check(NearV(Back.Part[Pelvis].Loc,Flat.Part[Pelvis].Loc)&&NearV(Back.Part[BootL].Loc,Flat.Part[BootL].Loc)&&NearV(Back.Part[BootR].Loc,Flat.Part[BootR].Loc),"the pelvis and the feet do not move when the body bends");
+        for(int Slot:{int(Torso),int(Head),int(PauldronL),int(PauldronR),int(Cape)}) Check(Near(Length(Back.Part[Slot].Loc-Pivot),Length(Flat.Part[Slot].Loc-Pivot),.01f),"every upper-body part keeps its distance from the hip line (the bend is rigid)");
+        Check(NearV(Rotate(Back.Part[Torso].Rot,V3{0,0,1}),V3{-std::cos(5.f*DegToRad),0.f,-std::sin(5.f*DegToRad)},.01f)||Rotate(Back.Part[Torso].Rot,V3{0,0,1}).X<-.9f,"the torso's top points back along the bend");
+        // The hands hang from the carried shoulders: the arm roots move with the body, the hand offsets do not rotate.
+        Check(NearV(WBack[UpperArmR].Loc-WFlat[UpperArmR].Loc,V3{},500.f)&&Length(Back.Part[HandR].Loc-WFlat[HandR].Loc)>20.f,"the shoulders and hands move when the body bends");
+        D[ChBend]=0.f;D[ChBendRoll]=40.f;RigOut Right;Solve(In,D,Right);
+        Check(Right.Part[Head].Loc.Y>40.f&&Right.Part[Head].Loc.Z<Flat.Part[Head].Loc.Z,"leaning right 40 degrees moves the head to the right and lowers it");
+        // No bend and no crouch: the hands are exactly where the old absolute positions put them (the equivalence test above covers the walking swing).
+        Check(NearV(Flat.Part[HandL].Loc,V3{24.f,-45.f,74.f})&&NearV(Flat.Part[HandR].Loc,V3{24.f,45.f,74.f}),"with no bend the hands hang where they always did");
+    }
     // ---- Solver: sweeps over every ability ----
     for(int Ability=1;Ability<ER::AbilityCount;++Ability) {
         const Track& T=TrackFor(Ability);
@@ -169,6 +187,51 @@ int main() {
             BlobOut B;SolveBlob(D,B);
             Check(B.Scale.X>.19f&&B.Scale.Y>.19f&&B.Scale.Z>.19f&&Near(B.Rot.X*B.Rot.X+B.Rot.Y*B.Rot.Y+B.Rot.Z*B.Rot.Z+B.Rot.W*B.Rot.W,1.f,.002f),"the blob body keeps a sane scale and a unit rotation");
         }
+    }
+    // ---- Baked deaths (retargeted from the Mannequin's death animations, ASEnemyDeathTracks.h) ----
+    {
+        Check(DeathVariants==DeathVariantCount&&DeathTrackEnd==1.f&&DeathFronts+3==DeathVariants&&DeathBack==DeathFronts&&DeathLeft==DeathBack+1&&DeathRight==DeathLeft+1,"six death variants: three fronts, a back, a left and a right");
+        for(int V=0;V<DeathVariants;++V) {
+            const Track& T=DeathTrack(V);std::set<int> Channels;bool Ended=false;int Curves=0;
+            for(int I=0;I<MaxCurves;++I) {
+                const Curve& C=T.Curves[I];
+                if(C.Channel<0) {Ended=true;break;}
+                ++Curves;
+                Check(C.Channel<ChannelCount&&Channels.insert(C.Channel).second,"a death curve drives a real channel, once");
+                int N=0;while(N<MaxKeys&&C.Keys[N].T>=0.f) ++N;
+                Check(N>=2&&N<=MaxKeys-1,"a death curve has two to eleven keys and an end sentinel");
+                Check(C.Keys[0].T==0.f&&C.Keys[0].V==0.f,"every death curve starts at the walking pose");
+                Check(C.Keys[N-1].T==DeathTrackEnd,"... and runs to the end of the death");
+                const float Limit=C.Channel==ChPlant?1.2f:(C.Channel==ChBend||C.Channel==ChBendRoll||C.Channel==ChTorsoYaw||C.Channel==ChHeadPitch||C.Channel==ChHeadYaw?130.f:(C.Channel>=ChWeaponPitch&&C.Channel<=ChWeaponRoll?170.f:
+                    (C.Channel>=ChHandLX&&C.Channel<=ChHandRZ?170.f:(C.Channel==ChCrouch||C.Channel==ChLeanX||C.Channel==ChLeanY?90.f:(C.Channel==ChFootLX||C.Channel==ChFootRX?45.f:(C.Channel==ChStance?35.f:150.f))))));
+                for(int K=0;K<N;++K) {Check(std::isfinite(C.Keys[K].V)&&std::fabs(C.Keys[K].V)<=Limit,"every death key is inside its channel's range");if(K) Check(C.Keys[K].T>C.Keys[K-1].T&&C.Keys[K].T<=DeathTrackEnd,"death keys increase inside the track");}
+                float Previous=EvalCurve(C,0.f);
+                for(float U=.005f;U<=1.0001f;U+=.005f) {const float Value=EvalCurve(C,U);Check(std::fabs(Value-Previous)<=Limit*.6f,"a death curve has no jumps");Previous=Value;}
+            }
+            Check(Ended&&Curves>=12,"a death track is a sentinel-terminated list of at least a dozen curves");
+            for(int Sample=0;Sample<=200;++Sample) {
+                float D[ChannelCount];Evaluate(T,float(Sample)/200.f,D);
+                RigInput In;In.Seconds=float(Sample)*.01f;In.Gun=(V&1)!=0;
+                RigOut O;Solve(In,D,O);Xf World[SlotCount];ToFigureSpace(O,World);
+                for(int Slot=0;Slot<SlotCount;++Slot) {
+                    const Xf& X=O.Part[Slot];const V3 P=World[Slot].Loc;
+                    Check(std::isfinite(X.Loc.X)&&std::isfinite(X.Loc.Y)&&std::isfinite(X.Loc.Z)&&std::isfinite(X.Scale.X)&&std::isfinite(X.Scale.Z)&&Near(X.Rot.X*X.Rot.X+X.Rot.Y*X.Rot.Y+X.Rot.Z*X.Rot.Z+X.Rot.W*X.Rot.W,1.f,.002f),"a dying pose is finite with unit rotations");
+                    Check(P.X>-260.f&&P.X<320.f&&P.Y>-230.f&&P.Y<230.f&&P.Z>-16.f&&P.Z<350.f,"a dying part stays inside the figure's envelope and never sinks below the floor");
+                }
+                for(int Slot:{int(UpperArmL),int(ForearmL),int(UpperArmR),int(ForearmR),int(ThighL),int(GreaveL),int(ThighR),int(GreaveR)}) Check(Near(O.Part[Slot].Scale.Z,1.f,.002f),"limbs keep their length while dying");
+                Check(O.Part[BootL].Loc.Z>6.f&&O.Part[BootR].Loc.Z>6.f,"a dying enemy's boots stay on the floor");
+            }
+        }
+        // The first frame of every death is the walking pose exactly.
+        for(int V=0;V<DeathVariants;++V) {float D[ChannelCount];Evaluate(DeathTrack(V),0.f,D);bool Zero=true;for(float X:D) Zero&=X==0.f;Check(Zero,"every death starts neutral");}
+        Check(&DeathTrack(-3)==&DeathTrack(0)&&&DeathTrack(99)==&DeathTrack(DeathVariants-1),"an out-of-range death variant clamps");
+        // Which collapse plays.
+        Check(DeathVariantFor(1.f,0.f,0u)==DeathBack&&DeathVariantFor(1.f,.5f,7u)==DeathBack,"pushed forward (hit from behind) it slumps forward: the back variant");
+        Check(DeathVariantFor(0.f,1.f,0u)==DeathLeft&&DeathVariantFor(-.2f,1.f,5u)==DeathLeft,"pushed to its right (hit from the left) it goes down to the right: the left variant");
+        Check(DeathVariantFor(0.f,-1.f,0u)==DeathRight&&DeathVariantFor(.2f,-1.f,5u)==DeathRight,"pushed to its left: the right variant");
+        std::set<int> Fronts;for(unsigned Id=0;Id<30u;++Id) {const int V=DeathVariantFor(-1.f,.2f,Id);Check(V>=0&&V<DeathFronts,"hit from the front: one of the three doubled-over variants");Fronts.insert(V);}
+        Check(Fronts.size()==3,"a crowd of front deaths uses all three");
+        Check(DeathVariantFor(NaN,0.f,4u)<DeathFronts&&DeathVariantFor(0.f,NaN,4u)<DeathFronts,"a non-finite direction still gives a valid front variant");
     }
     std::printf("PASS: %lld enemy pose checks (Unreal rotation/quaternion math against the engine's matrix, track structure, timeline, the solver's neutral pose equals the old gait, sweeps over every ability: finite, in reach, no stretching, on the floor).\nShared rules only; Unreal rendering and the component hierarchy are not executed (see the offline pose preview).\n",Checks);
     return 0;

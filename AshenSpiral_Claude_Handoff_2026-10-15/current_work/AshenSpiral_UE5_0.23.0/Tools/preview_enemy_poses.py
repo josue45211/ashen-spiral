@@ -20,7 +20,8 @@ CLOTH = (.24, .14, .19)
 FIRE = (1.0, .09, .03)
 SLOT_COLOR = [METAL, METAL, DARK, DARK, METAL, DARK, METAL, DARK, METAL, DARK, METAL, DARK, DARK, METAL, METAL, CLOTH, FIRE, DARK, DARK, CLOTH, FIRE]
 GLOWING = {16, 20}
-ABILITY_NAMES = {0: 'neutral', 1: 'dive', 2: 'molt', 3: 'slash', 4: 'shot', 5: 'pounce', 6: 'charge', 7: 'blast', 8: 'snipe', 9: 'summon', 10: 'boss attack'}
+ABILITY_NAMES = {0: 'neutral', 1: 'dive', 2: 'molt', 3: 'slash', 4: 'shot', 5: 'pounce', 6: 'charge', 7: 'blast', 8: 'snipe', 9: 'summon', 10: 'boss attack',
+                 100: 'death front 1', 101: 'death front 2', 102: 'death front 3', 103: 'death back', 104: 'death left', 105: 'death right'}
 
 
 def rotate(q, v):
@@ -72,7 +73,7 @@ def sheet(samples, ability, font, small):
     for i, s in enumerate(samples):
         for row, angle in enumerate((-math.pi / 2, -.72)):
             im.paste(frame(s, cell, angle), (i * cell[0], 46 + row * cell[1]))
-        phase = 'wind-up' if s['u'] < 1.0 else ('strike' if s['u'] < 2.0 else 'recovery')
+        phase = 'death' if ability >= 100 else ('wind-up' if s['u'] < 1.0 else ('strike' if s['u'] < 2.0 else 'recovery'))
         d.text((i * cell[0] + 10, 52), 'u %.2f  %s' % (s['u'], phase), font=small, fill='#8ba8bc')
     return im
 
@@ -81,7 +82,7 @@ def summary(groups, font, small):
     """One overview sheet: a row per ability, the key frames (rest, wind-up peak, mid strike, impact, recovery, rest) in the three-quarter view."""
     wanted = (0.0, 0.85, 1.12, 1.45, 2.2, 3.0)
     cell = (230, 340)
-    rows = [(key, samples) for key, samples in groups.items() if key[1] != 0]
+    rows = [(key, samples) for key, samples in groups.items() if 0 < key[1] < 100]  # abilities only; the baked deaths have their own sheets
     im = Image.new('RGB', (cell[0] * len(wanted) + 190, 44 + cell[1] * len(rows)), '#18202b')
     d = ImageDraw.Draw(im)
     d.text((14, 8), 'ENEMY POSES 0.24 / the offline preview of the data the game poses from', font=font, fill='#d4eaff')

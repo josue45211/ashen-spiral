@@ -1,6 +1,7 @@
 #include "ASEnemy.h"
 #include "ASEnemyRules.h"
 #include "ASEnemyPose.h"
+#include "ASEnemyDeathTracks.h"
 #include "ASExpeditionRules.h"
 #include "ASPresentationRules.h"
 #include "ASCharacter.h"
@@ -57,6 +58,11 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     const float U=PoseTime(Now);
     if(U>=0.f) EP::Evaluate(EP::TrackFor(PoseAbility),U,D);
     EP::RigOut Out;EP::Solve(In,D,Out);
+    ApplyRig(Out,HalfHeight,1.f);
+}
+// Puts a solved pose on the components: every armour part, the weapon and the shield, the figure's own transform (the death's Fade shrinks the whole figure), and the glow.
+void AASEnemy::ApplyRig(const ASEnemyPose::RigOut& Out,float HalfHeight,float Fade) {
+    namespace EP=ASEnemyPose;
     auto Place=[](UStaticMeshComponent* Part,const EP::Xf& X) {
         if(!Part) return;
         Part->SetRelativeLocationAndRotation(FVector(X.Loc.X,X.Loc.Y,X.Loc.Z),FQuat(X.Rot.X,X.Rot.Y,X.Rot.Z,X.Rot.W));
@@ -65,10 +71,10 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     };
     for(int32 I=0;I<EP::Weapon&&I<ArmorParts.Num();++I) Place(ArmorParts[I],Out.Part[I]);
     Place(ArmorWeapon,Out.Part[EP::Weapon]);Place(ArmorShield,Out.Part[EP::Shield]);
-    const float Size=Elite()?BodyScale:.90f; // the figure's own size, as RefreshLook set it
+    const float Size=(Elite()?BodyScale:.90f)*Fade; // the figure's own size, as RefreshLook set it
     ArmorFigure->SetRelativeLocationAndRotation(FVector(Out.FigureOffset.X,Out.FigureOffset.Y,-HalfHeight),FQuat(Out.FigureRot.X,Out.FigureRot.Y,Out.FigureRot.Z,Out.FigureRot.W));
     ArmorFigure->SetRelativeScale3D(FVector(.82f*Size*Out.FigureScale.X,.70f*Size*Out.FigureScale.Y,Size*Out.FigureScale.Z));
-    if(FMath::Abs(Out.Glow-AppliedGlow)>.02f&&ArmorParts.Num()>EP::Core) { // the visor and the chest core brighten as an attack winds up
+    if(FMath::Abs(Out.Glow-AppliedGlow)>.02f&&ArmorParts.Num()>EP::Core) { // the visor and the chest core brighten as an attack winds up (and flare as it dies)
         AppliedGlow=Out.Glow;
         for(int32 Slot:{int32(EP::Visor),int32(EP::Core)}) if(auto* M=Cast<UMaterialInstanceDynamic>(ArmorParts[Slot]->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),4.f+Out.Glow*4.f);
     }
@@ -88,13 +94,25 @@ void AASEnemy::AnimateBlob() {
 }
 
 void AASEnemy::AnimateDeath() {
+    namespace EP=ASEnemyPose;
     const float Now=AS::Time(this);
     if(DeathSeenAt<0.f) {
         DeathSeenAt=Now;
+        const FVector Push=GetActorTransform().InverseTransformVectorNoScale(HitReactionDirection); // which way the killing blow pushed it, in its own frame
+        DeathVariant=EP::DeathVariantFor(Push.X,Push.Y,GetUniqueID());
         for(auto* Piece:{Tell.Get(),TellFill.Get(),Beam.Get(),Eye.Get(),Crown.Get(),WingL.Get(),WingR.Get(),WingBoneL.Get(),WingBoneR.Get()}) if(Piece) Piece->SetVisibility(false);
     }
-    // Topples backward and shrinks away with a brief glow, over EnemyDeathSeconds.
     const auto Look=ASPresentation::EnemyDeathAt(Now-DeathSeenAt);
+    // 0.24: an armoured walker plays a collapse retargeted from the Mannequin's own death animations (ASEnemyDeathTracks.h) over EnemyDeathSeconds, then shrinks away as before.
+    if(!bTrainingDummy&&!Flies()&&ASEnemyRules::KitFor(Kind).AnimSet==ASEnemyRules::AnimHumanoid&&ArmorParts.Num()>EP::Core) {
+        float D[EP::ChannelCount];
+        EP::Evaluate(EP::DeathTrack(DeathVariant<0?0:DeathVariant),FMath::Clamp((Now-DeathSeenAt)/ASPresentation::EnemyDeathSeconds,0.f,1.f),D);
+        EP::RigInput In;In.Seconds=Now;In.Gun=Kind==8;
+        EP::RigOut Out;EP::Solve(In,D,Out);Out.Glow=Look.Glow*3.f;
+        ApplyRig(Out,GetCapsuleComponent()->GetScaledCapsuleHalfHeight(),FMath::Max(.02f,Look.Scale));
+        return;
+    }
+    // Topples backward and shrinks away with a brief glow, over EnemyDeathSeconds.
     const FRotator Fall(-82.f*Look.Topple,0.f,10.f*Look.Topple);
     const float Fade=FMath::Max(.02f,Look.Scale);
     if(Body) {Body->SetRelativeRotation(Fall);Body->SetRelativeScale3D(FVector(BodyScale*Fade));

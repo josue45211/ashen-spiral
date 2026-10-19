@@ -5,6 +5,7 @@
 #include "ASEnemyRules.h"
 #include "ASEnemy.generated.h"
 class USceneComponent;class UStaticMeshComponent;class AASCharacter;class USoundBase;
+namespace ASEnemyPose {struct RigOut;}
 UCLASS() class ASHENSPIRAL_API AASEnemy : public ACharacter {
     GENERATED_BODY()
 public:
@@ -68,9 +69,11 @@ private:
     bool bFootPlanted[2]={false,false};
     bool bVisualInitialized=false;
     void AnimateArmor(float Delta,float Windup);
+    void ApplyRig(const ASEnemyPose::RigOut& Out,float HalfHeight,float Fade); // puts a solved pose on the armour components, the weapon, the shield and the figure (Fade scales the whole figure)
     void AnimateBlob();         // 0.24: the leaper and the broodcaller (one body) squash, stretch and tip from the same ability tracks as the armour rig
     float PoseTime(float Now);  // track time (ASEnemyPose::AbilityU) of the ability pose that is playing, or -1; remembers the ability after the replicated one resets
     int32 PoseAbility=0;
+    int32 DeathVariant=-1;      // which baked Mannequin collapse this enemy plays (ASEnemyPose::DeathVariantFor), chosen when its death is first seen
     float AppliedGlow=-1.f;
     void AnimateFlightPose(float Delta,float Windup); // the armoured flying boss: legs trail, torso leans into its motion, arms rise with the wind-up (no walking gait in the air)
     void AnimateDeath();

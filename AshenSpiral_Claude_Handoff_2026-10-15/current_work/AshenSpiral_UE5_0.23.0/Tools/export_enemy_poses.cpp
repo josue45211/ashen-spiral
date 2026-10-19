@@ -2,6 +2,7 @@
 // scale) of every rig slot at a series of track times. It uses the very header the game compiles (ASEnemyPose.h), so the preview shows the numbers the game applies.
 // Build and run through preview_enemy_poses.py, or by hand:  cl /std:c++17 /EHsc Tools\export_enemy_poses.cpp && export_enemy_poses.exe > poses.json
 #include "../Source/AshenSpiral/Public/ASEnemyPose.h"
+#include "../Source/AshenSpiral/Public/ASEnemyDeathTracks.h"
 #include <cstdio>
 #include <vector>
 using namespace ASEnemyPose;
@@ -12,6 +13,8 @@ static const std::vector<Preview>& Previews() {
     static const std::vector<Preview> P={
         {0,ER::AbilitySlash,false,.9f},{3,ER::AbilitySlash,false,1.45f},{1,ER::AbilityShot,false,.9f},{6,ER::AbilityCharge,false,.9f},{7,ER::AbilityBlast,false,.9f},
         {8,ER::AbilitySnipe,true,.9f},{4,ER::AbilityBossAttack,false,2.15f},{5,ER::AbilityPounce,false,1.f},{9,ER::AbilitySummon,false,1.f},
+        // 100 + variant: the baked Mannequin death tracks (ASEnemyDeathTracks.h), played over U 0..1
+        {0,100,false,.9f},{0,101,false,.9f},{0,102,false,.9f},{0,103,false,.9f},{0,104,false,.9f},{0,105,false,.9f},
     };
     return P;
 }
@@ -23,8 +26,10 @@ int main() {
     // The neutral reference first (walking pose, no ability).
     std::vector<Preview> All={{0,ER::AbilityNone,false,.9f}};for(const auto& P:Previews()) All.push_back(P);
     for(const Preview& P:All) {
-        const Track& T=TrackFor(P.Ability);
-        for(float U:(P.Ability==ER::AbilityNone?std::vector<float>{0.f}:std::vector<float>(Times,Times+sizeof(Times)/sizeof(Times[0])))) {
+        const bool Death=P.Ability>=100;
+        const Track& T=Death?DeathTrack(P.Ability-100):TrackFor(P.Ability);
+        static const float DeathTimes[]={0.f,.12f,.25f,.4f,.55f,.7f,.85f,1.f};
+        for(float U:(P.Ability==ER::AbilityNone?std::vector<float>{0.f}:(Death?std::vector<float>(DeathTimes,DeathTimes+8):std::vector<float>(Times,Times+sizeof(Times)/sizeof(Times[0]))))) {
             float D[ChannelCount];Evaluate(T,U,D);
             if(!First) std::printf(",");
             First=false;
@@ -39,7 +44,10 @@ int main() {
             const Xf Fig=FigureXf(O,P.Size,0.f);
             std::printf("{\"kind\":%d,\"ability\":%d,\"u\":%.3f,\"size\":%.2f,\"weapon\":%d,\"shield\":%s,\"glow\":%.3f,\"parts\":[",P.Kind,P.Ability,U,P.Size,WeaponFor(P.Kind),P.Kind==6?"true":"false",O.Glow);
             for(int I=0;I<SlotCount;++I) {if(I) std::printf(",");Print(Compose(Fig,World[I]));}
-            std::printf("]}");
+            std::printf("],\"rig\":[");  // the same slots in figure space BEFORE the figure's own transform (for retargeting tools), then that transform
+            for(int I=0;I<SlotCount;++I) {if(I) std::printf(",");Print(World[I]);}
+            std::printf("],\"figure\":");Print(Fig);
+            std::printf("}");
         }
     }
     std::printf("]}\n");

@@ -59,6 +59,7 @@ constexpr int ParentOf[SlotCount]={-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
 // ---- Channels: every degree of freedom a track can drive. Values are DELTAS from the neutral pose (0 = neutral) ----
 enum Channel : int {
     ChCrouch,ChLeanX,ChLeanY,                          // upper body drops / shifts forward / shifts right (cm); the feet stay, the legs bend
+    ChBend,ChBendRoll,                                 // the whole upper body hinges about the hips (degrees): pitch (positive leans back) and roll (positive leans right)
     ChFigPitch,ChFigYaw,ChFigRoll,                     // whole-figure tilt about the feet (degrees)
     ChScaleX,ChScaleY,ChScaleZ,                        // whole-figure scale added to 1 (squash and stretch)
     ChTorsoPitch,ChTorsoYaw,ChTorsoRoll,               // degrees; positive pitch leans back, positive yaw turns right
@@ -72,7 +73,7 @@ enum Channel : int {
 };
 // ---- Tracks: per-channel curves over track time U in [0,3]: [0,1) the wind-up, [1,2) the strike, [2,3) the recovery ----
 struct Key {float T,V;};
-constexpr int MaxKeys=9,MaxCurves=26;
+constexpr int MaxKeys=12,MaxCurves=30;
 struct Curve {int Channel;Key Keys[MaxKeys];};  // Channel < 0 ends the list; a key with T < 0 ends the curve
 struct Track {Curve Curves[MaxCurves];};
 constexpr float TrackEnd=3.f;
@@ -145,16 +146,21 @@ constexpr V3 RestTorso{0.f,0.f,111.f},RestHead{0.f,0.f,165.f},RestPelvis{0.f,0.f
 inline void Solve(const RigInput& In,const float* D,RigOut& Out) {
     const float W=std::clamp(In.Weight,0.f,1.f),Step=In.Step,Recoil=In.Recoil;
     const V3 Body{D[ChLeanX],D[ChLeanY],-D[ChCrouch]},Hips{Body.X*.5f,Body.Y*.5f,-D[ChCrouch]};
+    // The upper body hinges about the hips: a rest point is shifted by the lean and crouch, then carried round the (moved) hip line by the bend.
+    const float Bend=D[ChBend];
+    const V3 Pivot=V3{0.f,0.f,79.f}+Hips;
+    const Q4 BendRot=FromRotator(Bend,0.f,D[ChBendRoll]);
+    auto Carry=[&](V3 Rest) {return Pivot+Rotate(BendRot,(Rest+Body)-Pivot);};
     // Torso and head (the legacy windup lean now comes from tracks; the release gesture and the hit recoil are added as before).
-    Out.Part[Torso]={RestTorso+Body,FromRotator(-5.f-W*4.f+D[ChTorsoPitch]+In.Release*14.f-In.PushX*Recoil*18.f,Step*3.f+D[ChTorsoYaw],D[ChTorsoRoll]+In.PushY*Recoil*12.f)};
-    Out.Part[Head]={RestHead+Body,FromRotator(5.f+D[ChHeadPitch]-Recoil*8.f,-Step*2.f+D[ChHeadYaw],0.f),V3{.95f,1.f,.85f}};
+    Out.Part[Torso]={Carry(RestTorso),FromRotator(-5.f-W*4.f+D[ChTorsoPitch]+Bend+In.Release*14.f-In.PushX*Recoil*18.f,Step*3.f+D[ChTorsoYaw],D[ChTorsoRoll]+D[ChBendRoll]+In.PushY*Recoil*12.f)};
+    Out.Part[Head]={Carry(RestHead),FromRotator(5.f+D[ChHeadPitch]+Bend-Recoil*8.f,-Step*2.f+D[ChHeadYaw],D[ChBendRoll]),V3{.95f,1.f,.85f}};
     Out.Part[Pelvis]={RestPelvis+Hips,Q4{}};
-    Out.Part[PauldronL]={V3{0.f,-34.f,135.f}+Body,Q4{}};Out.Part[PauldronR]={V3{0.f,34.f,135.f}+Body,Q4{}};
+    Out.Part[PauldronL]={Carry(V3{0.f,-34.f,135.f}),Q4{}};Out.Part[PauldronR]={Carry(V3{0.f,34.f,135.f}),Q4{}};
     Out.Part[Visor]={V3{},Q4{}};Out.Part[Core]={V3{},Q4{}}; // children of the head and torso, at their origins
     // Cape: the player's cloth centreline gives the drape (root to tip), so the enemy's cape streams, ripples and flares with speed the same way.
     const auto Root=ASAnimation::CapePoint(0,In.Seconds,W,In.Turn,In.Flare),Tip=ASAnimation::CapePoint(6,In.Seconds,W,In.Turn,In.Flare);
     const float Drape=std::atan2(Root.X-Tip.X,std::max(1.f,Root.Z-Tip.Z))*RadToDeg;
-    Out.Part[Cape]={RestCape+Body,FromRotator(-Drape+D[ChCapePitch],Step*2.f,0.f)};
+    Out.Part[Cape]={Carry(RestCape),FromRotator(-Drape+D[ChCapePitch]+Bend,Step*2.f,D[ChBendRoll])};
     Out.Part[CapeLower]={V3{-3.f,0.f,-55.f},FromRotator(-W*8.f+std::sin(In.Seconds*3.f)*3.f,0.f,Step*2.f)};
     // Legs: hips drop with the crouch while the feet stay; the gait's foot swing follows the direction of travel; a planted stance blends in over it.
     const float Plant=std::clamp(D[ChPlant],0.f,1.f);
@@ -167,12 +173,14 @@ inline void Solve(const RigInput& In,const float* D,RigOut& Out) {
         const V3 End=Limb(Out.Part[Side==0?ThighL:ThighR],Out.Part[Side==0?GreaveL:GreaveR],V3{Hips.X,Sign*16.f+Hips.Y,79.f+Hips.Z},Foot,V3{70.f,Sign*20.f,45.f},38.f,38.f,38.f,38.f);
         Out.Part[Side==0?BootL:BootR]={End+V3{3.f,0.f,-2.f},FromRotator(F.Pitch*(1.f-Plant),0.f,0.f)};
     }
-    // Arms: from the shoulders to the hand targets (the walking swing, or the sniper's rifle hold, plus the track), bending toward an elbow pole behind and outside.
+    // Arms: from the (carried) shoulders to the hand targets: the walking swing or the sniper's rifle hold, as an offset from the shoulder, plus the track, bending toward an
+    // elbow pole behind and outside. The offsets are the old absolute hand positions minus the shoulders, so nothing changes until the body bends.
     for(int Side=0;Side<2;++Side) {
         const float Sign=Side==0?-1.f:1.f;
-        V3 Hand=In.Gun?(Side==0?V3{76.f,-5.f,133.f}:V3{54.f,25.f,119.f}):V3{24.f+(Side==0?-Step:Step)*12.f,Sign*45.f,74.f};
-        Hand=Hand+Body+(Side==0?V3{D[ChHandLX],D[ChHandLY],D[ChHandLZ]}:V3{D[ChHandRX],D[ChHandRY],D[ChHandRZ]});
-        const V3 End=Limb(Out.Part[Side==0?UpperArmL:UpperArmR],Out.Part[Side==0?ForearmL:ForearmR],V3{0.f,Sign*34.f,133.f}+Body,Hand,V3{-8.f,Sign*75.f,92.f}+Body);
+        const V3 Shoulder=Carry(V3{0.f,Sign*34.f,133.f});
+        const V3 Offset=In.Gun?(Side==0?V3{76.f,29.f,0.f}:V3{54.f,-9.f,-14.f}):V3{24.f+(Side==0?-Step:Step)*12.f,Sign*11.f,-59.f};
+        const V3 Hand=Shoulder+Offset+(Side==0?V3{D[ChHandLX],D[ChHandLY],D[ChHandLZ]}:V3{D[ChHandRX],D[ChHandRY],D[ChHandRZ]});
+        const V3 End=Limb(Out.Part[Side==0?UpperArmL:UpperArmR],Out.Part[Side==0?ForearmL:ForearmR],Shoulder,Hand,Carry(V3{-8.f,Sign*75.f,92.f}));
         Out.Part[Side==0?HandL:HandR]={End,Q4{}};
     }
     Out.Part[Weapon]={V3{},FromRotator(D[ChWeaponPitch],D[ChWeaponYaw],D[ChWeaponRoll])};
@@ -196,6 +204,17 @@ inline void SolveBlob(const float* D,BlobOut& Out) {
     Out.Rot=FromRotator(D[ChFigPitch],D[ChFigYaw],D[ChFigRoll]);
     Out.Scale=V3{std::max(.2f,1.f+D[ChScaleX]),std::max(.2f,1.f+D[ChScaleY]),std::max(.2f,1.f+D[ChScaleZ])};
     Out.Offset=V3{D[ChLeanX],D[ChLeanY],-D[ChCrouch]};Out.Glow=D[ChGlow];
+}
+
+// ---- Deaths (0.24): which baked Mannequin collapse plays (ASEnemyDeathTracks.h, generated by Tools/spike_manny_bake.py) ----
+// By the direction the killing blow pushed the enemy, in its own frame (PushX forward, PushY right): from behind (pushed forward) it slumps forward ("back"), from the left or the
+// right it goes down to the other side, from the front it doubles over (one of three, chosen by its id so a crowd of deaths varies).
+constexpr int DeathFronts=3,DeathBack=3,DeathLeft=4,DeathRight=5,DeathVariantCount=6;
+inline int DeathVariantFor(float PushX,float PushY,unsigned Id) {
+    if(!std::isfinite(PushX)||!std::isfinite(PushY)) return static_cast<int>(Id%static_cast<unsigned>(DeathFronts));
+    if(std::fabs(PushY)>std::fabs(PushX)*1.2f) return PushY>0.f?DeathLeft:DeathRight;
+    if(PushX>0.f) return DeathBack;
+    return static_cast<int>(Id%static_cast<unsigned>(DeathFronts));
 }
 
 // ---- The tracks (TUNABLE). One per ability id; see ASEnemyRules::Ability*. ----
@@ -249,9 +268,9 @@ inline const Track& TrackFor(int Ability) {
         }},
         // 5 pounce (the leaper's blob body): squash down and coil toward the target; stretch out into the leap, nose up then down; squash on landing
         {{
-            {ChScaleZ,      {{0.f,0.f},{.8f,-.30f},{1.f,-.32f},{1.15f,.16f},{1.6f,.12f},{2.f,0.f},{2.15f,-.24f},{2.6f,-.08f},{3.f,0.f}}},
-            {ChScaleX,      {{0.f,0.f},{.8f,.16f},{1.f,.17f},{1.15f,-.08f},{1.6f,-.06f},{2.f,0.f},{2.15f,.14f},{2.6f,.05f},{3.f,0.f}}},
-            {ChScaleY,      {{0.f,0.f},{.8f,.16f},{1.f,.17f},{1.15f,-.08f},{1.6f,-.06f},{2.f,0.f},{2.15f,.14f},{2.6f,.05f},{3.f,0.f}}},
+            {ChScaleZ,      {{0.f,0.f},{.8f,-.30f},{1.f,-.32f},{1.15f,.16f},{1.6f,.12f},{2.f,0.f},{2.15f,-.24f},{2.6f,-.08f},{3.f,0.f},{-1.f,0.f}}},
+            {ChScaleX,      {{0.f,0.f},{.8f,.16f},{1.f,.17f},{1.15f,-.08f},{1.6f,-.06f},{2.f,0.f},{2.15f,.14f},{2.6f,.05f},{3.f,0.f},{-1.f,0.f}}},
+            {ChScaleY,      {{0.f,0.f},{.8f,.16f},{1.f,.17f},{1.15f,-.08f},{1.6f,-.06f},{2.f,0.f},{2.15f,.14f},{2.6f,.05f},{3.f,0.f},{-1.f,0.f}}},
             {ChFigPitch,    {{0.f,0.f},{.8f,-14.f},{1.f,-16.f},{1.2f,16.f},{1.6f,2.f},{1.9f,-20.f},{2.15f,-6.f},{3.f,0.f},{-1.f,0.f}}},
             {ChLeanX,       {{0.f,0.f},{.8f,-10.f},{1.f,-10.f},{1.2f,6.f},{3.f,0.f},{-1.f,0.f}}},
             {ChGlow,        {{0.f,0.f},{1.f,1.5f},{1.3f,.6f},{3.f,0.f},{-1.f,0.f}}},
