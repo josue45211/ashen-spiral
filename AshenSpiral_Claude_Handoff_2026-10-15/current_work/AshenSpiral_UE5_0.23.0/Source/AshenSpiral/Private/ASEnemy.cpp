@@ -200,6 +200,7 @@ void AASEnemy::Tick(float Delta) {
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
+    if(HasAuthority()) TickKnock(S->SimTime);
     const bool ShowWarning=bWinding&&!bTrainingDummy&&!SpawnProtected()&&ShowsStrikeCircle(); // a ground warning means "damage lands in exactly this shape when it fills"
     Tell->SetVisibility(ShowWarning);TellFill->SetVisibility(ShowWarning);
     Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside a comment, so the sniper's aiming beam never showed
@@ -549,14 +550,64 @@ bool AASEnemy::Hit(float Damage,AASCharacter* Source,bool bDirect) {
     return false;
 }
 
-void AASEnemy::Control(int32 Type,const FVector& Direction,float Strength) {
+void AASEnemy::Control(int32 Type,const FVector& Direction,float Strength,int32 Generation) {
     if(!HasAuthority()||SpawnProtected()||bTrainingDummy||Health<=0) return;
     const float Now=AS::Time(this);
     if(Type==0&&Strength>=700.f) BeginHitReaction(GetActorLocation()-Direction,true);
     if(Boss()) return;
-    if(Type==0) LaunchCharacter(Direction.GetSafeNormal2D()*Strength*(Elite()?.5f:1.f),true,false);
+    if(Type==0) {
+        const float Launch=Strength*(Elite()?.5f:1.f);
+        LaunchCharacter(Direction.GetSafeNormal2D()*Launch,true,false);
+        // 0.24 C-2: remember who launched it (the last hero to hit it, if that was recent) so a wall slam or a pile-up is credited and can chain.
+        if(Generation>=0&&ASPartC::ImpactWorthy(Launch)) {
+            bKnocked=true;KnockStart=Now;KnockStrength=Launch;KnockGeneration=FMath::Clamp(Generation,0,ASPartC::ImpactMaxGeneration);NextImpactAt=Now;
+            if(Generation==0) KnockSource=(LastHitter.IsValid()&&Now-LastHitTime<1.5f)?LastHitter:TWeakObjectPtr<AASCharacter>();
+        }
+    }
     if(Type==1&&Now>=StunImmuneUntil) {StunUntil=Now+.4f;StunImmuneUntil=Now+2.f;EndWindup();}
     if(Type==2&&Now>=RootImmuneUntil) {RootUntil=Now+.8f;RootImmuneUntil=Now+3.f;}
+}
+
+void AASEnemy::ImpactHurt(AASEnemy* Victim,float Strength,int32 Generation) {
+    AASCharacter* Hero=KnockSource.Get();
+    if(!HasAuthority()||!IsValid(Victim)||Victim->Health<=0||!IsValid(Hero)) return;
+    const float Multiplier=Hero->Metamorphosed(ASPartC::Metamorphosis::Pinball)?ASPartC::PinballImpactMultiplier:1.f; // C-6 Pinball
+    const float Damage=ASPartC::ImpactDamage(Strength,Generation,Multiplier);
+    if(Damage<=0.f) return;
+    if(auto* S=AS::State(this)) S->Effect(5,Victim->GetActorLocation()+FVector(0,0,50),FVector::UpVector,FLinearColor(1.f,.95f,.8f),90.f);
+    if(auto* Player=Hero->GetPlayerState<AASPlayerState>()) Player->RunImpacts=FMath::Min(Player->RunImpacts+1,100000);
+    Hero->SecondaryDamage(Victim,Damage,EASHitKind::Physical);
+}
+void AASEnemy::TickKnock(float Now) {
+    if(!bKnocked) return;
+    auto* S=AS::State(this);const float Elapsed=Now-KnockStart;
+    if(!S||Health<=0||Elapsed>=ASPartC::ImpactWindow) {bKnocked=false;return;}
+    if(Now<NextImpactAt) return;
+    const float Strength=ASPartC::RemainingStrength(KnockStrength,Elapsed);
+    if(Strength<ASPartC::ImpactMinStrength*.5f) return;
+    const FVector Here=GetActorLocation();const FVector Heading=GetVelocity().GetSafeNormal2D();
+    const auto Enemies=S->Enemies;
+    for(auto W:Enemies) if(auto* N=W.Get()) if(N!=this&&N->Health>0&&!N->bTrainingDummy&&!N->SpawnProtected()&&FVector::DistSquared2D(Here,N->GetActorLocation())<FMath::Square(ASPartC::ImpactEnemyRadius)) {
+        // enemy into enemy: both are hurt (the one that was struck less than the projectile), and the struck one is thrown on in the direction of travel
+        NextImpactAt=Now+ASPartC::ImpactCooldown;bKnocked=false;
+        ImpactHurt(N,Strength,KnockGeneration);ImpactHurt(this,Strength*.5f,KnockGeneration);
+        if(IsValid(N)&&N->Health>0&&KnockGeneration<ASPartC::ImpactMaxGeneration) {
+            N->KnockSource=KnockSource;
+            const FVector Away=Heading.IsNearlyZero()?(N->GetActorLocation()-Here).GetSafeNormal2D():Heading;
+            N->Control(0,Away,ASPartC::ThrownOnStrength(Strength),KnockGeneration+1);
+        }
+        return;
+    }
+}
+void AASEnemy::NotifyHit(UPrimitiveComponent* MyComp,AActor* Other,UPrimitiveComponent* OtherComp,bool bSelfMoved,FVector HitLocation,FVector HitNormal,FVector NormalImpulse,const FHitResult& Hit) {
+    Super::NotifyHit(MyComp,Other,OtherComp,bSelfMoved,HitLocation,HitNormal,NormalImpulse,Hit);
+    // 0.24 C-2: a launched enemy meeting the world (not a character) side-on is a wall slam.
+    if(!HasAuthority()||!bKnocked||Health<=0||!IsValid(Other)||Other->IsA<ACharacter>()||FMath::Abs(HitNormal.Z)>.5f) return;
+    const float Now=AS::Time(this);if(Now<NextImpactAt) return;
+    const float Strength=ASPartC::RemainingStrength(KnockStrength,Now-KnockStart);
+    if(Strength<ASPartC::ImpactMinStrength*.5f) return;
+    NextImpactAt=Now+ASPartC::ImpactCooldown;bKnocked=false;
+    ImpactHurt(this,Strength,KnockGeneration);
 }
 
 bool AASEnemy::SpawnProtected() const {return Boss()&&AS::Time(this)<SpawnProtectedUntil;}

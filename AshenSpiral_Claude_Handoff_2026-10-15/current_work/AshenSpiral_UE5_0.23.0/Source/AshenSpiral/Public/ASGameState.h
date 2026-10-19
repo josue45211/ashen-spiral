@@ -17,6 +17,11 @@ public:
     UPROPERTY(Replicated) float RunDamage=0;
     UPROPERTY(Replicated) float RunDamageTaken=0;
     UPROPERTY(Replicated) int32 RunKills=0;
+    // 0.24 Part C run facts (death screen "what you learned"): perfect dashes, launched-enemy impacts and proc echoes this run, and whether a trait metamorphosed.
+    UPROPERTY(Replicated) int32 RunPerfectDashes=0;
+    UPROPERTY(Replicated) int32 RunImpacts=0;
+    UPROPERTY(Replicated) int32 RunEchoes=0;
+    UPROPERTY(Replicated) bool bRunMetamorphosed=false;
     UPROPERTY(Replicated) bool bShopClaimed=false;
     UPROPERTY(Replicated) int32 ShopOffer=-1;
     UPROPERTY(Replicated) int32 ShopBought=0;
@@ -83,6 +88,8 @@ public:
     UPROPERTY(Replicated) int32 ChestKind=0;
     UPROPERTY(Replicated) FString SessionCode;
     UPROPERTY(Replicated) FString RunId;
+    UPROPERTY(Replicated) float RunStartedAt=0; // SimTime when this run began (death screen: how long it lasted)
+    float RunSeconds() const {return FMath::Max(0.f,SimTime-RunStartedAt);}
     UPROPERTY(Replicated) TObjectPtr<AASWorld> Arena;
     UPROPERTY(Replicated) TArray<FVector> SpawnWarnings;
     TArray<TWeakObjectPtr<AASEnemy>> Enemies;

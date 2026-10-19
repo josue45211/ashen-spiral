@@ -6,6 +6,7 @@
 #include "ASMeleeRules.h"
 #include "ASExpeditionRules.h"
 #include "ASAnimationRules.h"
+#include "ASPartCRules.h"
 #include "ASCharacter.generated.h"
 class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;
 UCLASS() class ASHENSPIRAL_API AASCharacter : public ACharacter {
@@ -108,6 +109,14 @@ public:
     void OnKill(const class AASEnemy* Killed=nullptr);
     void OnCinderPickup();
     void SecondaryDamage(AASEnemy* Enemy,float Damage,EASHitKind Kind);
+    // 0.24 Part C (server only): C-3 perfect dash, C-1 proc chains, C-6 metamorphoses.
+    float DashInvulEnd=0,LastPerfectDashAt=-100.f,NextProcChain=0;
+    void OnPerfectDash();
+    void ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited); // an element proc jumps to a neighbour (ASPartC::ChainMaxDepth hops, weaker each time)
+    bool Metamorphosed(ASPartC::Metamorphosis M) const; // the trait behind M is at its catalogue maximum
+    void NoteMetamorphosis(ASPartC::Metamorphosis M);   // first time per run: banner + the run fact for the death screen
+    int32 WildfireDepth=0;                               // recursion guard: explosions that kill burning enemies set off more
+    uint8 MetamorphosisAnnounced=0;                      // bit per metamorphosis already announced this run
     void HitProcs(AASEnemy* Enemy,const FVector& At,float Dealt);
     float DamageScale(bool WeaponHit) const;
     float AreaScale() const {return 1.f+.15f*TraitValue(ASBuild::Trait::Area);}

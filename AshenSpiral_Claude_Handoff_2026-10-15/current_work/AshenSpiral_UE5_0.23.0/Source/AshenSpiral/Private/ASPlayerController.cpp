@@ -196,7 +196,7 @@ void AASPlayerController::Interact() {
     if(S->Phase==EASPhase::Hub&&Page>=100) {ShopWeapon=Page-100;OpenMenu(14);}
     else if(S->Phase==EASPhase::Hub&&Page>0) OpenMenu(Page);
     else if(S->Phase==EASPhase::Reward&&Page==9) {
-        auto* PS=GetPlayerState<AASPlayerState>();if(PS&&!PS->bRewardClaimed) OpenMenu(9);else InteractServer();
+        auto* PS=GetPlayerState<AASPlayerState>();if(PS&&!PS->bRewardClaimed) BeginRewardCeremony();else InteractServer();
     }
 }
 // E at an archway: only the host departs (the server re-checks range, locks and saves). Guests just walk up with the party.
@@ -228,7 +228,18 @@ void AASPlayerController::OpenMenu(int32 Page,bool PreserveScroll) {
 void AASPlayerController::CloseMenu() {
     if(Menu.IsValid()&&Menu->Page==8) if(auto* GI=GetGameInstance<UASGameInstance>()) {GI->SaveCameraSettings();GI->SaveHUDSettings();}
     if(MenuLayer.IsValid()&&MenuViewport.IsValid()) MenuViewport->RemoveViewportWidgetContent(MenuLayer.ToSharedRef());
-    Menu.Reset();MenuLayer.Reset();ApplyGameplayInput();QueueGameplayCapture();
+    Menu.Reset();MenuLayer.Reset();bCeremony=false;ApplyGameplayInput();QueueGameplayCapture();
+}
+void AASPlayerController::BeginRewardCeremony() {
+    auto* GI=GetGameInstance<UASGameInstance>();
+    if(!IsLocalController()||!GetWorld()||!GI||GI->bReduceMotion||bCeremony) {OpenMenu(9);return;}
+    bCeremony=true;CeremonyStartReal=GetWorld()->GetRealTimeSeconds();
+    if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->ClearBeat(.05f,ASPartC::CeremonyHitStopSeconds); // only the host has a game mode: the stop is the host's feel, the push-in is everyone's
+    GetWorldTimerManager().SetTimer(CeremonyTimer,this,&AASPlayerController::FinishRewardCeremony,.4f,false);
+}
+void AASPlayerController::FinishRewardCeremony() {
+    auto* S=AS::State(this);
+    if(bCeremony&&S&&S->Phase==EASPhase::Reward) OpenMenu(9);else bCeremony=false;
 }
 void AASPlayerController::RefreshRewardMenu() {if(IsLocalController()&&Menu.IsValid()&&Menu->Page==9) OpenMenu(9,true);}
 void AASPlayerController::PlayerTick(float Delta) {
@@ -491,7 +502,8 @@ void AASPlayerController::ApplyCameraSettings() {
     H->Boom->TargetOffset.Z=GI->CameraHeight;
     H->Boom->SocketOffset.Y=GI->CameraShoulder;
     H->Camera->SetRelativeRotation(FRotator(GI->CameraPitch,0.f,0.f));
-    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion));}
+    CeremonyAmount=GI->bReduceMotion?0.f:(bCeremony?ASPartC::CeremonyPush(GetWorld()->GetRealTimeSeconds()-CeremonyStartReal):FMath::FInterpTo(CeremonyAmount,0.f,GetWorld()->GetDeltaSeconds(),6.f));
+    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion)+ASPartC::CeremonyPushFov*CeremonyAmount);}
     // Character animation is suspended during a party pause; settings still apply.
     if(auto* S=AS::State(this)) if(S->Frozen()) H->Boom->TargetArmLength=GI->CameraDistance;
 }

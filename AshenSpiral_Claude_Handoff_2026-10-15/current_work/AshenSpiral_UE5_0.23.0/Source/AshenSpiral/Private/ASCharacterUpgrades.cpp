@@ -58,12 +58,42 @@ bool AASCharacter::ApplyChoice(int32 Choice) {
     else if(!ASBuild::Catalog[I].Instant) LastUpgrade=Choice;
     const int32 Added=MaxDashCharges()-OldCapacity;
     if(Added>0) {Movement()->DashCharges=FMath::Min(MaxDashCharges(),Movement()->DashCharges+Added);Movement()->KnownDashCapacity=MaxDashCharges();}
+    for(int32 M=1;M<int32(ASPartC::Metamorphosis::Count);++M) if(Metamorphosed(ASPartC::Metamorphosis(M))) NoteMetamorphosis(ASPartC::Metamorphosis(M));
     Focus=FMath::Min(Focus,MaxFocus());RefreshLook();ForceNetUpdate();return true;
+}
+// 0.24 C-6: at the catalogue maximum four traits change what they do. The trait behind each is fixed here; the effects live where the trait already acts (HitProcs, OnKill, the enemy's impact code).
+bool AASCharacter::Metamorphosed(ASPartC::Metamorphosis M) const {
+    Trait T;
+    switch(M) {case ASPartC::Metamorphosis::Wildfire: T=Trait::Burn;break;case ASPartC::Metamorphosis::Shatter: T=Trait::Frost;break;case ASPartC::Metamorphosis::Pinball: T=Trait::Knockback;break;case ASPartC::Metamorphosis::StormWeb: T=Trait::Chain;break;default: return false;}
+    return ASPartC::AtMax(TraitValue(T),ASBuild::Catalog[int32(T)].Max);
+}
+void AASCharacter::NoteMetamorphosis(ASPartC::Metamorphosis M) {
+    const uint8 Bit=uint8(1u<<int32(M));if(!HasAuthority()||(MetamorphosisAnnounced&Bit)) return;
+    MetamorphosisAnnounced|=Bit;
+    if(auto* Player=GetPlayerState<AASPlayerState>()) Player->bRunMetamorphosed=true;
+    if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(FString::Printf(TEXT("%s / %s"),UTF8_TO_TCHAR(ASPartC::MetamorphosisName(M)),UTF8_TO_TCHAR(ASPartC::MetamorphosisText(M))));
+}
+// 0.24 C-1: an element proc jumps from enemy to enemy (depth 0 -> 1 -> 2), weaker each hop. Visited keeps it from bouncing back; the caller owns the per-chain cooldown.
+void AASCharacter::ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited) {
+    auto* S=AS::State(this);if(!HasAuthority()||!S||!IsValid(From)||!ASPartC::ChainMayContinue(Depth)||!FMath::IsFinite(Power)||Power<=0.f) return;
+    AASEnemy* Best=nullptr;float Distance=FMath::Square(ASPartC::ChainRange*AreaScale());const FVector Start=From->GetActorLocation();
+    const auto Enemies=S->Enemies;
+    for(auto W:Enemies) if(auto* N=W.Get()) if(CanDamage(N)&&N->Health>0&&!Visited.Contains(N)) {
+        const float D=FVector::DistSquared(Start,N->GetActorLocation());
+        if(D<Distance&&AS::ClearSight(GetWorld(),Start,N->GetActorLocation())) {Best=N;Distance=D;}
+    }
+    if(!Best) return;
+    Visited.Add(Best);const FVector End=Best->GetActorLocation();const float Magnitude=ASPartC::ChainMagnitude(Depth);
+    S->Effect(9,Start+FVector(0,0,50),(End-Start).GetSafeNormal(),ASData::HitColor(Kind),FVector::Distance(Start,End));
+    if(auto* Player=GetPlayerState<AASPlayerState>()) Player->RunEchoes=FMath::Min(Player->RunEchoes+1,100000);
+    Best->ApplyElement(Kind,this,Power*Magnitude,Magnitude);
+    ProcEcho(Best,Kind,Power,Depth+1,Visited);
 }
 void AASCharacter::ResetTraits() {
     TraitRanks.Init(0,ASBuild::Count);EvolutionMask=0;LastUpgrade=-1;Rerolls=1;CurseStacks=0;Focus=60;NextRune=0;
     ConduitHits=0;bPhoenixUsed=false;WarCryUntil=0;LastDamageAt=-100;RoomBuffUntil=KillBuffUntil=StillSince=GoldRemainder=0;
     NextSplashFx=NextChainFx=NextAura=NextOrbit=NextThorns=0;
+    DashInvulEnd=0;LastPerfectDashAt=-100.f;NextProcChain=0;MetamorphosisAnnounced=0;WildfireDepth=0;
     DashVictims.Empty();bDashTraceActive=false;Movement()->DashCharges=1;Movement()->KnownDashCapacity=1;Movement()->DashRecharge=0;
 }
 void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
@@ -102,6 +132,22 @@ void AASCharacter::OnKill(const AASEnemy* Killed) {
         ForceNetUpdate();
     }
     Heal(1.5f*TraitValue(Trait::Reaper));
+    // 0.24 C-6: Wildfire - a burning enemy explodes when it dies; Shatter - a frozen one shatters. Each hurts and re-applies its element to what is near; kills inside can set off more (depth-capped).
+    if(HasAuthority()&&Killed&&WildfireDepth<3) {
+        const bool Burning=(Killed->StatusBits&1)!=0&&Metamorphosed(ASPartC::Metamorphosis::Wildfire),Frozen=(Killed->StatusBits&8)!=0&&Metamorphosed(ASPartC::Metamorphosis::Shatter);
+        if(Burning||Frozen) if(auto* S=AS::State(this)) {
+            ++WildfireDepth;
+            const EASHitKind Element=Burning?EASHitKind::Burn:EASHitKind::Frost;const float Radius=(Burning?ASPartC::WildfireRadius:ASPartC::ShatterRadius)*AreaScale();
+            const float Damage=Burning?ASPartC::WildfireDamage(Killed->MaxHealth):ASPartC::ShatterDamage(Killed->MaxHealth);const FVector At=Killed->GetActorLocation();
+            S->Effect(8,At+FVector(0,0,30),FVector::UpVector,ASData::HitColor(Element),Radius);S->Effect(6,At,FVector::UpVector,ASData::HitColor(Element),Radius);
+            const auto Enemies=S->Enemies;
+            for(auto W:Enemies) if(auto* N=W.Get()) if(N!=Killed&&CanDamage(N)&&N->Health>0&&FVector::DistSquared2D(At,N->GetActorLocation())<FMath::Square(Radius)&&AS::ClearSight(GetWorld(),At+FVector(0,0,55),N->GetActorLocation())) {
+                SecondaryDamage(N,Damage,Element);
+                if(IsValid(N)&&N->Health>0) N->ApplyElement(Element,this,DamageScale(false)*.5f,1.f);
+            }
+            --WildfireDepth;
+        }
+    }
     if(TraitValue(Trait::KillFlow)>0) {NextSpiral=FMath::Max(AS::Time(this),NextSpiral-.25f*TraitValue(Trait::KillFlow));KillBuffUntil=AS::Time(this)+2.f;}
 }
 void AASCharacter::OnCinderPickup() {if(CombatBenefits()) Heal(float(TraitValue(Trait::MendingCoin)));}
@@ -126,9 +172,18 @@ void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
     if(IsValid(E)&&E->Health>0) {
         const Trait Types[]={Trait::Burn,Trait::Poison,Trait::Bleed,Trait::Frost};
         const EASHitKind Kinds[]={EASHitKind::Burn,EASHitKind::Poison,EASHitKind::Bleed,EASHitKind::Frost};
+        int32 Fired=-1;float FiredPower=0.f;
         for(int32 I=0;I<4;++I) {
             const auto R=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Types[I]),.18f),Scale);
-            if(R.Chance>0.f&&FMath::FRand()<R.Chance) E->ApplyElement(Kinds[I],this,DamageScale(true)*(Kinds[I]==ASData::WeaponElement(Build.Weapon)?1.3f:1.f)*R.Magnitude,R.Magnitude);
+            if(R.Chance>0.f&&FMath::FRand()<R.Chance) {
+                const float Power=DamageScale(true)*(Kinds[I]==ASData::WeaponElement(Build.Weapon)?1.3f:1.f)*R.Magnitude;
+                E->ApplyElement(Kinds[I],this,Power,R.Magnitude);Fired=I;FiredPower=Power;
+            }
+        }
+        // 0.24 C-1: with a conductor (Chain Lightning, Storm Touch or Impact Bloom) an element proc echoes to a neighbour, and from there once more; one chain per ASPartC::ChainCooldown.
+        if(Fired>=0&&ASPartC::ChainConducts(TraitValue(Trait::Chain),TraitValue(Trait::Shock),TraitValue(Trait::Splash))&&ASPartC::ChainMayStart(Now,NextProcChain)&&IsValid(E)) {
+            NextProcChain=Now+ASPartC::ChainCooldown;TSet<TWeakObjectPtr<AASEnemy>> Visited;Visited.Add(E);
+            ProcEcho(E,Kinds[Fired],FiredPower,0,Visited);
         }
         if(TraitValue(Trait::Knockback)>0) E->Control(0,E->GetActorLocation()-GetActorLocation(),120.f*float(TraitValue(Trait::Knockback))*Scale);
         const auto Stun=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Stun),.08f),Scale),Root=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Root),.10f),Scale);
@@ -140,12 +195,13 @@ void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
     if(Shock&&IsValid(E)) SecondaryDamage(E,Dealt*.20f*ShockReward.Magnitude,EASHitKind::Shock);
     if(TraitValue(Trait::Chain)>0||Shock) {
         // A shock proc chains once at its own strength (as before); the Chain trait chains up to four links on every hit at 30% x the weapon's scale.
-        const int32 Count=Shock?1:TraitValue(Trait::Chain);
+        const bool Web=!Shock&&Metamorphosed(ASPartC::Metamorphosis::StormWeb); // 0.24 C-6 Storm Web: two more links, 40% further reach
+        const int32 Count=Shock?1:ASPartC::StormWebLinks(TraitValue(Trait::Chain),Web);
         const float LinkFraction=Shock?.20f*ShockReward.Magnitude:.30f*Scale;
         const bool ShowBeams=Now>=NextChainFx;
         FVector Start=At;TSet<TWeakObjectPtr<AASEnemy>> Visited;if(E) Visited.Add(E);
-        for(int32 I=0;I<FMath::Min(4,Count);++I) {
-            AASEnemy* Best=nullptr;float Distance=FMath::Square(650.f*AreaScale());
+        for(int32 I=0;I<FMath::Min(Web?6:4,Count);++I) {
+            AASEnemy* Best=nullptr;float Distance=FMath::Square(650.f*AreaScale()*(Web?ASPartC::StormWebRangeMultiplier:1.f));
             for(auto W:S->Enemies) if(auto* N=W.Get()) if(CanDamage(N)&&N->Health>0&&!Visited.Contains(N)) {
                 const float D=FVector::DistSquared(Start,N->GetActorLocation());
                 if(D<Distance&&AS::ClearSight(GetWorld(),Start,N->GetActorLocation())) {Best=N;Distance=D;}
@@ -160,7 +216,7 @@ void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
     if(Splash||Pull) {
         const auto Enemies=S->Enemies;
         for(auto W:Enemies) if(auto* N=W.Get()) if(N!=E&&CanDamage(N)&&FVector::DistSquared2D(At,N->GetActorLocation())<FMath::Square((Splash?180.f:300.f)*AreaScale())&&AS::ClearSight(GetWorld(),At,N->GetActorLocation())) {
-            if(Pull) N->Control(0,At-N->GetActorLocation(),170.f*float(TraitValue(Trait::Gravity))*Scale);
+            if(Pull) N->Control(0,At-N->GetActorLocation(),170.f*float(TraitValue(Trait::Gravity))*Scale,-1); // -1: a pull is not a launch (no impact damage as the pulled crowd converges)
             if(Splash) SecondaryDamage(N,Dealt*.15f*float(TraitValue(Trait::Splash))*Scale,EASHitKind::Spiral);
         }
         if(Splash&&Now>=NextSplashFx) {NextSplashFx=Now+.12f;S->Effect(6,At,FVector::UpVector,ASData::HitColor(EASHitKind::Spiral),180.f*AreaScale());}

@@ -212,7 +212,7 @@ void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
 void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
     if(!AllReady()) {PC->Notify(TEXT("Everyone must finish loading their profile before departure."));return;}
-    RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->Cinders=0;S->Challenge=0;bEnding=false;
+    RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->RunStartedAt=S->SimTime;S->Cinders=0;S->Challenge=0;bEnding=false;
     S->bPartyPaused=false;AbandonReconnect();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         auto* PS=H->GetPlayerState<AASPlayerState>();if(!PS) continue;
@@ -380,12 +380,12 @@ void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
     const auto* HostState=PC->GetPlayerState<AASPlayerState>();
     if(!HostState||!HostState->bEndlessUnlocked) {PC->Notify(TEXT("The Endless portal is sealed. Beat Normal mode once to open it."));return;}
     if(!AllReady()) {PC->Notify(TEXT("Everyone must finish loading their profile before entering."));return;}
-    RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->Cinders=0;S->Challenge=0;bEnding=false;
+    RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->RunStartedAt=S->SimTime;S->Cinders=0;S->Challenge=0;bEnding=false;
     S->bPartyPaused=false;AbandonReconnect();
     S->bEndless=true;S->EndlessWave=0;S->ClearedEndlessWave=0;S->bLuckyShop=false;S->bRareShop=false;
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         auto* PS=H->GetPlayerState<AASPlayerState>();if(!PS) continue;
-        PS->RunDamage=0;PS->RunDamageTaken=0;PS->RunKills=0;PS->LastGambleRoom=-100;PS->bShopClaimed=false;PS->AvailableAsh=0;PS->AvailableScrap=0;
+        PS->RunDamage=0;PS->RunDamageTaken=0;PS->RunKills=0;PS->RunPerfectDashes=PS->RunImpacts=PS->RunEchoes=0;PS->bRunMetamorphosed=false;PS->LastGambleRoom=-100;PS->bShopClaimed=false;PS->AvailableAsh=0;PS->AvailableScrap=0;
         H->ApplyBuild(PS->Build,true);
     }
     EnterEndless();

@@ -46,7 +46,12 @@ public:
     UPROPERTY(Replicated) FVector_NetQuantizeNormal HitReactionDirection=FVector::BackwardVector;
     void BeginHitReaction(const FVector& SourceLocation,bool Heavy);
     void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup=1.f); // Buildup scales the frost added per application (0.24 on-hit reward scaling)
-    void Control(int32 Type,const FVector& Direction,float Strength);
+    void Control(int32 Type,const FVector& Direction,float Strength,int32 Generation=0); // Generation: 0 = launched by a hero, 1+ = thrown on by another launched enemy (ASPartC::ImpactMaxGeneration), -1 = not a launch (a gravity pull)
+    // 0.24 C-2 (server only): a hard launch makes this body a projectile for ASPartC::ImpactWindow seconds; hitting a wall or another enemy hurts, and a struck enemy is thrown on.
+    bool bKnocked=false;float KnockStart=-10.f,KnockStrength=0.f,NextImpactAt=0.f;int32 KnockGeneration=0;TWeakObjectPtr<AASCharacter> KnockSource;
+    void TickKnock(float Now);
+    void ImpactHurt(AASEnemy* Victim,float Strength,int32 Generation); // impact damage credited to the hero who launched it (nothing without one), then counted for the death screen
+    virtual void NotifyHit(UPrimitiveComponent* MyComp,AActor* Other,UPrimitiveComponent* OtherComp,bool bSelfMoved,FVector HitLocation,FVector HitNormal,FVector NormalImpulse,const FHitResult& Hit) override;
     void EndWindup(); // authority: abandons whatever attack is in progress (windup, committed motion, recovery) and returns to moving, so the ground warning can never outlive the attack
     // 0.23.5: the Endless flying boss is a normal boss (Kind 4) that flies; the Gloomwing is Kind 10.
     UPROPERTY(ReplicatedUsing=RefreshLook) bool bAirborne=false;

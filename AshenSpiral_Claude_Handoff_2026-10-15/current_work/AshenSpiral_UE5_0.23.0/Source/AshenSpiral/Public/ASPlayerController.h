@@ -17,6 +17,10 @@ public:
     void OpenMenu(int32 Page=0,bool PreserveScroll=false);
     void CloseMenu();
     void RefreshRewardMenu();
+    // 0.24 C-5 reward ceremony (no slow-mo): opening the chest gives a short hit-stop (host) and a camera push-in, then the choices open. The push-in holds while the choices are up and eases out after.
+    void BeginRewardCeremony();
+    void FinishRewardCeremony();
+    bool bCeremony=false;float CeremonyStartReal=-100.f,CeremonyAmount=0.f;FTimerHandle CeremonyTimer;
     void Action(int32 Code,int32 Index=0);
     void Rebind(FName Binding,FKey Key);
     FKey BoundKey(FName Binding) const;

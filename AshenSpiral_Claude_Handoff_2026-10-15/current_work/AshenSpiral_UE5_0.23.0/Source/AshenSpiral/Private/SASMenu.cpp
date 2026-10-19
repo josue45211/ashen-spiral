@@ -11,6 +11,7 @@
 #include "ASRules.h"
 #include "ASArsenalRules.h"
 #include "ASPresentationRules.h"
+#include "ASPartCRules.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "Widgets/SOverlay.h"
@@ -463,6 +464,14 @@ void SASMenu::Construct(const FArguments& Args) {
             for(int32 I=0;I<FMath::Min(5,P.EndlessRecords.Num());++I) Text(FString::Printf(TEXT("#%d   wave %d"),I+1,P.EndlessRecords[I].Wave),14);
         } else
         Text(FString::Printf(TEXT("Reached room %d / 32. Best cleared room: %d. Victories: %d. Defeats: %d."),S->Room+1,P.BestRoom,P.Wins,P.Deaths));
+        if(PS) { // 0.24 C-7: what this run taught, drawn from what it actually did (ASPartC::Learned)
+            ASPartC::RunFacts Facts;Facts.Seconds=S->RunSeconds();Facts.DamageDealt=PS->RunDamage;Facts.DamageTaken=PS->RunDamageTaken;Facts.Kills=PS->RunKills;Facts.PerfectDashes=PS->RunPerfectDashes;
+            Facts.Impacts=PS->RunImpacts;Facts.Echoes=PS->RunEchoes;Facts.Metamorphosed=PS->bRunMetamorphosed;Facts.Room=S->Room;Facts.Wave=S->bEndless?S->ClearedEndlessWave:0;Facts.Endless=S->bEndless;Facts.Coop=S->PlayerArray.Num()>1;
+            if(Hero) for(int32 I=0;I<ASBuild::Count;++I) Facts.Traits+=Hero->TraitRank(ASBuild::Trait(I))>0?1:0;
+            const ASPartC::Lines Learned=ASPartC::Learned(Facts);
+            Text(TEXT("WHAT YOU LEARNED"),18,ASMenuGold);
+            for(int32 I=0;I<Learned.Count;++I) Text(FString(UTF8_TO_TCHAR(Learned.Text[size_t(I)])),15);
+        }
         Body->AddSlot().AutoHeight()[SNew(STextBlock).Font(Font(16)).ColorAndOpacity(ASMenuGold).Text_Lambda([Weak](){auto* V=Weak.Get();auto* State=V?V->GetPlayerState<AASPlayerState>():nullptr;return Txt(State&&State->bSavePending?TEXT("Waiting for verified reward save..."):TEXT("Your reward save has been acknowledged."));})];
         Card(TEXT("Return together"),TEXT("The host returns both connected players to the same hub. This does not disconnect the party."),TEXT("RETURN TO HUB"),33,0,PS&&PS->PlayerIndex==0);
     } else if(Page==11) {
