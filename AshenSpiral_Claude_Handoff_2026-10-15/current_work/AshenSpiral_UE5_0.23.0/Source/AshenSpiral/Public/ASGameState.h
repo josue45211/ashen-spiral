@@ -62,6 +62,8 @@ public:
     UPROPERTY(Replicated) bool bEnteringPortal=false;
     // SimTime of the next scheduled Endless arena shift (warning ends and the shift happens then); <= 0 when none. Drives the sink/rise animation and sounds.
     UPROPERTY(Replicated) float ShiftAt=-100.f;
+    // 0.24: the server's decision on whether the Endless cover's collision proxies are solid (ASExpedition::CoverSolidDecision). Clients apply it as is.
+    UPROPERTY(Replicated) bool bCoverSolid=true;
     UPROPERTY(Replicated) bool bEndless=false;
     UPROPERTY(Replicated) int32 EndlessWave=0;
     UPROPERTY(Replicated) int32 ClearedEndlessWave=0;

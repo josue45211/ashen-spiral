@@ -102,7 +102,10 @@ private:
     void BuildNavigationGrids();
     void BuildEndlessCover(const FVector& Center);
     void RebuildEndlessCover();
-    void AnimateShift(const AASGameState* State);
+    void AnimateShift(AASGameState* State); // authority decides collision and publishes it in State->bCoverSolid; everyone else applies it
+    bool AnyHeroNearCover(const AASGameState* State) const; // any hero within ASExpedition::ShiftHoldOffRadius of a current wall footprint
+    void LogLayoutFingerprint(const TCHAR* Why) const; // "AshenShift:" log line: layout seed/shuffle/generation, footprint count and a hash, so host and client can be compared
+    float HoldOffSince=-1.f; // SimTime the timeline first allowed collision while a hero kept it off (authority only)
     int32 ClientRebuildRetries=0; // client-side safety net: geometry that disagrees with the replicated config is rebuilt (max 3 tries)
     // Sky stages (Endless): lights and fog are driven toward the current stage's look on clients.
     UPROPERTY() TObjectPtr<ADirectionalLight> SunLight;

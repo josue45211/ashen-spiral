@@ -184,6 +184,18 @@ inline float ShiftCoverSunk(float Now,float ShiftAt) {
 }
 // Collision never moves; it switches on and off at discrete moments of the sequence, so machines can only disagree by one network delay.
 inline bool ShiftCoverSolid(float Now,float ShiftAt) {return ShiftCoverSunk(Now,ShiftAt)<ShiftSolidBelow;}
+// 0.24: the SERVER decides the cover collision (this rule, run every frame) and publishes it in GameState.bCoverSolid; every other machine applies that answer verbatim.
+// Before, each machine worked it out from its own clock and its own idea of where the heroes stood, so host and client could disagree about whether a wall blocked.
+// Switching ON waits while any hero is within ShiftHoldOffRadius of a wall footprint (so nobody is shoved out of a wall switching on beneath them), but never longer than
+// ShiftHoldOffMaxSeconds, so one player hugging a wall cannot keep every wall in the arena passable. TUNABLE.
+constexpr float ShiftHoldOffRadius=130.f,ShiftHoldOffMaxSeconds=4.f;
+// WasSolid is true when collision is already on or not yet decided; HeldOffSeconds is how long the timeline has allowed collision while a hero kept it off.
+inline bool CoverSolidDecision(float Now,float ShiftAt,bool WasSolid,bool HeroNearWall,float HeldOffSeconds) {
+    const bool Timeline=ShiftAt<=0.f||ShiftCoverSolid(Now,ShiftAt); // no shift scheduled: the cover is simply solid
+    if(!Timeline) return false;
+    if(WasSolid) return true;
+    return !HeroNearWall||(std::isfinite(HeldOffSeconds)&&HeldOffSeconds>=ShiftHoldOffMaxSeconds);
+}
 // Does a circle (a hero) overlap an oriented wall footprint? Used to hold collision off while someone stands where a wall is rising.
 inline bool CircleHitsFootprint(float Px,float Py,float Radius,float Cx,float Cy,float Length,float Thickness,float YawDegrees) {
     if(!std::isfinite(Px)||!std::isfinite(Py)||!std::isfinite(Cx)||!std::isfinite(Cy)||!std::isfinite(YawDegrees)) return false;

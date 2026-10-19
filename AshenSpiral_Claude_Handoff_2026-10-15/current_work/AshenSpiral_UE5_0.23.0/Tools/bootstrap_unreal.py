@@ -195,7 +195,7 @@ def main():
     require((ROOT / "Content/Maps/AshenSpiral.umap").is_file(), "The .umap did not reach disk")
     assets.save_directory("/Game/Art", False, True)
     assets.save_directory("/Game/Audio", False, True)
-    require(len(imported) == 104, "Incomplete art import")  # 80 meshes (78 + the 0.24 SM_SwingArc and SM_StrikeSector) + 12 textures + 12 sounds
+    require(len(imported) == 106, "Incomplete art import")  # 82 meshes (78 + the 0.24 SM_SwingArc, SM_StrikeSector, SM_BossWingMembrane, SM_BossWingBones) + 12 textures + 12 sounds
     report = {"success": True, "source_version": "0.24.0", "weapon_art_revision": WEAPON_ART_REVISION, "engine": unreal.SystemLibrary.get_engine_version(),
               "asset_count": len(imported) + 2, "assets": imported + [material.get_path_name(), map_path],
               "bootstrap_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}

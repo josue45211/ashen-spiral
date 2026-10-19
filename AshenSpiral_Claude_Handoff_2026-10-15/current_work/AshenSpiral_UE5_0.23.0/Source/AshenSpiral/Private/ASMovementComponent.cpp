@@ -6,6 +6,7 @@
 #include "ASHammerRules.h"
 #include "ASEnemy.h"
 #include "Components/CapsuleComponent.h"
+#include "Engine/World.h"
 void UASMovementComponent::RefreshDashCollision() {
     auto* H=Cast<AASCharacter>(CharacterOwner);auto* S=AS::State(this);if(!H) return;
     const bool PhaseThrough=(DashRemaining>0&&!H->bDowned&&H->TraitValue(ASBuild::Trait::DashStrike)>0)||H->HammerPhasing();
@@ -96,4 +97,16 @@ void FSavedMove_AS::PrepMoveFor(ACharacter* C) {
     Super::PrepMoveFor(C);auto* M=Cast<UASMovementComponent>(C->GetCharacterMovement());
     M->DashCharges=SavedCharges;M->KnownDashCapacity=SavedCapacity;M->DashRecharge=SavedRecharge;
     M->bWantsDash=bSavedDash;M->AirDashesUsed=SavedAirDashesUsed;M->bAirDashing=bSavedAirDashing;M->DashVerticalVelocity=SavedVertical;M->DashCooldown=SavedCooldown;M->DashRemaining=SavedRemaining;M->DashDirection=SavedDirection;
+}
+void UASMovementComponent::OnClientCorrectionReceived(FNetworkPredictionData_Client_Character& ClientData,float TimeStamp,FVector NewLocation,FVector NewVelocity,FMovementBaseInterfaceData* NewMovementBaseInterfaceData,FName NewBaseBoneName,bool bHasBase,bool bBaseRelativePosition,uint8 ServerMovementMode,FVector ServerGravityDirection) {
+    Super::OnClientCorrectionReceived(ClientData,TimeStamp,NewLocation,NewVelocity,NewMovementBaseInterfaceData,NewBaseBoneName,bHasBase,bBaseRelativePosition,ServerMovementMode,ServerGravityDirection);
+    // Diagnostic only (see the header): the engine is about to move this character to the server's position. Log big corrections, at most once a second.
+    const UWorld* World=GetWorld();if(!World||!UpdatedComponent) return;
+    const double Now=World->GetTimeSeconds();
+    const float Distance=float(FVector::Dist(UpdatedComponent->GetComponentLocation(),NewLocation));
+    if(!FMath::IsFinite(Distance)||Distance<20.f||Now-LastCorrectionLogAt<1.0) return;
+    LastCorrectionLogAt=Now;
+    const auto* S=AS::State(this);const FVector Here=UpdatedComponent->GetComponentLocation();
+    UE_LOG(LogTemp,Display,TEXT("AshenCorrect: moved %.0f cm by the server; client (%.0f,%.0f,%.0f) -> server (%.0f,%.0f,%.0f); coverSolid=%d shiftIn=%.2fs endless=%d"),
+        Distance,Here.X,Here.Y,Here.Z,NewLocation.X,NewLocation.Y,NewLocation.Z,S?int32(S->bCoverSolid):-1,S&&S->ShiftAt>0.f?S->ShiftAt-S->SimTime:-1.f,S?int32(S->bEndless):-1);
 }

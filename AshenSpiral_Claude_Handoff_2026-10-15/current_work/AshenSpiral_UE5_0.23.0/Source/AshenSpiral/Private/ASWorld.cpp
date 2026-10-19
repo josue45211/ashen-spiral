@@ -25,6 +25,7 @@
 #include "Net/UnrealNetwork.h"
 #include "ASGameInstance.h"
 #include "ASExpeditionRules.h"
+#include "Misc/Crc.h"
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
 namespace ASAssets {
@@ -141,7 +142,7 @@ void AASWorld::Tick(float Delta) {
         }
     }
     if(IsEndlessArena()) ApplyShopVisibility(ShopOpen());
-    if(const auto* ShiftState=AS::State(this)) AnimateShift(ShiftState); // runs on dedicated servers too (collision); visuals and sound only where there is a screen
+    if(auto* ShiftState=AS::State(this)) AnimateShift(ShiftState); // runs on dedicated servers too (collision); visuals and sound only where there is a screen
     if(GetNetMode()==NM_DedicatedServer) return;
     const auto* S=AS::State(this);if(!S) return;
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
@@ -162,9 +163,10 @@ void AASWorld::Tick(float Delta) {
 void AASWorld::RebuildEndlessCover() {
     const double Start=FPlatformTime::Seconds();
     for(auto It=Batches.CreateIterator();It;++It) if(It->Key.ToString().Contains(TEXT("EndlessCover"))||It->Key.ToString().Contains(TEXT("EndlessSolid"))) {if(It->Value) It->Value->DestroyComponent();It.RemoveCurrent();}
-    BuildEndlessCover(EndlessCenter);LastCoverDrop=-9999.f;SolidState=-1;
-    if(const auto* State=AS::State(this)) AnimateShift(State); // apply the right height and collision this frame
+    BuildEndlessCover(EndlessCenter);LastCoverDrop=-9999.f;SolidState=-1;HoldOffSince=-1.f;
+    if(auto* State=AS::State(this)) AnimateShift(State); // apply the right height and collision this frame
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: endless cover rebuilt shuffle=%d batches=%d in %.2f ms"),Config.Shuffle,Batches.Num(),(FPlatformTime::Seconds()-Start)*1000.0);
+    LogLayoutFingerprint(TEXT("cover rebuilt"));
 }
 float AASWorld::ShiftNow(const AASGameState* S) {
     const float Server=S->SimTime;
@@ -183,27 +185,45 @@ float AASWorld::ShiftNow(const AASGameState* S) {
 void AASWorld::SetCoverCollision(bool On) {
     for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessSolid"))) Pair.Value->SetCollisionEnabled(On?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
 }
-void AASWorld::AnimateShift(const AASGameState* S) {
+bool AASWorld::AnyHeroNearCover(const AASGameState* S) const {
+    if(!S) return false;
+    for(const auto& Weak:S->Heroes) if(const auto* Hero=Weak.Get()) {
+        const FVector P=Hero->GetActorLocation();
+        for(const auto& F:CoverFootprints) if(ASExpedition::CircleHitsFootprint(P.X,P.Y,ASExpedition::ShiftHoldOffRadius,F.X,F.Y,F.Length,F.Thickness,F.Yaw)) return true;
+    }
+    return false;
+}
+void AASWorld::LogLayoutFingerprint(const TCHAR* Why) const {
+    // Same numbers on the host and on a client mean the two machines built the same arena; compare the "AshenShift:" lines of both logs after a playtest.
+    uint32 Hash=0;
+    for(const auto& F:CoverFootprints) {const int32 Q[5]={FMath::RoundToInt(F.X),FMath::RoundToInt(F.Y),FMath::RoundToInt(F.Length),FMath::RoundToInt(F.Thickness),FMath::RoundToInt(F.Yaw)};Hash=FCrc::MemCrc32(Q,sizeof(Q),Hash);}
+    UE_LOG(LogTemp,Display,TEXT("AshenShift: %s net=%d gen=%d epoch=%d seed=%d shuffle=%d keep=%d footprints=%d hash=%08X"),Why,int32(GetNetMode()),Config.Generation,Config.Epoch,Config.Seed,Config.Shuffle,Config.KeepCount,CoverFootprints.Num(),Hash);
+}
+void AASWorld::AnimateShift(AASGameState* S) {
     if(!S||!IsEndlessArena()) return;
     const float Now=ShiftNow(S);
     const auto* GI=GetGameInstance<UASGameInstance>();const bool Reduce=GI&&GI->bReduceMotion;
-    // Collision never moves. It switches off while the blocks are sunk or half-risen and on again once the new ones are mostly up (about 70% of the wall
-    // above ground, ShiftSolidBelow), in discrete steps, so every machine agrees up to one network delay. It also stays off while a hero stands inside a
-    // rising wall's footprint, so nobody is pushed out of a wall that switches on under them (client-side depenetration was the P2 "glitch").
-    int8 Solid=(Reduce||S->ShiftAt<=0.f||ASExpedition::ShiftCoverSolid(Now,S->ShiftAt))?1:0;
-    if(Solid&&SolidState==0) {
-        for(const auto& Weak:S->Heroes) if(const auto* Hero=Weak.Get()) {
-            const FVector P=Hero->GetActorLocation();
-            for(const auto& F:CoverFootprints) if(ASExpedition::CircleHitsFootprint(P.X,P.Y,70.f,F.X,F.Y,F.Length,F.Thickness,F.Yaw)) {Solid=0;break;}
-            if(!Solid) break;
-        }
-    }
+    // Collision never moves. 0.24: it is decided ONCE, by the server, and published in GameState.bCoverSolid; every other machine applies that answer verbatim, so host and
+    // client can no longer disagree for seconds about whether a wall blocks (the P2 wall reports). The server's rule (ASExpedition::CoverSolidDecision): off while the blocks are
+    // sunk or less than ~70% risen (ShiftSolidBelow), on once they are up, and held off - for at most ShiftHoldOffMaxSeconds - while a hero stands near a rising wall's footprint.
+    int8 Solid;const TCHAR* Why=TEXT("applied from the server");
+    if(HasAuthority()) {
+        const bool Timeline=S->ShiftAt<=0.f||ASExpedition::ShiftCoverSolid(Now,S->ShiftAt);
+        const bool Switching=Timeline&&SolidState==0;
+        const bool Near=Switching&&AnyHeroNearCover(S);
+        if(Switching) {if(HoldOffSince<0.f) HoldOffSince=Now;} else HoldOffSince=-1.f;
+        Solid=ASExpedition::CoverSolidDecision(Now,S->ShiftAt,SolidState!=0,Near,HoldOffSince<0.f?0.f:Now-HoldOffSince)?1:0;
+        Why=!Timeline?TEXT("timeline: cover sunk or not risen enough"):(Near&&!Solid?TEXT("held off: a hero is near a rising wall"):(Switching?TEXT("timeline: cover risen"):TEXT("no shift scheduled")));
+        if(S->bCoverSolid!=(Solid!=0)) {S->bCoverSolid=Solid!=0;S->ForceNetUpdate();}
+    } else Solid=S->bCoverSolid?1:0;
     if(Solid!=SolidState) {
         SolidState=Solid;SetCoverCollision(Solid!=0);
+        UE_LOG(LogTemp,Display,TEXT("AshenShift: collision %s net=%d gen=%d shiftAt=%.2f now=%.2f simTime=%.2f (%s)"),Solid?TEXT("ON"):TEXT("OFF"),int32(GetNetMode()),Config.Generation,S->ShiftAt,Now,S->SimTime,Why);
     }
     if(GetNetMode()==NM_DedicatedServer) return;
-    // Visual blocks sink (ease-in, then slam flush) in the second before the swap, and the new ones rise (ease-in, slam into place) after it.
-    const float Drop=Reduce?0.f:ASExpedition::ShiftCoverDrop*ASExpedition::ShiftCoverSunk(Now,S->ShiftAt);
+    // Visual blocks sink (ease-in, then slam flush) in the second before the swap, and the new ones rise (ease-in, slam into place) after it. With reduced motion they simply
+    // follow the collision state (gone while it is off, there while it is on), so a wall you can walk through never stays on screen and a solid one is never hidden.
+    const float Drop=Reduce?(Solid?0.f:ASExpedition::ShiftCoverDrop):ASExpedition::ShiftCoverDrop*ASExpedition::ShiftCoverSunk(Now,S->ShiftAt);
     if(!FMath::IsNearlyEqual(Drop,LastCoverDrop,.5f)) {
         for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessCover"))) Pair.Value->SetRelativeLocation(FVector(0,0,-Drop));
         LastCoverDrop=Drop;
@@ -231,6 +251,7 @@ void AASWorld::Rebuild() {
     if(Config.Room<0) MakeHub();else {Layout=Config.Room==ASRules::EndlessRoom?ASRules::GenerateEndless():(ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed)));MakeRoom();if(HasAuthority()) BuildNavigation();}
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d"),
         Config.Room,Config.Generation,Batches.Num(),Stations.Num());
+    if(IsEndlessArena()) LogLayoutFingerprint(TEXT("arena built"));
 }
 void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P,const FVector& Scale,FLinearColor Color,bool Collision,float Yaw,float Glow,float Metal) {
     const FName Key(*(MeshName+TEXT("_")+Group+(Collision?TEXT("_C"):TEXT("_N"))));

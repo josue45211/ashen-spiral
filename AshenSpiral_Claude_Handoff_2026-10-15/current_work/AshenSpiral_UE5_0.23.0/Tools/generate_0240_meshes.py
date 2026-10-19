@@ -4,6 +4,8 @@ Every mesh is flat-shaded, triangulated, in centimetres, Z up, with UVs and norm
 
   SM_SwingArc     frontal crescent (+-92.5 deg, tapered) drawn for each Blade/Scythe swing. Outer edge radius 50 cm: scale by Reach/50.
   SM_StrikeSector filled half disc (+-90 deg, radius 50 cm): the ground warning for an enemy melee swing. Scale by DamageRadius/50.
+  SM_BossWingMembrane / SM_BossWingBones   the right wing of the flying boss and the Gloomwing (membrane and bone frame, so each can take its own colour);
+                  the left wing is the same mesh with a negative Y scale. Shoulder at the origin, span about 140 cm along +Y.
 """
 from pathlib import Path
 import json
@@ -105,7 +107,107 @@ def strike_sector():
     return b
 
 
-MESHES = {'SM_SwingArc': swing_arc, 'SM_StrikeSector': strike_sector}
+# ---- Boss wing (right wing; the left is the same mesh with a negative Y scale) ----
+# Planform in centimetres, +Y outward from the shoulder at the origin, +X forward. The arm sweeps out and forward, four finger bones fan back from the wrist,
+# and the membrane's trailing edge is scalloped between the fingertips. A gentle camber lifts the tips so the wing reads as a wing from the game camera.
+WING_SHOULDER, WING_ELBOW, WING_WRIST = (0.0, 0.0), (18.0, 38.0), (14.0, 70.0)
+WING_TIPS = [(50.0, 130.0), (14.0, 138.0), (-26.0, 122.0), (-58.0, 92.0)]
+WING_BODY = (-52.0, 8.0)  # where the trailing edge meets the back
+
+
+def wing_camber(y):
+    return 0.05 * y
+
+
+def wing_outline():
+    pts = [WING_SHOULDER, WING_ELBOW, WING_WRIST, WING_TIPS[0]]
+    for a, b in zip(WING_TIPS, WING_TIPS[1:] + [WING_BODY]):
+        mid = ((a[0] + b[0]) * 0.5, (a[1] + b[1]) * 0.5)
+        pull = 0.18 if b is not WING_BODY else 0.12
+        pts.append((mid[0] + (WING_WRIST[0] - mid[0]) * pull, mid[1] + (WING_WRIST[1] - mid[1]) * pull))  # scallop: pulled toward the wrist
+        pts.append(b)
+    return pts
+
+
+def area2(poly):
+    return sum(poly[i][0] * poly[(i + 1) % len(poly)][1] - poly[(i + 1) % len(poly)][0] * poly[i][1] for i in range(len(poly)))
+
+
+def ear_clip(poly):
+    """Triangulate a simple polygon (any winding) by ear clipping; returns index triples."""
+    idx = list(range(len(poly)))
+    if area2(poly) < 0:
+        idx.reverse()  # make it counter-clockwise
+    def cross2(o, a, b): return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    def inside(p, a, b, c): return cross2(a, b, p) >= -1e-9 and cross2(b, c, p) >= -1e-9 and cross2(c, a, p) >= -1e-9
+    tris = []
+    guard = 0
+    while len(idx) > 3 and guard < 10000:
+        guard += 1
+        for k in range(len(idx)):
+            i0, i1, i2 = idx[k - 1], idx[k], idx[(k + 1) % len(idx)]
+            a, b, c = poly[i0], poly[i1], poly[i2]
+            if cross2(a, b, c) <= 1e-9:
+                continue  # reflex or flat corner
+            if any(inside(poly[j], a, b, c) for j in idx if j not in (i0, i1, i2)):
+                continue
+            tris.append((i0, i1, i2))
+            idx.pop(k)
+            break
+        else:
+            raise RuntimeError('ear clipping failed: the outline is not a simple polygon')
+    tris.append((idx[0], idx[1], idx[2]))
+    return tris
+
+
+def boss_wing_membrane():
+    b = Builder()
+    poly = wing_outline()
+    tris = ear_clip(poly)
+    assert abs(sum(abs(cross3) for cross3 in [((poly[t[1]][0] - poly[t[0]][0]) * (poly[t[2]][1] - poly[t[0]][1]) - (poly[t[1]][1] - poly[t[0]][1]) * (poly[t[2]][0] - poly[t[0]][0])) for t in tris]) - abs(area2(poly))) < 1e-6, 'triangles must tile the outline exactly'
+    half = 0.6
+    lift = lambda p, z: (p[0], p[1], z + wing_camber(p[1]))
+    for t in tris:
+        p = [poly[i] for i in t]
+        b.tri(lift(p[0], half), lift(p[1], half), lift(p[2], half), (0.0, 0.0, 1.0))
+        b.tri(lift(p[0], -half), lift(p[1], -half), lift(p[2], -half), (0.0, 0.0, -1.0))
+    ccw = poly if area2(poly) > 0 else list(reversed(poly))
+    for i in range(len(ccw)):
+        p, q = ccw[i], ccw[(i + 1) % len(ccw)]
+        edge = (q[0] - p[0], q[1] - p[1])
+        out = (edge[1], -edge[0], 0.0)  # outward for a counter-clockwise polygon
+        b.quad(lift(p, half), lift(q, half), lift(q, -half), lift(p, -half), out)
+    return b
+
+
+def prism(b, p, q, w0, w1, t0, t1):
+    """A tapered bar from p to q in the wing plane: width w0 -> w1, thickness t0 -> t1 (cm), following the wing camber."""
+    dx, dy = q[0] - p[0], q[1] - p[1]
+    length = math.hypot(dx, dy)
+    d = (dx / length, dy / length)
+    n = (-d[1], d[0])
+    def corner(pt, w, t, side, up):
+        return (pt[0] + n[0] * w * 0.5 * side, pt[1] + n[1] * w * 0.5 * side, wing_camber(pt[1]) + t * 0.5 * up)
+    a = [corner(p, w0, t0, s, u) for s in (-1, 1) for u in (-1, 1)]   # p end: (-1,-1) (-1,1) (1,-1) (1,1)
+    c = [corner(q, w1, t1, s, u) for s in (-1, 1) for u in (-1, 1)]   # q end
+    b.quad(a[1], a[3], c[3], c[1], (0.0, 0.0, 1.0))                  # top
+    b.quad(a[0], a[2], c[2], c[0], (0.0, 0.0, -1.0))                 # bottom
+    b.quad(a[0], a[1], c[1], c[0], (-n[0], -n[1], 0.0))              # side -n
+    b.quad(a[2], a[3], c[3], c[2], (n[0], n[1], 0.0))                # side +n
+    b.quad(a[0], a[1], a[3], a[2], (-d[0], -d[1], 0.0))              # cap at p
+    b.quad(c[0], c[1], c[3], c[2], (d[0], d[1], 0.0))                # cap at q
+
+
+def boss_wing_bones():
+    b = Builder()
+    prism(b, WING_SHOULDER, WING_ELBOW, 8.0, 6.0, 7.0, 5.5)
+    prism(b, WING_ELBOW, WING_WRIST, 6.0, 5.0, 5.5, 4.5)
+    for tip in WING_TIPS:
+        prism(b, WING_WRIST, tip, 3.6, 1.4, 3.6, 1.6)
+    return b
+
+
+MESHES = {'SM_SwingArc': swing_arc, 'SM_StrikeSector': strike_sector, 'SM_BossWingMembrane': boss_wing_membrane, 'SM_BossWingBones': boss_wing_bones}
 
 
 def main():

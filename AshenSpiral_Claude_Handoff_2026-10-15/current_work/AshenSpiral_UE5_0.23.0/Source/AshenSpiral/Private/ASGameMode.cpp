@@ -393,7 +393,7 @@ void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
 void AASGameMode::EnterEndless() {
     auto* S=AS::State(this);if(!S||!S->Arena) return;
     ClearCombat();S->Room=ASRules::EndlessRoom;S->Wave=0;S->VaultMask=0;S->bVaultClaimed=false;bAdvancePending=false;RoomStarted=S->SimTime;
-    bEndlessBossPending=false;EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;NextLightningAt=-1.f;ActiveStrikes.Empty();S->ShiftAt=-100.f;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
+    bEndlessBossPending=false;EndlessShuffles=0;EndlessShuffleClock=0;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;NextLightningAt=-1.f;ActiveStrikes.Empty();S->ShiftAt=-100.f;S->bCoverSolid=true;EndlessShuffleTarget=ASExpedition::ShuffleSeconds(Random.FRand());
     NextShuffleWave=1+ASExpedition::ShuffleWaves(Random.RandRange(0,MAX_int32));
     S->Arena->ConfigureEndless(RunSeed,0,TArray<FVector>());
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
@@ -460,7 +460,9 @@ void AASGameMode::EndlessTick(float Delta) {
     const int32 Wave=S->EndlessWave;const int32 Living=S->LivingEnemies;
     // A pending shuffle was announced three seconds ago.
     if(EndlessShuffleAt>=0.f&&S->SimTime>=EndlessShuffleAt) {EndlessShuffleAt=-1.f;ShuffleEndlessArena();}
-    if(PendingRelocateAt>=0.f&&S->SimTime>=PendingRelocateAt) {PendingRelocateAt=-1.f;RelocateBuriedEnemies();}
+    // 0.24: relocate enemies buried in the new cover only once the cover is actually solid (the overlap test sees nothing while collision is off, e.g. while a hero holds it off),
+    // with a timeout so a stuck-off cover can never delay it forever.
+    if(PendingRelocateAt>=0.f&&S->SimTime>=PendingRelocateAt&&(S->bCoverSolid||S->SimTime>=PendingRelocateAt+ASExpedition::ShiftHoldOffMaxSeconds+1.f)) {PendingRelocateAt=-1.f;RelocateBuriedEnemies();}
     // After wave 50 the shuffle runs on active-combat time and pauses while no enemies are out.
     if(Wave>50&&Living>0&&EndlessShuffleAt<0.f) {
         EndlessShuffleClock+=Delta;
@@ -748,7 +750,7 @@ void AASGameMode::BackToHub() {
         if(Pending) {FASReceipt R;R.Id=S->RunId+TEXT(":return:")+PS->ProfileId;R.Room=S->bEndless?0:FMath::Clamp(S->Room,0,32);PS->DrainCareer(R);SendReceipt(PS,R);}
     }
     for(auto P:S->PlayerArray) if(auto* PS=Cast<AASPlayerState>(P)) if(PS->bSavePending) {bHubPending=true;return;}
-    bEndlessBossPending=false;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;S->ShiftAt=-100.f;bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->bEndless=false;S->EndlessWave=0;S->ClearedEndlessWave=0;S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
+    bEndlessBossPending=false;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;S->ShiftAt=-100.f;S->bCoverSolid=true;bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->bEndless=false;S->EndlessWave=0;S->ClearedEndlessWave=0;S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
     S->Arena->Configure(-1,1103);SpawnPracticeDummy();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
         if(auto* PS=H->GetPlayerState<AASPlayerState>()) {PS->bRewardClaimed=false;PS->Offers.Empty();H->ApplyBuild(PS->Build,true);}

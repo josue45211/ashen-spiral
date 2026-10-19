@@ -1,0 +1,2 @@
+PASS: 4014 arena-shift collision checks (timeline windows, decision table, hold-off cap, 2000 randomised shifts).
+Shared rules only; Unreal collision, replication and gameplay are not executed.

@@ -21,6 +21,12 @@ public:
     virtual void UpdateFromCompressedFlags(uint8 Flags) override;
     virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
     virtual float GetMaxSpeed() const override;
+protected:
+    // 0.24 diagnostic for the P2 wall reports: when the server corrects this (locally controlled) character, log how far it moved us and what the cover collision looked
+    // like at that moment ("AshenCorrect:" lines, at most one a second). Read-only; the base behaviour still runs first.
+    virtual void OnClientCorrectionReceived(class FNetworkPredictionData_Client_Character& ClientData,float TimeStamp,FVector NewLocation,FVector NewVelocity,FMovementBaseInterfaceData* NewMovementBaseInterfaceData,FName NewBaseBoneName,bool bHasBase,bool bBaseRelativePosition,uint8 ServerMovementMode,FVector ServerGravityDirection) override;
+private:
+    double LastCorrectionLogAt=-10.0;
 };
 class FSavedMove_AS final : public FSavedMove_Character {
 public:
