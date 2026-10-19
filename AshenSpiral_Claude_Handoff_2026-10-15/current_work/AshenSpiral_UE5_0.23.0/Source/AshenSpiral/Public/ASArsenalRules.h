@@ -6,6 +6,30 @@ constexpr int Scattergun=6,Rotary=7,Launcher=8;
 inline int Pellets(int Weapon) {return Weapon==Scattergun?6:1;}
 inline bool UsesMagazine(int Weapon) {return !ASMelee::IsMelee(Weapon);}
 inline float Rate(int Weapon) {constexpr float Values[]={.28f,.72f,.30f,.48f,.34f,.40f,.72f,.105f,1.05f};return Values[std::clamp(Weapon,0,8)];}
+// ---- On-hit reward scaling (0.24) ----
+// Every on-hit reward (element procs, the weapon's own element, stun, root, shock, chain, splash, pull, knockback, leech, conduit) is scaled by the weapon's BASE swing/shot
+// interval relative to a reference: slower weapons reward more per hit, faster weapons less, so rewards per second stay comparable between weapons - the way Crab Champions
+// gives each weapon its own mod chances. Only the weapon's BASE rate is used, never attack speed or any live rate, so attack-speed upgrades still mean more hits and
+// therefore proportionally more rewards. The limits keep the fastest and slowest weapons from being nullified or absurd. TUNABLE.
+constexpr float OnHitReferenceInterval=.40f,OnHitScaleMin=.30f,OnHitScaleMax=2.6f; // the nine weapons' ideal scales run .26 (Rotary) to 2.63 (Mortar); the limits barely clip those two
+// Seconds per swing/shot at base speed. Melee uses the combo's average step length (the hammer's slam and the blade's lunge are slower than their first swings).
+inline float BaseInterval(int Weapon) {return Rate(Weapon)*(ASMelee::IsMelee(std::clamp(Weapon,0,8))?ASMelee::AverageTimeScale(std::clamp(Weapon,0,8)):1.f);}
+inline float OnHitScale(int Weapon) {return std::clamp(BaseInterval(Weapon)/OnHitReferenceInterval,OnHitScaleMin,OnHitScaleMax);}
+// Splits "BaseChance x Scale" into a probability (never above 1) and a strength multiplier (never below 1), so the expected reward is exactly BaseChance x Scale:
+// below 1 the reward simply happens less often at full strength; past certainty the excess becomes extra strength.
+struct ScaledReward {float Chance=0.f,Magnitude=1.f;};
+inline ScaledReward ScaleReward(float BaseChance,float Scale) {
+    BaseChance=std::clamp(std::isfinite(BaseChance)?BaseChance:0.f,0.f,1.f);
+    Scale=std::clamp(std::isfinite(Scale)?Scale:1.f,0.f,10.f);
+    const float Want=BaseChance*Scale;
+    if(Want<=0.f) return {0.f,1.f};
+    return Want<=1.f?ScaledReward{Want,1.f}:ScaledReward{1.f,Want};
+}
+// Battle Conduit pays out every six hits at Scale 1; slower weapons need fewer hits, faster ones more (1..24).
+inline int ConduitHitsNeeded(float Scale) {
+    if(!std::isfinite(Scale)) return 6;
+    return std::clamp(int(std::lround(6.f/std::max(.1f,Scale))),1,24);
+}
 inline int BaseCapacity(int Weapon) {constexpr int Values[]={0,0,10,7,14,0,6,40,3};return Values[std::clamp(Weapon,0,8)];}
 inline int Capacity(int Weapon,int Rank) {return BaseCapacity(Weapon)+int(std::ceil(BaseCapacity(Weapon)*.20f-.00001f))*std::clamp(Rank,0,5);}
 inline float ReloadSeconds(int Weapon,int Rank=0) {constexpr float Values[]={0.f,0.f,1.25f,1.30f,1.45f,0.f,1.65f,1.85f,2.10f};return Values[std::clamp(Weapon,0,8)]/(1.f+.15f*std::clamp(Rank,0,5));}

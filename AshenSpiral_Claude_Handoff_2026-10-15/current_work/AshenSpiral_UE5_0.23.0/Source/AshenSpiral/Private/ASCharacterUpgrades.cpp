@@ -1,4 +1,5 @@
 #include "ASCharacter.h"
+#include "ASArsenalRules.h"
 #include "ASMovementComponent.h"
 #include "ASPlayerController.h"
 #include "ASGameState.h"
@@ -62,7 +63,7 @@ bool AASCharacter::ApplyChoice(int32 Choice) {
 void AASCharacter::ResetTraits() {
     TraitRanks.Init(0,ASBuild::Count);EvolutionMask=0;LastUpgrade=-1;Rerolls=1;CurseStacks=0;Focus=60;NextRune=0;
     ConduitHits=0;bPhoenixUsed=false;WarCryUntil=0;LastDamageAt=-100;RoomBuffUntil=KillBuffUntil=StillSince=GoldRemainder=0;
-    NextLeech=NextSplash=NextChain=NextShock=NextPull=NextConduit=NextAura=NextOrbit=NextThorns=0;
+    NextSplashFx=NextChainFx=NextAura=NextOrbit=NextThorns=0;
     DashVictims.Empty();bDashTraceActive=false;Movement()->DashCharges=1;Movement()->KnownDashCapacity=1;Movement()->DashRecharge=0;
 }
 void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
@@ -111,25 +112,37 @@ void AASCharacter::SecondaryDamage(AASEnemy* E,float Amount,EASHitKind Kind) {
     if(!Killed&&Kind==EASHitKind::Shock) E->RegisterCoopElement(Kind,this,DamageScale(false));
     if(Dealt>0) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At,Dealt,false,Kind);
 }
+float AASCharacter::OnHitScale() const {return ASArsenal::OnHitScale(Build.Weapon);}
 void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
     if(!CombatBenefits()||Dealt<=0) return;auto* S=AS::State(this);if(!S) return;
     const float Now=S->SimTime;
-    if(Now>=NextLeech&&TraitValue(Trait::Leech)>0) {NextLeech=Now+.25f;Heal(FMath::Min(3.f,Dealt*.015f*TraitValue(Trait::Leech)));}
-    if(Now>=NextConduit&&TraitValue(Trait::Conduit)>0) {
-        NextConduit=Now+.15f;if(++ConduitHits>=6) {ConduitHits=0;Focus=FMath::Min(MaxFocus(),Focus+12.f);NextSpiral=FMath::Max(Now,NextSpiral-.3f);}
-    }
+    // 0.24: every on-hit reward below is scaled by the equipped weapon's BASE swing/shot interval (ASArsenal::OnHitScale): slower weapons reward more per hit, faster ones less,
+    // so rewards per second stay comparable between weapons. Chance rewards go through ScaleReward (exact expected value; whatever would exceed certainty becomes extra strength);
+    // steady rewards simply multiply. The old per-reward cooldowns are gone - the scale does their job - except two purely visual throttles (chain beams, splash flash).
+    const float Scale=OnHitScale();
+    const int32 LeechRank=TraitValue(Trait::Leech);
+    if(LeechRank>0) Heal(FMath::Min(3.f,Dealt*.015f*float(LeechRank))*Scale);
+    if(TraitValue(Trait::Conduit)>0&&++ConduitHits>=ASArsenal::ConduitHitsNeeded(Scale)) {ConduitHits=0;Focus=FMath::Min(MaxFocus(),Focus+12.f);NextSpiral=FMath::Max(Now,NextSpiral-.3f);}
     if(IsValid(E)&&E->Health>0) {
         const Trait Types[]={Trait::Burn,Trait::Poison,Trait::Bleed,Trait::Frost};
         const EASHitKind Kinds[]={EASHitKind::Burn,EASHitKind::Poison,EASHitKind::Bleed,EASHitKind::Frost};
-        for(int32 I=0;I<4;++I) if(FMath::FRand()<ASBuild::ProcChance(TraitValue(Types[I]),.18f)) E->ApplyElement(Kinds[I],this,DamageScale(true)*(Kinds[I]==ASData::WeaponElement(Build.Weapon)?1.3f:1.f));
-        if(TraitValue(Trait::Knockback)>0) E->Control(0,E->GetActorLocation()-GetActorLocation(),120.f*TraitValue(Trait::Knockback));
-        if(FMath::FRand()<ASBuild::ProcChance(TraitValue(Trait::Stun),.08f)) E->Control(1,FVector::ZeroVector,0);
-        if(FMath::FRand()<ASBuild::ProcChance(TraitValue(Trait::Root),.10f)) E->Control(2,FVector::ZeroVector,0);
+        for(int32 I=0;I<4;++I) {
+            const auto R=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Types[I]),.18f),Scale);
+            if(R.Chance>0.f&&FMath::FRand()<R.Chance) E->ApplyElement(Kinds[I],this,DamageScale(true)*(Kinds[I]==ASData::WeaponElement(Build.Weapon)?1.3f:1.f)*R.Magnitude,R.Magnitude);
+        }
+        if(TraitValue(Trait::Knockback)>0) E->Control(0,E->GetActorLocation()-GetActorLocation(),120.f*float(TraitValue(Trait::Knockback))*Scale);
+        const auto Stun=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Stun),.08f),Scale),Root=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Root),.10f),Scale);
+        if(Stun.Chance>0.f&&FMath::FRand()<Stun.Chance) E->Control(1,FVector::ZeroVector,0);
+        if(Root.Chance>0.f&&FMath::FRand()<Root.Chance) E->Control(2,FVector::ZeroVector,0);
     }
-    const bool Shock=Now>=NextShock&&FMath::FRand()<ASBuild::ProcChance(TraitValue(Trait::Shock),.18f);
-    if(Shock) {NextShock=Now+.35f;if(IsValid(E)) SecondaryDamage(E,Dealt*.20f,EASHitKind::Shock);}
-    if((Now>=NextChain&&TraitValue(Trait::Chain)>0)||Shock) {
-        const int32 Count=Shock?1:TraitValue(Trait::Chain);NextChain=Now+.35f;
+    const auto ShockReward=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Shock),.18f),Scale);
+    const bool Shock=ShockReward.Chance>0.f&&FMath::FRand()<ShockReward.Chance;
+    if(Shock&&IsValid(E)) SecondaryDamage(E,Dealt*.20f*ShockReward.Magnitude,EASHitKind::Shock);
+    if(TraitValue(Trait::Chain)>0||Shock) {
+        // A shock proc chains once at its own strength (as before); the Chain trait chains up to four links on every hit at 30% x the weapon's scale.
+        const int32 Count=Shock?1:TraitValue(Trait::Chain);
+        const float LinkFraction=Shock?.20f*ShockReward.Magnitude:.30f*Scale;
+        const bool ShowBeams=Now>=NextChainFx;
         FVector Start=At;TSet<TWeakObjectPtr<AASEnemy>> Visited;if(E) Visited.Add(E);
         for(int32 I=0;I<FMath::Min(4,Count);++I) {
             AASEnemy* Best=nullptr;float Distance=FMath::Square(650.f*AreaScale());
@@ -138,19 +151,19 @@ void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
                 if(D<Distance&&AS::ClearSight(GetWorld(),Start,N->GetActorLocation())) {Best=N;Distance=D;}
             }
             if(!Best) break;Visited.Add(Best);const FVector End=Best->GetActorLocation();
-            S->Effect(9,Start,(End-Start).GetSafeNormal(),ASData::HitColor(EASHitKind::Shock),FVector::Distance(Start,End));
-            SecondaryDamage(Best,Dealt*(Shock?.20f:.30f),EASHitKind::Shock);Start=End;
+            if(ShowBeams) S->Effect(9,Start,(End-Start).GetSafeNormal(),ASData::HitColor(EASHitKind::Shock),FVector::Distance(Start,End));
+            SecondaryDamage(Best,Dealt*LinkFraction,EASHitKind::Shock);Start=End;
         }
+        if(ShowBeams) NextChainFx=Now+.1f; // visual throttle only: fast weapons do not flood the network with beam effects
     }
-    const bool Splash=Now>=NextSplash&&TraitValue(Trait::Splash)>0,Pull=Now>=NextPull&&TraitValue(Trait::Gravity)>0;
+    const bool Splash=TraitValue(Trait::Splash)>0,Pull=TraitValue(Trait::Gravity)>0;
     if(Splash||Pull) {
-        if(Splash) NextSplash=Now+.25f;if(Pull) NextPull=Now+.6f;
         const auto Enemies=S->Enemies;
         for(auto W:Enemies) if(auto* N=W.Get()) if(N!=E&&CanDamage(N)&&FVector::DistSquared2D(At,N->GetActorLocation())<FMath::Square((Splash?180.f:300.f)*AreaScale())&&AS::ClearSight(GetWorld(),At,N->GetActorLocation())) {
-            if(Pull) N->Control(0,At-N->GetActorLocation(),170.f*TraitValue(Trait::Gravity));
-            if(Splash) SecondaryDamage(N,Dealt*.15f*TraitValue(Trait::Splash),EASHitKind::Spiral);
+            if(Pull) N->Control(0,At-N->GetActorLocation(),170.f*float(TraitValue(Trait::Gravity))*Scale);
+            if(Splash) SecondaryDamage(N,Dealt*.15f*float(TraitValue(Trait::Splash))*Scale,EASHitKind::Spiral);
         }
-        if(Splash) S->Effect(6,At,FVector::UpVector,ASData::HitColor(EASHitKind::Spiral),180.f*AreaScale());
+        if(Splash&&Now>=NextSplashFx) {NextSplashFx=Now+.12f;S->Effect(6,At,FVector::UpVector,ASData::HitColor(EASHitKind::Spiral),180.f*AreaScale());}
     }
 }
 void AASCharacter::TickTraits(float Delta) {

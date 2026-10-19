@@ -151,13 +151,13 @@ void AASEnemy::EndWindup() {
     if(!bWinding) return;
     bWinding=false;Ability=uint8(ASEnemyRules::AbilityNone);ForceNetUpdate(); // the replicated flag is what every machine draws the ground warning from
 }
-void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
+void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
     RegisterCoopElement(Type,Source,Power);
     // A synergy can kill this very target; do not keep applying status to a dead actor.
     if(!IsValid(this)||Health<=0) return;
     if(Type==EASHitKind::Frost&&Power<=0) Elements.Frost=FMath::Max(Elements.Frost,12.f);
-    else Elements.Apply(int(Type),Power,Boss(),ASBuild::StatusDuration(Source->TraitValue(ASBuild::Trait::Duration)));
+    else Elements.Apply(int(Type),Power,Boss(),ASBuild::StatusDuration(Source->TraitValue(ASBuild::Trait::Duration)),Buildup);
     if(Type==EASHitKind::Burn) BurnSource=Source;if(Type==EASHitKind::Poison) PoisonSource=Source;if(Type==EASHitKind::Bleed) BleedSource=Source;
 }
 bool AASEnemy::TickElements(float Delta) {

@@ -304,13 +304,14 @@ inline bool CanDamageTarget(int Phase,bool PracticeTarget,bool Cosmetic) {return
 struct ElementState {
     float Burn=0,Poison=0,Frost=0,Frozen=0,Immune=0,BurnDPS=0,PoisonDPS=0,Bleed=0,BleedDPS=0,BleedDamage=0;
     int PoisonStacks=0,BleedStacks=0;
-    void Apply(int Kind,float Power,bool BossTarget,float Duration=1.f) {
+    // Buildup (0.24) scales how much frost one application adds (34 at 1); the other elements are scaled through Power. Defaulted so older callers are unchanged.
+    void Apply(int Kind,float Power,bool BossTarget,float Duration=1.f,float Buildup=1.f) {
         Duration=std::clamp(Duration,1.f,1.8f);
         Power=std::max(0.f,Power);
         if(Kind==2) {Burn=3*Duration;BurnDPS=std::max(BurnDPS,6.f*Power);}
         if(Kind==3) {Poison=4*Duration;PoisonStacks=std::min(3,PoisonStacks+1);PoisonDPS=std::max(PoisonDPS,3.f*Power);}
         if(Kind==7) {Bleed=3*Duration;BleedStacks=std::min(2,BleedStacks+1);BleedDPS=std::max(BleedDPS,4.f*Power);}
-        if(Kind==4) {Frost=std::min(100.f,Frost+34.f);if(Frost>=100&&Immune<=0) {Frozen=BossTarget?0.f:.8f;Immune=3.8f;Frost=70;}}
+        if(Kind==4) {Frost=std::min(100.f,Frost+34.f*std::clamp(std::isfinite(Buildup)?Buildup:1.f,0.f,4.f));if(Frost>=100&&Immune<=0) {Frozen=BossTarget?0.f:.8f;Immune=3.8f;Frost=70;}}
     }
     std::pair<float,float> Tick(float Delta) {
         BleedDamage=0;if(!std::isfinite(Delta)||Delta<=0) return {0.f,0.f};

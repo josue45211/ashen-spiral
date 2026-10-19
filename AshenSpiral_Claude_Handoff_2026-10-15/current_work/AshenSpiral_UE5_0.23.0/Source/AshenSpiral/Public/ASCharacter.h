@@ -115,6 +115,7 @@ public:
     float CriticalPower() const {return ASBuild::CriticalMultiplier(TraitValue(ASBuild::Trait::Deadeye));}
     float ElementalDamageMultiplier() const {return ASBuild::ElementalDamageMultiplier(TraitValue(ASBuild::Trait::Attunement));}
     float MeleeReachMultiplier() const {return ASBuild::MeleeReachMultiplier(TraitValue(ASBuild::Trait::WideArc));}
+    float OnHitScale() const; // 0.24: the equipped weapon's on-hit reward scale (its BASE swing/shot interval against a reference; see ASArsenal::OnHitScale)
     int32 TeamworkRank() const {return TraitValue(ASBuild::Trait::Teamwork);}
     float PrimaryDamageBonus() const {return 4.f*TraitValue(ASBuild::Trait::Sharpened);}
     float DashDuration() const {return ASBuild::DashDuration(TraitValue(ASBuild::Trait::LongDash));}
@@ -168,7 +169,7 @@ private:
     TSet<TWeakObjectPtr<AASEnemy>> DashVictims;
     FVector DashTraceStart=FVector::ZeroVector;
     bool bDashTraceActive=false;
-    float NextLeech=0,NextSplash=0,NextChain=0,NextShock=0,NextPull=0,NextConduit=0,NextAura=0,NextOrbit=0,NextThorns=0;
+    float NextSplashFx=0,NextChainFx=0,NextAura=0,NextOrbit=0,NextThorns=0; // 0.24: the on-hit reward cooldowns are gone; the first two only throttle visuals
     bool bAttackHeld=false;
     bool bMeleePending=false,bMeleeMotionStarted=false,bMeleeCritical=false;
     int32 NextMeleeStep=0,PendingMeleeWeapon=-1,PendingMeleePhase=-1,PendingMeleeGeneration=-1;

@@ -40,7 +40,7 @@ public:
     UPROPERTY(Replicated) float HitReactionStrength=0.f;
     UPROPERTY(Replicated) FVector_NetQuantizeNormal HitReactionDirection=FVector::BackwardVector;
     void BeginHitReaction(const FVector& SourceLocation,bool Heavy);
-    void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power);
+    void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup=1.f); // Buildup scales the frost added per application (0.24 on-hit reward scaling)
     void Control(int32 Type,const FVector& Direction,float Strength);
     void EndWindup(); // authority: clears bWinding on every path that abandons an attack, so the ground warning can never outlive the attack
     // 0.23.5: the Endless flying boss is a normal boss (Kind 4) that flies; the Gloomwing is Kind 10.

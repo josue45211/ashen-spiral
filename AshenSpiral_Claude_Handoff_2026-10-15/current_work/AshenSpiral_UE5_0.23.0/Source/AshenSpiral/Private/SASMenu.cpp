@@ -9,6 +9,7 @@
 #include "ASGameState.h"
 #include "ASCharacter.h"
 #include "ASRules.h"
+#include "ASArsenalRules.h"
 #include "ASPresentationRules.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
@@ -248,7 +249,7 @@ void SASMenu::Construct(const FArguments& Args) {
     } else if(Page==2) {
         for(int32 I=0;I<ASRules::WeaponCount;++I) {
             const bool Owned=(P.OwnedWeapons&(1<<I))!=0;
-            Card(ASData::Weapons[I].Name,ASData::Weapons[I].Desc,P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
+            Card(ASData::Weapons[I].Name,FString(ASData::Weapons[I].Desc)+FString::Printf(TEXT("\nOn-hit effects x%.2f per hit with this weapon: slower weapons hit harder, fast ones lighter."),ASArsenal::OnHitScale(I)),P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
         }
         Card(TEXT("Spiral styles"),TEXT("Change how your ability pulls, slows, shields, or collapses."),TEXT("SANCTUM"),10,3);
     } else if(Page==23) {

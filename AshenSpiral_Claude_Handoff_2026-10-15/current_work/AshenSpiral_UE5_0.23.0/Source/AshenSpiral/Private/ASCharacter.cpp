@@ -300,7 +300,7 @@ void AASCharacter::HitEnemy(AASEnemy* E,float Amount,bool Critical,EASHitKind Ki
     E->LastHitter=this;E->LastHitTime=S->SimTime;
     const FVector At=E->GetActorLocation();const bool Pulled=E->PulledUntil>S->SimTime;const bool ShowNumber=Critical||ApplyElement||E->NextDamageNumber<=S->SimTime;if(ShowNumber) E->NextDamageNumber=S->SimTime+.14f;const float Before=E->Health;const bool Killed=E->Hit(Amount,this);const float Dealt=Killed?Before:Before-E->Health;
     if(!Killed&&Kind==EASHitKind::Shock&&IsValid(E)) E->RegisterCoopElement(Kind,this,DamageScale(false));
-    if(!Killed&&ApplyElement&&IsValid(E)) E->ApplyElement(Kind,this,DamageScale(true));
+    if(!Killed&&ApplyElement&&IsValid(E)) {const float Scale=OnHitScale();E->ApplyElement(Kind,this,DamageScale(true)*Scale,Scale);} // 0.24: the weapon's own element is an on-hit reward too (damage-over-time strength and frost buildup scale with the weapon's base rate)
     if(ShowNumber) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At+FVector(0,0,80),Dealt,Critical,Kind);
     if(ApplyElement&&AllowProcs) HitProcs(Killed||!IsValid(E)||E->Health<=0?nullptr:E,At,Dealt);
     if(Critical) S->Effect(8,At+FVector(0,0,35),FVector::ForwardVector,ASData::HitColor(Kind),80);
