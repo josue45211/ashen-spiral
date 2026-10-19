@@ -454,6 +454,16 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         Duration=FMath::Clamp(R,.2f,3.f);Anchor=At;SetActorLocation(At+FVector(0,0,1500.f));Visual->SetRelativeScale3D(FVector(.9f));
         return;
     }
+    if(Kind==19) {
+        // 0.24 brood egg sound (Size above 0.5: it hatched, otherwise a hero popped it): the egg's own burst is effect 11, this one only plays the cue, at a volume that follows
+        // the distance to the local player like every enemy cue.
+        Visual->SetVisibility(false);Duration=.05f;
+        float Volume=.3f,Pitch=1.f;USoundBase* Cue=AASEnemy::ResolveCue(R>.5f?ASEnemyRules::CueEggHatch:ASEnemyRules::CueEggPop,Volume,Pitch);
+        const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);
+        Volume*=ASEnemyRules::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),At)):0.f);
+        if(Cue&&Volume>=.02f) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Volume,Pitch);
+        return;
+    }
     ASAssets::Style(Visual,Kind==15?TEXT("SM_Chest"):(Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring")))),C,0,Kind==15?3:6);
     Duration=Kind==15?ASPresentation::ChestPopLife:(Kind==8?.32f:(Kind==6?.48f:(Kind>=12?.34f:.24f)));
     const TCHAR* Sound=Kind==1||Kind==2?TEXT("S_Attack"):(Kind==3?TEXT("S_Spiral"):(Kind==4?TEXT("S_Dash"):(Kind==5?TEXT("S_Hit"):(Kind==7?TEXT("S_Reward"):TEXT("S_Collapse")))));

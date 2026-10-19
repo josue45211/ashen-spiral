@@ -108,6 +108,48 @@ inline int BlinkCandidates(float FaceX,float FaceY,float Distance,float* OutX,fl
     return 5;
 }
 
+// ---- Egg sacs (broodcaller): it lays eggs instead of conjuring minions outright. An egg hatches into a minion after EggHatchSeconds unless a hero pops it first. ----
+constexpr float EggHatchSeconds=3.2f,EggHealth=22.f,EggDistance=230.f,EggSpreadDegrees=50.f;
+constexpr int EggMaxLive=6,EggsSolo=2,EggsCoop=3;
+inline int EggCount(int Players) {return Players>1?EggsCoop:EggsSolo;}
+// Where the eggs go, as offsets (cm) from the mother in the world frame: a fan around its aim, one egg straight ahead, two to either side, three the two and the middle. Returns how
+// many were written (0..3).
+inline int EggOffsets(float AimX,float AimY,int Count,float* OutX,float* OutY) {
+    float x=AimX,y=AimY;
+    if(!std::isfinite(x)||!std::isfinite(y)||!Detail::Unit(x,y)) {x=1.f;y=0.f;}
+    static constexpr float Fan[4][3]={{0.f,0.f,0.f},{0.f,0.f,0.f},{-1.f,1.f,0.f},{-1.f,0.f,1.f}};
+    Count=std::clamp(Count,0,3);
+    for(int I=0;I<Count;++I) {float Rx,Ry;Detail::Rotate(x,y,Fan[Count][I]*EggSpreadDegrees,Rx,Ry);OutX[I]=Rx*EggDistance;OutY[I]=Ry*EggDistance;}
+    return Count;
+}
+inline bool EggHatchDue(float Now,float HatchAt) {return std::isfinite(Now)&&std::isfinite(HatchAt)&&Now>=HatchAt;}
+// How far through its hatching an egg is, 0..1 (it pulses faster as this nears 1).
+inline float EggProgress(float Now,float HatchAt,float Seconds) {
+    if(!std::isfinite(Now)||!std::isfinite(HatchAt)||!(Seconds>0.f)) return 0.f;
+    return std::clamp(1.f-(HatchAt-Now)/Seconds,0.f,1.f);
+}
+
+// ---- Pack dive (Gloomwing): the fliers of a pack attack in a volley instead of one at a time. When one is ready to dive it calls the pack: the others near the same target have
+// their next dive set in order of their ids, PackStagger seconds apart, so one screech starts a chain of dives a player can read. At most PackMax take part. ----
+constexpr float PackRadius=1700.f,PackStagger=.38f;
+constexpr int PackMax=4;
+// Fills OutDelays[i] with the delay (seconds) before member i's dive: the caller 0, the rest in ascending id order PackStagger apart, and -1 for any member beyond PackMax (not in
+// this volley). Returns how many are in the volley (0 when the caller is not among the members).
+inline int PackDelays(const unsigned* Ids,int Count,unsigned Caller,float* OutDelays) {
+    if(!Ids||!OutDelays||Count<=0) return 0;
+    for(int I=0;I<Count;++I) OutDelays[I]=-1.f;
+    int InPack=0;
+    for(int I=0;I<Count;++I) if(Ids[I]==Caller) {OutDelays[I]=0.f;InPack=1;break;}
+    if(InPack==0) return 0;
+    while(InPack<PackMax) {
+        int Best=-1;
+        for(int I=0;I<Count;++I) if(OutDelays[I]<0.f&&Ids[I]!=Caller&&(Best<0||Ids[I]<Ids[Best])) Best=I;
+        if(Best<0) break;
+        OutDelays[Best]=float(InPack)*PackStagger;++InPack;
+    }
+    return InPack;
+}
+
 // ---- Sniper: the aiming beam tracks the hero for the first part of the wind-up, then locks and fires along the locked line. ----
 constexpr float SnipeTrackFraction=.70f,SnipeTurnRate=75.f;
 inline bool SnipeLocked(float Progress) {return std::isfinite(Progress)&&Progress>=SnipeTrackFraction;}

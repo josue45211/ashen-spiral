@@ -95,7 +95,7 @@ inline float CueDistanceGain(float Distance) {
 constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilityShot=4,AbilityPounce=5,AbilityCharge=6,AbilityBlast=7,AbilitySnipe=8,AbilitySummon=9,AbilityBossAttack=10,
     AbilityShove=11,AbilityBackHop=12,AbilityParry=13,AbilityRiposte=14,AbilityPound=15,AbilityEnrage=16,AbilityBlink=17,AbilityBlinkStrike=18,AbilityMeteors=19,AbilityCount=20;
 // The replicated byte AASEnemy::Flags: bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
-constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once
+constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
 constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
 constexpr unsigned NeedsClearPath=1u;                        // may only start when a straight walk to the target is clear (leaps and charges)
 constexpr unsigned StanceFlag=2u;                            // a long stance or roar: the Special state, with no strike of its own (a parry, an enrage)

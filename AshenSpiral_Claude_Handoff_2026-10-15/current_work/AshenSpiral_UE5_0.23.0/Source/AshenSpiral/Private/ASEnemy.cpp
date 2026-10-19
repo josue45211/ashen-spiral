@@ -4,6 +4,7 @@
 #include "ASEnemyRules.h"
 #include "ASEnemyAbilities.h"
 #include "ASEnemyHazards.h"
+#include "ASBreakable.h"
 #include "EngineUtils.h"
 #include "Engine/StaticMesh.h"
 #include "HAL/IConsoleManager.h"
@@ -160,7 +161,7 @@ void AASEnemy::EndWindup() {
     const float Now=AS::Time(this);
     const bool Idle=!bWinding&&Ability==ER::AbilityNone&&(AIState==ER::StateApproach||AIState==ER::StateStrafe||AIState==ER::StateRetreat)&&LeapUntil<=Now&&ChargeUntil<=Now&&DiveUntil<=Now&&HopUntil<=Now;
     if(Idle) return;
-    Ability=uint8(ER::AbilityNone);LeapUntil=ChargeUntil=DiveUntil=HopUntil=0;bTraversalLeap=false;RiposteAt=-1.f;bParryBlocked=false; // a stunned or interrupted charge, leap, dive, hop or stance does not resume afterwards
+    Ability=uint8(ER::AbilityNone);LeapUntil=ChargeUntil=DiveUntil=HopUntil=0;bTraversalLeap=false;RiposteAt=-1.f;bParryBlocked=false;Flags&=uint8(0xFFu&~ASEnemyRules::FlagPackCall); // a stunned or interrupted charge, leap, dive, hop or stance does not resume afterwards
     SetAIState(ER::StateApproach);ForceNetUpdate(); // the replicated flags are what every machine draws the ground warning and the pose from
 }
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup) {
@@ -202,7 +203,11 @@ void AASEnemy::Tick(float Delta) {
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
         const bool Blob=ASEnemyRules::KitFor(Kind).AnimSet==ASEnemyRules::AnimBlob; // the leaper and the broodcaller: one body, posed by AnimateBlob
-        if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Flies()) AnimateFlier();if(Blob) AnimateBlob();TickStatusTint();UpdateCues(AS::Time(this));}
+        if(GetNetMode()!=NM_DedicatedServer) {
+            AnimateArmor(Delta,T);if(Flies()) AnimateFlier();if(Blob) AnimateBlob();TickStatusTint();UpdateCues(AS::Time(this));
+            if(Kind==ASEnemyRules::Sniper&&bWinding) ShowBeam(T);
+            if(Kind==ASEnemyRules::Bulwark&&ArmorShield) {const bool Up=!(Flags&ASEnemyRules::FlagGuardBroken);if(ArmorShield->IsVisible()!=Up) ArmorShield->SetVisibility(Up);} // a broken guard drops its shield for a few seconds
+        }
         if(!Blob) {
             Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*.12f)));
             Body->SetRelativeRotation(FRotator(bWinding?-7.f*T:0,0,0));
@@ -210,6 +215,7 @@ void AASEnemy::Tick(float Delta) {
         if(ShowWarning) ShowTell(T); // the bright shape grows over the dim full-size one; both stay flat on the floor and face the attack
     }
     if(!HasAuthority()||Health<=0) return;
+    if((Flags&ASEnemyRules::FlagGuardBroken)&&S->SimTime>=GuardBrokenUntil) {Flags&=uint8(0xFFu&~ASEnemyRules::FlagGuardBroken);ForceNetUpdate();}
     if(SpawnProtected()) {if(Flies()&&GetCharacterMovement()->MovementMode!=MOVE_Flying) GetCharacterMovement()->SetMovementMode(MOVE_Flying);GetCharacterMovement()->StopMovementImmediately();EndWindup();return;} // a flyer ignores the floor, so it must not be left walking
     const bool Active=ASRules::CanDamageTarget(int(S->Phase),bTrainingDummy,false);
     if(!Active) {
@@ -263,6 +269,7 @@ void AASEnemy::ReleaseAbility() {
     AttackReleaseTime=Now;ForceNetUpdate(); // every release is stamped (the pose and the release cue are timed from it)
     const int32 Flow=ReleaseOwnAbility(Id,ToTarget); // the 0.24 abilities with their own effect and flow
     if(Flow==FlowNotMine) CommitAttack(); // the effect of the attack by kind (it also starts a leap or a charge by setting LeapUntil / ChargeUntil)
+    if(Id==ER::AbilitySnipe) StartRelocation(); // after the shot the sniper takes a new vantage point
     const float Anger=(Flags&ER::FlagEnraged)?ER::EnrageCooldownScale:1.f; // an enraged enemy recharges faster
     if(!(Spec.Flags&ER::NoKitCooldownFlag)) NextAttack=Now+Kit.Cooldown*Anger;
     AbilityReadyAt[Id]=Now+Spec.Cooldown*Anger;
@@ -287,6 +294,13 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
     // ---- Committed phases: nothing else decides anything until they end. ----
     if(AIState==ER::StateWindup||AIState==ER::StateSpecial) {
         StuckFor=0;LastRoutePosition=Here;Move->StopMovementImmediately();
+        if(Ability==ER::AbilitySnipe&&AIState==ER::StateWindup) { // the aiming beam follows the hero for the first part of the wind-up, then locks: the shot goes along the locked line
+            const float Progress=FMath::Clamp((Now-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f);
+            if(!ER::SnipeLocked(Progress)) {
+                const float Yaw=ER::TrackYaw(Aim.Rotation().Yaw,FVector(ToTarget.X,ToTarget.Y,0.f).Rotation().Yaw,Delta,ER::SnipeTurnRate);
+                Aim=FRotator(0.f,Yaw,0.f).Vector();SetActorRotation(FRotator(0.f,Yaw,0.f));
+            }
+        }
         if(Ability==ER::AbilityParry) { // the guard keeps facing its target, and a block is answered by a counter-slash a moment later
             const FVector Look=FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal();
             if(!Look.IsNearlyZero()) SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(),FRotator(0.f,Look.Rotation().Yaw,0.f),Delta,Kit.TurnRate));
@@ -331,6 +345,19 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
     // Frail kinds fall back once when badly hurt (bounded, and never while only a couple of enemies remain).
     const bool Retreating=ER::UpdateRetreat(Kit,Health/FMath::Max(1.f,MaxHealth),S->Enemies.Num(),Now,Retreat);
     if(!Retreating&&ER::KitHas(Kit,ER::AbilityEnrage)&&ER::EnrageDue((Flags&ER::FlagEnraged)!=0,Health,MaxHealth)) {BeginAbility(ER::AbilityEnrage,ToTarget);return;} // at half health the brute roars (once)
+    if(Now<RelocateUntil) { // the sniper's new vantage point after a shot: brisk and straight along the route, no attack until it arrives (or its few seconds are up)
+        const FVector Goal(RelocateGoal.X,RelocateGoal.Y,Here.Z);
+        if(FVector::Dist2D(Here,Goal)>ER::RelocateArrive) {
+            const FVector Next=S->Arena?S->Arena->Route(Here,Goal):Goal;const FVector Dir=(Next-Here).GetSafeNormal2D();
+            if(!Dir.IsNearlyZero()) {
+                SetAIState(ER::StateApproach);
+                SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(),FRotator(0.f,Dir.Rotation().Yaw,0.f),Delta,Kit.TurnRate));
+                Move->MaxAcceleration=Kit.Accel;Move->BrakingDecelerationWalking=Kit.Brake;Move->MaxWalkSpeed=Kit.Speed*ER::RelocateSpeed*ASArsenal::EnemySpeedScale(false);
+                AddMovementInput(Dir,1,true);return;
+            }
+        }
+        RelocateUntil=0.f; // arrived, or no way there: back to the fight
+    }
     if(!Retreating&&Sight&&Now>=NextAttack) {
         ER::Context C;C.Distance=Distance;C.Now=Now;C.Sight=true;C.ClearPath=true;
         if((Kind==5||Kind==6)&&Distance<Range&&S->Arena) C.ClearPath=S->Arena->CanWalkDirectly(Here,Target->GetActorLocation()); // leaps and charges need a clear straight walk
@@ -420,8 +447,9 @@ void AASEnemy::CommitAttack() {
     if(Kind==9) {
         // 0.24: summon in pairs while the living brood is under the cap and the cooldown is over; otherwise shoot. (It used to summon on its first two attacks only.)
         int32 Live=0;for(auto W:S->Enemies) if(const auto* M=W.Get()) if(M->Summoner.Get()==this&&M->Health>0) ++Live;
+        for(auto W:S->Breakables) if(const auto* Egg=W.Get()) if(Egg->Kind==2&&Egg->Mother.Get()==this) ++Live; // an egg is a minion on its way
         if(ASEnemyRules::BroodShouldSummon(Live,S->PlayerArray.Num()>1?ASEnemyRules::BroodMinionCapCoop:ASEnemyRules::BroodMinionCap,S->SimTime,NextSummon)) {
-            if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) for(int32 I=0;I<ASEnemyRules::BroodMinionPair;++I) GM->SpawnMinion(GetActorLocation()+FVector(160,I?150:-150,0),this);
+            LayEggs(); // 0.24: eggs that hatch after a few seconds unless a hero pops them (minions straight away only when no egg can be laid)
             NextSummon=S->SimTime+ASEnemyRules::BroodSummonCooldown;
         } else Shot(Aim,2,13);
         for(auto W:S->Enemies) if(auto* E=W.Get()) if(E!=this&&!E->Boss()&&FVector::DistSquared2D(E->GetActorLocation(),GetActorLocation())<550*550&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) {
@@ -473,7 +501,19 @@ void AASEnemy::CommitAttack() {
 bool AASEnemy::Hit(float Damage,AASCharacter* Source,bool bDirect) {
     if(!HasAuthority()||SpawnProtected()||Health<=0||!FMath::IsFinite(Damage)||Damage<=0) return false;
     namespace ER=ASEnemyRules;
-    if(Kind==6&&IsValid(Source)&&FVector::DotProduct(GetActorForwardVector(),(Source->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>.35f) Damage*=.5f;
+    if(Kind==ER::Bulwark) { // the shield guard: half damage from the front, unless a heavy blow from the front has ripped it open (a few seconds of full damage, and a stagger)
+        const float Forward=IsValid(Source)?FVector::DotProduct(GetActorForwardVector(),(Source->GetActorLocation()-GetActorLocation()).GetSafeNormal2D()):0.f;
+        const bool Open=(Flags&ER::FlagGuardBroken)!=0;
+        if(bDirect&&ER::GuardBreaks(Damage,MaxHealth,Forward>ER::GuardFrontDot,Open)) {
+            const float Now=AS::Time(this);Flags|=uint8(ER::FlagGuardBroken);GuardBrokenUntil=Now+ER::GuardBreakSeconds;
+            StunUntil=FMath::Max(StunUntil,Now+ER::GuardBreakStagger);EndWindup(); // staggered: whatever it was winding up or charging with is lost
+            if(auto* S=AS::State(this)) {
+                S->Effect(5,GetActorLocation()+GetActorForwardVector()*50.f+FVector(0,0,40),FVector::UpVector,FLinearColor(1.f,.85f,.30f),110.f); // gold: a window for you
+                S->Effect(11,GetActorLocation()+FVector(0,0,40),FVector::UpVector,FLinearColor(1.f,.85f,.30f),1.f);
+            }
+            ForceNetUpdate();
+        } else Damage*=ER::GuardDamageScale(Open,Forward);
+    }
     bool Blocked=false; // the duelist's parry: a direct blow from its front is taken at a fraction of its strength, the first of them is answered with a counter-slash
     if(Ability==ER::AbilityParry&&AIState==ER::StateSpecial) {
         const float Forward=IsValid(Source)?FVector::DotProduct(GetActorForwardVector(),(Source->GetActorLocation()-GetActorLocation()).GetSafeNormal2D()):std::numeric_limits<float>::quiet_NaN();
@@ -600,7 +640,7 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
     if(bWinding) {
         Move->StopMovementImmediately();SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
         if(Now>=WindupEnd) {
-            const uint8 Done=Ability;Ability=uint8(ASEnemyRules::AbilityNone);SetAIState(ASEnemyRules::StateApproach);
+            const uint8 Done=Ability;Ability=uint8(ASEnemyRules::AbilityNone);Flags&=uint8(0xFFu&~ASEnemyRules::FlagPackCall);SetAIState(ASEnemyRules::StateApproach);
             if(Done==ASEnemyRules::AbilityMolt) {Molt();NextAttack=Now+2.5f;ForceNetUpdate();return;}
             if(Big&&(++DiveCycle%2)==0) { // every second attack of the flying boss is its normal boss attack (blast fields or a shot ring), not a dive
                 CommitAttack();NextAttack=Now+3.f;ForceNetUpdate();return;
@@ -617,7 +657,9 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
         WindupStart=Now;WindupEnd=Now+ASEnemyRules::MoltWindupSeconds;SetAIState(ASEnemyRules::StateWindup);ForceNetUpdate();return;
     }
     if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f+(Big?400.f:0.f))) {
-        Aim=(There-Here).GetSafeNormal2D();Ability=uint8(ASEnemyRules::AbilityDive);WindupStart=Now;WindupEnd=Now+Windup;SetAIState(ASEnemyRules::StateWindup);ForceNetUpdate();return;
+        Aim=(There-Here).GetSafeNormal2D();Ability=uint8(ASEnemyRules::AbilityDive);WindupStart=Now;WindupEnd=Now+Windup;
+        if(!Big) {if(!bPackFollower) CallPack(There);bPackFollower=false;} // the first of a pack to dive calls the others, who then follow one after another
+        SetAIState(ASEnemyRules::StateWindup);ForceNetUpdate();return;
     }
     // Circle the target at a breathing radius and the hover height, with a slow bob. The radius swings between OrbitMin (a sweep inside melee reach) and OrbitMax.
     if(OrbitAngle==0.f) {OrbitSign=(GetUniqueID()&1)?1.f:-1.f;OrbitAngle=float(GetUniqueID()%628)/100.f+.01f;}

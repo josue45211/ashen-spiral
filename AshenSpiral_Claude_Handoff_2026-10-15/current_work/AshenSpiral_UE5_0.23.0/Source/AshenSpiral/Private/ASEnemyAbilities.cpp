@@ -2,6 +2,9 @@
 #include "ASEnemyRules.h"
 #include "ASEnemyAbilities.h"
 #include "ASEnemyHazards.h"
+#include "ASBreakable.h"
+#include "ASGameMode.h"
+#include "ASExpeditionRules.h"
 #include "ASCharacter.h"
 #include "ASGameState.h"
 #include "ASSpell.h"
@@ -138,4 +141,70 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
     }
     default: return FlowNotMine;
     }
+}
+
+// The sniper's new vantage point after a shot: a point 13 to 16 m from its target on a bearing of its own, clamped into the arena and moved to the nearest free spot; it runs there
+// for a few seconds at 1.5 times its speed (TickGround) and may not attack until it arrives.
+void AASEnemy::StartRelocation() {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);AASCharacter* Target=CurrentTarget.Get();if(!S||!Target) return;
+    float Ox=0.f,Oy=0.f;ER::RelocateOffset(GetUniqueID()*7u+uint32(Pattern),Ox,Oy);
+    FVector Goal=Target->GetActorLocation()+FVector(Ox,Oy,0.f);
+    if(S->Arena) {
+        Goal=S->Arena->ClampToArena(Goal,-160.f);FVector Free;
+        if(!S->Arena->FreeEnemyPoint(Goal,Free)) return; // nowhere free near that spot: it stays where it is
+        Goal=Free;
+    }
+    RelocateGoal=Goal;RelocateUntil=S->SimTime+ER::RelocateSeconds;
+}
+
+// The broodcaller's summon: eggs in a fan in front of it, each hatching into a minion after a few seconds unless a hero pops it (AASBreakable kind 2). When no egg can be laid
+// (too many already, or no ground for it) the minion simply appears, as it did before 0.24.
+void AASEnemy::LayEggs() {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);auto* World=GetWorld();auto* GM=World?World->GetAuthGameMode<AASGameMode>():nullptr;if(!S||!World||!GM) return;
+    int32 Live=0;for(auto W:S->Enemies) if(const auto* M=W.Get()) if(M->Summoner.Get()==this&&M->Health>0) ++Live;
+    for(auto W:S->Breakables) if(const auto* Egg=W.Get()) if(Egg->Kind==2&&Egg->Mother.Get()==this) ++Live;
+    const int32 Cap=S->PlayerArray.Num()>1?ER::BroodMinionCapCoop:ER::BroodMinionCap;
+    const int32 Count=FMath::Min(ER::EggCount(S->PlayerArray.Num()),FMath::Max(0,Cap-Live));
+    float Ox[3],Oy[3];const int32 Laid=ER::EggOffsets(Aim.X,Aim.Y,Count,Ox,Oy);
+    const FVector Here=GetActorLocation();const float Floor=Here.Z-(GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f);
+    for(int32 I=0;I<Laid;++I) {
+        const FVector Spot(Here.X+Ox[I],Here.Y+Oy[I],Floor);
+        const bool Ground=!S->Arena||S->Arena->CanWalkDirectly(Here,FVector(Spot.X,Spot.Y,Here.Z));
+        AASBreakable* Egg=Ground?AASBreakable::LayEgg(World,Spot+FVector(0,0,36),this):nullptr;
+        if(Egg) S->Effect(11,Spot+FVector(0,0,20),FVector::UpVector,FLinearColor(.2f,1.f,.35f),1.f); // a small green burst where it was laid
+        else GM->SpawnMinion(Here+FVector(Ox[I],Oy[I],0.f),this);
+    }
+}
+
+// A Gloomwing about to dive calls the pack: the idle Gloomwings near the same target get their next dive set one stagger apart, in order of their ids, so one screech starts a chain
+// of dives. Only the first of a volley calls (the rest are marked as followers), and a Gloomwing that is already winding up or diving is left alone.
+void AASEnemy::CallPack(const FVector& TargetAt) {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);if(!S) return;
+    const float Now=S->SimTime;constexpr int32 MaxSeen=16;
+    unsigned Ids[MaxSeen];AASEnemy* Members[MaxSeen];int32 Count=0;
+    Ids[Count]=GetUniqueID();Members[Count++]=this;
+    for(auto W:S->Enemies) if(auto* E=W.Get()) {
+        if(Count>=MaxSeen) break;
+        if(E==this||E->Kind!=ASExpedition::FlierKind||E->Boss()||E->Health<=0||E->bWinding||E->DiveUntil>Now||E->SpawnProtected()) continue;
+        if(FVector::DistSquared2D(E->GetActorLocation(),TargetAt)>FMath::Square(ER::PackRadius)) continue;
+        Ids[Count]=E->GetUniqueID();Members[Count++]=E;
+    }
+    if(Count<2) return;
+    float Delays[MaxSeen];
+    if(ER::PackDelays(Ids,Count,GetUniqueID(),Delays)<2) return;
+    for(int32 I=0;I<Count;++I) if(Members[I]!=this&&Delays[I]>0.f) {Members[I]->NextAttack=Now+Delays[I];Members[I]->bPackFollower=true;}
+    Flags|=uint8(ER::FlagPackCall);ForceNetUpdate(); // every machine hears this wind-up as the pack's call
+}
+
+// The sniper's aiming beam: amber while it tracks the hero, white-amber, thicker and brighter once it has locked (the last 30% of the wind-up).
+void AASEnemy::ShowBeam(float Progress) {
+    if(!Beam) return;
+    const bool Locked=ASEnemyRules::SnipeLocked(Progress);
+    if(Locked==bBeamLocked) return;
+    bBeamLocked=Locked;if(Locked) PlayCue(ASEnemyRules::CueSnipeLock); // the aim locks: a click, and the whine cuts off
+    ASAssets::Style(Beam,TEXT("Cube"),Locked?FLinearColor(1.f,.93f,.62f):FLinearColor(1.f,.62f,.12f),0,Locked?12.f:5.f);
+    Beam->SetRelativeScale3D(FVector(17.f,Locked?.075f:.035f,Locked?.075f:.035f));
 }

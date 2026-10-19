@@ -41,21 +41,21 @@ Telegraph and release cues together are the readability rule of this update: a p
 | 18 | `E_BlinkAppear.wav` | release of leaper rift blink | reappearing behind you: a sharp rift snap | `S_Dash.wav` x0.35 volume, pitch 1.80 |
 | 19 | `E_ChargeWind.wav` | wind-up of bulwark charge | a bulwark digging in to charge: a stamp and a snort, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.60 |
 | 20 | `E_ChargeRun.wav` | release of bulwark charge | a heavy charge: pounding steps, a rolling rumble | `S_HammerSwing.wav` x0.20 volume, pitch 0.60 |
-| 21 | `E_GuardBreak.wav` | an ability of the 0.24 kits (wired as each is built) | a shield shattering open: a loud metal crack with sparks | `S_HammerSmash.wav` x0.50 volume, pitch 1.40 |
+| 21 | `E_GuardBreak.wav` | a bulwark's guard being ripped open (played when the replicated guard-broken bit turns on) | a shield shattering open: a loud metal crack with sparks | `S_HammerSmash.wav` x0.50 volume, pitch 1.40 |
 | 22 | `E_BlastWind.wav` | wind-up of shaman blast | a caster gathering fire: a rising hum, about 0.8 s | `S_Spiral.wav` x0.20 volume, pitch 0.55 |
 | 23 | `E_BlastBurst.wav` | release of shaman blast | a fire blast: a short fiery whump | `S_Collapse.wav` x0.35 volume, pitch 1.00 |
 | 24 | `E_MeteorCall.wav` | wind-up of shaman meteor rain | calling meteors: a deep rumble that climbs | `S_Collapse.wav` x0.35 volume, pitch 0.50 |
 | 25 | `E_MeteorFall.wav` | release of shaman meteor rain | a meteor falling: a long falling whistle, about 0.9 s | `S_Dash.wav` x0.22 volume, pitch 0.50 |
 | 26 | `E_MeteorImpact.wav` | an ability of the 0.24 kits (wired as each is built) | a meteor landing: a boom with crackling embers | `S_HammerSmash.wav` x0.45 volume, pitch 0.90 |
 | 27 | `E_SnipeAim.wav` | wind-up of sniper shot | a sniper tracking you: a thin rising whine, about 1 s | `S_Reward.wav` x0.12 volume, pitch 2.30 |
-| 28 | `E_SnipeLock.wav` | an ability of the 0.24 kits (wired as each is built) | the aim locking: a sharp click and the whine cuts off | `S_Hit.wav` x0.30 volume, pitch 2.40 |
+| 28 | `E_SnipeLock.wav` | the sniper's beam locking (played when it turns white-amber, 70% through the wind-up) | the aim locking: a sharp click and the whine cuts off | `S_Hit.wav` x0.30 volume, pitch 2.40 |
 | 29 | `E_SnipeFire.wav` | release of sniper shot | a heavy rifle shot: a deep crack with a short echo | `S_Attack.wav` x0.40 volume, pitch 0.70 |
 | 30 | `E_SummonWind.wav` | wind-up of broodcaller summon | a broodcaller swelling: a wet, rising gurgle, about 1 s | `S_Collapse.wav` x0.25 volume, pitch 1.50 |
 | 31 | `E_EggLay.wav` | release of broodcaller summon | an egg sac dropping: a wet squelch and thump | `S_Hit.wav` x0.30 volume, pitch 0.60 |
-| 32 | `E_EggHatch.wav` | an ability of the 0.24 kits (wired as each is built) | an egg hatching: a crack and a squeal | `S_Collapse.wav` x0.35 volume, pitch 1.80 |
-| 33 | `E_EggPop.wav` | an ability of the 0.24 kits (wired as each is built) | an egg popped before it hatches: a quick wet pop | `S_Hit.wav` x0.35 volume, pitch 1.30 |
+| 32 | `E_EggHatch.wav` | a broodcaller's egg hatching into a minion (effect 19, size 1) | an egg hatching: a crack and a squeal | `S_Collapse.wav` x0.35 volume, pitch 1.80 |
+| 33 | `E_EggPop.wav` | a hero popping a broodcaller's egg before it hatches (effect 19, size 0) | an egg popped before it hatches: a quick wet pop | `S_Hit.wav` x0.35 volume, pitch 1.30 |
 | 34 | `E_DiveScreech.wav` | wind-up of flier dive | a flier about to dive: a rising screech, about 0.7 s | `S_Attack.wav` x0.25 volume, pitch 1.90 |
-| 35 | `E_PackCall.wav` | an ability of the 0.24 kits (wired as each is built) | fliers calling a pack dive: a short chorus of screeches | `S_Attack.wav` x0.30 volume, pitch 1.40 |
+| 35 | `E_PackCall.wav` | wind-up of a Gloomwing that is calling its pack (replaces its dive screech) | fliers calling a pack dive: a short chorus of screeches | `S_Attack.wav` x0.30 volume, pitch 1.40 |
 | 36 | `E_BossRoar.wav` | wind-up of boss attack | a boss winding up: a huge growl and armour clatter, about 1 s | `S_HammerSmash.wav` x0.50 volume, pitch 0.55 |
 | 37 | `E_BossSlam.wav` | release of boss attack | a boss slam: a massive boom | `S_HammerSmash.wav` x0.65 volume, pitch 0.70 |
 | 38 | `E_BossSummon.wav` | an ability of the 0.24 kits (wired as each is built) | a boss calling reinforcements: a dark horn | `S_Collapse.wav` x0.45 volume, pitch 0.80 |

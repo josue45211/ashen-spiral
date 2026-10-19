@@ -137,4 +137,13 @@ private:
     FVector HopDirection=FVector::ZeroVector;
     bool bParryBlocked=false;
     int32 TellShape=-1,SeenFlags=0;                              // clients: which warning mesh is applied; the flag bits UpdateCues has seen
+    // M6-a2: the bulwark's guard, the sniper's tracking beam and relocation, the broodcaller's eggs, the Gloomwing pack.
+    float GuardBrokenUntil=0;                                    // authority: when a broken guard closes again
+    FVector RelocateGoal=FVector::ZeroVector;float RelocateUntil=0; // authority: the sniper's new vantage point and when it gives up getting there
+    bool bPackFollower=false;                                    // authority: this Gloomwing's next dive was set by another's call, so it does not call the pack itself
+    bool bBeamLocked=false;                                      // clients: the sniper's beam is drawn in its locked look
+    void StartRelocation();                                      // after a shot: pick a vantage point on a ring around the target
+    void LayEggs();                                              // the broodcaller's summon: a fan of eggs that hatch into minions unless popped
+    void CallPack(const FVector& TargetAt);                      // a Gloomwing about to dive sets the next dive of the idle ones near its target, one after another
+    void ShowBeam(float Progress);                               // clients: amber while the sniper's beam tracks, white-amber and thicker once it has locked
 };

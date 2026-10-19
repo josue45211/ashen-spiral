@@ -54,11 +54,13 @@ void AASEnemy::UpdateCues(float Now) {
     if(int32(AIState)!=SeenState||int32(Ability)!=SeenAbility) {
         const bool Telegraph=AIState==ER::StateWindup||AIState==ER::StateSpecial;
         const bool NewWindup=Telegraph&&Ability!=ER::AbilityNone&&(SeenState!=int32(AIState)||int32(Ability)!=SeenAbility);
-        if(NewWindup) PlayCue(ER::SpecFor(Ability).CueWindup);
+        if(NewWindup) PlayCue((Ability==ER::AbilityDive&&(Flags&ER::FlagPackCall))?ER::CuePackCall:ER::SpecFor(Ability).CueWindup); // a Gloomwing calling its pack screeches differently
         SeenState=int32(AIState);
         if(Ability!=ER::AbilityNone) SeenAbility=int32(Ability); // remembered: the replicated ability resets when the recovery ends, the release cue may arrive after
     }
     // 3. The duelist's guard held against a blow (the server flips the bit on every block).
     if(((int32(Flags)^SeenFlags)&int32(ER::FlagParryToggle))!=0) PlayCue(ER::CueParryBlock);
+    // 4. A bulwark's guard was just ripped open.
+    if(((int32(Flags)&~SeenFlags)&int32(ER::FlagGuardBroken))!=0) PlayCue(ER::CueGuardBreak);
     SeenFlags=int32(Flags);
 }

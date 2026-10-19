@@ -155,6 +155,48 @@ int main() {
         Check(SpecFor(AbilityEnrage).Weight==0.f&&SpecFor(AbilityRiposte).Weight==0.f&&SpecFor(AbilityBlinkStrike).Weight==0.f,"the triggered abilities are never drawn by the chooser");
         Check(SpecFor(AbilityParry).CueRelease==CueNone,"the guard's clang comes from a block, not from the end of the stance");
     }
-    std::printf("PASS: %lld enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation).\nShared rules only; Unreal combat and gameplay are not executed.\n",Checks);
+    // ---- Egg sacs ----
+    {
+        Check(EggCount(1)==EggsSolo&&EggCount(2)==EggsCoop&&EggCount(0)==EggsSolo&&EggsSolo>=2&&EggsCoop>EggsSolo&&EggsCoop<=3,"two eggs alone, three in co-op, never more than the fan holds");
+        float X[3],Y[3];
+        Check(EggOffsets(1.f,0.f,1,X,Y)==1&&Near(X[0],EggDistance,.01f)&&Near(Y[0],0.f,.01f),"one egg lies straight ahead");
+        Check(EggOffsets(1.f,0.f,2,X,Y)==2&&Y[0]*Y[1]<0.f&&Near(X[0],X[1],.01f)&&X[0]>0.f,"two eggs lie either side of the line ahead");
+        Check(EggOffsets(1.f,0.f,3,X,Y)==3&&Near(Y[1],0.f,.01f)&&X[1]>X[0]&&Y[0]*Y[2]<0.f,"three: either side and the middle, the middle farthest ahead");
+        for(int N=1;N<=3;++N) {EggOffsets(0.f,1.f,N,X,Y);for(int I=0;I<N;++I) Check(Near(std::hypot(X[I],Y[I]),EggDistance,.05f),"every egg lies at the same distance");}
+        EggOffsets(0.f,-1.f,1,X,Y);Check(Near(Y[0],-EggDistance,.01f)&&Near(X[0],0.f,.01f),"the fan follows the aim");
+        EggOffsets(NaN,0.f,1,X,Y);Check(Near(X[0],EggDistance,.01f),"a broken aim falls back to forward");
+        Check(EggOffsets(1.f,0.f,0,X,Y)==0&&EggOffsets(1.f,0.f,-4,X,Y)==0&&EggOffsets(1.f,0.f,9,X,Y)==3,"counts are clamped");
+        Check(!EggHatchDue(5.f,5.1f)&&EggHatchDue(5.1f,5.1f)&&EggHatchDue(9.f,5.1f)&&!EggHatchDue(NaN,5.f)&&!EggHatchDue(5.f,NaN),"an egg hatches at its time and never on a broken clock");
+        Check(EggProgress(0.f,3.2f,3.2f)==0.f&&Near(EggProgress(1.6f,3.2f,3.2f),.5f)&&EggProgress(3.2f,3.2f,3.2f)==1.f&&EggProgress(99.f,3.2f,3.2f)==1.f&&EggProgress(-5.f,3.2f,3.2f)==0.f&&EggProgress(NaN,1.f,1.f)==0.f&&EggProgress(1.f,1.f,0.f)==0.f,"hatching progress runs 0..1 and clamps");
+        Check(EggHatchSeconds>=2.f&&EggHatchSeconds<=5.f&&EggHealth>0.f&&EggHealth<60.f&&EggMaxLive>=EggsCoop,"an egg gives the heroes a couple of seconds and dies to a hit or two");
+    }
+    // ---- Pack dive ----
+    {
+        unsigned Ids[6]={40u,7u,19u,3u,88u,12u};float D[6];
+        int N=PackDelays(Ids,6,19u,D);
+        Check(N==PackMax&&D[2]==0.f,"the caller dives first and the volley is the size of the pack cap");
+        Check(Near(D[3],PackStagger)&&Near(D[1],2.f*PackStagger)&&Near(D[5],3.f*PackStagger)&&D[0]<0.f&&D[4]<0.f,"the others follow in ascending id order, one stagger apart, and the rest sit it out");
+        N=PackDelays(Ids,3,7u,D);
+        Check(N==3&&D[1]==0.f&&Near(D[2],PackStagger)&&Near(D[0],2.f*PackStagger),"a pack of three: the caller, then the lower id, then the higher");
+        N=PackDelays(Ids,1,40u,D);Check(N==1&&D[0]==0.f,"a lone flier calls a volley of one");
+        N=PackDelays(Ids,6,12345u,D);Check(N==0,"a caller outside the list calls nothing");
+        Check(PackDelays(nullptr,3,1u,D)==0&&PackDelays(Ids,0,1u,D)==0&&PackDelays(Ids,3,7u,nullptr)==0,"empty or broken input calls nothing");
+        for(unsigned Seed=0;Seed<500u;++Seed) {
+            unsigned Many[10];for(int I=0;I<10;++I) Many[I]=(Seed*2654435761u+unsigned(I)*40503u)%1000u+unsigned(I)*1000u;
+            float Out[10];const unsigned Caller=Many[Seed%10];const int In=PackDelays(Many,10,Caller,Out);
+            int Zero=0,Members=0;bool Order=true,Have=false;unsigned Prev=0u;
+            for(int I=0;I<10;++I) if(Out[I]>=0.f) {++Members;if(Out[I]==0.f) ++Zero;}
+            Check(In==PackMax&&Members==PackMax&&Zero==1,"a big pack still sends exactly the cap, with one caller");
+            for(int Step=1;Step<PackMax;++Step) {
+                const float Want=float(Step)*PackStagger;int At=-1;
+                for(int I=0;I<10;++I) if(Near(Out[I],Want,1e-4f)) At=I;
+                Order&=At>=0&&(!Have||Many[At]>Prev);
+                if(At>=0) {Prev=Many[At];Have=true;}
+            }
+            Check(Order,"the followers' ids ascend with their delays");
+        }
+        Check(PackRadius>=1000.f&&PackStagger>=.25f&&PackStagger<=.6f&&PackMax>=3,"a volley is close enough to share a target, each dive readable on its own");
+    }
+    std::printf("PASS: %lld enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation, egg sacs, pack dives).\nShared rules only; Unreal combat and gameplay are not executed.\n",Checks);
     return 0;
 }

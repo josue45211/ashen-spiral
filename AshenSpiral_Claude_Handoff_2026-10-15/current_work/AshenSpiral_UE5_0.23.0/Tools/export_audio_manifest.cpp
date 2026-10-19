@@ -17,6 +17,11 @@ static std::string When(int Cue) {
         if(SpecFor(Id).CueWindup==Cue) Out+=std::string(Out.empty()?"":"; ")+"wind-up of "+AbilityName(Id);
         if(SpecFor(Id).CueRelease==Cue) Out+=std::string(Out.empty()?"":"; ")+"release of "+AbilityName(Id);
     }
+    if(Cue==CueGuardBreak) Out+=std::string(Out.empty()?"":"; ")+"a bulwark's guard being ripped open (played when the replicated guard-broken bit turns on)";
+    if(Cue==CueSnipeLock) Out+=std::string(Out.empty()?"":"; ")+"the sniper's beam locking (played when it turns white-amber, 70% through the wind-up)";
+    if(Cue==CueEggHatch) Out+=std::string(Out.empty()?"":"; ")+"a broodcaller's egg hatching into a minion (effect 19, size 1)";
+    if(Cue==CueEggPop) Out+=std::string(Out.empty()?"":"; ")+"a hero popping a broodcaller's egg before it hatches (effect 19, size 0)";
+    if(Cue==CuePackCall) Out+=std::string(Out.empty()?"":"; ")+"wind-up of a Gloomwing that is calling its pack (replaces its dive screech)";
     if(Cue==CueParryBlock) Out+=std::string(Out.empty()?"":"; ")+"a duelist's parry guard holding against a blow (played from the replicated block flag)";
     return Out.empty()?"an ability of the 0.24 kits (wired as each is built)":Out;
 }

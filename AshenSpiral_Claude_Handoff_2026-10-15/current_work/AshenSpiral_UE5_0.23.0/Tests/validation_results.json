@@ -1,5 +1,5 @@
 {
-  "source_checks_passed": 469647,
+  "source_checks_passed": 470009,
   "source_files_checked": 67,
   "mesh_count": 82,
   "mesh_vertex_count": 82902,
@@ -19,7 +19,7 @@
   "arsenal_024_tests": "PASS: 40148 on-hit scaling checks (per-weapon scale, equal reward rate, exact expected value over 20000 random rewards, conduit hits).\nShared rules only; Unreal combat, replication and gameplay are not executed.",
   "enemy_ai_024_tests": "PASS: 1539250 enemy foundation checks (kits equal the old numbers, ability table and chooser, movement planning over 200000 random states, kiting/circling/retreat simulations, pack spreading, one-time retreat, unsticking).\nShared rules only; Unreal movement, navigation and gameplay are not executed.",
   "enemy_pose_024_tests": "PASS: 1119179 enemy pose checks (Unreal rotation/quaternion math against the engine's matrix, track structure, timeline, the solver's neutral pose equals the old gait, sweeps over every ability: finite, in reach, no stretching, on the floor).\nShared rules only; Unreal rendering and the component hierarchy are not executed (see the offline pose preview).",
-  "enemy_ability_024_tests": "PASS: 39887 enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation).\nShared rules only; Unreal combat and gameplay are not executed.",
+  "enemy_ability_024_tests": "PASS: 40910 enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation, egg sacs, pack dives).\nShared rules only; Unreal combat and gameplay are not executed.",
   "melee_021_tests": "PASS: 11548180 melee/0.21 checks; 1687 full-cycle pose samples; 450 Archives rooms; 3000 melee reward drafts.\nShared rules and source geometry only. Unreal movement, collision, RPC timing and rendering are not executed.",
   "bugfix_020_tests": "PASS: 11362 0.20 regression checks; migrations, one-time milestone rewards, shield grants, traps, joint lengths, 400 multi-endpoint route oracles and seed 6767 chamber 23 floor model.\nUnreal save serialization, mesh collision, Slate, animation rendering and networking are not executed.",
   "reload_navigation_tests": "PASS: 109236 reload/navigation checks; 1200 route-oracle comparisons; 40000 reward drafts.\nStakes tier 0 -> 3: rare cards 8765 -> 11446, legendary cards 805 -> 1150 across 60000 choices per tier.\nShared rules only; Unreal actors, audio, physics, Slate and replication not executed.",

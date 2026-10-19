@@ -75,6 +75,10 @@ the engine: nothing was played. Poses: `Docs/ENEMY_POSES_0.24_PREVIEW.png`.
 | Enrage | Brute | at half health, a 1.2 s roar with its core flaring; afterwards a fast hot-red pulse on the body | it is 25% faster, winds up 20% quicker and recharges 40% quicker: stagger it before it does more |
 | Rift blink | Leaper | 0.55 s squash with violet light, then it vanishes along a violet trail and reappears about 2.6 m **behind you** | the strike (red half disc 2.6 m, 0.4 s) starts the moment it appears: turn and dash |
 | Meteor rain | Shaman | 1.0 s: staff raised to the sky; red discs (2 m) appear on **each hero** and around them, with fireballs falling onto them | move out of every disc before its fireball lands (0.85 s for the first, 0.3 s later for each next) |
+| Guard break | Bulwark | its shield guard halves blows from its front; a **heavy blow (12% of its health or more) from the front** rips the guard open: it staggers for 0.8 s, drops its shield and takes full damage for 3.5 s, with gold sparks | hit it hard from the front (the Hoarfrost Maul does), or go around behind it |
+| Tracking laser | Sniper | 1.5 s: an amber beam follows you for the first 70%, then **turns white-amber and thick: locked**; the shot goes along the locked line | break the line (move sideways) after the lock; afterwards it runs to a new vantage point 13-16 m away for up to 3 s, at 1.5 times its speed, and cannot shoot until it gets there |
+| Egg sacs | Broodcaller | its summon lays 2 green eggs (3 in co-op) in a fan in front of it; they pulse faster as they near hatching (3.2 s) | pop an egg with any hit (22 health) before it hatches into a minion |
+| Pack dive | Gloomwing | the first of a pack to dive screeches (its wind-up is the call); the idle Gloomwings near the same target then dive one after another, 0.38 s apart (at most four) | read the chain: each dive has its own 0.7 s wing-back wind-up; the gaps between volleys are yours |
 
 Chained abilities (riposte after a block, the blink's strike) are never chosen by the chooser; the enemy asks for them itself, and their poses start where the one before them ended.
 
