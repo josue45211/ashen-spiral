@@ -193,9 +193,12 @@ void AASEnemy::Tick(float Delta) {
     Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside a comment, so the sniper's aiming beam never showed
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
-        if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Flies()) AnimateFlier();TickStatusTint();}
-        Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*(Kind==5?.30f:.12f))));
-        Body->SetRelativeRotation(FRotator(bWinding?(Kind==5?-15.f:-7.f)*T:0,0,0));
+        const bool Blob=ASEnemyRules::KitFor(Kind).AnimSet==ASEnemyRules::AnimBlob; // the leaper and the broodcaller: one body, posed by AnimateBlob
+        if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Flies()) AnimateFlier();if(Blob) AnimateBlob();TickStatusTint();UpdateCues(AS::Time(this));}
+        if(!Blob) {
+            Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*.12f)));
+            Body->SetRelativeRotation(FRotator(bWinding?-7.f*T:0,0,0));
+        }
         if(ShowWarning) { // the bright half disc grows over the dim full-size one; both stay flat on the floor and face the swing
             const float StrikeR=ASEnemyRules::StrikeRadius(Elite()),Grow=StrikeR/(ASAssets::HasMesh(TEXT("SM_StrikeSector"))?50.f:53.f)*FMath::Max(.04f,T);
             TellFill->SetRelativeScale3D(FVector(Grow,Grow,1));

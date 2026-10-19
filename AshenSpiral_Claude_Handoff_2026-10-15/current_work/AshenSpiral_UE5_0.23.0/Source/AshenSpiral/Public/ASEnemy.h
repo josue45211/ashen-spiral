@@ -4,7 +4,7 @@
 #include "ASData.h"
 #include "ASEnemyRules.h"
 #include "ASEnemy.generated.h"
-class USceneComponent;class UStaticMeshComponent;class AASCharacter;
+class USceneComponent;class UStaticMeshComponent;class AASCharacter;class USoundBase;
 UCLASS() class ASHENSPIRAL_API AASEnemy : public ACharacter {
     GENERATED_BODY()
 public:
@@ -52,7 +52,12 @@ public:
     bool Boss() const {return !bTrainingDummy&&Kind==4;}
     bool Elite() const {return !bTrainingDummy&&(Kind==3||Kind==4);}
     UFUNCTION() void RefreshLook();
+    // 0.24 sound cues (cosmetic, every machine, no network traffic): ASEnemyRules::Cue*, played from the replicated state; see ASEnemyCues.cpp.
+    void PlayCue(int32 CueId);                                               // the delivered file if it exists, else its fallback, at the distance-scaled volume
+    static USoundBase* ResolveCue(int32 CueId,float& Volume,float& Pitch);   // the sound a cue plays right now (null when there is none)
 private:
+    void UpdateCues(float Now);
+    int32 SeenState=0,SeenAbility=0;float SeenRelease=-100.f;
     UPROPERTY() TObjectPtr<USceneComponent> ArmorFigure;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> ArmorParts;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> ArmorWeapon;
@@ -63,6 +68,10 @@ private:
     bool bFootPlanted[2]={false,false};
     bool bVisualInitialized=false;
     void AnimateArmor(float Delta,float Windup);
+    void AnimateBlob();         // 0.24: the leaper and the broodcaller (one body) squash, stretch and tip from the same ability tracks as the armour rig
+    float PoseTime(float Now);  // track time (ASEnemyPose::AbilityU) of the ability pose that is playing, or -1; remembers the ability after the replicated one resets
+    int32 PoseAbility=0;
+    float AppliedGlow=-1.f;
     void AnimateFlightPose(float Delta,float Windup); // the armoured flying boss: legs trail, torso leans into its motion, arms rise with the wind-up (no walking gait in the air)
     void AnimateDeath();
     void AnimateFlier();

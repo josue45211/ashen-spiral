@@ -7,6 +7,7 @@
 #include "ASData.h"
 #include "ASRules.h"
 #include "ASEnemy.h"
+#include "ASEnemyRules.h"
 #include "ASBreakable.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -441,7 +442,9 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.4f);
         ASAssets::Style(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,9.f);
         Duration=bFinisherArc?.28f:.22f;
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
+        float Volume=.32f,Pitch=1.f;USoundBase* Delivered=Step==3?AASEnemy::ResolveCue(ASEnemyRules::CueSlashSwing,Volume,Pitch):nullptr; // a hostile swing uses E_SlashSwing once it is delivered
+        if(Delivered) UGameplayStatics::PlaySoundAtLocation(this,Delivered,At,Volume,Pitch);
+        else if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
         return;
     }
     ASAssets::Style(Visual,Kind==15?TEXT("SM_Chest"):(Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring")))),C,0,Kind==15?3:6);

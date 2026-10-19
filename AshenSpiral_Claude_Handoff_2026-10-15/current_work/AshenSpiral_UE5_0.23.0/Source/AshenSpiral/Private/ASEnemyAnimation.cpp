@@ -1,5 +1,6 @@
 #include "ASEnemy.h"
 #include "ASEnemyRules.h"
+#include "ASEnemyPose.h"
 #include "ASExpeditionRules.h"
 #include "ASPresentationRules.h"
 #include "ASCharacter.h"
@@ -13,39 +14,78 @@
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/World.h"
+#include "Materials/MaterialInstanceDynamic.h"
+// ---- 0.24 Tier 0 animation: the armour rig is posed by ASEnemyPose (pure rules, tested as plain C++). The gait, the current ability's track (anticipation, strike,
+// recovery), the release gesture and the hit recoil go in; a transform for every part comes out. Tracks are data (ASEnemyPose.h) and Tools/preview_enemy_poses.py draws them
+// from the real meshes. The track time comes from replicated fields only (Ability, AIState, WindupStart/End, AttackReleaseTime), so every machine poses identically.
+float AASEnemy::PoseTime(float Now) {
+    namespace ER=ASEnemyRules;
+    if(Ability!=ER::AbilityNone) PoseAbility=Ability; // remembered: the replicated ability resets when the recovery ends, but the pose may still be settling
+    if(PoseAbility==ER::AbilityNone) return -1.f;
+    const bool Telegraphing=AIState==ER::StateWindup||AIState==ER::StateSpecial;
+    const float U=ASEnemyPose::AbilityU(ER::SpecFor(PoseAbility),Telegraphing,Now,WindupStart,WindupEnd,AttackReleaseTime);
+    if(U<0.f) PoseAbility=ER::AbilityNone;
+    return U;
+}
 void AASEnemy::AnimateArmor(float Delta,float Windup) {
-    if(bTrainingDummy||Kind==5||Kind==9||Kind==ASExpedition::FlierKind) return; // the Gloomwing has no armour parts to pose
-    if(Flies()) AnimateFlightPose(Delta,Windup); // 0.24: the armoured flying boss no longer walks on air (the gait followed its sideways orbit velocity: a moonwalk)
-    else {
-        const float Speed=GetVelocity().Size2D(),Weight=FMath::Clamp(Speed/400.f,0.f,1.f);
-        // 0.24: enemies strafe and back away while facing the target, so the feet swing along the direction of motion in the enemy's own frame (forward walks as before,
-        // sideways side-steps, backwards steps back) instead of always fore and aft.
-        const FVector LocalVelocity=GetActorTransform().InverseTransformVectorNoScale(GetVelocity());
-        const FVector2D Heading=Speed>5.f?FVector2D(LocalVelocity.X,LocalVelocity.Y)/Speed:FVector2D(1.f,0.f);
-        GaitPhase+=Delta*Speed/190.f*UE_TWO_PI;const float Step=FMath::Sin(GaitPhase)*Weight;
-        ArmorParts[0]->SetRelativeRotation(FRotator(-5.f-Weight*4.f-Windup*10.f,Step*3.f,0));
-        ArmorParts[1]->SetRelativeRotation(FRotator(5.f-Windup*12.f,-Step*2.f,0));
-        for(int32 Side=0;Side<2;++Side) {
-            const float Sign=Side==0?-1.f:1.f;const auto F=ASAnimation::Foot(GaitPhase+Side*UE_PI,Weight);
-            const FVector Foot=ASPose::Limb(ArmorParts[7+Side*2],ArmorParts[8+Side*2],FVector(0,Sign*16,79),FVector(6+F.Forward*Heading.X,Sign*16+F.Forward*Heading.Y,12+F.Lift),FVector(70,Sign*20,45),38,38,38,38);
-            ArmorParts[11+Side]->SetRelativeLocation(Foot+FVector(3,0,-2));ArmorParts[11+Side]->SetRelativeRotation(FRotator(F.Pitch,0,0));
-            const bool Gun=Kind==8;FVector Hand=Gun?FVector(Side==0?76:54,Side==0?-5:25,Side==0?133:119):FVector(24+(Side==0?-Step:Step)*12.f+Windup*28.f,Sign*45,74+Windup*40.f);
-            Hand=ASPose::Limb(ArmorParts[Side==0?3:5],ArmorParts[Side==0?4:6],FVector(0,Sign*34,133),Hand,FVector(-8,Sign*75,92));ArmorParts[17+Side]->SetRelativeLocation(Hand);
-        }
-        ArmorWeapon->SetRelativeRotation(FRotator(Kind==8?0.f:-Windup*65.f,0,0));
-        ArmorParts[15]->SetRelativeRotation(FRotator(-8.f-Weight*18.f,Step*2.f,0));
-        ArmorParts[19]->SetRelativeRotation(FRotator(-Weight*8.f+FMath::Sin(AS::Time(this)*3.f)*3.f,0,Step*2.f));
-    }
-    // Replicated attack release and hit reaction: readable, brief, cosmetic only.
+    namespace EP=ASEnemyPose;
+    if(bTrainingDummy||Kind==5||Kind==9||Kind==ASExpedition::FlierKind) return; // the leaper and broodcaller (AnimateBlob) and the Gloomwing have no armour parts to pose
     const float Now=AS::Time(this);
+    // Replicated attack release and hit reaction: readable, brief, cosmetic only.
     const float Release=ASAnimation::ReleaseGesture(Now-AttackReleaseTime);
     const float Recoil=ASAnimation::Reaction(Now-HitReactionTime,HitReactionStrength);
     const FVector Push=GetActorTransform().InverseTransformVectorNoScale(HitReactionDirection);
-    ArmorParts[0]->AddRelativeRotation(FRotator(Release*14.f-Push.X*Recoil*18.f,0,Push.Y*Recoil*12.f));
-    ArmorParts[1]->AddRelativeRotation(FRotator(-Recoil*8.f,0,0));
-    ArmorFigure->SetRelativeLocation(FVector(Push.X*Recoil*12.f+Release*6.f,Push.Y*Recoil*12.f,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
+    const float HalfHeight=GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    if(Flies()) { // 0.24: the armoured flying boss no longer walks on air (the gait followed its sideways orbit velocity: a moonwalk); its own flight pose, plus the gesture layer
+        AnimateFlightPose(Delta,Windup);
+        ArmorParts[0]->AddRelativeRotation(FRotator(Release*14.f-Push.X*Recoil*18.f,0,Push.Y*Recoil*12.f));
+        ArmorParts[1]->AddRelativeRotation(FRotator(-Recoil*8.f,0,0));
+        ArmorFigure->SetRelativeLocation(FVector(Push.X*Recoil*12.f+Release*6.f,Push.Y*Recoil*12.f,-HalfHeight));
+        return;
+    }
+    // Gait. Enemies strafe and back away while facing the target, so the feet swing along the direction of motion in the enemy's own frame (forward walks as before,
+    // sideways side-steps, backwards steps back).
+    const FVector Velocity=GetVelocity(),LocalVelocity=GetActorTransform().InverseTransformVectorNoScale(Velocity);
+    const float Speed=Velocity.Size2D(),Weight=FMath::Clamp(Speed/400.f,0.f,1.f);
+    GaitPhase+=Delta*Speed/190.f*UE_TWO_PI;
+    EP::RigInput In;
+    In.GaitPhase=GaitPhase;In.Weight=Weight;In.Step=FMath::Sin(GaitPhase)*Weight;
+    if(Speed>5.f) {In.HeadingX=LocalVelocity.X/Speed;In.HeadingY=LocalVelocity.Y/Speed;}
+    In.Gun=Kind==8;In.Release=Release;In.Recoil=Recoil;In.PushX=Push.X;In.PushY=Push.Y;
+    In.Seconds=Now;In.Speed=Weight;In.Turn=0.f;In.Flare=FMath::Clamp(Windup*.5f+Release*.6f,0.f,1.f); // the cape billows with speed and flares as an attack winds up and lands
+    float D[EP::ChannelCount];EP::ClearChannels(D);
+    const float U=PoseTime(Now);
+    if(U>=0.f) EP::Evaluate(EP::TrackFor(PoseAbility),U,D);
+    EP::RigOut Out;EP::Solve(In,D,Out);
+    auto Place=[](UStaticMeshComponent* Part,const EP::Xf& X) {
+        if(!Part) return;
+        Part->SetRelativeLocationAndRotation(FVector(X.Loc.X,X.Loc.Y,X.Loc.Z),FQuat(X.Rot.X,X.Rot.Y,X.Rot.Z,X.Rot.W));
+        const FVector Scale(X.Scale.X,X.Scale.Y,X.Scale.Z);
+        if(!Part->GetRelativeScale3D().Equals(Scale,.001)) Part->SetRelativeScale3D(Scale); // most parts never change scale
+    };
+    for(int32 I=0;I<EP::Weapon&&I<ArmorParts.Num();++I) Place(ArmorParts[I],Out.Part[I]);
+    Place(ArmorWeapon,Out.Part[EP::Weapon]);Place(ArmorShield,Out.Part[EP::Shield]);
+    const float Size=Elite()?BodyScale:.90f; // the figure's own size, as RefreshLook set it
+    ArmorFigure->SetRelativeLocationAndRotation(FVector(Out.FigureOffset.X,Out.FigureOffset.Y,-HalfHeight),FQuat(Out.FigureRot.X,Out.FigureRot.Y,Out.FigureRot.Z,Out.FigureRot.W));
+    ArmorFigure->SetRelativeScale3D(FVector(.82f*Size*Out.FigureScale.X,.70f*Size*Out.FigureScale.Y,Size*Out.FigureScale.Z));
+    if(FMath::Abs(Out.Glow-AppliedGlow)>.02f&&ArmorParts.Num()>EP::Core) { // the visor and the chest core brighten as an attack winds up
+        AppliedGlow=Out.Glow;
+        for(int32 Slot:{int32(EP::Visor),int32(EP::Core)}) if(auto* M=Cast<UMaterialInstanceDynamic>(ArmorParts[Slot]->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),4.f+Out.Glow*4.f);
+    }
 }
-
+// The leaper and the broodcaller are one body: the same ability tracks squash, stretch and tip it (and swell its glow).
+void AASEnemy::AnimateBlob() {
+    namespace EP=ASEnemyPose;
+    if(bTrainingDummy||!Body) return;
+    float D[EP::ChannelCount];EP::ClearChannels(D);
+    const float U=PoseTime(AS::Time(this));
+    if(U>=0.f) EP::Evaluate(EP::TrackFor(PoseAbility),U,D);
+    EP::BlobOut Out;EP::SolveBlob(D,Out);
+    const float HalfHeight=GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f;
+    Body->SetRelativeLocationAndRotation(FVector(Out.Offset.X,Out.Offset.Y,-HalfHeight+Out.Offset.Z),FQuat(Out.Rot.X,Out.Rot.Y,Out.Rot.Z,Out.Rot.W));
+    Body->SetRelativeScale3D(FVector(BodyScale*Out.Scale.X,BodyScale*Out.Scale.Y,BodyScale*Out.Scale.Z));
+    if(FMath::Abs(Out.Glow-AppliedGlow)>.02f) {AppliedGlow=Out.Glow;if(auto* M=Cast<UMaterialInstanceDynamic>(Body->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),Out.Glow*2.5f);}
+}
 
 void AASEnemy::AnimateDeath() {
     const float Now=AS::Time(this);

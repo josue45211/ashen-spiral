@@ -22,6 +22,73 @@ inline bool StrikeHits(float Distance2D,float ForwardDot,float Radius) {
 // run). Approach and Strafe are the two ways of moving (closing in, or circling / backing away); Special is a long kind-specific behaviour (a parry stance, a roar).
 constexpr int StateApproach=0,StateStrafe=1,StateWindup=2,StateAttack=3,StateRecover=4,StateRetreat=5,StateSpecial=6,StateCount=7;
 
+// ---- Sound cues (0.24) ----
+// Every telegraph and every release has a cue (readability doctrine: no attack is silent). A cue names the file Edison delivers (Stem, imported from SourceArt/Audio) and an
+// existing sound to play at its own pitch until that file exists (Fallback; empty = silent until delivered). The enemy plays cues locally on every machine from the replicated
+// state, so they cost no network traffic. Ids are never reused. The manifest for the sound designer is Docs/AUDIO_MANIFEST_0.24.md (Tools/export_audio_manifest.cpp prints it).
+constexpr int CueNone=0,CueSlashWind=1,CueSlashSwing=2,CueShoveWind=3,CueShoveBash=4,CueShotDraw=5,CueShotLoose=6,CueBackHop=7,CueParryRaise=8,CueParryBlock=9,CueRiposteSlash=10,
+    CuePoundWind=11,CuePoundSlam=12,CueEnrageRoar=13,CuePounceCoil=14,CuePounceLeap=15,CuePounceLand=16,CueBlinkCharge=17,CueBlinkAppear=18,CueChargeWind=19,CueChargeRun=20,
+    CueGuardBreak=21,CueBlastWind=22,CueBlastBurst=23,CueMeteorCall=24,CueMeteorFall=25,CueMeteorImpact=26,CueSnipeAim=27,CueSnipeLock=28,CueSnipeFire=29,CueSummonWind=30,
+    CueEggLay=31,CueEggHatch=32,CueEggPop=33,CueDiveScreech=34,CuePackCall=35,CueBossRoar=36,CueBossSlam=37,CueBossSummon=38,CueBossPhase=39,CueLandingCrash=40,
+    CueMutationFrost=41,CueMutationFire=42,CueMutationStorm=43,CueMutationVenom=44,CueCount=45;
+struct CueSpec {const char* Stem;const char* Fallback;float Volume,Pitch;const char* Note;};
+inline const CueSpec& CueFor(int Id) {
+    static constexpr CueSpec Table[CueCount]={
+        {"",                 "",             0.f,  1.f,  "(none)"},
+        {"E_SlashWind",      "S_Attack",     .22f, .60f, "a blade drawn back: a low, rising breath and a metal scrape, about 0.4 s"},
+        {"E_SlashSwing",     "",             .32f, 1.f,  "the hostile swing itself: a short heavy whoosh with a metal edge (until delivered, the swing arc plays S_Attack)"},
+        {"E_ShoveWind",      "S_HammerSwing",.22f, .80f, "a grunt bracing a shield: a short grunt and a leather creak"},
+        {"E_ShoveBash",      "S_HammerHit",  .32f, 1.20f,"a shield bash: a dull thud with a rattle"},
+        {"E_ShotDraw",       "S_Spiral",     .16f, 1.70f,"a staff charging: a thin rising shimmer, about 0.5 s"},
+        {"E_ShotLoose",      "S_Attack",     .22f, 1.60f,"a bolt leaving a staff: a sharp zip"},
+        {"E_BackHop",        "S_Dash",       .30f, 1.30f,"a quick back-step and a soft smoke puff"},
+        {"E_ParryRaise",     "S_Reward",     .20f, 1.80f,"a blade lifted into guard: a clean steel ring"},
+        {"E_ParryBlock",     "S_HammerHit",  .40f, 1.60f,"a blocked blow: a bright metal clang with a gold sparkle tail"},
+        {"E_RiposteSlash",   "S_Attack",     .35f, 1.30f,"a fast counter-slash: a hard sharp whoosh"},
+        {"E_PoundWind",      "S_HammerLeap", .30f, .55f, "a heavy enemy rearing up: a deep grunt and armour rattle, about 1 s"},
+        {"E_PoundSlam",      "S_HammerSmash",.55f, .80f, "a ground-pound: a deep boom with a rolling shockwave tail"},
+        {"E_EnrageRoar",     "S_Collapse",   .50f, .55f, "an elite roaring into a rage: a bellow, about 1.2 s"},
+        {"E_PounceCoil",     "S_Dash",       .18f, .75f, "a leaper coiling: a low hiss and a joint click"},
+        {"E_PounceLeap",     "S_HammerLeap", .26f, 1.40f,"a leaper launching: a whoosh"},
+        {"E_PounceLand",     "S_HammerHit",  .28f, .90f, "a leaper landing: a thud and a skitter"},
+        {"E_BlinkCharge",    "S_Spiral",     .20f, 2.00f,"a rift building around a leaper: a rising shimmer, about 0.5 s"},
+        {"E_BlinkAppear",    "S_Dash",       .35f, 1.80f,"reappearing behind you: a sharp rift snap"},
+        {"E_ChargeWind",     "S_HammerLeap", .30f, .60f, "a bulwark digging in to charge: a stamp and a snort, about 1 s"},
+        {"E_ChargeRun",      "S_HammerSwing",.20f, .60f, "a heavy charge: pounding steps, a rolling rumble"},
+        {"E_GuardBreak",     "S_HammerSmash",.50f, 1.40f,"a shield shattering open: a loud metal crack with sparks"},
+        {"E_BlastWind",      "S_Spiral",     .20f, .55f, "a caster gathering fire: a rising hum, about 0.8 s"},
+        {"E_BlastBurst",     "S_Collapse",   .35f, 1.00f,"a fire blast: a short fiery whump"},
+        {"E_MeteorCall",     "S_Collapse",   .35f, .50f, "calling meteors: a deep rumble that climbs"},
+        {"E_MeteorFall",     "S_Dash",       .22f, .50f, "a meteor falling: a long falling whistle, about 0.9 s"},
+        {"E_MeteorImpact",   "S_HammerSmash",.45f, .90f, "a meteor landing: a boom with crackling embers"},
+        {"E_SnipeAim",       "S_Reward",     .12f, 2.30f,"a sniper tracking you: a thin rising whine, about 1 s"},
+        {"E_SnipeLock",      "S_Hit",        .30f, 2.40f,"the aim locking: a sharp click and the whine cuts off"},
+        {"E_SnipeFire",      "S_Attack",     .40f, .70f, "a heavy rifle shot: a deep crack with a short echo"},
+        {"E_SummonWind",     "S_Collapse",   .25f, 1.50f,"a broodcaller swelling: a wet, rising gurgle, about 1 s"},
+        {"E_EggLay",         "S_Hit",        .30f, .60f, "an egg sac dropping: a wet squelch and thump"},
+        {"E_EggHatch",       "S_Collapse",   .35f, 1.80f,"an egg hatching: a crack and a squeal"},
+        {"E_EggPop",         "S_Hit",        .35f, 1.30f,"an egg popped before it hatches: a quick wet pop"},
+        {"E_DiveScreech",    "S_Attack",     .25f, 1.90f,"a flier about to dive: a rising screech, about 0.7 s"},
+        {"E_PackCall",       "S_Attack",     .30f, 1.40f,"fliers calling a pack dive: a short chorus of screeches"},
+        {"E_BossRoar",       "S_HammerSmash",.50f, .55f, "a boss winding up: a huge growl and armour clatter, about 1 s"},
+        {"E_BossSlam",       "S_HammerSmash",.65f, .70f, "a boss slam: a massive boom"},
+        {"E_BossSummon",     "S_Collapse",   .45f, .80f, "a boss calling reinforcements: a dark horn"},
+        {"E_BossPhase",      "S_Collapse",   .60f, .50f, "a boss entering its second phase: a stinger with a roar, about 1.5 s"},
+        {"E_LandingCrash",   "S_HammerSmash",.65f, .60f, "the flying boss crash-landing: a huge impact and falling rubble"},
+        {"E_MutationFrost",  "S_Reward",     .25f, 2.20f,"a frostbound elite appearing: icy chimes and a cold exhale"},
+        {"E_MutationFire",   "S_Collapse",   .25f, 1.20f,"a burning elite appearing: a gout of flame"},
+        {"E_MutationStorm",  "S_Spiral",     .30f, 1.60f,"a shocking elite appearing: a crackle of static"},
+        {"E_MutationVenom",  "S_Hit",        .25f, .70f, "a venomous elite appearing: a wet hiss"},
+    };
+    return Table[std::clamp(Id,0,CueCount-1)];
+}
+// How loud a cue is for the local player at this distance (cm): full inside 600, falling away to silence at 3200. The cue sounds have no attenuation of their own.
+inline float CueDistanceGain(float Distance) {
+    if(!std::isfinite(Distance)) return 0.f;
+    const float T=std::clamp((std::max(0.f,Distance)-600.f)/2600.f,0.f,1.f);
+    return (1.f-T)*(1.f-T);
+}
+
 // ---- Abilities (0.24) ----
 // The replicated byte AASEnemy::Ability: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body and draws the right
 // warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
@@ -38,21 +105,22 @@ struct AbilitySpec {
     int Tell;        // ground warning shape
     float TellA,TellB; // its size: sector / disc radius, or line length and width
     unsigned Flags;
+    int CueWindup,CueRelease; // played where the telegraph starts and where the attack lands
 };
 inline const AbilitySpec& SpecFor(int Id) {
     static constexpr AbilitySpec Table[AbilityCount]={
-        // windup attack recover  cd  min  max weight  tell        a    b  flags
-        {  0.f,  0.f,  0.f,0.f,0.f,0.f,0.f,TellNone,  0.f,0.f,0u},            // 0 none
-        { .7f, .55f,  0.f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 1 dive (the fliers' own loop uses the ASExpedition::Flier* numbers; these time the pose)
-        {1.5f,  0.f,  0.f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 2 molt
-        {  0.f,  0.f, .30f,0.f,0.f,0.f,1.f,TellSector,210.f,0.f,0u},          // 3 slash (half disc of StrikeRadius; the elite's is wider)
-        {  0.f,  0.f, .25f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 4 shot
-        {  0.f, .65f, .45f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,NeedsClearPath}, // 5 pounce (the leaper's leap)
-        {  0.f, .60f, .90f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,NeedsClearPath}, // 6 charge (the bulwark's shield charge and its end blast)
-        {  0.f,  0.f, .35f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 7 blast (targeted ground blasts)
-        {  0.f,  0.f, .40f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 8 snipe
-        {  0.f,  0.f, .35f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 9 summon (or a shot, plus the heal tethers)
-        {  0.f,  0.f, .60f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 10 boss attack (blast fields, a shot ring, a charge)
+        // windup attack recover  cd  min  max weight  tell        a    b  flags            wind cue / release cue
+        {  0.f,  0.f,  0.f,0.f,0.f,0.f,0.f,TellNone,  0.f,0.f,0u,CueNone,CueNone},                       // 0 none
+        { .7f, .55f,  0.f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueDiveScreech,CueNone},                 // 1 dive (the fliers' own loop uses the ASExpedition::Flier* numbers; these time the pose)
+        {1.5f,  0.f,  0.f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueBossPhase,CueNone},                  // 2 molt
+        {  0.f,  0.f, .40f,0.f,0.f,0.f,1.f,TellSector,210.f,0.f,0u,CueSlashWind,CueSlashSwing},          // 3 slash (half disc of StrikeRadius; the elite's is wider)
+        {  0.f,  0.f, .36f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueShotDraw,CueShotLoose},              // 4 shot
+        {  0.f, .65f, .45f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,NeedsClearPath,CuePounceCoil,CuePounceLeap}, // 5 pounce (the leaper's leap)
+        {  0.f, .60f, .90f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,NeedsClearPath,CueChargeWind,CueChargeRun}, // 6 charge (the bulwark's shield charge and its end blast)
+        {  0.f,  0.f, .40f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueBlastWind,CueBlastBurst},            // 7 blast (targeted ground blasts)
+        {  0.f,  0.f, .42f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueSnipeAim,CueSnipeFire},              // 8 snipe
+        {  0.f,  0.f, .40f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueSummonWind,CueEggLay},              // 9 summon (or a shot, plus the heal tethers)
+        {  0.f,  0.f, .60f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueBossRoar,CueBossSlam},               // 10 boss attack (blast fields, a shot ring, a charge)
     };
     return Table[std::clamp(Id,0,AbilityCount-1)];
 }

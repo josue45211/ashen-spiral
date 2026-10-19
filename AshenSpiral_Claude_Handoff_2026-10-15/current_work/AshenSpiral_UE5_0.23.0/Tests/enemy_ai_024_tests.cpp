@@ -6,7 +6,9 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <fstream>
 #include <set>
+#include <string>
 static long long Checks=0;
 static void Check(bool OK,const char* What) {++Checks;if(!OK) {std::cerr<<"FAILED: "<<What<<"\n";std::exit(1);}}
 static bool Near(float A,float B,float E=.001f) {return std::fabs(A-B)<E;}
@@ -14,7 +16,8 @@ static unsigned Seed=24u;
 static float Rand() {Seed=Seed*1664525u+1013904223u;return float((Seed>>8)&0xFFFF)/65535.f;}
 static float Range(float A,float B) {return A+(B-A)*Rand();}
 using namespace ASEnemyRules;
-int main() {
+int main(int argc,char** argv) {
+    const std::string Root=argc>1?argv[1]:"";
     const float NaN=std::numeric_limits<float>::quiet_NaN(),Inf=std::numeric_limits<float>::infinity();
     // ---- Kits reproduce the old hard-coded numbers exactly ----
     for(int Kind=0;Kind<=9;++Kind) {
@@ -239,6 +242,31 @@ int main() {
         Check(SpecFor(AbilityPounce).Attack==.65f&&SpecFor(AbilityCharge).Attack==.6f&&(SpecFor(AbilityPounce).Flags&NeedsClearPath)&&(SpecFor(AbilityCharge).Flags&NeedsClearPath),"the leaper's leap and the bulwark's charge keep their old durations and path requirement");
         Check(SpecFor(AbilitySlash).Tell==TellSector&&SpecFor(AbilitySlash).TellA==MeleeRadius,"the slash warning is the half disc of the melee strike radius");
         Check(!(SpecFor(AbilitySlash).Flags&NeedsClearPath)&&!(SpecFor(AbilityShot).Flags&NeedsClearPath)&&!(SpecFor(AbilityBlast).Flags&NeedsClearPath),"only leaps and charges need a clear path");
+    }
+    // ---- Sound cues ----
+    {
+        static const char* Existing[]={"S_Attack","S_Collapse","S_Dash","S_HammerHit","S_HammerLeap","S_HammerSmash","S_HammerSwing","S_Hit","S_ReloadReady","S_ReloadStart","S_Reward","S_Spiral"};
+        Check(CueNone==0&&CueCount==45,"the cue ids are stable: 44 cues");
+        Check(&CueFor(-4)==&CueFor(0)&&&CueFor(9999)==&CueFor(CueCount-1),"an out-of-range cue clamps to a real row");
+        std::set<std::string> Stems;
+        for(int Id=1;Id<CueCount;++Id) {
+            const CueSpec& C=CueFor(Id);const std::string Stem=C.Stem,Fallback=C.Fallback;
+            Check(Stem.size()>3&&Stem.compare(0,2,"E_")==0&&Stems.insert(Stem).second,"every cue names its own E_ file, once");
+            bool Known=Fallback.empty();for(const char* E:Existing) Known|=Fallback==E;
+            Check(Known,"a fallback is one of the twelve existing sounds (or silent until the file is delivered)");
+            Check(C.Volume>0.f&&C.Volume<=.7f&&C.Pitch>=.4f&&C.Pitch<=2.5f,"cue volume and pitch are sane");
+            Check(C.Note&&C.Note[0]&&C.Note[1],"every cue says what it should sound like");
+            if(!Fallback.empty()&&!Root.empty()) {std::ifstream File(Root+"/SourceArt/Audio/"+Fallback+".wav",std::ios::binary);Check(File.good(),"the fallback sound exists as a source file");}
+        }
+        for(int Id=1;Id<AbilityCount;++Id) {
+            const AbilitySpec& A=SpecFor(Id);
+            Check(A.CueWindup>CueNone&&A.CueWindup<CueCount&&A.CueRelease>=CueNone&&A.CueRelease<CueCount,"every real ability telegraphs with a real cue and its release cue is valid");
+        }
+        Check(SpecFor(AbilityNone).CueWindup==CueNone&&SpecFor(AbilityNone).CueRelease==CueNone,"no ability, no cue");
+        Check(CueDistanceGain(0.f)==1.f&&CueDistanceGain(600.f)==1.f&&CueDistanceGain(3200.f)==0.f&&CueDistanceGain(99999.f)==0.f&&CueDistanceGain(-50.f)==1.f&&CueDistanceGain(NaN)==0.f,"cue gain is full inside 6 m and silent from 32 m");
+        float Last=2.f;bool Falls=true;for(float D=0.f;D<4000.f;D+=10.f) {const float G=CueDistanceGain(D);if(G>Last+1e-6f||G<0.f||G>1.f) Falls=false;Last=G;}
+        Check(Falls,"cue gain never rises with distance and stays within 0..1");
+        Check(CueDistanceGain(1900.f)>.2f&&CueDistanceGain(1900.f)<.3f,"half way out a cue is a quarter as loud");
     }
     // ---- ChooseAbility ----
     {
