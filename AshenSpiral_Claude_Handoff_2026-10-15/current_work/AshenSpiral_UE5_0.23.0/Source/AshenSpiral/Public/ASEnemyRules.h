@@ -93,7 +93,8 @@ inline float CueDistanceGain(float Distance) {
 // The replicated byte AASEnemy::Ability: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body and draws the right
 // warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
 constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilityShot=4,AbilityPounce=5,AbilityCharge=6,AbilityBlast=7,AbilitySnipe=8,AbilitySummon=9,AbilityBossAttack=10,
-    AbilityShove=11,AbilityBackHop=12,AbilityParry=13,AbilityRiposte=14,AbilityPound=15,AbilityEnrage=16,AbilityBlink=17,AbilityBlinkStrike=18,AbilityMeteors=19,AbilityCount=20;
+    AbilityShove=11,AbilityBackHop=12,AbilityParry=13,AbilityRiposte=14,AbilityPound=15,AbilityEnrage=16,AbilityBlink=17,AbilityBlinkStrike=18,AbilityMeteors=19,
+    AbilityGlacial=20,AbilityCinders=21,AbilityStorm=22,AbilitySeeds=23,AbilityCount=24; // 20-23: the elite mutations' signature abilities (ASEnemyAbilities.h)
 // The replicated byte AASEnemy::Flags: bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
 constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
 constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
@@ -136,6 +137,10 @@ inline const AbilitySpec& SpecFor(int Id) {
         { .55f, 0.f, .40f,8.0f,350.f,1100.f,1.2f,TellNone,0.f,0.f,NoKitCooldownFlag,CueBlinkCharge,CueBlinkAppear},             // 17 rift blink (leaper: reappear behind you)
         { .40f, 0.f, .60f,0.f, 0.f, 0.f, 0.f,TellSector,260.f,0.f,0u,CueSlashWind,CueSlashSwing},                 // 18 blink strike (the slash after a blink; never chosen)
         {1.0f,  0.f, .60f,9.0f,0.f,1300.f,1.f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueMeteorFall},                 // 19 meteor rain (shaman)
+        {1.0f,  0.f, .90f,8.0f,0.f, 430.f,1.6f,TellDisc,380.f,0.f,0u,CuePoundWind,CuePoundSlam},                  // 20 glacial slam (frostbound elite: a frost zone where it lands)
+        { .90f, 0.f, .60f,7.0f,200.f,950.f,1.4f,TellNone,  0.f,0.f,0u,CueBlastWind,CueBlastBurst},                // 21 cinder burst (burning elite: fire pools in a line toward you, each with its own warning)
+        {1.0f,  0.f, .60f,8.5f,0.f,1300.f,1.4f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueNone},                      // 22 storm call (shocking elite: lightning on each hero and around, each with its own warning and thunder)
+        { .80f, 0.f, .60f,7.0f,250.f,1100.f,1.4f,TellNone, 0.f,0.f,0u,CueSummonWind,CueEggLay},                    // 23 seed bombs (venomous elite: pods that land as venom pools)
     };
     return Table[std::clamp(Id,0,AbilityCount-1)];
 }

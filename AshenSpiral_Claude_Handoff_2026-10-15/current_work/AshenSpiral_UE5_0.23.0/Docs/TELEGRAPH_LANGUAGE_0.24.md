@@ -50,7 +50,8 @@ table lives in `ASEnemyRules.h` and the files wanted are listed in `Docs/AUDIO_M
 ## 5. Elites and mutations
 
 An elite is a behaviour remix, not a bigger health bar. Its mutation is shown by a **steady body tint** (never a ring on the floor) and by its colour language:
-frostbound is cyan, burning is orange-red (a damage hazard), shocking is violet-white, venomous is green.
+frostbound is cyan, burning is orange-red (a damage hazard), shocking is violet-white, venomous is green. Every elite brute spawns with one of the four (a replicated byte); it
+adds one signature ability to its kit (section 7), plays a one-off cue when it first comes into view, and the tint is a slow pulse that status effects and rage override.
 
 ## 6. Checklist for a new ability
 
@@ -79,6 +80,10 @@ the engine: nothing was played. Poses: `Docs/ENEMY_POSES_0.24_PREVIEW.png`.
 | Tracking laser | Sniper | 1.5 s: an amber beam follows you for the first 70%, then **turns white-amber and thick: locked**; the shot goes along the locked line | break the line (move sideways) after the lock; afterwards it runs to a new vantage point 13-16 m away for up to 3 s, at 1.5 times its speed, and cannot shoot until it gets there |
 | Egg sacs | Broodcaller | its summon lays 2 green eggs (3 in co-op) in a fan in front of it; they pulse faster as they near hatching (3.2 s) | pop an egg with any hit (22 health) before it hatches into a minion |
 | Pack dive | Gloomwing | the first of a pack to dive screeches (its wind-up is the call); the idle Gloomwings near the same target then dive one after another, 0.38 s apart (at most four) | read the chain: each dive has its own 0.7 s wing-back wind-up; the gaps between volleys are yours |
+| Glacial slam | Frostbound elite brute (cyan pulse) | 1.0 s: a red disc 3.8 m wide filling up, maul overhead | leave the disc; a cyan frost zone (3 m, 5 s) stays where it landed and hurts anyone standing in it |
+| Cinder burst | Burning elite brute (orange-red pulse) | 0.9 s, then three fire pools appear in a line toward you, each with its own red warning disc (0.8 s, 1.05 s, 1.3 s) | step out of the line; each pool then burns for 3.5 s. The burning brute also drops a fire pool every 1.6 s while it walks |
+| Storm call | Shocking elite brute (violet-white pulse) | 1.0 s with the weapon raised; violet-white discs with a sky column on each hero and around them (0.85 s, then 0.3 s apart) | leave every disc: a bolt hits (18) and leaves a static field for 3 s |
+| Seed bombs | Venomous elite brute (green pulse) | 0.8 s heave; green pods fall onto each hero and around them (1.0 s, then 0.25 s apart) | leave the landing spots: each bursts into a venom pool (6 s) |
 
 Chained abilities (riposte after a block, the blink's strike) are never chosen by the chooser; the enemy asks for them itself, and their poses start where the one before them ended.
 

@@ -29,6 +29,7 @@ public:
     UPROPERTY(Replicated) uint8 Ability=0; // ASEnemyRules::Ability*: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body
     UPROPERTY(Replicated) uint8 AIState=0; // ASEnemyRules::State*: approach, strafe, windup, attack, recover, retreat, special. The server's state machine; every machine poses from it
     UPROPERTY(Replicated) uint8 Flags=0;   // ASEnemyRules::Flag*: what every machine shows about an enemy beyond its state (enraged tint, a parry's block flash)
+    UPROPERTY(Replicated) uint8 Mutation=0; // ASEnemyRules::Mutation*: an elite brute's elemental mutation (0 = none): its tint, its signature ability, a burning one's fire trail
     float SlowUntil=0,PulledUntil=0,MarkUntil=0,StunUntil=0,RootUntil=0,StunImmuneUntil=0,RootImmuneUntil=0;
     float LastHitTime=-10,NextDamageNumber=0;
     TWeakObjectPtr<AASCharacter> LastHitter;
@@ -142,6 +143,7 @@ private:
     FVector RelocateGoal=FVector::ZeroVector;float RelocateUntil=0; // authority: the sniper's new vantage point and when it gives up getting there
     bool bPackFollower=false;                                    // authority: this Gloomwing's next dive was set by another's call, so it does not call the pack itself
     bool bBeamLocked=false;                                      // clients: the sniper's beam is drawn in its locked look
+    float NextTrail=0;bool bMutationCued=false;                  // a burning elite's next fire pool (authority); the mutation's appearance cue has played (clients)
     void StartRelocation();                                      // after a shot: pick a vantage point on a ring around the target
     void LayEggs();                                              // the broodcaller's summon: a fan of eggs that hatch into minions unless popped
     void CallPack(const FVector& TargetAt);                      // a Gloomwing about to dive sets the next dive of the idle ones near its target, one after another

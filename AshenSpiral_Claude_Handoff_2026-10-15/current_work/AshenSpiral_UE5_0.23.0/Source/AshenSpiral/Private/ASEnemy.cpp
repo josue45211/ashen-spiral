@@ -50,11 +50,13 @@ AASEnemy::AASEnemy() {
     TellFill=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AnticipationFill"));TellFill->SetupAttachment(RootComponent);
     Tell->SetVisibility(false);TellFill->SetVisibility(false);Beam->SetVisibility(false); // warnings start hidden; Tick shows them only while an attack is being wound up
 }
-void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnProtectedUntil=AS::Time(this)+2.f;if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();}
+void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnProtectedUntil=AS::Time(this)+2.f;
+    if(HasAuthority()&&Kind==ASEnemyRules::Brute&&!bTrainingDummy&&Mutation==ASEnemyRules::MutationNone) Mutation=uint8(ASEnemyRules::MutationFromRoll(FMath::RandRange(0,3))); // every elite brute spawns mutated
+   if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();}
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
-    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,AIState);DOREPLIFETIME(AASEnemy,Flags);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
+    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,AIState);DOREPLIFETIME(AASEnemy,Flags);DOREPLIFETIME(AASEnemy,Mutation);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
 }
 void AASEnemy::RefreshLook() {
     const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
@@ -134,8 +136,8 @@ bool AASEnemy::ShowsStrikeCircle() const {
 void AASEnemy::TickStatusTint() {
     // 0.23.5: status effects pulse the body tint instead of drawing a ring at the feet. Cosmetic, runs where there is a screen.
     const float Now=AS::Time(this);
-    const bool Enraged=(Flags&ASEnemyRules::FlagEnraged)!=0;
-    const bool Active=(StatusBits!=0||Enraged)&&Health>0;
+    const bool Enraged=(Flags&ASEnemyRules::FlagEnraged)!=0,Mutated=Mutation!=ASEnemyRules::MutationNone;
+    const bool Active=(StatusBits!=0||Enraged||Mutated)&&Health>0;
     if(!Active&&!bTintApplied) return;
     TArray<UStaticMeshComponent*> Parts;Parts.Add(Body.Get());for(const auto& Part:ArmorParts) Parts.Add(Part.Get());
     if(bTintApplied&&BaseTints.Num()!=Parts.Num()) {BaseTints.Reset();bTintApplied=false;} // part list changed: forget stale colours
@@ -149,6 +151,7 @@ void AASEnemy::TickStatusTint() {
         bTintApplied=true;
     }
     FLinearColor Status(1.f,.16f,.03f);float Pulse=.32f+.28f*FMath::Sin(Now*11.f+float(GetUniqueID()%7)); // enraged: a fast hot-red pulse (a status effect on top of it shows its own colour)
+    if(!Enraged&&Mutated) {float R,G,B;ASEnemyRules::MutationColor(Mutation,R,G,B);Status=FLinearColor(R,G,B);Pulse=.22f+.16f*FMath::Sin(Now*3.f+float(GetUniqueID()%7));} // a mutation: a slow steady pulse in its colour
     if(StatusBits!=0) {
         const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
         const bool Frozen=(StatusBits&8)!=0;
@@ -288,7 +291,7 @@ void AASEnemy::FinishAttackPhase() {
 void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared) {
     namespace ER=ASEnemyRules;
     auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
-    const float Now=S->SimTime;const ER::Kit& Kit=ER::KitFor(Kind);
+    const float Now=S->SimTime;const ER::Kit Kit=ER::KitWithMutation(ER::KitFor(Kind),Mutation); // a mutated elite owns one more ability
     const FVector Here=GetActorLocation(),ToTarget=Target->GetActorLocation()-Here;
     CurrentTarget=Target;
     // ---- Committed phases: nothing else decides anything until they end. ----
@@ -419,6 +422,9 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
         *(SlowUntil>Now?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f))*((Flags&ER::FlagEnraged)?ER::EnrageSpeedScale:1.f)*(Plan.Mode==ER::ModeHold?1.f:FMath::Max(.05f,Plan.Speed));
     if(Plan.Mode!=ER::ModeHold) {
         AddMovementInput(Direction,1,true);
+        if(Mutation==ER::MutationFire&&Now>=NextTrail) { // a burning elite leaves a fire pool every few seconds of walking
+            NextTrail=Now+ER::TrailInterval;AASHazard::Spawn(GetWorld(),Here-FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-4.f),ER::HazardFire,this,0.f,0.f);
+        }
         if(Now>=NextStuckCheck) {
             NextStuckCheck=Now+1.f;
             StuckFor=FVector::DistSquared2D(LastRoutePosition,Here)<25*25?StuckFor+1.f:0.f;

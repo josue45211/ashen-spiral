@@ -197,6 +197,33 @@ int main() {
         }
         Check(PackRadius>=1000.f&&PackStagger>=.25f&&PackStagger<=.6f&&PackMax>=3,"a volley is close enough to share a target, each dive readable on its own");
     }
+    // ---- Elite mutations ----
+    {
+        Check(MutationFromRoll(0)==MutationFrost&&MutationFromRoll(1)==MutationFire&&MutationFromRoll(2)==MutationStorm&&MutationFromRoll(3)==MutationVenom&&MutationFromRoll(-5)==MutationFrost&&MutationFromRoll(99)==MutationVenom,"a roll of 0 to 3 picks one of the four mutations, anything else is clamped");
+        std::set<int> Abilities,Cues;
+        for(int M=MutationFrost;M<=MutationVenom;++M) {
+            const int A=MutationAbility(M);
+            Check(A>=AbilityGlacial&&A<=AbilitySeeds&&Abilities.insert(A).second,"each mutation has its own signature ability");
+            Check(SpecFor(A).Weight>0.f&&SpecFor(A).Windup>=.8f&&SpecFor(A).Recover>=.5f&&!(SpecFor(A).Flags&OneShotFlag),"a signature ability is chosen like any other, with a readable wind-up and a recovery");
+            const int C=MutationCue(M);Check(C>=CueMutationFrost&&C<=CueMutationVenom&&Cues.insert(C).second,"each mutation has its own appearance cue");
+            float R,G,B;MutationColor(M,R,G,B);
+            Check(R>=0.f&&R<=1.f&&G>=0.f&&G<=1.f&&B>=0.f&&B<=1.f&&(R+G+B)>.5f,"a mutation colour is a bright colour");
+            const bool Blue=B>R+.3f&&B>=G-.01f&&R<.4f;Check(Blue==(M==MutationFrost),"frost is the only mutation tinted blue");
+            const Kit K=KitWithMutation(KitFor(Brute),M);int Count=0;bool Has=false;
+            for(int I=0;I<MaxKitAbilities;++I) if(K.Abilities[I]!=AbilityNone) {++Count;Has|=K.Abilities[I]==A;}
+            Check(Has&&Count==3+1&&KitHas(K,AbilitySlash)&&KitHas(K,AbilityPound)&&KitHas(K,AbilityEnrage),"the mutated brute keeps its three abilities and gains the signature one");
+            const Kit Twice=KitWithMutation(K,M);int Count2=0;for(int I=0;I<MaxKitAbilities;++I) if(Twice.Abilities[I]!=AbilityNone) ++Count2;
+            Check(Count2==Count,"a mutation is added only once");
+        }
+        Check(MutationAbility(MutationNone)==AbilityNone&&MutationAbility(99)==AbilityNone&&MutationCue(MutationNone)==CueNone&&KitWithMutation(KitFor(Brute),MutationNone).Abilities[3]==AbilityNone,"no mutation changes nothing");
+        Kit Full=KitFor(Grunt);for(int I=0;I<MaxKitAbilities;++I) Full.Abilities[I]=AbilitySlash+I;
+        Check(KitWithMutation(Full,MutationFire).Abilities[MaxKitAbilities-1]==AbilitySlash+MaxKitAbilities-1,"a full kit is left as it is");
+        Check(TrailInterval>=1.f&&TrailInterval<=3.f&&GlacialRadius<=PoundMaxRadius&&GlacialDamage>=PoundDamage&&CinderPools>=2&&CinderStagger>=.15f&&StormImpact>=MeteorDamage&&SeedFirstDelay>=MeteorFirstDelay,"the signature numbers are readable and no softer than the plain attacks");
+        Check(SpecFor(AbilityGlacial).Tell==TellDisc&&SpecFor(AbilityGlacial).TellA==GlacialRadius&&TellRadiusFor(AbilityGlacial,true)==GlacialRadius,"the glacial slam warns with a disc exactly as wide as the damage it does");
+        Check(SpecFor(AbilityCinders).Tell==TellNone&&SpecFor(AbilityStorm).Tell==TellNone&&SpecFor(AbilitySeeds).Tell==TellNone,"the other three warn with the hazards they place (each has its own warning on the floor)");
+        for(int Style=0;Style<HazardStyles;++Style) {const int C=HazardArmCue(Style);Check(C>CueNone&&C<CueCount,"every hazard style has an arming sound");}
+        Check(HazardArmCue(-3)>CueNone&&HazardArmCue(99)>CueNone,"a broken style still has a sound");
+    }
     std::printf("PASS: %lld enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation, egg sacs, pack dives).\nShared rules only; Unreal combat and gameplay are not executed.\n",Checks);
     return 0;
 }

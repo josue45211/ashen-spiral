@@ -1,5 +1,6 @@
 #include "ASEnemy.h"
 #include "ASEnemyRules.h"
+#include "ASEnemyAbilities.h"
 #include "ASGameState.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
@@ -60,7 +61,9 @@ void AASEnemy::UpdateCues(float Now) {
     }
     // 3. The duelist's guard held against a blow (the server flips the bit on every block).
     if(((int32(Flags)^SeenFlags)&int32(ER::FlagParryToggle))!=0) PlayCue(ER::CueParryBlock);
-    // 4. A bulwark's guard was just ripped open.
+    // 4. A mutated elite coming into view announces itself once.
+    if(Mutation!=ER::MutationNone&&!bMutationCued) {bMutationCued=true;PlayCue(ER::MutationCue(Mutation));}
+    // 5. A bulwark's guard was just ripped open.
     if(((int32(Flags)&~SeenFlags)&int32(ER::FlagGuardBroken))!=0) PlayCue(ER::CueGuardBreak);
     SeenFlags=int32(Flags);
 }

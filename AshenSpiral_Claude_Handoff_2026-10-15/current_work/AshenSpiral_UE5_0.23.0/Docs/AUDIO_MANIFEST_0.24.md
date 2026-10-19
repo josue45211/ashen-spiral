@@ -31,8 +31,8 @@ Telegraph and release cues together are the readability rule of this update: a p
 | 8 | `E_ParryRaise.wav` | wind-up of duelist parry | a blade lifted into guard: a clean steel ring | `S_Reward.wav` x0.20 volume, pitch 1.80 |
 | 9 | `E_ParryBlock.wav` | a duelist's parry guard holding against a blow (played from the replicated block flag) | a blocked blow: a bright metal clang with a gold sparkle tail | `S_HammerHit.wav` x0.40 volume, pitch 1.60 |
 | 10 | `E_RiposteSlash.wav` | wind-up of duelist riposte | a fast counter-slash: a hard sharp whoosh | `S_Attack.wav` x0.35 volume, pitch 1.30 |
-| 11 | `E_PoundWind.wav` | wind-up of brute ground pound | a heavy enemy rearing up: a deep grunt and armour rattle, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.55 |
-| 12 | `E_PoundSlam.wav` | release of brute ground pound | a ground-pound: a deep boom with a rolling shockwave tail | `S_HammerSmash.wav` x0.55 volume, pitch 0.80 |
+| 11 | `E_PoundWind.wav` | wind-up of brute ground pound; wind-up of frostbound elite glacial slam | a heavy enemy rearing up: a deep grunt and armour rattle, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.55 |
+| 12 | `E_PoundSlam.wav` | release of brute ground pound; release of frostbound elite glacial slam; a ground hazard arming (its warning is over) | a ground-pound: a deep boom with a rolling shockwave tail | `S_HammerSmash.wav` x0.55 volume, pitch 0.80 |
 | 13 | `E_EnrageRoar.wav` | wind-up of brute enrage | an elite roaring into a rage: a bellow, about 1.2 s | `S_Collapse.wav` x0.50 volume, pitch 0.55 |
 | 14 | `E_PounceCoil.wav` | wind-up of leaper pounce | a leaper coiling: a low hiss and a joint click | `S_Dash.wav` x0.18 volume, pitch 0.75 |
 | 15 | `E_PounceLeap.wav` | release of leaper pounce | a leaper launching: a whoosh | `S_HammerLeap.wav` x0.26 volume, pitch 1.40 |
@@ -42,16 +42,16 @@ Telegraph and release cues together are the readability rule of this update: a p
 | 19 | `E_ChargeWind.wav` | wind-up of bulwark charge | a bulwark digging in to charge: a stamp and a snort, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.60 |
 | 20 | `E_ChargeRun.wav` | release of bulwark charge | a heavy charge: pounding steps, a rolling rumble | `S_HammerSwing.wav` x0.20 volume, pitch 0.60 |
 | 21 | `E_GuardBreak.wav` | a bulwark's guard being ripped open (played when the replicated guard-broken bit turns on) | a shield shattering open: a loud metal crack with sparks | `S_HammerSmash.wav` x0.50 volume, pitch 1.40 |
-| 22 | `E_BlastWind.wav` | wind-up of shaman blast | a caster gathering fire: a rising hum, about 0.8 s | `S_Spiral.wav` x0.20 volume, pitch 0.55 |
-| 23 | `E_BlastBurst.wav` | release of shaman blast | a fire blast: a short fiery whump | `S_Collapse.wav` x0.35 volume, pitch 1.00 |
-| 24 | `E_MeteorCall.wav` | wind-up of shaman meteor rain | calling meteors: a deep rumble that climbs | `S_Collapse.wav` x0.35 volume, pitch 0.50 |
+| 22 | `E_BlastWind.wav` | wind-up of shaman blast; wind-up of burning elite cinder burst | a caster gathering fire: a rising hum, about 0.8 s | `S_Spiral.wav` x0.20 volume, pitch 0.55 |
+| 23 | `E_BlastBurst.wav` | release of shaman blast; release of burning elite cinder burst; a ground hazard arming (its warning is over); a ground hazard arming (its warning is over) | a fire blast: a short fiery whump | `S_Collapse.wav` x0.35 volume, pitch 1.00 |
+| 24 | `E_MeteorCall.wav` | wind-up of shaman meteor rain; wind-up of shocking elite storm call | calling meteors: a deep rumble that climbs | `S_Collapse.wav` x0.35 volume, pitch 0.50 |
 | 25 | `E_MeteorFall.wav` | release of shaman meteor rain | a meteor falling: a long falling whistle, about 0.9 s | `S_Dash.wav` x0.22 volume, pitch 0.50 |
-| 26 | `E_MeteorImpact.wav` | an ability of the 0.24 kits (wired as each is built) | a meteor landing: a boom with crackling embers | `S_HammerSmash.wav` x0.45 volume, pitch 0.90 |
+| 26 | `E_MeteorImpact.wav` | a ground hazard arming (its warning is over) | a meteor landing: a boom with crackling embers | `S_HammerSmash.wav` x0.45 volume, pitch 0.90 |
 | 27 | `E_SnipeAim.wav` | wind-up of sniper shot | a sniper tracking you: a thin rising whine, about 1 s | `S_Reward.wav` x0.12 volume, pitch 2.30 |
 | 28 | `E_SnipeLock.wav` | the sniper's beam locking (played when it turns white-amber, 70% through the wind-up) | the aim locking: a sharp click and the whine cuts off | `S_Hit.wav` x0.30 volume, pitch 2.40 |
 | 29 | `E_SnipeFire.wav` | release of sniper shot | a heavy rifle shot: a deep crack with a short echo | `S_Attack.wav` x0.40 volume, pitch 0.70 |
-| 30 | `E_SummonWind.wav` | wind-up of broodcaller summon | a broodcaller swelling: a wet, rising gurgle, about 1 s | `S_Collapse.wav` x0.25 volume, pitch 1.50 |
-| 31 | `E_EggLay.wav` | release of broodcaller summon | an egg sac dropping: a wet squelch and thump | `S_Hit.wav` x0.30 volume, pitch 0.60 |
+| 30 | `E_SummonWind.wav` | wind-up of broodcaller summon; wind-up of venomous elite seed bombs | a broodcaller swelling: a wet, rising gurgle, about 1 s | `S_Collapse.wav` x0.25 volume, pitch 1.50 |
+| 31 | `E_EggLay.wav` | release of broodcaller summon; release of venomous elite seed bombs; a ground hazard arming (its warning is over) | an egg sac dropping: a wet squelch and thump | `S_Hit.wav` x0.30 volume, pitch 0.60 |
 | 32 | `E_EggHatch.wav` | a broodcaller's egg hatching into a minion (effect 19, size 1) | an egg hatching: a crack and a squeal | `S_Collapse.wav` x0.35 volume, pitch 1.80 |
 | 33 | `E_EggPop.wav` | a hero popping a broodcaller's egg before it hatches (effect 19, size 0) | an egg popped before it hatches: a quick wet pop | `S_Hit.wav` x0.35 volume, pitch 1.30 |
 | 34 | `E_DiveScreech.wav` | wind-up of flier dive | a flier about to dive: a rising screech, about 0.7 s | `S_Attack.wav` x0.25 volume, pitch 1.90 |
@@ -61,10 +61,10 @@ Telegraph and release cues together are the readability rule of this update: a p
 | 38 | `E_BossSummon.wav` | an ability of the 0.24 kits (wired as each is built) | a boss calling reinforcements: a dark horn | `S_Collapse.wav` x0.45 volume, pitch 0.80 |
 | 39 | `E_BossPhase.wav` | wind-up of flying boss molt | a boss entering its second phase: a stinger with a roar, about 1.5 s | `S_Collapse.wav` x0.60 volume, pitch 0.50 |
 | 40 | `E_LandingCrash.wav` | an ability of the 0.24 kits (wired as each is built) | the flying boss crash-landing: a huge impact and falling rubble | `S_HammerSmash.wav` x0.65 volume, pitch 0.60 |
-| 41 | `E_MutationFrost.wav` | an ability of the 0.24 kits (wired as each is built) | a frostbound elite appearing: icy chimes and a cold exhale | `S_Reward.wav` x0.25 volume, pitch 2.20 |
-| 42 | `E_MutationFire.wav` | an ability of the 0.24 kits (wired as each is built) | a burning elite appearing: a gout of flame | `S_Collapse.wav` x0.25 volume, pitch 1.20 |
-| 43 | `E_MutationStorm.wav` | an ability of the 0.24 kits (wired as each is built) | a shocking elite appearing: a crackle of static | `S_Spiral.wav` x0.30 volume, pitch 1.60 |
-| 44 | `E_MutationVenom.wav` | an ability of the 0.24 kits (wired as each is built) | a venomous elite appearing: a wet hiss | `S_Hit.wav` x0.25 volume, pitch 0.70 |
+| 41 | `E_MutationFrost.wav` | an elite brute with this mutation appearing (played once when it first comes into view) | a frostbound elite appearing: icy chimes and a cold exhale | `S_Reward.wav` x0.25 volume, pitch 2.20 |
+| 42 | `E_MutationFire.wav` | an elite brute with this mutation appearing (played once when it first comes into view) | a burning elite appearing: a gout of flame | `S_Collapse.wav` x0.25 volume, pitch 1.20 |
+| 43 | `E_MutationStorm.wav` | an elite brute with this mutation appearing (played once when it first comes into view) | a shocking elite appearing: a crackle of static | `S_Spiral.wav` x0.30 volume, pitch 1.60 |
+| 44 | `E_MutationVenom.wav` | an elite brute with this mutation appearing (played once when it first comes into view) | a venomous elite appearing: a wet hiss | `S_Hit.wav` x0.25 volume, pitch 0.70 |
 
 ## Existing sounds the fallbacks use
 

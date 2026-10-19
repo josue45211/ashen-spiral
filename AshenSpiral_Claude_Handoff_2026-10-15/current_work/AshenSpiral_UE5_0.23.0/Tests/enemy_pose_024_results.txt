@@ -1,2 +1,2 @@
-PASS: 1119179 enemy pose checks (Unreal rotation/quaternion math against the engine's matrix, track structure, timeline, the solver's neutral pose equals the old gait, sweeps over every ability: finite, in reach, no stretching, on the floor).
+PASS: 1328237 enemy pose checks (Unreal rotation/quaternion math against the engine's matrix, track structure, timeline, the solver's neutral pose equals the old gait, sweeps over every ability: finite, in reach, no stretching, on the floor).
 Shared rules only; Unreal rendering and the component hierarchy are not executed (see the offline pose preview).

@@ -94,6 +94,11 @@ int main() {
         Check(Zero,"... and ends neutral");
     }
 
+    {   // Shared tracks: every ability resolves to a real track, the mutations' abilities to the ones they share a body language with.
+        for(int Id=0;Id<ER::AbilityCount;++Id) Check(TrackIndex(Id)>=0&&TrackIndex(Id)<OwnTracks&&(Id>=OwnTracks||TrackIndex(Id)==Id),"an ability with a track of its own plays it, every other one resolves to a real track");
+        Check(&TrackFor(ER::AbilityGlacial)==&TrackFor(ER::AbilityPound)&&&TrackFor(ER::AbilityStorm)==&TrackFor(ER::AbilityMeteors)&&&TrackFor(ER::AbilityCinders)==&TrackFor(ER::AbilitySlash)&&&TrackFor(ER::AbilitySeeds)==&TrackFor(ER::AbilityBlast),"the elite mutations' abilities share the tracks of the abilities they look like");
+        Check(&TrackFor(-4)==&TrackFor(0)&&&TrackFor(9999)==&TrackFor(TrackIndex(ER::AbilityCount-1)),"an out-of-range ability clamps to a real track");
+    }
     // ---- Timeline ----
     {
         const ER::AbilitySpec Slash=ER::SpecFor(ER::AbilitySlash),Pounce=ER::SpecFor(ER::AbilityPounce);

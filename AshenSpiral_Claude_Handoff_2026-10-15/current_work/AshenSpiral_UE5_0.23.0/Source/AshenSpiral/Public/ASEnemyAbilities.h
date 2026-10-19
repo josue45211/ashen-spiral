@@ -150,6 +150,64 @@ inline int PackDelays(const unsigned* Ids,int Count,unsigned Caller,float* OutDe
     return InPack;
 }
 
+// ---- Elite mutations (0.24): an elite brute may spawn with a mutation. It adds one signature ability to its kit (the attack set changes, not only the numbers), tints its body
+// in the mutation's colour (a slow pulse, never a ring on the floor) and a burning one leaves fire behind it as it walks. Frost is the only blue in the game; storm is violet-white;
+// fire is orange-red; venom is poison green. ----
+constexpr int MutationNone=0,MutationFrost=1,MutationFire=2,MutationStorm=3,MutationVenom=4,MutationCount=5;
+inline int MutationFromRoll(int Roll) {return 1+std::clamp(Roll,0,MutationCount-2);} // Roll in 0..3
+inline int MutationAbility(int Mutation) {
+    switch(Mutation) {
+    case MutationFrost: return AbilityGlacial;
+    case MutationFire:  return AbilityCinders;
+    case MutationStorm: return AbilityStorm;
+    case MutationVenom: return AbilitySeeds;
+    default: return AbilityNone;
+    }
+}
+inline int MutationCue(int Mutation) {
+    switch(Mutation) {
+    case MutationFrost: return CueMutationFrost;
+    case MutationFire:  return CueMutationFire;
+    case MutationStorm: return CueMutationStorm;
+    case MutationVenom: return CueMutationVenom;
+    default: return CueNone;
+    }
+}
+inline void MutationColor(int Mutation,float& R,float& G,float& B) {
+    switch(Mutation) {
+    case MutationFrost: R=.12f;G=1.f;B=1.f;break;   // cyan
+    case MutationFire:  R=1.f;G=.35f;B=.05f;break;  // orange-red
+    case MutationStorm: R=.86f;G=.74f;B=1.f;break;  // violet-white
+    case MutationVenom: R=.25f;G=1.f;B=.30f;break;  // poison green
+    default: R=G=B=0.f;break;
+    }
+}
+// The mutated kit: the base kit with the mutation's signature ability in its first free slot (once).
+inline Kit KitWithMutation(const Kit& Base,int Mutation) {
+    Kit Out=Base;const int Id=MutationAbility(Mutation);
+    if(Id==AbilityNone) return Out;
+    for(int I=0;I<MaxKitAbilities;++I) {
+        if(Out.Abilities[I]==Id) return Out;
+        if(Out.Abilities[I]==AbilityNone) {Out.Abilities[I]=Id;return Out;}
+    }
+    return Out;
+}
+constexpr float TrailInterval=1.6f;                                               // a burning elite drops a fire pool this often while it walks
+constexpr float GlacialRadius=380.f,GlacialDamage=20.f;                            // the frostbound elite's slam: damage inside its warning disc, and a frost zone left behind
+constexpr int CinderPools=3;constexpr float CinderSpacing=280.f,CinderFirstDelay=.80f,CinderStagger=.25f,CinderImpact=10.f; // fire pools in a line toward the hero
+constexpr float StormImpact=18.f;                                                  // each lightning strike of the shocking elite (positions: MeteorVolley, delays: MeteorFirstDelay/MeteorStagger)
+constexpr float SeedImpact=8.f,SeedFirstDelay=1.0f,SeedStagger=.25f;               // each pod of the venomous elite
+// The sound a hazard of each style makes where it arms (the warning is over and it bites): fire a blast, frost a slam, storm a boom with crackle, venom a squelch.
+inline int HazardArmCue(int Style) {
+    switch(Style) {
+    case HazardFire:  return CueBlastBurst;
+    case HazardFrost: return CuePoundSlam;
+    case HazardStorm: return CueMeteorImpact;
+    case HazardVenom: return CueEggLay;
+    default:          return CueBlastBurst;
+    }
+}
+
 // ---- Sniper: the aiming beam tracks the hero for the first part of the wind-up, then locks and fires along the locked line. ----
 constexpr float SnipeTrackFraction=.70f,SnipeTurnRate=75.f;
 inline bool SnipeLocked(float Progress) {return std::isfinite(Progress)&&Progress>=SnipeTrackFraction;}

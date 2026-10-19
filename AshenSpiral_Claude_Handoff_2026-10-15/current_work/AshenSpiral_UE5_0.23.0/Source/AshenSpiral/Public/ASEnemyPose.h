@@ -220,8 +220,20 @@ inline int DeathVariantFor(float PushX,float PushY,unsigned Id) {
 // ---- The tracks (TUNABLE). One per ability id; see ASEnemyRules::Ability*. ----
 // Hand deltas are from the walking hand position (24, +-45, 74); the shoulder sits at (0, +-34, 133) and an arm reaches about 84 cm, so the right hand overhead at
 // (-12, 53, 196) is 66 cm from its shoulder. A positive WeaponPitch swings an upright weapon's tip backward, a negative one forward.
+// The abilities that have a track of their own are 0-19; the elite mutations' signature abilities share a body language with one of them (TrackIndex).
+constexpr int OwnTracks=20;
+inline int TrackIndex(int Ability) {
+    const int Id=std::clamp(Ability,0,ASEnemyRules::AbilityCount-1);
+    switch(Id) {
+    case ASEnemyRules::AbilityGlacial: return ASEnemyRules::AbilityPound;   // the frostbound elite's slam is a ground pound
+    case ASEnemyRules::AbilityCinders: return ASEnemyRules::AbilitySlash;   // the burning elite sweeps its fire out with a swing
+    case ASEnemyRules::AbilityStorm:   return ASEnemyRules::AbilityMeteors; // the shocking elite calls lightning down with its weapon raised to the sky
+    case ASEnemyRules::AbilitySeeds:   return ASEnemyRules::AbilityBlast;   // the venomous elite lobs its pods with a heave
+    default: return Id<OwnTracks?Id:ASEnemyRules::AbilityNone;
+    }
+}
 inline const Track& TrackFor(int Ability) {
-    static constexpr Track Table[ASEnemyRules::AbilityCount]={
+    static constexpr Track Table[OwnTracks]={
         {{{-1,{}}}}, // 0 none
         {{{-1,{}}}}, // 1 dive: the fliers pose their own wings
         {{{-1,{}}}}, // 2 molt: ditto
@@ -525,6 +537,6 @@ inline const Track& TrackFor(int Ability) {
             {-1,{}}
         }},
     };
-    return Table[std::clamp(Ability,0,ASEnemyRules::AbilityCount-1)];
+    return Table[TrackIndex(Ability)];
 }
 }

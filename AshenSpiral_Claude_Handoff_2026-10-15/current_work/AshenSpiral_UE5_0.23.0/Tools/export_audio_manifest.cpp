@@ -1,12 +1,14 @@
 // Prints Docs/AUDIO_MANIFEST_0.24.md from the enemy cue table in ASEnemyRules.h, so the sound designer's list and the game's list can never disagree.
 //   cl /std:c++17 /EHsc Tools\export_audio_manifest.cpp && export_audio_manifest.exe > Docs\AUDIO_MANIFEST_0.24.md
 #include "../Source/AshenSpiral/Public/ASEnemyRules.h"
+#include "../Source/AshenSpiral/Public/ASEnemyAbilities.h"
 #include <cstdio>
 #include <string>
 using namespace ASEnemyRules;
 static const char* AbilityName(int Id) {
     static const char* Names[]={"none","flier dive","flying boss molt","melee slash","archer shot","leaper pounce","bulwark charge","shaman blast","sniper shot","broodcaller summon","boss attack",
-        "grunt shove","archer back-hop","duelist parry","duelist riposte","brute ground pound","brute enrage","leaper rift blink","leaper blink strike","shaman meteor rain"};
+        "grunt shove","archer back-hop","duelist parry","duelist riposte","brute ground pound","brute enrage","leaper rift blink","leaper blink strike","shaman meteor rain",
+        "frostbound elite glacial slam","burning elite cinder burst","shocking elite storm call","venomous elite seed bombs"};
     static_assert(sizeof(Names)/sizeof(Names[0])==AbilityCount,"every ability needs a name in the audio manifest");
     return Id>=0&&Id<AbilityCount?Names[Id]:"?";
 }
@@ -17,6 +19,8 @@ static std::string When(int Cue) {
         if(SpecFor(Id).CueWindup==Cue) Out+=std::string(Out.empty()?"":"; ")+"wind-up of "+AbilityName(Id);
         if(SpecFor(Id).CueRelease==Cue) Out+=std::string(Out.empty()?"":"; ")+"release of "+AbilityName(Id);
     }
+    for(int M=MutationFrost;M<=MutationVenom;++M) if(Cue==MutationCue(M)) Out+=std::string(Out.empty()?"":"; ")+"an elite brute with this mutation appearing (played once when it first comes into view)";
+    for(int Style=0;Style<HazardStyles;++Style) if(Cue==HazardArmCue(Style)) Out+=std::string(Out.empty()?"":"; ")+"a ground hazard arming (its warning is over)";
     if(Cue==CueGuardBreak) Out+=std::string(Out.empty()?"":"; ")+"a bulwark's guard being ripped open (played when the replicated guard-broken bit turns on)";
     if(Cue==CueSnipeLock) Out+=std::string(Out.empty()?"":"; ")+"the sniper's beam locking (played when it turns white-amber, 70% through the wind-up)";
     if(Cue==CueEggHatch) Out+=std::string(Out.empty()?"":"; ")+"a broodcaller's egg hatching into a minion (effect 19, size 1)";

@@ -24,3 +24,29 @@ private:
     float PrevRadius=0.f;bool bSwept=false;
     TSet<TWeakObjectPtr<AASCharacter>> Struck;
 };
+
+// A lingering ground zone (the elite mutations' fire trails, frost, storm and venom; the ward bosses' blooms and roots). It has a warning phase (a dim disc at its full size with a
+// bright copy growing over it, red for everything except lightning, which is violet-white, like the sky strikes) and, when the warning is over, it arms: an optional one-off impact,
+// then it hurts a hero standing in it every half second until it shrinks away. Size, time and damage come from ASEnemyAbilities.h (HazardFor).
+UCLASS() class ASHENSPIRAL_API AASHazard : public AActor {
+    GENERATED_BODY()
+public:
+    AASHazard();
+    virtual void BeginPlay() override;
+    virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+    virtual void Tick(float Delta) override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    UPROPERTY(Replicated) float Born=0.f;   // SimTime when the warning started
+    UPROPERTY(Replicated) float ArmAt=0.f;  // when the warning ends and the zone is live (== Born for a zone with no warning)
+    UPROPERTY(Replicated) uint8 Style=0;    // ASEnemyRules::Hazard*
+    float ImpactDamage=0.f;                 // server only: hurts everyone inside once, where it arms
+    TWeakObjectPtr<AASEnemy> EnemySource;
+    static AASHazard* Spawn(UWorld* World,const FVector& Feet,int32 Style,AASEnemy* Source,float WarnSeconds,float ImpactDamage); // null at the cap
+private:
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> Disc;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> Fill;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> Bolt; // storm only: the sky column
+    float NextTick=0.f;
+    bool bArmed=false,bDrawnArmed=false,bHeardArm=false,bCounted=false;
+    static int32 Alive;
+};

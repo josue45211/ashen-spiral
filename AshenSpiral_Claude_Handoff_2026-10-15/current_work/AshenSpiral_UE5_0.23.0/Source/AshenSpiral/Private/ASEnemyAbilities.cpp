@@ -59,6 +59,15 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
             if(Knock>0.f&&Vulnerable) Hero->LaunchCharacter(Aim*Knock+FVector(0,0,Lift),true,true);
         }
     };
+    // The points of an area ability that targets every hero and scatters around them (meteors, lightning, pods): fills Points and Floor (the floor under the hero each belongs to),
+    // returns how many. Deterministic in Seed (ASEnemyRules::MeteorVolley).
+    auto Volley=[&](int32 Count,uint32 Seed,ER::MeteorPoint* Points,float* Floor)->int32 {
+        float Hx[4],Hy[4],Hz[4];int32 Heroes=0;
+        for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(!Hero->bDowned&&Heroes<4) {const FVector At=Hero->GetActorLocation();Hx[Heroes]=At.X;Hy[Heroes]=At.Y;Hz[Heroes]=At.Z-Hero->GetSimpleCollisionHalfHeight();++Heroes;}
+        const int32 N=ER::MeteorVolley(Hx,Hy,Heroes,Count,Seed,Points);
+        for(int32 I=0;I<N;++I) Floor[I]=Hz[I%Heroes];
+        return N;
+    };
     switch(Id) {
     case ER::AbilityShove: { // a shoulder-barge: short, wide, throws the hero back
         ++Pattern;Swing(ER::ShoveRadius,ER::ShoveDamage,ER::ShoveKnockback,ER::ShoveLift);
@@ -127,15 +136,54 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
         return FlowFinish;
     case ER::AbilityMeteors: { // a volley: the first meteors land on each hero (so you must move), the others scatter around them, one after another
         ++Pattern;
-        float Hx[4],Hy[4],Hz[4];int32 Heroes=0;
-        for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(!Hero->bDowned&&Heroes<4) {const FVector At=Hero->GetActorLocation();Hx[Heroes]=At.X;Hy[Heroes]=At.Y;Hz[Heroes]=At.Z-77.f;++Heroes;}
-        ER::MeteorPoint Points[ER::MeteorMax];
-        const int32 Count=ER::MeteorVolley(Hx,Hy,Heroes,ER::MeteorCount(S->PlayerArray.Num()),GetUniqueID()*31u+uint32(Pattern),Points);
+        ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+        const int32 Count=Volley(ER::MeteorCount(S->PlayerArray.Num()),GetUniqueID()*31u+uint32(Pattern),Points,Floor);
         for(int32 I=0;I<Count;++I) {
-            FVector At(Points[I].X,Points[I].Y,Hz[I%Heroes]);
-            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f); // never into a wall
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+11.f); // the old blasts sat 77 cm under the hero's centre: 11 cm over the floor
+            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);  // never into a wall
             if(auto* Field=AASField::Spawn(World,0,At,ER::MeteorRadius,ER::MeteorDamage,Points[I].Delay,Points[I].Delay+.4f)) Field->EnemySource=this; // the ground warning, then the blast
             S->Effect(18,At,FVector::UpVector,FLinearColor(1.f,.4f,.08f),Points[I].Delay);                 // the meteor itself falls for as long as the warning lasts
+        }
+        return FlowFinish;
+    }
+    case ER::AbilityGlacial: { // the frostbound elite's slam: everyone inside its warning disc is hurt, and a frost zone stays where it landed
+        ++Pattern;
+        for(auto W:S->Heroes) if(auto* Hero=W.Get()) if(!Hero->bDowned&&FVector::Dist2D(Hero->GetActorLocation(),Here)<ER::GlacialRadius&&AS::ClearSight(World,Here,Hero->GetActorLocation())) Hero->Hurt(ER::GlacialDamage,this);
+        AASHazard::Spawn(World,Feet,ER::HazardFrost,this,0.f,0.f);
+        S->Effect(6,Feet,FVector::UpVector,FLinearColor(.12f,1.f,1.f),ER::GlacialRadius);                  // a cyan flash: frost, and only frost, is blue
+        S->Effect(11,Feet,FVector::UpVector,FLinearColor(.55f,.95f,1.f),2.f);                             // ice shards
+        return FlowFinish;
+    }
+    case ER::AbilityCinders: { // the burning elite's fire pools in a line toward the hero, each with its own warning, one after another
+        ++Pattern;
+        for(int32 I=0;I<ER::CinderPools;++I) {
+            const FVector At=Feet+Aim*(ER::CinderSpacing*float(I+1));
+            if(S->Arena&&!S->Arena->CanWalkDirectly(Here,FVector(At.X,At.Y,Here.Z))) break; // the line stops at a wall
+            AASHazard::Spawn(World,At,ER::HazardFire,this,ER::CinderFirstDelay+ER::CinderStagger*float(I),ER::CinderImpact);
+        }
+        S->Effect(11,Feet,FVector::UpVector,FLinearColor(1.f,.35f,.05f),2.f);
+        return FlowFinish;
+    }
+    case ER::AbilityStorm: { // the shocking elite's lightning on each hero and around them: a violet-white warning, a strike, then a lingering static field
+        ++Pattern;
+        ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+        const int32 Count=Volley(ER::MeteorCount(S->PlayerArray.Num()),GetUniqueID()*17u+uint32(Pattern),Points,Floor);
+        for(int32 I=0;I<Count;++I) {
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);
+            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            AASHazard::Spawn(World,At,ER::HazardStorm,this,Points[I].Delay,ER::StormImpact);
+        }
+        return FlowFinish;
+    }
+    case ER::AbilitySeeds: { // the venomous elite's pods: they fall onto each hero and around them and burst into venom pools
+        ++Pattern;
+        ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+        const int32 Count=Volley(S->PlayerArray.Num()>1?4:3,GetUniqueID()*13u+uint32(Pattern),Points,Floor);
+        for(int32 I=0;I<Count;++I) {
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);
+            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            const float Delay=ER::SeedFirstDelay+ER::SeedStagger*float(I);
+            if(AASHazard::Spawn(World,At,ER::HazardVenom,this,Delay,ER::SeedImpact)) S->Effect(18,At,FVector::UpVector,FLinearColor(.25f,1.f,.30f),Delay); // the pod falls for as long as the warning lasts
         }
         return FlowFinish;
     }
