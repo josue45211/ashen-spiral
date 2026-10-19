@@ -107,7 +107,7 @@ def validate():
                       f'{field}: declared replicated property has a registration macro')
     bounds=json.loads((ROOT/'SourceArt/mesh_bounds.json').read_text())
     meshes=sorted((ROOT/'SourceArt/Meshes').glob('*.obj'))
-    check(len(meshes)==79,'79 meshes: the 78 originals (including the 7-mesh Archives kit) plus the 0.24 swing arc')
+    check(len(meshes)==80,'80 meshes: the 78 originals (including the 7-mesh Archives kit) plus the 0.24 swing arc and strike sector')
     vertices=triangles=degenerates=0
     for p in meshes:
         v=[];uv=[];norm=[];faces=[]

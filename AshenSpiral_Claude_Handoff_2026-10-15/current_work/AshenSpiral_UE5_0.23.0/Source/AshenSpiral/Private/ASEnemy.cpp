@@ -1,6 +1,9 @@
 #include "ASEnemy.h"
 #include "ASExpeditionRules.h"
 #include "ASEnemyRules.h"
+#include "EngineUtils.h"
+#include "Engine/StaticMesh.h"
+#include "HAL/IConsoleManager.h"
 #include "ASPresentationRules.h"
 #include "ASMeleeRules.h"
 #include "ASExpeditionRules.h"
@@ -38,7 +41,8 @@ AASEnemy::AASEnemy() {
     WingR=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingR"));WingR->SetupAttachment(RootComponent);
     Crown=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Crown"));Crown->SetupAttachment(RootComponent);
     Beam=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SniperSight"));Beam->SetupAttachment(RootComponent);
-    Aura=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ElementAura"));Aura->SetupAttachment(RootComponent);
+    TellFill=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AnticipationFill"));TellFill->SetupAttachment(RootComponent);
+    Tell->SetVisibility(false);TellFill->SetVisibility(false);Beam->SetVisibility(false); // warnings start hidden; Tick shows them only while an attack is being wound up
 }
 void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnProtectedUntil=AS::Time(this)+2.f;if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();}
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
@@ -53,7 +57,7 @@ void AASEnemy::RefreshLook() {
     if(bTrainingDummy) {
         GetCapsuleComponent()->SetCapsuleSize(42,100);ASAssets::Style(Body,TEXT("SM_TrainingDummy"),FLinearColor(.48f,.28f,.12f),.1f);
         Body->SetRelativeLocation(FVector(0,0,-100));Body->SetRelativeScale3D(FVector(1));
-        Eye->SetVisibility(false);Tell->SetVisibility(false);Crown->SetVisibility(false);Beam->SetVisibility(false);RefreshStatus();return;
+        Eye->SetVisibility(false);Tell->SetVisibility(false);TellFill->SetVisibility(false);Crown->SetVisibility(false);Beam->SetVisibility(false);return;
     }
     const float S=Boss()?2.15f:(Elite()?1.45f:1.f);BodyScale=S;
     const TCHAR* Models[]={TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Brute"),TEXT("SM_Brute"),TEXT("SM_RiftLeaper"),TEXT("SM_Bulwark"),TEXT("SM_EmberShaman"),TEXT("SM_RiftSniper"),TEXT("SM_Broodcaller")};
@@ -64,7 +68,14 @@ void AASEnemy::RefreshLook() {
     Body->SetRelativeLocation(FVector(0,0,Elite()?62.5f*S-HalfHeight:-HalfHeight));Body->SetRelativeScale3D(FVector(S));
     ASAssets::Style(Eye,TEXT("Cube"),Kind==8?FLinearColor(.1f,.7f,1):FLinearColor(1,.09f,.025f),0,7);Eye->SetRelativeLocation(FVector(33*S,0,55*S));Eye->SetRelativeScale3D(FVector(.08f,.44f,.065f)*S);Eye->SetVisibility(Kind<5||Kind==ASExpedition::FlierKind);
     Crown->SetVisibility(false); // Crystals grow in the environment, never on enemy heads.
-    ASAssets::Style(Tell,TEXT("SM_Ring"),Kind==8?FLinearColor(.1f,.65f,1):FLinearColor(1,.1f,.02f),0,5);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+4));Tell->SetRelativeScale3D(FVector(Elite()?6.8f:4.2f,Elite()?6.8f:4.2f,1)); // 100cm mesh: diameter = the melee swing's damage radius x2 (210 / 340)
+    {   // Melee ground warning (0.24): a half disc exactly the shape the swing damages (ASEnemyRules::StrikeHits), dim at full size, with a bright copy growing over it.
+        // Red only: blue means frost, violet-white means lightning. If SM_StrikeSector is not imported yet, fall back to the old ring at the same radius.
+        const float StrikeR=ASEnemyRules::StrikeRadius(Elite());const bool HasSector=ASAssets::HasMesh(TEXT("SM_StrikeSector"));
+        const FString TellMesh=HasSector?TEXT("SM_StrikeSector"):TEXT("SM_Ring");const float TellScale=StrikeR/(HasSector?50.f:53.f);
+        ASAssets::Style(Tell,TellMesh,FLinearColor(.55f,.05f,.02f),0,1.5f);Tell->SetCastShadow(false);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+3));Tell->SetRelativeScale3D(FVector(TellScale,TellScale,1));
+        ASAssets::Style(TellFill,TellMesh,FLinearColor(1.f,.16f,.03f),0,6.f);TellFill->SetCastShadow(false);TellFill->SetRelativeLocation(FVector(0,0,-HalfHeight+4.5f));TellFill->SetRelativeScale3D(FVector(.02f,.02f,1));
+        Tell->SetVisibility(false);TellFill->SetVisibility(false); // Tick shows them while a melee swing is being wound up
+    }
     {   // Flier wings: flat glowing slabs that flap. Fliers also pass over walls (no world-static collision), so v1 needs no pathfinding.
         const bool Flier=Flies();const float WingSize=Boss()?S:1.f; // the flying boss carries wings scaled to its body
         for(auto* Wing:{WingL.Get(),WingR.Get()}) if(Wing) {Wing->SetVisibility(Flier);if(Flier) {ASAssets::Style(Wing,TEXT("Cube"),FLinearColor(.16f,.03f,.26f),.2f,2.5f);Wing->SetCastShadow(false);}}
@@ -90,7 +101,7 @@ void AASEnemy::RefreshLook() {
         ASAssets::Armor(ArmorShield,TEXT("SM_EnemyShield"),Metal,.8f);ArmorShield->SetRelativeLocation(FVector(14,0,15));
         Eye->SetVisibility(false);
     }
-    GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));RefreshStatus();
+    GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));
 }
 
 bool AASEnemy::ShowsStrikeCircle() const {
@@ -120,11 +131,9 @@ void AASEnemy::TickStatusTint() {
     const float Pulse=Frozen?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7)); // frozen: a steady strong tint; others: a pulse
     for(int32 I=0;I<Parts.Num();++I) if(Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),FMath::Lerp(BaseTints[I],Status,FMath::Clamp(Pulse,0.f,.85f)));
 }
-void AASEnemy::RefreshStatus() {
-    const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
-    ASAssets::Style(Aura,TEXT("SM_Ring"),ASData::HitColor(Type),0,3);
-    Aura->SetRelativeLocation(FVector(0,0,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+12));
-    const float Size=Boss()?2.4f:1.3f;Aura->SetRelativeScale3D(FVector(Size,Size,1));Aura->SetVisibility(false); // 0.23.5: the foot ring is gone; TickStatusTint pulses the body instead
+void AASEnemy::EndWindup() {
+    if(!bWinding) return;
+    bWinding=false;ForceNetUpdate(); // the replicated flag is what every machine draws the ground warning from
 }
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
@@ -138,7 +147,7 @@ void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
 bool AASEnemy::TickElements(float Delta) {
     const auto Damage=Elements.Tick(Delta);BurnPending+=Damage.first;PoisonPending+=Damage.second;BleedPending+=Elements.BleedDamage;
     const uint8 Bits=(Elements.Burn>0?1:0)|(Elements.Poison>0?2:0)|(Elements.Frost>0?4:0)|(Elements.Frozen>0?8:0)|(Elements.Bleed>0?16:0);
-    if(StatusBits!=Bits) {StatusBits=Bits;RefreshStatus();ForceNetUpdate();}
+    if(StatusBits!=Bits) {StatusBits=Bits;ForceNetUpdate();}
     const float Now=AS::Time(this);
     if(Now>=NextStatusDamage) {
         NextStatusDamage=Now+.5f;
@@ -159,21 +168,27 @@ void AASEnemy::Tick(float Delta) {
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
-    Tell->SetVisibility(bWinding&&!bTrainingDummy&&ShowsStrikeCircle()); // only attacks that land damage on that circle get one
-    Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside the comment above, so the sniper's aiming beam never showed
+    const bool ShowWarning=bWinding&&!bTrainingDummy&&!SpawnProtected()&&ShowsStrikeCircle(); // a ground warning means "damage lands in exactly this shape when it fills"
+    Tell->SetVisibility(ShowWarning);TellFill->SetVisibility(ShowWarning);
+    Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside a comment, so the sniper's aiming beam never showed
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
         if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Flies()) AnimateFlier();TickStatusTint();}
         Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*(Kind==5?.30f:.12f))));
         Body->SetRelativeRotation(FRotator(bWinding?(Kind==5?-15.f:-7.f)*T:0,0,0));
-        if(bWinding) {Tell->SetRelativeRotation(FRotator(0,S->SimTime*100,0));if(auto* M=Cast<UMaterialInstanceDynamic>(Tell->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+T*6);}
+        if(ShowWarning) { // the bright half disc grows over the dim full-size one; both stay flat on the floor and face the swing
+            const float StrikeR=ASEnemyRules::StrikeRadius(Elite()),Grow=StrikeR/(ASAssets::HasMesh(TEXT("SM_StrikeSector"))?50.f:53.f)*FMath::Max(.04f,T);
+            TellFill->SetRelativeScale3D(FVector(Grow,Grow,1));
+            if(auto* M=Cast<UMaterialInstanceDynamic>(TellFill->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+T*6);
+        }
     }
     if(!HasAuthority()||Health<=0) return;
-    if(SpawnProtected()) {if(Flies()&&GetCharacterMovement()->MovementMode!=MOVE_Flying) GetCharacterMovement()->SetMovementMode(MOVE_Flying);GetCharacterMovement()->StopMovementImmediately();Tell->SetVisibility(false);return;} // a flyer ignores the floor, so it must not be left walking // 0.23.5: no spawn ring (it was informational, not a damage zone)
+    if(SpawnProtected()) {if(Flies()&&GetCharacterMovement()->MovementMode!=MOVE_Flying) GetCharacterMovement()->SetMovementMode(MOVE_Flying);GetCharacterMovement()->StopMovementImmediately();EndWindup();return;} // a flyer ignores the floor, so it must not be left walking
     const bool Active=ASRules::CanDamageTarget(int(S->Phase),bTrainingDummy,false);
     if(!Active) {
         Elements=ASRules::ElementState();BurnPending=PoisonPending=BleedPending=0;
-        if(StatusBits) {StatusBits=0;RefreshStatus();}GetCharacterMovement()->StopMovementImmediately();return;
+        EndWindup(); // an attack wound up when the phase ended must not leave its warning on the floor
+        if(StatusBits) {StatusBits=0;ForceNetUpdate();}GetCharacterMovement()->StopMovementImmediately();return;
     }
     if(!TickElements(Delta)) return;
     if(bTrainingDummy) {
@@ -181,10 +196,10 @@ void AASEnemy::Tick(float Delta) {
         if(S->SimTime-LastDamageTime>5.f) {Health=MaxHealth;Elements=ASRules::ElementState();}
         return;
     }
-    if(Elements.Frozen>0||StunUntil>S->SimTime) {GetCharacterMovement()->StopMovementImmediately();bWinding=false;NextAttack=FMath::Max(NextAttack,S->SimTime+.25f);StuckFor=0;return;}
+    if(Elements.Frozen>0||StunUntil>S->SimTime) {GetCharacterMovement()->StopMovementImmediately();EndWindup();NextAttack=FMath::Max(NextAttack,S->SimTime+.25f);StuckFor=0;return;}
     AASCharacter* Target=nullptr;float Best=FLT_MAX;
     for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) {float D=FVector::DistSquared2D(GetActorLocation(),H->GetActorLocation());if(D<Best){Best=D;Target=H.Get();}}
-    if(!Target) return;
+    if(!Target) {EndWindup();return;} // nobody left to hit: drop the attack and its ground warning
     if(Flies()) {TickFlier(Delta,Target,Best);return;}
     if(GetActorLocation().Z<-500 && S->Arena) {SetActorLocation(S->Arena->SafeEnemyPoint(GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();}
     if(LeapUntil>S->SimTime) {
@@ -254,8 +269,12 @@ void AASEnemy::CommitAttack() {
             if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) for(int32 I=0;I<ASEnemyRules::BroodMinionPair;++I) GM->SpawnMinion(GetActorLocation()+FVector(160,I?150:-150,0),this);
             NextSummon=S->SimTime+ASEnemyRules::BroodSummonCooldown;
         } else Shot(Aim,2,13);
-        for(auto W:S->Enemies) if(auto* E=W.Get()) if(E!=this&&!E->Boss()&&FVector::DistSquared2D(E->GetActorLocation(),GetActorLocation())<550*550&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) {E->Health=FMath::Min(E->MaxHealth,E->Health+8);E->ForceNetUpdate();}
-        S->Effect(6,GetActorLocation(),FVector::UpVector,FLinearColor(.2f,1,.35f),550);return;
+        for(auto W:S->Enemies) if(auto* E=W.Get()) if(E!=this&&!E->Boss()&&FVector::DistSquared2D(E->GetActorLocation(),GetActorLocation())<550*550&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) {
+            const float Before=E->Health;E->Health=FMath::Min(E->MaxHealth,E->Health+8);E->ForceNetUpdate();
+            // 0.24: a green tether to each ally actually healed replaces the old 550 cm green ring (a circle on screen is reserved for damage zones)
+            if(E->Health>Before) S->Effect(9,GetActorLocation()+FVector(0,0,60),(E->GetActorLocation()-GetActorLocation()).GetSafeNormal(),FLinearColor(.2f,1.f,.35f),FVector::Distance(GetActorLocation(),E->GetActorLocation()));
+        }
+        return;
     }
     if(Boss()&&S->bEndless&&S->EndlessWave>50&&Pattern%3!=2) {
         // Endless wave 50+: obviously lethal, telegraphed area attacks and homing shots. Dash to survive.
@@ -286,8 +305,14 @@ void AASEnemy::CommitAttack() {
     } else if(Kind==1) {
         Shot(Aim,2,14); // 0.24: the old "Kind 2 fires three" loop lived here but this branch is Kind 1 only, so it never ran; Kind 2 gets its own duelist kit
     } else {
-        S->Effect(1,GetActorLocation()-FVector(0,0,40),Aim,FLinearColor(1,.1f,.02f),Elite()?340:210);
-        for(auto H:S->Heroes) if(H.IsValid() && FVector::DistSquared2D(GetActorLocation(),H->GetActorLocation())<FMath::Square(Elite()?340.f:210.f) && FVector::DotProduct(Aim,(H->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>0 && AS::ClearSight(GetWorld(),GetActorLocation(),H->GetActorLocation())) H->Hurt(Elite()?24:12,this);
+        // Melee swing (kinds 0, 2, 3). The same shape that was warned (ASEnemyRules::StrikeHits: a half disc of StrikeRadius in front) decides who is hit, and a red crescent
+        // of that radius flashes on release. The colour's alpha 3 marks a hostile swing for the effect (no white wash).
+        const float Radius=ASEnemyRules::StrikeRadius(Elite());
+        S->Effect(17,GetActorLocation()-FVector(0,0,35),Aim,FLinearColor(1.f,.12f,.03f,3.f),Radius);
+        for(auto H:S->Heroes) if(H.IsValid()) {
+            const FVector To=H->GetActorLocation()-GetActorLocation();
+            if(ASEnemyRules::StrikeHits(To.Size2D(),FVector::DotProduct(Aim,To.GetSafeNormal2D()),Radius)&&AS::ClearSight(GetWorld(),GetActorLocation(),H->GetActorLocation())) H->Hurt(ASEnemyRules::StrikeDamage(Elite()),this);
+        }
     }
 }
 bool AASEnemy::Hit(float Damage,AASCharacter* Source) {
@@ -302,7 +327,7 @@ bool AASEnemy::Hit(float Damage,AASCharacter* Source) {
         // Death animation: the enemy leaves every target list and loses collision now, but stays visible while it topples (all machines
         // see Health<=0 and animate), then the server destroys it.
         if(auto* S=AS::State(this)) S->Enemies.Remove(this);
-        GetCharacterMovement()->StopMovementImmediately();GetCharacterMovement()->DisableMovement();
+        EndWindup();GetCharacterMovement()->StopMovementImmediately();GetCharacterMovement()->DisableMovement();
         GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
         SetLifeSpan(ASPresentation::EnemyDeathSeconds);ForceNetUpdate();return true;
     }
@@ -315,7 +340,7 @@ void AASEnemy::Control(int32 Type,const FVector& Direction,float Strength) {
     if(Type==0&&Strength>=700.f) BeginHitReaction(GetActorLocation()-Direction,true);
     if(Boss()) return;
     if(Type==0) LaunchCharacter(Direction.GetSafeNormal2D()*Strength*(Elite()?.5f:1.f),true,false);
-    if(Type==1&&Now>=StunImmuneUntil) {StunUntil=Now+.4f;StunImmuneUntil=Now+2.f;bWinding=false;}
+    if(Type==1&&Now>=StunImmuneUntil) {StunUntil=Now+.4f;StunImmuneUntil=Now+2.f;EndWindup();}
     if(Type==2&&Now>=RootImmuneUntil) {RootUntil=Now+.8f;RootImmuneUntil=Now+3.f;}
 }
 
@@ -337,7 +362,7 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
     if(Trigger<0||Now<NextSynergy) return;
     NextSynergy=Now+3.f;for(int32 I=0;I<9;++I) {SynergySources[I].Reset();SynergyTimes[I]=-100.f;}
     const TCHAR* Names[]={TEXT("SYNERGY: Lightning Blast"),TEXT("SYNERGY: Stormbreak"),TEXT("SYNERGY: Wildfire")};
-    const FLinearColor Colors[]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
+    const FLinearColor Colors[]={FLinearColor(.86f,.74f,1.f),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)}; // 0.24: Lightning Blast is violet-white (lightning), not pale blue; Stormbreak keeps frost's cyan
     const FVector At=GetActorLocation();State->Effect(8,At,FVector::UpVector,Colors[Trigger],470.f);
     for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* NotifyController=Cast<AASPlayerController>(Player->GetOwner())) {NotifyController->Notify(Names[Trigger]);NotifyController->SynergyCue(Trigger);}
     const auto Targets=State->Enemies;
@@ -395,3 +420,26 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
     AddMovementInput(Delta3.GetSafeNormal(),FMath::Clamp(Delta3.Size()/200.f,.2f,1.f),true);
     SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
 }
+
+// ---- Debug: `as.ringaudit` in the in-game console ----
+// Lists every visible ring, arc, sector and flat disc mesh in the world with its owner, place and colour. Run it the moment a stray circle is on screen and send the log lines
+// (search for "AshenRingAudit"): the owner and mesh name identify exactly what draws it. Read-only; changes nothing.
+static void ASRunRingAudit(UWorld* World) {
+    if(!World) return;
+    int32 Count=0;
+    for(TActorIterator<AActor> It(World);It;++It) {
+        TArray<UStaticMeshComponent*> Parts;It->GetComponents<UStaticMeshComponent>(Parts);
+        for(const UStaticMeshComponent* Part:Parts) {
+            if(!Part||!Part->IsVisible()||!Part->GetStaticMesh()) continue;
+            const FString MeshName=Part->GetStaticMesh()->GetName();const FVector Scale=Part->GetComponentScale();
+            const bool Flat=MeshName==TEXT("SM_Ring")||MeshName==TEXT("SM_StrikeSector")||MeshName==TEXT("SM_SwingArc")||MeshName==TEXT("SM_Slash")||(MeshName==TEXT("Cylinder")&&Scale.Z<.1f);
+            if(!Flat) continue;
+            FLinearColor Tint(0,0,0,0);if(auto* M=Cast<UMaterialInstanceDynamic>(Part->GetMaterial(0))) Tint=M->K2_GetVectorParameterValue(TEXT("Tint"));
+            const FVector P=Part->GetComponentLocation();
+            UE_LOG(LogTemp,Display,TEXT("AshenRingAudit: %s (%s) / %s / %s at (%.0f,%.0f,%.0f) scale %.2f tint (%.2f,%.2f,%.2f)"),*It->GetClass()->GetName(),*It->GetName(),*Part->GetName(),*MeshName,P.X,P.Y,P.Z,Scale.X,Tint.R,Tint.G,Tint.B);
+            ++Count;
+        }
+    }
+    UE_LOG(LogTemp,Display,TEXT("AshenRingAudit: %d flat circle/arc meshes visible"),Count);
+}
+static FAutoConsoleCommandWithWorld ASRingAuditCommand(TEXT("as.ringaudit"),TEXT("Lists every visible ring, arc, sector and flat disc mesh (owner, place, colour) to the log so a stray circle can be traced."),FConsoleCommandWithWorldDelegate::CreateStatic(&ASRunRingAudit));

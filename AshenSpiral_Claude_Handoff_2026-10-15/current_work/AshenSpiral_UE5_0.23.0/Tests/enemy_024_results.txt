@@ -1,2 +1,2 @@
-PASS: 16 enemy-rule checks (broodcaller summon cap, cooldown and long-fight regression).
-Engine-independent rules only; Unreal actors, animation, replication and gameplay are not executed.
+PASS: 13438 enemy-rule checks (broodcaller cap/cooldown, melee strike shape, and the strike-sector and swing-arc meshes against those rules).
+Engine-independent rules and source geometry only; Unreal actors, animation, replication and gameplay are not executed.

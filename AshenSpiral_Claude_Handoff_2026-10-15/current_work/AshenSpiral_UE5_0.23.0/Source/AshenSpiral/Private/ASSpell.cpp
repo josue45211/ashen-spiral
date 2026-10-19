@@ -434,12 +434,12 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
     if(Kind==17) {
         // 0.24 swing arc: a frontal crescent whose outer edge is exactly the swing's reach (Size). The colour's alpha carries the combo step (0, 1, 2 = finisher).
         // If the mesh has not been imported on this machine yet (Setup not re-run), fall back to the older slash mesh instead of a stray cube.
-        const int32 Step=FMath::Clamp(FMath::RoundToInt(C.A),0,2);bFinisherArc=Step==2;
+        // Step 3 is a hostile (enemy) swing: flat, bright, and kept at its own colour instead of the white wash players get.
+        const int32 Step=FMath::Clamp(FMath::RoundToInt(C.A),0,3);bFinisherArc=Step>=2;
         const float Tilt=Step==0?24.f:(Step==1?-24.f:0.f); // alternating diagonals, a flat finisher
         SetActorRotation(FRotator(0.f,D.Rotation().Yaw,Tilt));
-        const bool HasArc=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Art/Meshes/SM_SwingArc.SM_SwingArc"))!=nullptr;
-        FLinearColor Tint=FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.4f);
-        ASAssets::Style(Visual,HasArc?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,9.f);
+        FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.4f);
+        ASAssets::Style(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,9.f);
         Duration=bFinisherArc?.28f:.22f;
         if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
         return;

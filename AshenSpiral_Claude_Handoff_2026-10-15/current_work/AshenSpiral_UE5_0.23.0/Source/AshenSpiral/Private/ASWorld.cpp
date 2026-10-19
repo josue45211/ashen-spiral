@@ -34,6 +34,13 @@ UStaticMesh* Mesh(const FString& Name) {
     auto* Result=LoadObject<UStaticMesh>(nullptr,*FString::Printf(TEXT("/Game/Art/Meshes/%s.%s"),*Name,*Name));
     return Result?Result:LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube"));
 }
+bool HasMesh(const FString& Name) {
+    if(Name==TEXT("Cube") || Name==TEXT("Sphere") || Name==TEXT("Cylinder") || Name==TEXT("Cone")) return true;
+    static TMap<FString,bool> Known; // game thread only; a missing mesh stays missing until the editor restarts after the import
+    if(const bool* Found=Known.Find(Name)) return *Found;
+    const bool Present=LoadObject<UStaticMesh>(nullptr,*FString::Printf(TEXT("/Game/Art/Meshes/%s.%s"),*Name,*Name),nullptr,LOAD_NoWarn)!=nullptr;
+    Known.Add(Name,Present);return Present;
+}
 UMaterialInstanceDynamic* Material(UObject* Outer,FLinearColor C,float Metal,float Glow,float Rough) {
     auto* Base=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Surface.M_Surface"));
     if(!Base) Base=UMaterial::GetDefaultMaterial(MD_Surface);

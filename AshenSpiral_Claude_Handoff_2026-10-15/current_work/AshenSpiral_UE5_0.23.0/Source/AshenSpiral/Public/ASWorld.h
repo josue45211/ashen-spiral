@@ -20,6 +20,7 @@ USTRUCT() struct FASLayoutConfig {
 struct FASStation {FVector Position;int32 Menu;FString Name;};
 namespace ASAssets {
     UStaticMesh* Mesh(const FString& Name);
+    bool HasMesh(const FString& Name); // false when a custom mesh has not been imported on this machine yet (Mesh() would silently substitute a cube); cached
     UMaterialInstanceDynamic* Material(UObject* Outer,FLinearColor Color,float Metal=0.f,float Glow=0.f,float Rough=.75f);
     void Armor(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=.8f,float Glow=0.f,float Rough=.42f);
     void Style(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=0.f,float Glow=0.f);

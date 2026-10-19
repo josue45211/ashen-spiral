@@ -19,7 +19,7 @@ public:
     UPROPERTY(Replicated) float MaxHealth=70;
     UPROPERTY(ReplicatedUsing=RefreshLook) bool bTrainingDummy=false;
     UPROPERTY(Replicated) float LastDamageTime=-100.f;
-    UPROPERTY(ReplicatedUsing=RefreshStatus) uint8 StatusBits=0;
+    UPROPERTY(Replicated) uint8 StatusBits=0; // status is shown by TickStatusTint (a body tint pulse); there is no ring component any more
     UPROPERTY(Replicated) float WindupEnd=0;
     UPROPERTY(Replicated) float WindupStart=0;
     UPROPERTY(Replicated) FVector Aim=FVector::ForwardVector;
@@ -41,7 +41,7 @@ public:
     void BeginHitReaction(const FVector& SourceLocation,bool Heavy);
     void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power);
     void Control(int32 Type,const FVector& Direction,float Strength);
-    UFUNCTION() void RefreshStatus();
+    void EndWindup(); // authority: clears bWinding on every path that abandons an attack, so the ground warning can never outlive the attack
     // 0.23.5: the Endless flying boss is a normal boss (Kind 4) that flies; the Gloomwing is Kind 10.
     UPROPERTY(ReplicatedUsing=RefreshLook) bool bAirborne=false;
     int32 DiveCycle=0;
@@ -73,9 +73,9 @@ private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Eye;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WingL; // Gloomwing (flier) wings; hidden on every other kind
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WingR;
-    UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;     // the melee ground warning: a dim half disc at the true strike radius
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> TellFill; // ... and a bright half disc that grows over it as the wind-up completes
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Crown;
-    UPROPERTY() TObjectPtr<UStaticMeshComponent> Aura;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Beam;
     ASRules::ElementState Elements;
     TWeakObjectPtr<AASCharacter> SynergySources[9];
