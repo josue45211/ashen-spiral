@@ -282,7 +282,7 @@ Milestones (7 in the approved plan; M6 was split into four commits):
 6. M6 abilities, elite mutations, boss redesign, readability - DONE: a1 regular kinds (86bc5ce), a2 bulwark/sniper/broodcaller/Gloomwing (9d58ee1), a3 elite mutations (9761588), a4 full ward boss redesign (d1c5d49)
 7. M7 Part C - DONE (cdd275f): C-3 perfect dash, C-1 proc echoes, C-2 impact knockback, C-5 reward ceremony without slow-mo, C-6 four metamorphoses, C-7 death-screen lines
 Not done by design: Tier 1/2 skeletal rigs (Docs/SKELETAL_SPIKE_0.24.md: creature kinds have no animation source; humanoids use baked Mannequin death curves). Parked Part C items: dash-triggered traits, the rest of the metamorphoses.
-Needs Josue: (1) confirm the Epic UE-Only Content licence wording for the baked Mannequin death curves before a commercial release. (2) Tier 1 creature rigs only if you want a Blender-made rig that I cannot verify without playing (it would ship behind the Tier 0 poses).
+Needs Josue: nothing. Answered 2026-10-19 16:42-16:46: Mannequin licence is a non-issue (stays in Unreal); Tier 1 creature rigs stay off (no Blender rigs) until P2 gives art direction after the 0.24 run.
 
 ### Part C, as built (all values TUNABLE in Source/AshenSpiral/Public/ASPartCRules.h)
 - C-3 PERFECT DASH: a blow that lands inside the dash protection or within 0.15 s after it ends is dodged outright: dash refunded (cooldown 0, +1 charge), 0.15 s extra protection, gold ring, "PERFECT DASH" notice. 0.6 s cooldown. Dash-triggered traits are parked.
