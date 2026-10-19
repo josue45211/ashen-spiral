@@ -237,7 +237,10 @@ constexpr int FlierKind=10;
 constexpr float FlierHealthScale=.55f,FlierHover=200.f,FlierOrbitRadius=520.f,FlierDiveSpeed=1500.f,FlierDiveSeconds=.55f,FlierWindup=.7f,FlierContactDamage=18.f;
 // Flying boss (0.23.5): Endless only, on every third boss wave (30, 60, 90...). The boss wave's ordinary Endless boss, airborne: it uses the flier's
 // hover/orbit/dive loop with bigger numbers and alternates each dive with the normal boss attack (blast fields or a shot ring). TUNABLE.
-constexpr float FlyingBossHover=330.f,FlyingBossOrbitRadius=760.f,FlyingBossDiveSpeed=1300.f,FlyingBossDiveSeconds=.8f,FlyingBossWindup=.9f,FlyingBossContactDamage=30.f,FlyingBossContactRange=260.f,FlyingBossFlySpeed=260.f;
+// 0.24: the hover is the height of its centre above the TARGET'S FEET (260 -> 172 cm above the player's centre, inside the 320 cm flier melee reach, and above the 226 cm the
+// boss's own capsule needs to stay off the floor); the orbit radius breathes between Min and Max over OrbitCycle seconds so melee players get a sweep within reach about every 9 s.
+constexpr float FlyingBossHover=260.f,FlyingBossOrbitRadius=760.f,FlyingBossOrbitMin=330.f,FlyingBossOrbitCycle=9.f,FlyingBossDiveSpeed=1300.f,FlyingBossDiveSeconds=.8f,FlyingBossWindup=.9f,FlyingBossContactDamage=30.f,FlyingBossContactRange=260.f,FlyingBossFlySpeed=260.f;
+constexpr float FlierOrbitMin=300.f,FlierOrbitCycle=6.f;
 inline bool FlyingBossWave(int Wave) {return Wave>0&&Wave%10==0&&(Wave/10)%3==0;}
 inline float FlierAttackDelay(float Roll) {return 4.f+2.f*std::clamp(std::isfinite(Roll)?Roll:.5f,0.f,1.f);}
 // Level is the room (story) or the wave (Endless). Roll is a 0..1 random number.

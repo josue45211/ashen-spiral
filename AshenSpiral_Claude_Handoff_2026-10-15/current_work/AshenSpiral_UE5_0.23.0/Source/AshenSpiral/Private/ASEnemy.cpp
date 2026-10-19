@@ -39,6 +39,8 @@ AASEnemy::AASEnemy() {
     Tell=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Anticipation"));Tell->SetupAttachment(RootComponent);
     WingL=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingL"));WingL->SetupAttachment(RootComponent);
     WingR=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingR"));WingR->SetupAttachment(RootComponent);
+    WingBoneL=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingBoneL"));WingBoneL->SetupAttachment(RootComponent);
+    WingBoneR=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("WingBoneR"));WingBoneR->SetupAttachment(RootComponent);
     Crown=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Crown"));Crown->SetupAttachment(RootComponent);
     Beam=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SniperSight"));Beam->SetupAttachment(RootComponent);
     TellFill=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AnticipationFill"));TellFill->SetupAttachment(RootComponent);
@@ -48,7 +50,7 @@ void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnP
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
-    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
+    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
 }
 void AASEnemy::RefreshLook() {
     const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
@@ -76,14 +78,28 @@ void AASEnemy::RefreshLook() {
         ASAssets::Style(TellFill,TellMesh,FLinearColor(1.f,.16f,.03f),0,6.f);TellFill->SetCastShadow(false);TellFill->SetRelativeLocation(FVector(0,0,-HalfHeight+4.5f));TellFill->SetRelativeScale3D(FVector(.02f,.02f,1));
         Tell->SetVisibility(false);TellFill->SetVisibility(false); // Tick shows them while a melee swing is being wound up
     }
-    {   // Flier wings: flat glowing slabs that flap. Fliers also pass over walls (no world-static collision), so v1 needs no pathfinding.
-        const bool Flier=Flies();const float WingSize=Boss()?S:1.f; // the flying boss carries wings scaled to its body
-        for(auto* Wing:{WingL.Get(),WingR.Get()}) if(Wing) {Wing->SetVisibility(Flier);if(Flier) {ASAssets::Style(Wing,TEXT("Cube"),FLinearColor(.16f,.03f,.26f),.2f,2.5f);Wing->SetCastShadow(false);}}
-        if(Flier&&WingL&&WingR) {
-            WingL->SetRelativeLocation(FVector(-8,-70,30)*WingSize);WingR->SetRelativeLocation(FVector(-8,70,30)*WingSize);
-            WingL->SetRelativeScale3D(FVector(.6f,1.2f,.05f)*WingSize);WingR->SetRelativeScale3D(FVector(.6f,1.2f,.05f)*WingSize);
-            GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic,ECR_Ignore);GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);
+    {   // Flier wings (0.24): a bat-style wing made of a membrane mesh and a bone-frame mesh, mirrored for the left side with a negative Y scale. The Gloomwing carries small ones;
+        // the armoured flying boss carries big ones on its back. If the new meshes are not imported on this machine yet, the old flat slabs are used instead. Fliers also pass
+        // over walls (no world-static collision), so they need no pathfinding; ConfineFlight keeps them in the arena.
+        const bool Flier=Flies(),Armoured=Flier&&Boss(); // the flying boss keeps its armoured body; the Gloomwing is the wraith
+        const bool NewWings=ASAssets::HasMesh(TEXT("SM_BossWingMembrane"))&&ASAssets::HasMesh(TEXT("SM_BossWingBones"));
+        const float WingScale=Armoured?2.1f:.9f;                                         // the 138 cm wing becomes about 290 cm for the boss, 125 cm for the Gloomwing
+        const FVector Root=Armoured?FVector(-38.f,46.f,82.f):FVector(-14.f,40.f,22.f);   // right shoulder in actor space; the left side mirrors Y
+        const FLinearColor SkinColor=Armoured?FLinearColor(.28f,.04f,.20f):FLinearColor(.30f,.05f,.38f),FrameColor=Armoured?FLinearColor(.12f,.10f,.11f):FLinearColor(.10f,.06f,.14f);
+        for(int32 Side=0;Side<2;++Side) {
+            auto* Membrane=Side==0?WingL.Get():WingR.Get();auto* Bones=Side==0?WingBoneL.Get():WingBoneR.Get();
+            if(Membrane) Membrane->SetVisibility(Flier);
+            if(Bones) Bones->SetVisibility(Flier&&NewWings);
+            if(!Flier) continue;
+            const float Mirror=Side==0?-1.f:1.f; // WingL sits on -Y
+            if(Membrane) {
+                if(NewWings) {ASAssets::Style(Membrane,TEXT("SM_BossWingMembrane"),SkinColor,.1f,2.2f);Membrane->SetRelativeScale3D(FVector(WingScale,WingScale*Mirror,WingScale));Membrane->SetRelativeLocation(FVector(Root.X,Root.Y*Mirror,Root.Z));}
+                else {ASAssets::Style(Membrane,TEXT("Cube"),FLinearColor(.16f,.03f,.26f),.2f,2.5f);Membrane->SetRelativeScale3D(FVector(.6f,1.2f,.05f)*(Armoured?S:1.f));Membrane->SetRelativeLocation(FVector(-8,70*Mirror,30)*(Armoured?S:1.f));}
+                Membrane->SetCastShadow(false);
+            }
+            if(Bones&&NewWings) {ASAssets::Style(Bones,TEXT("SM_BossWingBones"),FrameColor,.6f,.3f);Bones->SetCastShadow(false);Bones->SetRelativeScale3D(FVector(WingScale,WingScale*Mirror,WingScale));Bones->SetRelativeLocation(FVector(Root.X,Root.Y*Mirror,Root.Z));}
         }
+        if(Flier&&WingL&&WingR) {GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic,ECR_Ignore);GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);}
     }
     ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(1.f,.62f,.12f),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
     if(Humanoid) {
@@ -133,7 +149,7 @@ void AASEnemy::TickStatusTint() {
 }
 void AASEnemy::EndWindup() {
     if(!bWinding) return;
-    bWinding=false;ForceNetUpdate(); // the replicated flag is what every machine draws the ground warning from
+    bWinding=false;Ability=uint8(ASEnemyRules::AbilityNone);ForceNetUpdate(); // the replicated flag is what every machine draws the ground warning from
 }
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
@@ -376,47 +392,89 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
     }
 }
 
+void AASEnemy::ConfineFlight(float CapsuleHalfHeight) {
+    // 0.24: fliers have no wall or floor collision, so they are held inside the arena by explicit limits (sides, floor, ceiling). Before this a flying boss could orbit
+    // outside the walls whenever its target stood near an edge, and nothing ever rescued a flier that ended up below the map. Authority only: clients follow replication.
+    auto* S=AS::State(this);if(!S||!HasAuthority()) return;
+    const FVector Here=GetActorLocation();FVector P=Here;
+    if(S->Arena) P=S->Arena->ClampToArena(P,S->bEndless?-ASEnemyRules::FlightEdgeMargin:ASEnemyRules::FlightRoomSlack);
+    P.Z=ASEnemyRules::ClampFlightHeight(P.Z,0.f,CapsuleHalfHeight);
+    if(P.Equals(Here,1.f)) return;
+    SetActorLocation(P,false,nullptr,ETeleportType::None);
+    if(auto* Move=GetCharacterMovement()) { // stop pushing against the limit: drop the part of the velocity that points back out
+        const FVector Out=(Here-P).GetSafeNormal();
+        if(!Out.IsNearlyZero()) {const float Into=FVector::DotProduct(Move->Velocity,Out);if(Into>0.f) Move->Velocity-=Out*Into;}
+    }
+}
+void AASEnemy::Molt() {
+    // The flying boss's half-health scream has finished: it bursts out hatchlings (small Gloomwings) in a ring around its wings. Each one appears with its own shard burst
+    // and the boss with a larger one, so the spawn is visible and loud. Spawning respects the enemy cap (SpawnMinion refuses past it).
+    auto* S=AS::State(this);auto* GM=GetWorld()?GetWorld()->GetAuthGameMode<AASGameMode>():nullptr;if(!HasAuthority()||!S||!GM) return;
+    const FVector Here=GetActorLocation();
+    S->Effect(11,Here,FVector::UpVector,FLinearColor(.8f,.25f,.9f),3.f); // boss-sized burst (tier 3)
+    const int32 Count=ASEnemyRules::MoltHatchlings(S->PlayerArray.Num());
+    for(int32 I=0;I<Count;++I) {
+        const float Angle=UE_TWO_PI*float(I)/float(Count)+float(GetUniqueID()%7)*.3f;
+        FVector At=Here+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0.f)*(Boss()?330.f:200.f)+FVector(0,0,FMath::Sin(Angle*2.f)*40.f);
+        if(S->Arena) At=S->Arena->ClampToArena(At,S->bEndless?-ASEnemyRules::FlightEdgeMargin:ASEnemyRules::FlightRoomSlack);
+        At.Z=ASEnemyRules::ClampFlightHeight(At.Z,0.f,83.f);
+        if(GM->SpawnMinion(At,this,ASExpedition::FlierKind,ASEnemyRules::HatchlingHealthScale,true)) S->Effect(11,At,FVector::UpVector,FLinearColor(.7f,.2f,.9f),2.f); // elite-sized burst
+    }
+}
 void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared) {
     auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
     if(Move->MovementMode!=MOVE_Flying) Move->SetMovementMode(MOVE_Flying);
     const bool Big=Boss(); // the flying boss: same loop, bigger numbers
-    const float Hover=Big?ASExpedition::FlyingBossHover:ASExpedition::FlierHover,OrbitRadius=Big?ASExpedition::FlyingBossOrbitRadius:ASExpedition::FlierOrbitRadius;
+    const float Hover=Big?ASExpedition::FlyingBossHover:ASExpedition::FlierHover;
+    const float OrbitMax=Big?ASExpedition::FlyingBossOrbitRadius:ASExpedition::FlierOrbitRadius,OrbitMin=Big?ASExpedition::FlyingBossOrbitMin:ASExpedition::FlierOrbitMin,OrbitCycle=Big?ASExpedition::FlyingBossOrbitCycle:ASExpedition::FlierOrbitCycle;
     const float DiveSpeed=Big?ASExpedition::FlyingBossDiveSpeed:ASExpedition::FlierDiveSpeed,DiveSeconds=Big?ASExpedition::FlyingBossDiveSeconds:ASExpedition::FlierDiveSeconds;
     const float Windup=Big?ASExpedition::FlyingBossWindup:ASExpedition::FlierWindup,ContactRange=Big?ASExpedition::FlyingBossContactRange:170.f;
     const float ContactDamage=Big?ASExpedition::FlyingBossContactDamage:ASExpedition::FlierContactDamage;
     const float Half=GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f;
+    ConfineFlight(Half); // first thing every tick: whatever happened last frame, the flier is back inside the arena before it decides anything
     const float Now=S->SimTime;const FVector Here=GetActorLocation(),There=Target->GetActorLocation();
     const float FloorZ=There.Z-88.f; // the target's feet: fliers hover relative to the fight, not to the terrain under them
-    const float LowestZ=FloorZ+(Big?Half+40.f:70.f); // never dive below this (the boss's body is much taller)
+    const float LowestZ=ASEnemyRules::ClampFlightHeight(-1.e9f,0.f,Half); // the lowest the flier's centre may ever be: its capsule stays off the floor
     Move->MaxFlySpeed=(Big?ASExpedition::FlyingBossFlySpeed:330.f)*ASArsenal::EnemySpeedScale(Big)*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f);
     if(DiveUntil>Now) {
-        // Dive: fast, straight through where the player was; one contact hit; pull up on arrival or near the floor.
+        // Dive: fast, straight through where the player was; one contact hit. The Gloomwing dives down onto the player; the big boss flies it LEVEL at its hover height (its body is
+        // far too tall to dive onto the floor), so a pass is a low sweep the player can duck, dash or hit. It ends on arrival, on timeout, or near the floor.
         Move->Velocity=DiveDirection*DiveSpeed;
         if(FVector::Dist(Here,There)<ContactRange&&Now>LastContact&&Here.Z>FloorZ-60.f) {LastContact=Now+.6f;Target->Hurt(ContactDamage,this);}
-        if(Here.Z<=LowestZ||FVector::Dist(Here,DiveTarget)<80.f) DiveUntil=0.f;
+        const bool Arrived=Big?FVector::Dist2D(Here,DiveTarget)<80.f:FVector::Dist(Here,DiveTarget)<80.f;
+        if(Arrived||(!Big&&Here.Z<=FMath::Max(LowestZ,FloorZ+70.f))) DiveUntil=0.f;
         return;
     }
     if(bWinding) {
         Move->StopMovementImmediately();SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
         if(Now>=WindupEnd) {
-            bWinding=false;
+            bWinding=false;const uint8 Done=Ability;Ability=uint8(ASEnemyRules::AbilityNone);
+            if(Done==ASEnemyRules::AbilityMolt) {Molt();NextAttack=Now+2.5f;ForceNetUpdate();return;}
             if(Big&&(++DiveCycle%2)==0) { // every second attack of the flying boss is its normal boss attack (blast fields or a shot ring), not a dive
                 CommitAttack();NextAttack=Now+3.f;ForceNetUpdate();return;
             }
-            DiveTarget=There;DiveDirection=((There-FVector(0,0,20.f))-Here).GetSafeNormal();
+            DiveTarget=There;
+            FVector Toward=Big?FVector(There.X-Here.X,There.Y-Here.Y,0.f):((There-FVector(0,0,20.f))-Here);
+            DiveDirection=Toward.GetSafeNormal();if(DiveDirection.IsNearlyZero()) DiveDirection=GetActorForwardVector();
             DiveUntil=Now+DiveSeconds;NextAttack=Now+(Big?3.f:ASExpedition::FlierAttackDelay(FMath::FRand()));ForceNetUpdate();
         }
         return;
     }
-    if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f+(Big?400.f:0.f))) {
-        Aim=(There-Here).GetSafeNormal2D();WindupStart=Now;WindupEnd=Now+Windup;bWinding=true;ForceNetUpdate();return;
+    if(Big&&ASEnemyRules::MoltDue(bMolted,Health,MaxHealth)) { // at half health the boss rears back and screams before it releases its hatchlings (once per fight)
+        bMolted=true;Ability=uint8(ASEnemyRules::AbilityMolt);Aim=(There-Here).GetSafeNormal2D();
+        WindupStart=Now;WindupEnd=Now+ASEnemyRules::MoltWindupSeconds;bWinding=true;ForceNetUpdate();return;
     }
-    // Circle the target at a fixed radius and hover height, with a slow bob.
+    if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f+(Big?400.f:0.f))) {
+        Aim=(There-Here).GetSafeNormal2D();Ability=uint8(ASEnemyRules::AbilityDive);WindupStart=Now;WindupEnd=Now+Windup;bWinding=true;ForceNetUpdate();return;
+    }
+    // Circle the target at a breathing radius and the hover height, with a slow bob. The radius swings between OrbitMin (a sweep inside melee reach) and OrbitMax.
     if(OrbitAngle==0.f) {OrbitSign=(GetUniqueID()&1)?1.f:-1.f;OrbitAngle=float(GetUniqueID()%628)/100.f+.01f;}
     OrbitAngle+=Delta*(Big?.5f:.9f)*OrbitSign;
-    const FVector Orbit=There+FVector(FMath::Cos(OrbitAngle),FMath::Sin(OrbitAngle),0.f)*OrbitRadius;
+    const float Radius=ASEnemyRules::OrbitRadius(Now+float(GetUniqueID()%7),OrbitMin,OrbitMax,OrbitCycle);
+    FVector Orbit=There+FVector(FMath::Cos(OrbitAngle),FMath::Sin(OrbitAngle),0.f)*Radius;
+    if(S->Arena) Orbit=S->Arena->ClampToArena(Orbit,S->bEndless?-ASEnemyRules::FlightEdgeMargin:ASEnemyRules::FlightRoomSlack); // never steer to a point outside the arena
     const float Bob=FMath::Sin(Now*2.3f+float(GetUniqueID()%7))*18.f;
-    const FVector Delta3=FVector(Orbit.X,Orbit.Y,FloorZ+Hover+Bob)-Here;
+    const FVector Delta3=FVector(Orbit.X,Orbit.Y,ASEnemyRules::ClampFlightHeight(FloorZ+Hover+Bob,0.f,Half))-Here;
     AddMovementInput(Delta3.GetSafeNormal(),FMath::Clamp(Delta3.Size()/200.f,.2f,1.f),true);
     SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
 }

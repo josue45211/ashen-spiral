@@ -67,7 +67,7 @@ void AASCharacter::ResolveMelee() {
     bool Contact=false,RangeTicked=false;
     const auto Targets=S->Enemies;
     for(auto W:Targets) if(auto* E=W.Get()) if(E->Health>0&&CanDamage(E)
-        &&FMath::Abs(GetActorLocation().Z-E->GetActorLocation().Z)<230.f
+        &&FMath::Abs(GetActorLocation().Z-E->GetActorLocation().Z)<ASMelee::VerticalReachFor(E->Flies())
         &&FVector::DistSquared2D(GetActorLocation(),E->GetActorLocation())<FMath::Square(Reach+E->GetCapsuleComponent()->GetScaledCapsuleRadius())
         &&(Build.Weapon==1?ASHammer::Frontal(FVector::DotProduct(Forward,(E->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())):FVector::DotProduct(Forward,(E->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>-.05f)
         &&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation()))

@@ -285,7 +285,7 @@ struct NavGrid {
         return {};
     }
     void KeepConnected(int Start) {
-        if(!Valid(Start)) {std::fill(Open.begin(),Open.end(),0);return;}
+        if(!Valid(Start)) {std::fill(Open.begin(),Open.end(),std::uint8_t(0));return;}
         std::vector<std::uint8_t> Seen(Open.size(),0);std::vector<int> Q{Start};Seen[Start]=1;
         for(std::size_t K=0;K<Q.size();++K) for(int N:{Q[K]-1,Q[K]+1,Q[K]-Width,Q[K]+Width}) {
             if(CanStep(Q[K],N)&&!Seen[N]) {Seen[N]=1;Q.push_back(N);}
@@ -313,7 +313,7 @@ struct ElementState {
         if(Kind==4) {Frost=std::min(100.f,Frost+34.f);if(Frost>=100&&Immune<=0) {Frozen=BossTarget?0.f:.8f;Immune=3.8f;Frost=70;}}
     }
     std::pair<float,float> Tick(float Delta) {
-        BleedDamage=0;if(!std::isfinite(Delta)||Delta<=0) return {0,0};
+        BleedDamage=0;if(!std::isfinite(Delta)||Delta<=0) return {0.f,0.f};
         const float FireDamage=std::min(Delta,Burn)*BurnDPS,PoisonDamage=std::min(Delta,Poison)*PoisonDPS*PoisonStacks;
         BleedDamage=std::min(Delta,Bleed)*BleedDPS*BleedStacks;Bleed=std::max(0.f,Bleed-Delta);
         Burn=std::max(0.f,Burn-Delta);Poison=std::max(0.f,Poison-Delta);Frost=std::max(0.f,Frost-Delta*12.f);

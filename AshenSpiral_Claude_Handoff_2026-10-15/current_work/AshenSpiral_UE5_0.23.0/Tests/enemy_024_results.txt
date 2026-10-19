@@ -1,2 +1,2 @@
-PASS: 13438 enemy-rule checks (broodcaller cap/cooldown, melee strike shape, and the strike-sector and swing-arc meshes against those rules).
+PASS: 18707 enemy-rule checks (broodcaller cap/cooldown, melee strike shape, flier limits, flying-boss reach and molt, and the strike-sector and swing-arc meshes against those rules).
 Engine-independent rules and source geometry only; Unreal actors, animation, replication and gameplay are not executed.

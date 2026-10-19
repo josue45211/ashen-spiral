@@ -24,6 +24,7 @@ public:
     UPROPERTY(Replicated) float WindupStart=0;
     UPROPERTY(Replicated) FVector Aim=FVector::ForwardVector;
     UPROPERTY(Replicated) bool bWinding=false;
+    UPROPERTY(Replicated) uint8 Ability=0; // ASEnemyRules::Ability*: which attack is being wound up (0 = none), so every machine poses the right wind-up
     float SlowUntil=0,PulledUntil=0,MarkUntil=0,StunUntil=0,RootUntil=0,StunImmuneUntil=0,RootImmuneUntil=0;
     float LastHitTime=-10,NextDamageNumber=0;
     TWeakObjectPtr<AASCharacter> LastHitter;
@@ -60,8 +61,12 @@ private:
     bool bFootPlanted[2]={false,false};
     bool bVisualInitialized=false;
     void AnimateArmor(float Delta,float Windup);
+    void AnimateFlightPose(float Delta,float Windup); // the armoured flying boss: legs trail, torso leans into its motion, arms rise with the wind-up (no walking gait in the air)
     void AnimateDeath();
     void AnimateFlier();
+    void ConfineFlight(float CapsuleHalfHeight); // authority: keep a flier inside the arena (sides, floor, ceiling); fliers have no world collision
+    void Molt(); // authority: the flying boss's half-health scream; bursts out hatchlings from its wings
+    bool bMolted=false;
     bool ShowsStrikeCircle() const;
     void TickStatusTint();
     bool bTintApplied=false;
@@ -71,8 +76,10 @@ private:
     float DeathSeenAt=-1.f;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Eye;
-    UPROPERTY() TObjectPtr<UStaticMeshComponent> WingL; // Gloomwing (flier) wings; hidden on every other kind
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> WingL; // flier wings (membrane); hidden on every other kind
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WingR;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> WingBoneL; // the wing's bone frame, a second mesh so it can take its own colour; flaps with the membrane
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> WingBoneR;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;     // the melee ground warning: a dim half disc at the true strike radius
     UPROPERTY() TObjectPtr<UStaticMeshComponent> TellFill; // ... and a bright half disc that grows over it as the wind-up completes
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Crown;

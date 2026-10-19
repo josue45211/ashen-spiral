@@ -1,5 +1,7 @@
 // Native tests for the engine-independent 0.24 enemy rules (ASEnemyRules.h) and the source meshes that must agree with them. Not Unreal gameplay tests.
 #include "../Source/AshenSpiral/Public/ASEnemyRules.h"
+#include "../Source/AshenSpiral/Public/ASExpeditionRules.h"
+#include "../Source/AshenSpiral/Public/ASMeleeRules.h"
 #include <array>
 #include <cmath>
 #include <cstdlib>
@@ -79,6 +81,48 @@ int main(int argc,char** argv) {
     Check(!StrikeHits(NaN,.5f,210.f)&&!StrikeHits(100.f,NaN,210.f)&&!StrikeHits(100.f,.5f,NaN)&&!StrikeHits(Inf,.5f,210.f),"non-finite inputs never hit");
     Check(StrikeHits(339.f,.3f,StrikeRadius(true))&&!StrikeHits(339.f,.3f,StrikeRadius(false)),"the elite swing reaches further than the plain one");
 
+    // ---- Fliers: flight limits ----
+    {
+        const float BossHalf=187.5f*2.15f*.5f; // the flying boss's capsule half-height (ASEnemy::RefreshLook)
+        const float Low=BossHalf+FlightFloorClearance;
+        Check(ClampFlightHeight(0.f,0.f,BossHalf)==Low&&ClampFlightHeight(-5000.f,0.f,BossHalf)==Low,"a flier's centre is lifted until its capsule clears the floor");
+        Check(ClampFlightHeight(400.f,0.f,BossHalf)==400.f,"a legal height is left alone");
+        Check(ClampFlightHeight(9000.f,0.f,BossHalf)==FlightCeiling&&ClampFlightHeight(1.e9f,0.f,BossHalf)==FlightCeiling,"a flier cannot climb above the ceiling");
+        Check(ClampFlightHeight(NaN,0.f,BossHalf)==Low&&ClampFlightHeight(Inf,0.f,BossHalf)==FlightCeiling,"non-finite heights land on a legal height");
+        Check(ClampFlightHeight(300.f,100.f,BossHalf)==std::max(300.f,100.f+Low),"the band follows the floor height");
+        for(float Z=-3000.f;Z<=6000.f;Z+=37.f) {const float C=ClampFlightHeight(Z,0.f,BossHalf);Check(C>=Low&&C<=FlightCeiling&&ClampFlightHeight(C,0.f,BossHalf)==C,"height clamp stays in the band and is idempotent");}
+        float X=9000.f,Y=-9000.f;ClampToRect(-2840.f,2840.f,-2840.f,2840.f,X,Y);
+        Check(X==2840.f&&Y==-2840.f,"a point far outside the arena lands on its nearest edge");
+        X=100.f;Y=-300.f;ClampToRect(-2840.f,2840.f,-2840.f,2840.f,X,Y);Check(X==100.f&&Y==-300.f,"a point inside the arena is not moved");
+        X=NaN;Y=Inf;ClampToRect(-10.f,30.f,-20.f,40.f,X,Y);Check(X==10.f&&Y==40.f,"non-finite coordinates land at the rectangle's centre or edge, never crash");
+        X=0.f;Y=0.f;ClampToRect(50.f,-50.f,10.f,10.f,X,Y);Check(std::isfinite(X)&&std::isfinite(Y),"an inverted rectangle is normalised");
+        // The Endless arena is +-3100 cm; a flier steering for a point past the edge is always brought back inside the margin.
+        unsigned Seed=7;auto Rand=[&Seed]() {Seed=Seed*1664525u+1013904223u;return float((Seed>>8)&0xFFFF)/65535.f;};
+        for(int I=0;I<5000;++I) {float Px=(Rand()-.5f)*20000.f,Py=(Rand()-.5f)*20000.f;ClampToRect(-3100.f+FlightEdgeMargin,3100.f-FlightEdgeMargin,-3100.f+FlightEdgeMargin,3100.f-FlightEdgeMargin,Px,Py);
+            Check(std::fabs(Px)<=3100.f-FlightEdgeMargin+.01f&&std::fabs(Py)<=3100.f-FlightEdgeMargin+.01f,"a confined flier is always inside the Endless arena margin");}
+
+        // ---- The flying boss must be reachable by melee ----
+        Check(ASExpedition::FlyingBossHover>=Low,"the boss hover keeps its centre above the minimum height its own capsule needs (otherwise the floor clamp would fight the hover)");
+        Check(ASExpedition::FlyingBossHover-88.f+18.f<ASMelee::FlierVerticalReach,"the boss hovers within the flier vertical melee reach of a standing player (bob included)");
+        Check(ASMelee::VerticalReachFor(true)>ASMelee::VerticalReachFor(false)&&ASMelee::VerticalReachFor(false)==230.f,"fliers get extra vertical reach; everything else keeps 230 cm");
+        Check(ASMelee::TargetInReach(100.f,280.f,40.f,229.f,1.f,.3f)&&!ASMelee::TargetInReach(100.f,280.f,40.f,231.f,1.f,.3f),"the default vertical limit is still 230 cm");
+        Check(ASMelee::TargetInReach(100.f,280.f,40.f,300.f,1.f,.3f,ASMelee::VerticalReachFor(true))&&!ASMelee::TargetInReach(100.f,280.f,40.f,330.f,1.f,.3f,ASMelee::VerticalReachFor(true)),"a flier within 320 cm above is in reach, beyond it is not");
+        Check(ASExpedition::FlyingBossOrbitMin<=280.f+80.f,"at the near end of its orbit the boss is inside a basic swing's reach plus its own radius");
+        Check(ASExpedition::FlierOrbitMin<=280.f+40.f,"a Gloomwing's near orbit is inside a basic swing's reach plus its radius");
+        Check(OrbitRadius(0.f,330.f,760.f,9.f)==330.f&&std::fabs(OrbitRadius(4.5f,330.f,760.f,9.f)-760.f)<.01f&&std::fabs(OrbitRadius(9.f,330.f,760.f,9.f)-330.f)<.01f,"the orbit radius starts near, peaks half a cycle later and returns");
+        int Close=0,Total=0;for(float T=0.f;T<9.f;T+=.01f) {++Total;if(OrbitRadius(T,330.f,760.f,9.f)<=360.f) ++Close;}
+        Check(Close>=Total/10,"the boss spends a real share of each cycle within melee reach");
+        Check(OrbitRadius(NaN,330.f,760.f,9.f)==760.f&&OrbitRadius(1.f,330.f,760.f,0.f)==760.f,"a bad time or cycle length falls back to the far orbit");
+    }
+
+    // ---- Flying boss: the molt ----
+    Check(MoltDue(false,50.f,100.f)&&MoltDue(false,1.f,100.f)&&!MoltDue(false,51.f,100.f),"the molt triggers at half health");
+    Check(!MoltDue(true,10.f,100.f)&&!MoltDue(false,0.f,100.f)&&!MoltDue(false,-5.f,100.f),"the molt happens once and never on a dead boss");
+    Check(!MoltDue(false,NaN,100.f)&&!MoltDue(false,50.f,NaN)&&!MoltDue(false,50.f,0.f)&&!MoltDue(false,Inf,100.f),"bad health values never trigger the molt");
+    Check(MoltHatchlings(1)==4&&MoltHatchlings(2)==6&&MoltHatchlings(0)==4,"four hatchlings solo, six in co-op");
+    Check(MoltWindupSeconds>1.f&&MoltWindupSeconds<3.f&&HatchlingHealthScale>0.f&&HatchlingHealthScale<1.f,"the molt scream is a readable beat and hatchlings are weaker than a full Gloomwing");
+    Check(AbilityNone==0&&AbilityDive!=AbilityMolt&&AbilityDive>0&&AbilityMolt>0,"ability ids are distinct and non-zero");
+
     // ---- Source meshes must agree with the rules they illustrate ----
     if(argc>1) {
         const std::string Root=argv[1];
@@ -109,6 +153,6 @@ int main(int argc,char** argv) {
             Check(UnderTop(Arc,49.5*std::cos(A),49.5*std::sin(A),1.6),"the swing arc covers the whole frontal half just inside its outer edge");
         }
     }
-    std::printf("PASS: %lld enemy-rule checks (broodcaller cap/cooldown, melee strike shape, and the strike-sector and swing-arc meshes against those rules).\nEngine-independent rules and source geometry only; Unreal actors, animation, replication and gameplay are not executed.\n",Checks);
+    std::printf("PASS: %lld enemy-rule checks (broodcaller cap/cooldown, melee strike shape, flier limits, flying-boss reach and molt, and the strike-sector and swing-arc meshes against those rules).\nEngine-independent rules and source geometry only; Unreal actors, animation, replication and gameplay are not executed.\n",Checks);
     return 0;
 }

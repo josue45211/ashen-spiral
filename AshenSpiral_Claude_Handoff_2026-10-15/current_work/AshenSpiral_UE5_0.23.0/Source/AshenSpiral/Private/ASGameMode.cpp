@@ -777,12 +777,16 @@ void AASGameMode::ToggleWager(AASPlayerController* PC,bool Enabled) {
     PS->bWagerVote=Enabled;PS->ForceNetUpdate();PC->Notify(PS->bWagerVote?TEXT("Stakes enabled until unchecked. All players must opt in; harder clears improve rare reward odds."):TEXT("Stakes disabled. The next chamber returns to normal difficulty and reward odds."));
 }
 
-AASEnemy* AASGameMode::SpawnMinion(const FVector& Near,AASEnemy* Summoner) {
+AASEnemy* AASGameMode::SpawnMinion(const FVector& Near,AASEnemy* Summoner,int32 MinionKind,float HealthScale,bool bExactPosition) {
     auto* S=AS::State(this);if(!S||!S->Arena||S->Phase!=EASPhase::Combat||S->Enemies.Num()+Queued>=ASRules::MaxEnemies) return nullptr;
-    FVector At;if(!S->Arena->FreeEnemyPoint(Near,At)) return nullptr;const FTransform T(At);
+    FVector At=Near;if(!bExactPosition&&!S->Arena->FreeEnemyPoint(Near,At)) return nullptr;
+    if(At.ContainsNaN()) return nullptr; // a non-finite spawn point must never reach the spawn
+    const FTransform T(At);
     auto* E=GetWorld()->SpawnActorDeferred<AASEnemy>(AASEnemy::StaticClass(),T,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
     if(!E) return nullptr;
-    E->Kind=0;E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);E->MaxHealth=(45.f+15.f*E->Ward)*ASBuild::ChallengeHealth(S->Challenge)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);E->Health=E->MaxHealth;
+    // Minions scale with the Endless wave too (before 0.24 they stayed at their story-mode health, so a late Broodcaller brood died to a single hit).
+    const float WaveScale=ASExpedition::EnemyHealthScale(S->Difficulty,S->bEndless?S->EndlessWave:0,0);
+    E->Kind=MinionKind;E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);E->MaxHealth=(45.f+15.f*E->Ward)*ASBuild::ChallengeHealth(S->Challenge)*(S->PlayerArray.Num()==2?1.45f:1.f)*WaveScale*(MinionKind==ASExpedition::FlierKind?ASExpedition::FlierHealthScale:1.f)*FMath::Max(.05f,HealthScale);E->Health=E->MaxHealth;
     E->Summoner=Summoner; // lets the summoner count its living brood (Broodcaller cap)
     UGameplayStatics::FinishSpawningActor(E,T);S->Effect(3,At,FVector::UpVector,FLinearColor(.2f,1,.4f),100);
     return E;

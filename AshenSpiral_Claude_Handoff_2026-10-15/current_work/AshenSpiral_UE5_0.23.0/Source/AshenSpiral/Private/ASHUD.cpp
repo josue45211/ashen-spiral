@@ -235,7 +235,7 @@ void AASHUD::DrawHUD() {
         const float Reach=H->MeleeReachFor(0);const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D();
         for(auto W:S->Enemies) if(const auto* E=W.Get()) if(E->Health>0&&H->CanDamage(E)) {
             const FVector To=E->GetActorLocation()-H->GetActorLocation();
-            if(ASMelee::TargetInReach(To.Size2D(),Reach,E->GetCapsuleComponent()->GetScaledCapsuleRadius(),To.Z,FVector::DotProduct(Forward,To.GetSafeNormal2D()),.3f)) {InReach=true;break;}
+            if(ASMelee::TargetInReach(To.Size2D(),Reach,E->GetCapsuleComponent()->GetScaledCapsuleRadius(),To.Z,FVector::DotProduct(Forward,To.GetSafeNormal2D()),.3f,ASMelee::VerticalReachFor(E->Flies()))) {InReach=true;break;}
         }
     }
     const float AimScale=Settings?Settings->CrosshairScale:1.f,R=10.f*AimScale*(InReach?1.35f:1.f),Gap=4.f*AimScale;

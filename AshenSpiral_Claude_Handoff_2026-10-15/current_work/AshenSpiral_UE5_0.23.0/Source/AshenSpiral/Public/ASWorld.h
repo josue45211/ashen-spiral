@@ -58,6 +58,7 @@ public:
     int32 VaultInteraction(const FVector& Position) const;
     FVector EnemySpawn(const FVector& Near,FRandomStream& Random) const;
     FVector SafeEnemyPoint(const FVector& Near) const;
+    FVector ClampToArena(const FVector& Point,float Margin) const; // nearest point inside any room box, each grown by Margin (negative = shrunk): keeps fliers, which ignore walls, in the arena
     bool FreeEnemyPoint(const FVector& Near,FVector& Point) const;
     FVector2D CellHalfSize(int32 Index) const;
     void MapBounds(FVector& Center,float& Span) const;

@@ -833,6 +833,18 @@ bool AASWorld::JumpPlan(const FVector& From,const FVector& To,FVector& Takeoff,F
     }
     return false;
 }
+FVector AASWorld::ClampToArena(const FVector& P,float Margin) const {
+    if(Layout.Cells.empty()||!FMath::IsFinite(P.X)||!FMath::IsFinite(P.Y)) return P;
+    double Best=DBL_MAX;FVector Result=P;
+    for(int32 I=0;I<int32(Layout.Cells.size());++I) {
+        const FVector C=CellPosition(I);const FVector2D H=CellHalfSize(I);
+        const float Hx=FMath::Max(0.f,float(H.X)+Margin),Hy=FMath::Max(0.f,float(H.Y)+Margin);
+        const FVector Q(FMath::Clamp(P.X,C.X-Hx,C.X+Hx),FMath::Clamp(P.Y,C.Y-Hy,C.Y+Hy),P.Z);
+        const double D=FVector::DistSquared2D(P,Q);
+        if(D<Best) {Best=D;Result=Q;}
+    }
+    return Result;
+}
 FVector AASWorld::SafeEnemyPoint(const FVector& Near) const {
     const int32 I=NearestNode(Near);return (I>=0?NavPoint(I):CellPosition(0))+FVector(0,0,240);
 }

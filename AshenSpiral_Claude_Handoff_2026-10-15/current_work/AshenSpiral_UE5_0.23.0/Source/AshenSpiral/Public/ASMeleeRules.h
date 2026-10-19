@@ -6,9 +6,12 @@
 namespace ASMelee {
 // Reach teaching (0.23.5): the crosshair turns gold and opens up while an enemy stands inside the swing's real reach (same test as the swing itself,
 // but with a stricter "in front" cone), so players feel the range before they swing. Every contact still ticks faintly (0.23.4).
-inline bool TargetInReach(float Distance2D,float Reach,float TargetRadius,float DeltaZ,float ForwardDot,float MinDot) {
+// How far above or below the swinger (centre to centre) a swing still connects. Fliers hover above the floor and have tall bodies, so they get more room (0.24).
+constexpr float VerticalReach=230.f,FlierVerticalReach=320.f;
+inline float VerticalReachFor(bool TargetFlies) {return TargetFlies?FlierVerticalReach:VerticalReach;}
+inline bool TargetInReach(float Distance2D,float Reach,float TargetRadius,float DeltaZ,float ForwardDot,float MinDot,float VerticalLimit=VerticalReach) {
     return std::isfinite(Distance2D)&&std::isfinite(Reach)&&std::isfinite(DeltaZ)&&std::isfinite(ForwardDot)&&Reach>0.f
-        &&Distance2D<Reach+std::max(0.f,std::isfinite(TargetRadius)?TargetRadius:0.f)&&std::fabs(DeltaZ)<230.f&&ForwardDot>=MinDot;
+        &&Distance2D<Reach+std::max(0.f,std::isfinite(TargetRadius)?TargetRadius:0.f)&&std::fabs(DeltaZ)<VerticalLimit&&ForwardDot>=MinDot;
 }
 // A pending swing stays valid while the game phase and the arena epoch are unchanged. An Endless arena shuffle does not change the epoch.
 // Countdown (1) turning into Combat (2) is the same fight starting, not a new context: a swing or leap begun while enemies spawn must survive it (0.23.5).

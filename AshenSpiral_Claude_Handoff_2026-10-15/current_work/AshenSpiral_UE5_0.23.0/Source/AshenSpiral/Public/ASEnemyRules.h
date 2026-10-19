@@ -17,6 +17,47 @@ inline bool StrikeHits(float Distance2D,float ForwardDot,float Radius) {
     return std::isfinite(Distance2D)&&std::isfinite(ForwardDot)&&std::isfinite(Radius)&&Distance2D<Radius&&ForwardDot>0.f;
 }
 
+// ---- Abilities (replicated byte; 0 = none) ----
+// The id of the attack being wound up, so every machine can pose the right wind-up. New kits extend this list; ids are never reused.
+constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2;
+
+// ---- Fliers: where they may go (Gloomwing and the flying boss) ----
+// Fliers ignore walls and floor collision, so they are kept inside the arena by explicit limits. TUNABLE.
+constexpr float FlightFloorClearance=25.f;   // the capsule's bottom never goes below this height above the floor
+constexpr float FlightCeiling=1100.f;        // the capsule's centre never goes above this height above the floor
+constexpr float FlightEdgeMargin=260.f;      // Endless: stay this far inside the arena walls
+constexpr float FlightRoomSlack=300.f;       // story rooms: may overhang a room by this much (corridors between rooms)
+// Height band for a flier's CENTRE.
+inline float ClampFlightHeight(float Z,float FloorZ,float CapsuleHalfHeight) {
+    const float Low=FloorZ+std::max(0.f,CapsuleHalfHeight)+FlightFloorClearance,High=std::max(Low+50.f,FloorZ+FlightCeiling);
+    if(std::isnan(Z)) return Low; // NaN lands on the lowest legal height; +-infinity clamps to the nearest limit
+    return std::clamp(Z,Low,High);
+}
+// Clamp a point into a rectangle: NaN lands on the rectangle's centre, +-infinity on the nearest edge. The rectangle is normalised if its limits are crossed.
+inline void ClampToRect(float MinX,float MaxX,float MinY,float MaxY,float& X,float& Y) {
+    if(MinX>MaxX) MinX=MaxX=(MinX+MaxX)*.5f;
+    if(MinY>MaxY) MinY=MaxY=(MinY+MaxY)*.5f;
+    X=std::isnan(X)?(MinX+MaxX)*.5f:std::clamp(X,MinX,MaxX);
+    Y=std::isnan(Y)?(MinY+MaxY)*.5f:std::clamp(Y,MinY,MaxY);
+}
+// A flier circles its target. The radius "breathes" between Min and Max so melee players get regular windows when it sweeps within reach:
+// Min at the start of each cycle, Max half a cycle later.
+inline float OrbitRadius(float Seconds,float Min,float Max,float CycleSeconds) {
+    if(!std::isfinite(Seconds)||!(CycleSeconds>0.f)) return Max;
+    const float Phase=Seconds/CycleSeconds*6.2831853f;
+    return Min+(Max-Min)*(.5f-.5f*std::cos(Phase));
+}
+
+// ---- Flying boss: the molt ----
+// At half health the boss rears back (MoltWindupSeconds, telegraphed by the wings), then bursts out hatchlings (small Gloomwings) from its wings.
+// MoltDue is true once per fight. TUNABLE.
+constexpr float MoltHealthFraction=.5f,MoltWindupSeconds=1.5f,HatchlingHealthScale=.6f;
+constexpr int MoltHatchlingsSolo=4,MoltHatchlingsCoop=6;
+inline bool MoltDue(bool AlreadyMolted,float Health,float MaxHealth) {
+    return !AlreadyMolted&&std::isfinite(Health)&&std::isfinite(MaxHealth)&&MaxHealth>0.f&&Health>0.f&&Health<=MaxHealth*MoltHealthFraction;
+}
+inline int MoltHatchlings(int Players) {return Players>1?MoltHatchlingsCoop:MoltHatchlingsSolo;}
+
 // ---- Broodcaller ----
 // It summons minions in pairs whenever it has room under the cap and its summon cooldown is over; otherwise it shoots. (Before 0.24 it summoned on its
 // first two attacks only, because a lifetime attack counter was compared with 2 and never reset.) TUNABLE.

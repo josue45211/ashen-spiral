@@ -52,7 +52,8 @@ public:
     void Reward(AASPlayerController* PC,int32 Index);
     void Reroll(AASPlayerController* PC);
     void ToggleWager(AASPlayerController* PC,bool Enabled);
-    AASEnemy* SpawnMinion(const FVector& Position,AASEnemy* Summoner=nullptr); // returns the minion (or null) so the summoner can count its brood
+    // Spawns a small helper enemy and returns it (or null) so the summoner can count its brood. Position is searched for a free ground point unless bExactPosition (fliers).
+    AASEnemy* SpawnMinion(const FVector& Position,AASEnemy* Summoner=nullptr,int32 MinionKind=0,float HealthScale=1.f,bool bExactPosition=false);
     void Interact(AASPlayerController* PC,int32 Target=0);
     void UseShrine(AASPlayerController* PC);
     void GambleAtWell(AASPlayerController* PC,int32 StakeIndex);
