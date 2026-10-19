@@ -169,11 +169,13 @@ inline std::string RunGainDetail(int Code,int Count) {
         default: return std::string();
     }
 }
-// ---- Arena shift sequence v2 (0.23.4). Timeline from the banner: 0-1s banner only, 1-2s the old cover sinks, the swap happens at 2s,
-// 2-3s the new cover rises. Looks and sound only; the shuffle itself is unchanged.
-constexpr float ShiftWarningSeconds=2.f,ShiftSinkSeconds=1.f,ShiftRiseSeconds=1.f,ShiftBannerSeconds=3.f,ShiftCoverDrop=450.f,ShiftSolidBelow=.55f;
-// Ease-in: slow start, picking up speed, then an abrupt stop ("slam"). TUNABLE exponent 3.
-inline float ShiftEaseIn(float X) {X=std::clamp(X,0.f,1.f);return X*X*X;}
+// ---- Arena shift sequence v3 (0.23.5, slower). Timeline from the banner: 0-1s banner only, then the old cover sinks for ShiftSinkSeconds, the swap
+// happens at ShiftWarningSeconds, and the new cover rises for ShiftRiseSeconds. Looks and sound only; the shuffle itself is unchanged. All TUNABLE.
+constexpr float ShiftQuietSeconds=1.f,ShiftSinkSeconds=1.6f,ShiftRiseSeconds=1.6f,ShiftWarningSeconds=ShiftQuietSeconds+ShiftSinkSeconds,ShiftBannerSeconds=ShiftWarningSeconds+ShiftRiseSeconds,ShiftCoverDrop=450.f;
+// Collision is on only while the blocks are mostly up (at least ~70% of the wall above ground); it never moves. TUNABLE.
+constexpr float ShiftSolidBelow=.25f;
+// Ease-in: slow start, picking up speed, then an abrupt stop ("slam"). Exponent 2 (was 3) so the build-up reads across the whole travel. TUNABLE.
+inline float ShiftEaseIn(float X) {X=std::clamp(X,0.f,1.f);return X*X;}
 // 0 = cover fully up, 1 = fully sunk. ShiftAt <= 0 means no shift is scheduled.
 inline float ShiftCoverSunk(float Now,float ShiftAt) {
     if(!std::isfinite(Now)||!std::isfinite(ShiftAt)||ShiftAt<=0.f) return 0.f;
@@ -182,18 +184,28 @@ inline float ShiftCoverSunk(float Now,float ShiftAt) {
 }
 // Collision never moves; it switches on and off at discrete moments of the sequence, so machines can only disagree by one network delay.
 inline bool ShiftCoverSolid(float Now,float ShiftAt) {return ShiftCoverSunk(Now,ShiftAt)<ShiftSolidBelow;}
+// Does a circle (a hero) overlap an oriented wall footprint? Used to hold collision off while someone stands where a wall is rising.
+inline bool CircleHitsFootprint(float Px,float Py,float Radius,float Cx,float Cy,float Length,float Thickness,float YawDegrees) {
+    if(!std::isfinite(Px)||!std::isfinite(Py)||!std::isfinite(Cx)||!std::isfinite(Cy)||!std::isfinite(YawDegrees)) return false;
+    const float A=YawDegrees*3.14159265f/180.f,C=std::cos(A),S=std::sin(A),Dx=Px-Cx,Dy=Py-Cy;
+    const float Lx=Dx*C+Dy*S,Ly=-Dx*S+Dy*C; // into the footprint's own frame
+    const float Ex=std::max(0.f,std::fabs(Lx)-Length*.5f),Ey=std::max(0.f,std::fabs(Ly)-Thickness*.5f);
+    return Ex*Ex+Ey*Ey<Radius*Radius;
+}
 // ---- Lightning strikes (0.23.4): Endless wave 50+. Everything here is TUNABLE.
 // A strike shows a floor indicator for LightningTelegraph seconds, then hits everyone inside LightningRadius.
 constexpr int LightningFirstWave=50;
-constexpr float LightningTelegraph=.5f,LightningRadius=220.f,LightningJitter=150.f,LightningClusterRadius=450.f,LightningMinSeparation=420.f;
-constexpr float LightningPlayerFraction=.20f,LightningPlayerMinimum=40.f,LightningEnemyFraction=.30f,LightningBossFraction=.03f;
+constexpr float LightningTelegraph=.75f,LightningRadius=220.f,LightningJitter=150.f,LightningClusterRadius=450.f,LightningMinSeparation=420.f;
+constexpr float LightningPlayerFraction=.20f,LightningPlayerMinimum=40.f,LightningEnemyFraction=.20f,LightningBossFraction=.03f;
 inline bool LightningActive(bool Endless,int Wave) {return Endless&&Wave>=LightningFirstWave;}
-// Seconds until the next strike: about 6-9 at wave 50, shrinking with the wave, never below 2.5. Roll is a 0..1 random number.
+// Seconds until the next volley: about 4.5-7.5 at wave 50, shrinking 0.06s per wave, never below 1.8 (before the random spread). Roll is a 0..1 random number. TUNABLE.
 inline float LightningInterval(int Wave,float Roll) {
-    const float Base=std::max(2.5f,8.f-.05f*float(std::max(0,Wave-LightningFirstWave)));
+    const float Base=std::max(1.8f,6.f-.06f*float(std::max(0,Wave-LightningFirstWave)));
     return Base*(.75f+.5f*std::clamp(std::isfinite(Roll)?Roll:.5f,0.f,1.f));
 }
-inline int LightningMaxAtOnce(int Wave) {return Wave>=80?3:(Wave>=65?2:1);}
+// Strikes per volley: one at wave 50, one more every 15 waves, six at most. TUNABLE.
+inline int LightningVolley(int Wave) {return std::clamp(1+(Wave-LightningFirstWave)/15,1,6);}
+inline int LightningMaxAtOnce(int Wave) {return LightningVolley(Wave)*2;}
 inline float LightningPlayerDamage(float MaxHealth) {return std::max(LightningPlayerMinimum,std::isfinite(MaxHealth)?MaxHealth*LightningPlayerFraction:0.f);}
 inline float LightningEnemyDamage(float MaxHealth,bool Boss) {return std::isfinite(MaxHealth)?MaxHealth*(Boss?LightningBossFraction:LightningEnemyFraction):0.f;}
 // Crowds attract strikes: weight grows with the square of how many others stand nearby.
@@ -211,6 +223,10 @@ inline int LightningPickIndex(const std::vector<float>& Weights,float Roll) {
 // telegraphs, then dives in a straight line through where the player stood. v1 is deliberately simple. Everything here is TUNABLE.
 constexpr int FlierKind=10;
 constexpr float FlierHealthScale=.55f,FlierHover=200.f,FlierOrbitRadius=520.f,FlierDiveSpeed=1500.f,FlierDiveSeconds=.55f,FlierWindup=.7f,FlierContactDamage=18.f;
+// Flying boss (0.23.5): Endless only, on every third boss wave (30, 60, 90...). The boss wave's ordinary Endless boss, airborne: it uses the flier's
+// hover/orbit/dive loop with bigger numbers and alternates each dive with the normal boss attack (blast fields or a shot ring). TUNABLE.
+constexpr float FlyingBossHover=330.f,FlyingBossOrbitRadius=760.f,FlyingBossDiveSpeed=1300.f,FlyingBossDiveSeconds=.8f,FlyingBossWindup=.9f,FlyingBossContactDamage=30.f,FlyingBossContactRange=260.f,FlyingBossFlySpeed=260.f;
+inline bool FlyingBossWave(int Wave) {return Wave>0&&Wave%10==0&&(Wave/10)%3==0;}
 inline float FlierAttackDelay(float Roll) {return 4.f+2.f*std::clamp(std::isfinite(Roll)?Roll:.5f,0.f,1.f);}
 // Level is the room (story) or the wave (Endless). Roll is a 0..1 random number.
 inline bool SpawnsFlier(bool Endless,int Level,float Roll) {

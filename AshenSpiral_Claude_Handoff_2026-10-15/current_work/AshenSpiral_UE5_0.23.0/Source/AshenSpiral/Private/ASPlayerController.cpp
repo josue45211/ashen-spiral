@@ -410,8 +410,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         if(GI->Purchase(Code-20,Index)) ResubmitProfile();
         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
     }
-    if(Code==30&&PS) SetReady(!PS->bReady);
-    else if(Code==31) {Notice=TEXT("Choose Ember, Ashen or Blood at the three hub portals. Press E at an archway to depart.");}
+    if(Code==31) {Notice=TEXT("Choose Ember, Ashen or Blood at the three hub portals. Press E at an archway to depart.");}
     else if(Code==76) {int32 Seed=1103;if(!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}EnterPortal(SelectedPortal,Seed);}
     else if(Code==32) {ChooseReward(Index);CloseMenu();}
     else if(Code==33) {ReturnHub();CloseMenu();}

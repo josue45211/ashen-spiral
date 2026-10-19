@@ -236,9 +236,8 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
         Body->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Font(Font(16,true)).ColorAndOpacity(ASMenuGold).WrapTextAt(BodyTextWidth).Text_Lambda([Weak](){
             FString Status;auto* Local=Weak.Get();auto* State=Local?AS::State(Local):nullptr;if(!State) return Txt(TEXT("Waiting for host..."));
-            for(auto V:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(V)) Status+=FString::Printf(TEXT("PLAYER %d / LEVEL %d / %s\n%s   |   %s\n"),Player->PlayerIndex+1,Player->CharacterLevel,*ASData::CareerTitle(Player->TitleIndex,Player->TitleTier),Player->bProfileReady?(Player->bReady?TEXT("READY"):TEXT("NOT READY")):TEXT("LOADING PROFILE"),ASData::Weapons[Player->Build.Weapon].Name);
+            for(auto V:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(V)) Status+=FString::Printf(TEXT("PLAYER %d / LEVEL %d / %s\n%s   |   %s\n"),Player->PlayerIndex+1,Player->CharacterLevel,*ASData::CareerTitle(Player->TitleIndex,Player->TitleTier),Player->bProfileReady?TEXT("PROFILE LOADED"):TEXT("LOADING PROFILE"),ASData::Weapons[Player->Build.Weapon].Name);
             return Txt(Status);})];
-        Card(TEXT("Your readiness"),TEXT("Changing a weapon, style, or permanent upgrade resets your ready check. Solo expeditions do not require the ready toggle."),TEXT("TOGGLE READY"),30,0,Hub&&PS&&PS->bProfileReady);
         Text(TEXT("To depart: gather every player at the Ember, Ashen or Blood archway (or the Endless portal once unlocked). The host presses E to step through together."),16,ASMenuGold);
         Input(TEXT("Deterministic expedition seed (story portals)"),2);
         Card(TEXT("Endless records and upgrades"),TEXT("Your best Endless runs and the permanent chest-choices upgrade. Enter Endless at its portal in the hub."),TEXT("ENDLESS"),10,22);

@@ -17,6 +17,7 @@ int main() {
     {Context Solo,Duo;Duo.Coop=true;Check(!CanChoose(Solo,OfferBase+Index(Trait::Teamwork))&&CanChoose(Duo,OfferBase+Index(Trait::Teamwork))&&CanChoose(Solo,OfferBase+Index(Trait::Attunement)),"Teamwork is only offered in co-op; Attunement always");}
     // 0.23.3: Wide Arc is a melee-only reach trait, +10% per rank.
     Check(Near(MeleeReachMultiplier(0),1.f)&&Near(MeleeReachMultiplier(5),2.0f)&&Near(MeleeReachMultiplier(-2),1.f),"Wide Arc: +20% reach per rank");
+    Check(VanguardBonus(0.f)==0.f&&VanguardBonus(1.f)==.25f&&VanguardBonus(3.f)==.25f&&VanguardBonus(1.5f)==.25f&&VanguardSeconds==10.f&&Catalog[Index(Trait::RoomBlessing)].Max==1,"0.23.5: Vanguard is a flat +25% for 10 seconds at every rank and is a single pick");
     {const int Arc=OfferBase+Index(Trait::WideArc);Context Sword,Bow;Sword.Weapon=0;Bow.Weapon=3;Check(CanChoose(Sword,Arc)&&!CanChoose(Bow,Arc),"Wide Arc is offered for melee weapons only");}
     Context C;
     for(int I=0;I<Count;++I) {

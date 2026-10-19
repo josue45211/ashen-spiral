@@ -25,11 +25,12 @@ static std::vector<V> Mesh(const std::string& Root,const std::string& Name) {
 }
 int main(int Argc,char** Argv) {
     // 0.23.4: the edge-of-reach cue only fires in the outer band of the real reach.
-    Check(ASMelee::EdgeHit(260.f,300.f)&&ASMelee::EdgeHit(300.f,300.f)&&!ASMelee::EdgeHit(200.f,300.f)&&!ASMelee::EdgeHit(301.f,300.f)&&!ASMelee::EdgeHit(100.f,0.f),"edge cue: outer 15% of reach only");
-    Check(!ASMelee::EdgeHit(std::numeric_limits<float>::quiet_NaN(),300.f)&&ASMelee::ReachRatio(150.f,300.f)==.5f&&ASMelee::EdgeHit(560.f,600.f)&&!ASMelee::EdgeHit(560.f,800.f),"edge band scales with the effective reach (Wide Arc) and survives bad distances");
+    Check(ASMelee::TargetInReach(300.f,280.f,38.f,0.f,.9f,.3f)&&!ASMelee::TargetInReach(330.f,280.f,38.f,0.f,.9f,.3f)&&!ASMelee::TargetInReach(100.f,280.f,38.f,0.f,-.5f,.3f)&&!ASMelee::TargetInReach(100.f,280.f,38.f,300.f,.9f,.3f),"0.23.5 in-reach cue: inside reach plus the target radius, in front, and at a similar height");
+    Check(!ASMelee::TargetInReach(std::numeric_limits<float>::quiet_NaN(),280.f,38.f,0.f,1.f,.3f)&&!ASMelee::TargetInReach(100.f,0.f,38.f,0.f,1.f,.3f)&&ASMelee::TargetInReach(560.f,560.f,0.f,0.f,1.f,.3f)==false&&ASMelee::TargetInReach(500.f,280.f*2.f,38.f,0.f,1.f,.3f),"in-reach cue scales with the effective reach (Wide Arc) and survives bad numbers");
     // 0.23.3: a swing survives an Endless arena shuffle (same phase and epoch) but not a room or phase change.
     Check(ASMelee::ContextValid(2,2,7,7),"pending swing stays valid when nothing changed (including across a shuffle, which keeps the epoch)");
-    Check(!ASMelee::ContextValid(2,2,7,8)&&!ASMelee::ContextValid(2,3,7,7),"pending swing is cancelled by a new room epoch or a phase change");
+    Check(!ASMelee::ContextValid(2,2,7,8)&&!ASMelee::ContextValid(2,3,7,7)&&!ASMelee::ContextValid(0,2,7,7),"pending swing is cancelled by a new room epoch or a phase change");
+    Check(ASMelee::ContextValid(1,2,7,7)&&!ASMelee::ContextValid(2,1,7,7)&&!ASMelee::ContextValid(1,2,7,8),"0.23.5: a swing or leap begun during the countdown survives enemies spawning (Countdown->Combat), but not an epoch change");
     Check(Argc==2,"project path supplied");const std::string Root=Argv[1];
     for(int Capacity=1;Capacity<=3;++Capacity) {
         int Used=0,Available=Capacity;

@@ -41,6 +41,10 @@ public:
     void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power);
     void Control(int32 Type,const FVector& Direction,float Strength);
     UFUNCTION() void RefreshStatus();
+    // 0.23.5: the Endless flying boss is a normal boss (Kind 4) that flies; the Gloomwing is Kind 10.
+    UPROPERTY(ReplicatedUsing=RefreshLook) bool bAirborne=false;
+    int32 DiveCycle=0;
+    bool Flies() const {return !bTrainingDummy&&(Kind==10||bAirborne);}
     bool Boss() const {return !bTrainingDummy&&Kind==4;}
     bool Elite() const {return !bTrainingDummy&&(Kind==3||Kind==4);}
     UFUNCTION() void RefreshLook();
@@ -57,6 +61,10 @@ private:
     void AnimateArmor(float Delta,float Windup);
     void AnimateDeath();
     void AnimateFlier();
+    bool ShowsStrikeCircle() const;
+    void TickStatusTint();
+    bool bTintApplied=false;
+    TArray<FLinearColor> BaseTints;
     void TickFlier(float Delta,AASCharacter* Target,float DistanceSquared);
     FVector DiveDirection=FVector::ForwardVector,DiveTarget=FVector::ZeroVector;float DiveUntil=0,OrbitAngle=0,OrbitSign=1;
     float DeathSeenAt=-1.f;

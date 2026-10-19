@@ -65,7 +65,7 @@ inline constexpr std::array<Definition,Count> Catalog{{
  {"Fortune","+6 percentage points to health/shield drop chance per rank.",3,2,Loot|Guard,0,511,false},
  {"Loaded Dice","Gain one personal reward reroll immediately. Up to three picks per run.",3,2,Loot,0,511,true},
  {"Mending Coin","Picking up a Cinder shard restores 1 HP per rank during combat.",3,1,Loot|Guard,0,511,false},
- {"Vanguard","Next and later rooms begin with +10% damage/rank for the first 8 combat seconds.",3,0,Weapon|Spell,0,511,false},
+ {"Vanguard","Next and later rooms begin with +25% damage for the first 10 combat seconds. A flat bonus: extra ranks add nothing.",1,0,Weapon|Spell,0,511,false},
  {"Razor Dash","Dash through enemies for 12 damage/rank, once per enemy per dash.",3,2,Dash|Weapon,0,511,false},
  {"Chain Lightning","Primary hits chain to one additional enemy per rank at 30% dealt damage, once per 0.35 sec.",3,2,Echo|Element,1,511,false},
  {"Patient Hunter","After standing still for 1.2 sec, gain +12% damage per rank.",3,0,Weapon,0,511,false},
@@ -181,6 +181,9 @@ inline int MaxDashCharges(int RankValue) {return std::clamp(1+RankValue,1,3);}
 // 0.23.2 TUNABLE: the synergy buff per rank is deliberately larger than the elemental one (teamwork incentive).
 constexpr float AttunementPerRank=.12f,TeamworkPerRank=.20f;
 inline float ElementalDamageMultiplier(int RankValue) {return 1.f+AttunementPerRank*float(std::clamp(RankValue,0,10000));}
+// Vanguard (0.23.5): FLAT +25% damage for the first 10 combat seconds of each room, whatever the rank. TUNABLE.
+constexpr float VanguardBonusAmount=.25f,VanguardSeconds=10.f;
+inline float VanguardBonus(float RankValue) {return RankValue>0.f?VanguardBonusAmount:0.f;}
 constexpr float WideArcPerRank=.20f; // TUNABLE (0.23.4): was .10, barely noticeable; rank 5 doubles melee reach
 inline float MeleeReachMultiplier(int RankValue) {return 1.f+WideArcPerRank*float(std::clamp(RankValue,0,10000));}
 inline float SynergyDamageMultiplier(int RankA,int RankB) {return 1.f+TeamworkPerRank*float(std::clamp(RankA,0,10000)+std::clamp(RankB,0,10000));}

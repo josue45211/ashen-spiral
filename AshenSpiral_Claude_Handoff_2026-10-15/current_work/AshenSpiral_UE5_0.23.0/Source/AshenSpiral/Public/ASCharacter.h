@@ -74,8 +74,8 @@ public:
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorIndex=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorChoice=-1;
     FLinearColor BodyColor() const {return ASData::ArmorColor(ColorChoice,ColorIndex);}
-    // What THIS machine's viewer sees: their own character in its own colour, every other player tinted green (ally).
-    FLinearColor ViewColor() const {return IsLocallyControlled()?BodyColor():FMath::Lerp(BodyColor(),FLinearColor(.12f,.95f,.30f),.65f);}
+    // 0.23.5: no friend/foe hue tint any more; every player shows their own colour (the HUD triangle marks allies).
+    FLinearColor ViewColor() const {return BodyColor();}
     UPROPERTY(Replicated) TArray<int32> TraitRanks;
     UPROPERTY(Replicated) uint64 EvolutionMask=0;
     UPROPERTY(Replicated) int32 LastUpgrade=-1;
@@ -132,6 +132,7 @@ public:
     bool CanUseWeapons() const;
     bool CombatBenefits() const;
     bool CanDamage(const AASEnemy* Enemy) const;
+    float MeleeReachFor(int32 Step) const; // the swing's reach in cm for a combo step, Wide Arc included (also read by the HUD's in-reach crosshair)
     void Area(const FVector& Position,float Radius,float Damage,bool Critical=false);
     int32 Rank(int32 I) const {return Build.Rank(I);}
     int32 RunRank(int32 I) const {return RunRanks.IsValidIndex(I)?ASRules::UpgradeRank(RunRanks[I]):0;}

@@ -171,9 +171,10 @@ void AASGameMode::Logout(AController* Exiting) {
     if(H) H->Destroy();Super::Logout(Exiting);
 }
 void AASGameMode::AbandonReconnect() {if(auto* S=AS::State(this)) {S->bConnectionHold=false;S->ReconnectRemaining=0;}Disconnected.Empty();}
+// Host-driven (0.23.5): only loading and saving gate departure; there is no guest ready requirement.
 bool AASGameMode::AllReady() const {
     auto* S=AS::State(this);if(!S||S->PlayerArray.IsEmpty()) return false;
-    for(auto P:S->PlayerArray) {auto* PS=Cast<AASPlayerState>(P);if(!PS||!PS->bProfileReady||PS->bSavePending||(S->PlayerArray.Num()>1&&!PS->bReady)) return false;}
+    for(auto P:S->PlayerArray) {auto* PS=Cast<AASPlayerState>(P);if(!PS||!PS->bProfileReady||PS->bSavePending) return false;}
     return true;
 }
 void AASGameMode::SetDifficulty(AASPlayerController* PC,int32 Difficulty) {
@@ -210,7 +211,7 @@ void AASGameMode::StartPortal(AASPlayerController* PC,int32 Portal,int32 Seed) {
 }
 void AASGameMode::BeginRun(AASPlayerController* PC,int32 Seed) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)) return;
-    if(!AllReady()) {PC->Notify(TEXT("Both players must load a profile and mark Ready before departure."));return;}
+    if(!AllReady()) {PC->Notify(TEXT("Everyone must finish loading their profile before departure."));return;}
     RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->Cinders=0;S->Challenge=0;bEnding=false;
     S->bPartyPaused=false;AbandonReconnect();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
@@ -378,7 +379,7 @@ void AASGameMode::BeginEndless(AASPlayerController* PC,int32 Seed) {
     auto* S=AS::State(this);if(!S||S->Phase!=EASPhase::Hub||!Host(PC)||!S->Arena) return;
     const auto* HostState=PC->GetPlayerState<AASPlayerState>();
     if(!HostState||!HostState->bEndlessUnlocked) {PC->Notify(TEXT("The Endless portal is sealed. Beat Normal mode once to open it."));return;}
-    if(!AllReady()) {PC->Notify(TEXT("Both players must load a profile and mark Ready before entering."));return;}
+    if(!AllReady()) {PC->Notify(TEXT("Everyone must finish loading their profile before entering."));return;}
     RunSeed=Seed;Random.Initialize(Seed);S->RunId=FGuid::NewGuid().ToString(EGuidFormats::Digits);S->Cinders=0;S->Challenge=0;bEnding=false;
     S->bPartyPaused=false;AbandonReconnect();
     S->bEndless=true;S->EndlessWave=0;S->ClearedEndlessWave=0;S->bLuckyShop=false;S->bRareShop=false;
@@ -441,6 +442,7 @@ void AASGameMode::ConfigureEndlessEnemy(AASEnemy* E) {
     E->Ward=FMath::Clamp((Wave-1)/10,0,3);E->Theme=E->Ward;
     if(bEndlessBossPending) {
         bEndlessBossPending=false;E->Kind=4;E->Ward=FMath::Max(0,Wave/10-1)%ASRules::WardCount;E->Theme=E->Ward;Tier=2;
+        E->bAirborne=ASExpedition::FlyingBossWave(Wave); // every third boss wave: the boss flies (Endless only)
     } else {
         const int32 Pool[]={0,1,2,5,6,7,8,9};
         const float EliteChance=Wave>=5?FMath::Min(.30f,.05f+.01f*Wave):0.f;
@@ -509,19 +511,26 @@ void AASGameMode::LightningTick(AASGameState* S) {
         int32 Near=0;for(int32 J=0;J<Points.Num();++J) if(J!=I&&FVector::Dist2D(Points[I],Points[J])<=ASExpedition::LightningClusterRadius) ++Near;
         Weights.push_back(ASExpedition::LightningClusterWeight(Near));
     }
-    const int32 Pick=ASExpedition::LightningPickIndex(Weights,Random.FRand());if(!Points.IsValidIndex(Pick)) return;
-    // Random but not pin-point: a little jitter around the chosen point, then down to the floor.
-    const float Angle=Random.FRand()*UE_TWO_PI,Spread=Random.FRand()*ASExpedition::LightningJitter;
-    FVector Aim=Points[Pick]+FVector(FMath::Cos(Angle)*Spread,FMath::Sin(Angle)*Spread,0.f);
-    FHitResult Floor;FCollisionObjectQueryParams Solid(ECC_WorldStatic);
-    Aim=GetWorld()->LineTraceSingleByObjectType(Floor,Aim+FVector(0,0,300),Aim-FVector(0,0,1500),Solid)?Floor.ImpactPoint+FVector(0,0,4):Aim-FVector(0,0,85);
-    for(const auto& Strike:ActiveStrikes) if(const auto* Other=Strike.Get()) if(FVector::Dist2D(Other->GetActorLocation(),Aim)<ASExpedition::LightningMinSeparation) {NextLightningAt=S->SimTime+.4f;return;}
-    const FTransform Where(Aim);
-    if(auto* Strike=GetWorld()->SpawnActorDeferred<AASLightningStrike>(AASLightningStrike::StaticClass(),Where,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn)) {
-        Strike->StrikeAt=S->SimTime+ASExpedition::LightningTelegraph;Strike->Radius=ASExpedition::LightningRadius;
-        UGameplayStatics::FinishSpawningActor(Strike,Where);ActiveStrikes.Add(Strike);
+    // A volley: as the wave climbs, several strikes land together (each at its own cluster-biased point, kept apart from the others).
+    const int32 Volley=ASExpedition::LightningVolley(S->EndlessWave),Room=ASExpedition::LightningMaxAtOnce(S->EndlessWave)-ActiveStrikes.Num();
+    int32 Spawned=0;
+    for(int32 Attempt=0;Attempt<Volley*3&&Spawned<Volley&&Spawned<Room;++Attempt) {
+        const int32 Pick=ASExpedition::LightningPickIndex(Weights,Random.FRand());if(!Points.IsValidIndex(Pick)) continue;
+        // Random but not pin-point: a little jitter around the chosen point, then down to the floor.
+        const float Angle=Random.FRand()*UE_TWO_PI,Spread=Random.FRand()*ASExpedition::LightningJitter;
+        FVector Aim=Points[Pick]+FVector(FMath::Cos(Angle)*Spread,FMath::Sin(Angle)*Spread,0.f);
+        FHitResult Floor;FCollisionObjectQueryParams Solid(ECC_WorldStatic);
+        Aim=GetWorld()->LineTraceSingleByObjectType(Floor,Aim+FVector(0,0,300),Aim-FVector(0,0,1500),Solid)?Floor.ImpactPoint+FVector(0,0,4):Aim-FVector(0,0,85);
+        bool TooClose=false;
+        for(const auto& Strike:ActiveStrikes) if(const auto* Other=Strike.Get()) if(FVector::Dist2D(Other->GetActorLocation(),Aim)<ASExpedition::LightningMinSeparation) {TooClose=true;break;}
+        if(TooClose) continue;
+        const FTransform Where(Aim);
+        if(auto* Strike=GetWorld()->SpawnActorDeferred<AASLightningStrike>(AASLightningStrike::StaticClass(),Where,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn)) {
+            Strike->StrikeAt=S->SimTime+ASExpedition::LightningTelegraph;Strike->Radius=ASExpedition::LightningRadius;
+            UGameplayStatics::FinishSpawningActor(Strike,Where);ActiveStrikes.Add(Strike);++Spawned;
+        }
     }
-    NextLightningAt=S->SimTime+ASExpedition::LightningInterval(S->EndlessWave,Random.FRand());
+    NextLightningAt=S->SimTime+(Spawned>0?ASExpedition::LightningInterval(S->EndlessWave,Random.FRand()):.4f);
 }
 void AASGameMode::RelocateBuriedEnemies() {
     auto* S=AS::State(this);if(!S||!S->Arena||!S->bEndless) return;

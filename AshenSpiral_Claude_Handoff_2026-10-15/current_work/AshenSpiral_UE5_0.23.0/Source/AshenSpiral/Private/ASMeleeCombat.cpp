@@ -33,7 +33,7 @@ void AASCharacter::MeleeTravel_Implementation(bool Slam,FVector_NetQuantize Dest
 void AASCharacter::TickMelee(float Now) {
     if(!bMeleePending) return;
     auto* S=AS::State(this);
-    if(!S||!CanUseWeapons()||bReviving||PendingMeleeWeapon!=Build.Weapon||PendingMeleePhase!=int32(S->Phase)
+    if(!S||!CanUseWeapons()||bReviving||PendingMeleeWeapon!=Build.Weapon
         ||!S->Arena||!ASMelee::ContextValid(PendingMeleePhase,int32(S->Phase),PendingMeleeGeneration,S->Arena->Config.Epoch)) {CancelMelee(true);return;}
     if(Build.Weapon==0&&MeleeStep==2&&!bMeleeMotionStarted&&Now>=MeleeMotionAt) {
         bMeleeMotionStarted=true;
@@ -52,10 +52,14 @@ void AASCharacter::TickMelee(float Now) {
     }
     if(ASMelee::ImpactDue(Now,MeleeImpactAt,bMeleePending)) {bMeleePending=false;ResolveMelee();}
 }
+float AASCharacter::MeleeReachFor(int32 Step) const {
+    const bool Slam=Build.Weapon==1&&Step==2;
+    return MeleeReachMultiplier()*(Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==0&&Step==2?320.f:280.f)));
+}
 void AASCharacter::ResolveMelee() {
     auto* S=AS::State(this);if(!HasAuthority()||!S||!CanUseWeapons()||PendingMeleeWeapon!=Build.Weapon) return;
     const bool Slam=Build.Weapon==1&&MeleeStep==2;
-    const float Reach=MeleeReachMultiplier()*(Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==0&&MeleeStep==2?320.f:280.f)));
+    const float Reach=MeleeReachFor(MeleeStep);
     const float Oath=MeleeStep==2&&bVengeanceFinisherReady?ASBuild::VengeanceFinisherMultiplier:1.f;
     if(Oath>1.f) bVengeanceFinisherReady=false;
     const float Damage=Oath*ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASMelee::DamageScale(Build.Weapon,MeleeStep);
@@ -69,11 +73,7 @@ void AASCharacter::ResolveMelee() {
         &&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation()))
         {
             Contact=true;
-            {   // Hit-confirm tick (once per swing) and the edge-of-reach cue (for every edge contact), so players learn the swing's real range.
-                const float Full=Reach+E->GetCapsuleComponent()->GetScaledCapsuleRadius();
-                const bool Edge=ASMelee::EdgeHit(FVector::Dist2D(GetActorLocation(),E->GetActorLocation()),Full);
-                if(Edge||!RangeTicked) {RangeTicked=true;S->Effect(16,E->GetActorLocation()-FVector(0,0,E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-4.f),FVector::UpVector,Edge?FLinearColor(1.f,.85f,.35f):FLinearColor::White,Edge?70.f:0.f);}
-            }
+            if(!RangeTicked) {RangeTicked=true;S->Effect(16,E->GetActorLocation()-FVector(0,0,E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-4.f),FVector::UpVector,FLinearColor::White,0.f);} // faint hit-confirm tick, once per swing
             HitEnemy(E,Damage+(Build.Weapon==0&&E->PulledUntil>S->SimTime?25.f:0.f),bMeleeCritical,ASData::WeaponElement(Build.Weapon),true);
             if(Build.Weapon==1&&IsValid(E)&&E->Health>0) E->Control(0,Forward,Slam?950.f:230.f);
         }

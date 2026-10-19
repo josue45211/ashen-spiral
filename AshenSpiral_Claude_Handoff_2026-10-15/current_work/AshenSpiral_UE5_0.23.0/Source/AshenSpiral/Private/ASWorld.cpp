@@ -3,6 +3,7 @@
 #include "ASNavigationRules.h"
 #include "ASData.h"
 #include "ASGameState.h"
+#include "ASCharacter.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -158,16 +159,40 @@ void AASWorld::RebuildEndlessCover() {
     if(const auto* State=AS::State(this)) AnimateShift(State); // apply the right height and collision this frame
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: endless cover rebuilt shuffle=%d batches=%d in %.2f ms"),Config.Shuffle,Batches.Num(),(FPlatformTime::Seconds()-Start)*1000.0);
 }
+float AASWorld::ShiftNow(const AASGameState* S) {
+    const float Server=S->SimTime;
+    if(HasAuthority()) {ShiftClock=Server;bShiftClockInit=true;return Server;}
+    if(GFrameCounter!=ShiftClockFrame) { // once per frame, however many times this is called
+        ShiftClockFrame=GFrameCounter;
+        if(!bShiftClockInit||!FMath::IsFinite(ShiftClock)||FMath::Abs(Server-ShiftClock)>.5f) ShiftClock=Server;
+        else {
+            const float Step=S->Frozen()?0.f:FMath::Clamp(GetWorld()?GetWorld()->GetDeltaSeconds():0.f,0.f,.1f);
+            ShiftClock+=Step;ShiftClock+=(Server-ShiftClock)*.1f; // follow the replicated clock without stepping when its updates arrive
+        }
+        bShiftClockInit=true;
+    }
+    return ShiftClock;
+}
+void AASWorld::SetCoverCollision(bool On) {
+    for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessSolid"))) Pair.Value->SetCollisionEnabled(On?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
+}
 void AASWorld::AnimateShift(const AASGameState* S) {
     if(!S||!IsEndlessArena()) return;
-    const float Now=S->SimTime;
+    const float Now=ShiftNow(S);
     const auto* GI=GetGameInstance<UASGameInstance>();const bool Reduce=GI&&GI->bReduceMotion;
-    // Collision never moves. It switches off while the blocks are mostly sunk and on again once the new ones are mostly risen,
-    // in discrete steps, so every machine agrees up to one network delay (moving collision made P2 hit invisible walls).
-    const int8 Solid=(Reduce||S->ShiftAt<=0.f||ASExpedition::ShiftCoverSolid(Now,S->ShiftAt))?1:0;
+    // Collision never moves. It switches off while the blocks are sunk or half-risen and on again once the new ones are mostly up (about 70% of the wall
+    // above ground, ShiftSolidBelow), in discrete steps, so every machine agrees up to one network delay. It also stays off while a hero stands inside a
+    // rising wall's footprint, so nobody is pushed out of a wall that switches on under them (client-side depenetration was the P2 "glitch").
+    int8 Solid=(Reduce||S->ShiftAt<=0.f||ASExpedition::ShiftCoverSolid(Now,S->ShiftAt))?1:0;
+    if(Solid&&SolidState==0) {
+        for(const auto& Weak:S->Heroes) if(const auto* Hero=Weak.Get()) {
+            const FVector P=Hero->GetActorLocation();
+            for(const auto& F:CoverFootprints) if(ASExpedition::CircleHitsFootprint(P.X,P.Y,70.f,F.X,F.Y,F.Length,F.Thickness,F.Yaw)) {Solid=0;break;}
+            if(!Solid) break;
+        }
+    }
     if(Solid!=SolidState) {
-        SolidState=Solid;
-        for(auto& Pair:Batches) if(Pair.Value&&Pair.Key.ToString().Contains(TEXT("EndlessSolid"))) Pair.Value->SetCollisionEnabled(Solid?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
+        SolidState=Solid;SetCoverCollision(Solid!=0);
     }
     if(GetNetMode()==NM_DedicatedServer) return;
     // Visual blocks sink (ease-in, then slam flush) in the second before the swap, and the new ones rise (ease-in, slam into place) after it.
@@ -195,7 +220,7 @@ void AASWorld::Rebuild() {
     for(auto& P:Batches) if(P.Value) P.Value->DestroyComponent();Batches.Empty();
     for(auto C:Labels) if(C) C->DestroyComponent();Labels.Empty();
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
-    ShopLabel=nullptr;ShopShown=-1;Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
+    CoverFootprints.Reset();ShopLabel=nullptr;ShopShown=-1;Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
     if(Config.Room<0) MakeHub();else {Layout=Config.Room==ASRules::EndlessRoom?ASRules::GenerateEndless():(ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed)));MakeRoom();if(HasAuthority()) BuildNavigation();}
     UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d"),
         Config.Room,Config.Generation,Batches.Num(),Stations.Num());
@@ -293,6 +318,7 @@ void AASWorld::MakeHub() {
 }
 void AASWorld::BuildEndlessCover(const FVector& Center) {
     const FLinearColor Stone(.17f,.16f,.17f);
+    CoverFootprints.Reset();
     std::array<ASRules::KeepOut,2> Keep;
     if(Config.KeepCount>0) Keep[0]={Config.KeepX0,Config.KeepY0,true};
     if(Config.KeepCount>1) Keep[1]={Config.KeepX1,Config.KeepY1,true};
@@ -300,6 +326,7 @@ void AASWorld::BuildEndlessCover(const FVector& Center) {
         const FVector At=Center+FVector(O.X,O.Y,O.Height*.5f),Scale(O.Length/100.f,O.Thickness/100.f,O.Height/100.f);
         const FLinearColor Tint=Stone*(O.Height>=ASRules::EndlessWallHeight-10.f?1.15f:1.f);
         Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=ASRules::EndlessWallHeight-10.f?0:2),At,Scale,Tint,false,O.Yaw,0,.05f); // visual, animated
+        CoverFootprints.Add({float(Center.X+O.X),float(Center.Y+O.Y),O.Length,O.Thickness,O.Yaw});
         Add(TEXT("Cube"),TEXT("EndlessSolid"),At,Scale,Tint,true,O.Yaw,0,.05f);                                                                  // collision proxy, fixed
     }
 }
@@ -609,6 +636,14 @@ int32 AASWorld::NearestNode(const FVector& P,bool ForGuide) const {
     return Best;
 }
 void AASWorld::BuildNavigation() {
+    // The routing grids describe the cover as it will stand, so build them against SOLID proxies even in the middle of a shift (during the swap the
+    // proxies are switched off, which used to make every route run straight through the new walls: the 0.23.4 "monsters stuck on walls" bug).
+    const bool RestoreOff=SolidState==0;
+    if(RestoreOff) SetCoverCollision(true);
+    BuildNavigationGrids();
+    if(RestoreOff) SetCoverCollision(false);
+}
+void AASWorld::BuildNavigationGrids() {
     Navigation.Blocked.clear();
     FVector Center;float Span;MapBounds(Center,Span);
     NavOrigin=FVector(FMath::FloorToFloat((Center.X-Span*.5f)/120)*120,FMath::FloorToFloat((Center.Y-Span*.5f)/120)*120,0);

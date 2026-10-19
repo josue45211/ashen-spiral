@@ -229,9 +229,18 @@ void AASHUD::DrawHUD() {
     const float CX=Width*.5f,CY=Height*.5f;
     if(RouteGuide&&RouteGuide->JumpAhead) {Group(CX-130*UI,Height-230*UI,UI);Text(TEXT("JUMP + AIR DASH / GOLD ARC"),0,0,ASHudGold,.68f);Group();}
     const auto* Settings=PC->GetGameInstance<UASGameInstance>();
-    const float AimScale=Settings?Settings->CrosshairScale:1.f,R=10.f*AimScale,Gap=4.f*AimScale;
+    // 0.23.5: while an enemy stands inside the melee swing's real reach, the crosshair turns gold and opens up (teaches maximum range).
+    bool InReach=false;
+    if(ASMelee::IsMelee(H->Build.Weapon)&&H->CanUseWeapons()) {
+        const float Reach=H->MeleeReachFor(0);const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D();
+        for(auto W:S->Enemies) if(const auto* E=W.Get()) if(E->Health>0&&H->CanDamage(E)) {
+            const FVector To=E->GetActorLocation()-H->GetActorLocation();
+            if(ASMelee::TargetInReach(To.Size2D(),Reach,E->GetCapsuleComponent()->GetScaledCapsuleRadius(),To.Z,FVector::DotProduct(Forward,To.GetSafeNormal2D()),.3f)) {InReach=true;break;}
+        }
+    }
+    const float AimScale=Settings?Settings->CrosshairScale:1.f,R=10.f*AimScale*(InReach?1.35f:1.f),Gap=4.f*AimScale;
     const int32 Shape=Settings?Settings->CrosshairStyle:0;
-    const FLinearColor AimColor=ASData::CrosshairColor(Settings?Settings->CrosshairColorIndex:0);
+    const FLinearColor AimColor=InReach?FLinearColor(1.f,.82f,.25f):ASData::CrosshairColor(Settings?Settings->CrosshairColorIndex:0);
     const auto AimLine=[&](float X,float Y,float X2,float Y2){Line(X,Y,X2,Y2,FLinearColor::Black,4.f);Line(X,Y,X2,Y2,AimColor,2.f);};
     if(Shape==0||Shape==3) {
         AimLine(CX-R,CY,CX-Gap,CY);AimLine(CX+Gap,CY,CX+R,CY);

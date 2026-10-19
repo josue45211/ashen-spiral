@@ -4,12 +4,16 @@
 #include "ASHammerRules.h"
 // Shared timing and grip foundation. One complete pose cycle is one attack.
 namespace ASMelee {
-// Hit feedback (0.23.4): every melee contact ticks faintly; contact near the edge of the reach gets a distinct cue, so players learn how far a swing really goes.
-constexpr float EdgeBandStart=.85f;
-inline float ReachRatio(float Distance,float Reach) {return Reach>0.f&&std::isfinite(Distance)?std::clamp(Distance/Reach,0.f,2.f):2.f;}
-inline bool EdgeHit(float Distance,float Reach) {const float R=ReachRatio(Distance,Reach);return R>=EdgeBandStart&&R<=1.f;}
+// Reach teaching (0.23.5): the crosshair turns gold and opens up while an enemy stands inside the swing's real reach (same test as the swing itself,
+// but with a stricter "in front" cone), so players feel the range before they swing. Every contact still ticks faintly (0.23.4).
+inline bool TargetInReach(float Distance2D,float Reach,float TargetRadius,float DeltaZ,float ForwardDot,float MinDot) {
+    return std::isfinite(Distance2D)&&std::isfinite(Reach)&&std::isfinite(DeltaZ)&&std::isfinite(ForwardDot)&&Reach>0.f
+        &&Distance2D<Reach+std::max(0.f,std::isfinite(TargetRadius)?TargetRadius:0.f)&&std::fabs(DeltaZ)<230.f&&ForwardDot>=MinDot;
+}
 // A pending swing stays valid while the game phase and the arena epoch are unchanged. An Endless arena shuffle does not change the epoch.
-inline bool ContextValid(int PhaseThen,int PhaseNow,int EpochThen,int EpochNow) {return PhaseThen==PhaseNow&&EpochThen==EpochNow;}
+// Countdown (1) turning into Combat (2) is the same fight starting, not a new context: a swing or leap begun while enemies spawn must survive it (0.23.5).
+inline bool PhaseCompatible(int PhaseThen,int PhaseNow) {return PhaseThen==PhaseNow||(PhaseThen==1&&PhaseNow==2);}
+inline bool ContextValid(int PhaseThen,int PhaseNow,int EpochThen,int EpochNow) {return PhaseCompatible(PhaseThen,PhaseNow)&&EpochThen==EpochNow;}
 inline bool IsMelee(int W) {return W==0||W==1||W==5;}
 inline int ComboLength(int W) {return W==0||W==1?3:1;}
 inline float BaseSeconds(int W) {return W==0?.28f:(W==1?.72f:.40f);}

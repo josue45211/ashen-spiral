@@ -91,6 +91,14 @@ private:
     FVector EndlessCenter=FVector::ZeroVector;
     float LastCoverDrop=-9999.f,SinkSoundAt=-1.f,ThudDownAt=-1.f,RiseSoundAt=-1.f,ThudUpAt=-1.f;
     int8 SolidState=-1; // collision proxies: -1 unknown, 0 off, 1 on
+    // World-space footprints of the current cover (X, Y, length, thickness, yaw), so collision is never switched on under a hero's feet.
+    struct FCoverFootprint {float X=0,Y=0,Length=0,Thickness=0,Yaw=0;};
+    TArray<FCoverFootprint> CoverFootprints;
+    // Remote machines read a smoothed copy of the replicated sim clock so the sink/rise (and its collision switches) never flicker backwards.
+    float ShiftClock=0.f;uint64 ShiftClockFrame=0;bool bShiftClockInit=false;
+    float ShiftNow(const AASGameState* State);
+    void SetCoverCollision(bool On);
+    void BuildNavigationGrids();
     void BuildEndlessCover(const FVector& Center);
     void RebuildEndlessCover();
     void AnimateShift(const AASGameState* State);

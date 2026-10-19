@@ -436,9 +436,9 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
     if(Kind==9||Kind==10) {SetActorLocation(At+D*R*.5f);Duration=.18f;return;}
     if(Kind==8) return;
     if(Kind==16) {
-        // Melee hit-confirm: a faint tick for any contact; contact at the edge of reach (Size > 0) gets a brighter tick and a crisp ring on the ground.
-        const bool Edge=R>0.f;if(!Edge) Visual->SetVisibility(false);
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Edge?.17f:.08f,Edge?2.1f:1.5f);
+        // Melee hit-confirm: one faint tick per swing that connects (no visual).
+        Visual->SetVisibility(false);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.08f,1.5f);
         return;
     }
     if(Kind==15) {if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.45f,.8f);return;}

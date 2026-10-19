@@ -65,7 +65,7 @@ void AASCharacter::ResetTraits() {
     NextLeech=NextSplash=NextChain=NextShock=NextPull=NextConduit=NextAura=NextOrbit=NextThorns=0;
     DashVictims.Empty();bDashTraceActive=false;Movement()->DashCharges=1;Movement()->KnownDashCapacity=1;Movement()->DashRecharge=0;
 }
-void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+8.f;StillSince=CombatStarts;DashVictims.Empty();}
+void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
 float AASCharacter::DamageScale(bool WeaponHit) const {
     const float Now=AS::Time(this);float Bonus=0;
     if(WeaponHit&&(Build.Weapon==0||Build.Weapon==1||Build.Weapon==5)) Bonus+=.12f*TraitValue(Trait::Melee);
@@ -76,7 +76,7 @@ float AASCharacter::DamageScale(bool WeaponHit) const {
     const auto* State=AS::State(this);
     if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&WeaponHit&&Now<WarCryUntil&&(Build.Weapon==0||Build.Weapon==1||Build.Weapon==5)) Bonus+=.20f;
     if(CombatBenefits()) {
-        if(Now<RoomBuffUntil) Bonus+=.10f*TraitValue(Trait::RoomBlessing);
+        if(Now<RoomBuffUntil) Bonus+=ASBuild::VanguardBonus(TraitValue(Trait::RoomBlessing));
         if(Now<KillBuffUntil) Bonus+=.05f*TraitValue(Trait::KillFlow);
         if(Now-StillSince>=1.2f) Bonus+=.12f*TraitValue(Trait::Stillness);
         if(GetVelocity().Size2D()>200.f) Bonus+=.08f*TraitValue(Trait::Momentum);

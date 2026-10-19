@@ -216,7 +216,7 @@ inline Layout GenerateEndless() {
 struct EndlessObstacle {float X,Y,Length,Thickness,Yaw,Height;};
 struct KeepOut {float X=0,Y=0;bool Active=false;};
 constexpr float EndlessCentreClear=800.f,EndlessKeepRadius=520.f,EndlessGap=330.f;
-constexpr float EndlessWallHeight=380.f,EndlessLowHeight=160.f; // pillars and walls share one height; low blocks stay jumpable cover
+constexpr float EndlessWallHeight=380.f; // every obstacle shares one height (0.23.5: the 160cm jumpable low blocks are gone)
 inline std::vector<EndlessObstacle> EndlessProps(std::uint32_t Seed,const std::array<KeepOut,2>& Keep) {
     Random R(Seed*2654435761u+977u);std::vector<EndlessObstacle> Out;
     const float Limit=float(EndlessHalf)-380.f;
@@ -226,7 +226,7 @@ inline std::vector<EndlessObstacle> EndlessProps(std::uint32_t Seed,const std::a
         O.Yaw=float(R.Range(12))*15.f;
         if(Kind<4) {O.Length=O.Thickness=170.f+float(R.Range(4))*30.f;O.Height=EndlessWallHeight;}          // pillars
         else if(Kind<8) {O.Length=420.f+float(R.Range(5))*60.f;O.Thickness=130.f;O.Height=EndlessWallHeight;}   // walls
-        else {O.Length=300.f;O.Thickness=300.f;O.Height=EndlessLowHeight;}                                    // low blocks (jumpable cover)
+        else {O.Length=300.f;O.Thickness=300.f;O.Height=EndlessWallHeight;}                                  // large square blocks (full height since 0.23.5)
         const float Radius=.5f*std::hypot(O.Length,O.Thickness);bool Ok=std::hypot(O.X,O.Y)>=EndlessCentreClear+Radius;
         for(const auto& K:Keep) if(K.Active&&std::hypot(O.X-K.X,O.Y-K.Y)<EndlessKeepRadius+Radius) Ok=false;
         for(const auto& P:Out) if(Ok&&std::hypot(O.X-P.X,O.Y-P.Y)<Radius+.5f*std::hypot(P.Length,P.Thickness)+EndlessGap) Ok=false;

@@ -43,7 +43,7 @@ void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnP
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
-    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);
+    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
 }
 void AASEnemy::RefreshLook() {
     const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
@@ -57,26 +57,26 @@ void AASEnemy::RefreshLook() {
     const float S=Boss()?2.15f:(Elite()?1.45f:1.f);BodyScale=S;
     const TCHAR* Models[]={TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Wraith"),TEXT("SM_Brute"),TEXT("SM_Brute"),TEXT("SM_RiftLeaper"),TEXT("SM_Bulwark"),TEXT("SM_EmberShaman"),TEXT("SM_RiftSniper"),TEXT("SM_Broodcaller")};
     const FLinearColor Colors[]={FLinearColor(.1f,.2f,.26f),FLinearColor(.2f,.1f,.35f),FLinearColor(.25f,.3f,.14f),FLinearColor(.32f,.065f,.05f),ASData::BiomeColor(Ward),FLinearColor(.28f,.1f,.5f),FLinearColor(.42f,.35f,.19f),FLinearColor(.55f,.12f,.025f),FLinearColor(.03f,.32f,.45f),FLinearColor(.1f,.38f,.12f)};
-    ASAssets::Style(Body,Models[FMath::Clamp(Kind,0,9)],FMath::Lerp(FMath::Lerp(Colors[FMath::Clamp(Kind,0,9)],ASData::BiomeColor(Theme),.35f),FLinearColor(.95f,.07f,.05f),.22f),Kind==6?.8f:.4f); // red cast: enemies read as foes
+    ASAssets::Style(Body,Models[FMath::Clamp(Kind,0,9)],FMath::Lerp(Colors[FMath::Clamp(Kind,0,9)],ASData::BiomeColor(Theme),.35f),Kind==6?.8f:.4f); // 0.23.5: no red foe cast
     if(Kind==ASExpedition::FlierKind) ASAssets::Style(Body,TEXT("SM_Wraith"),FLinearColor(.30f,.05f,.38f),.3f,1.f); // Gloomwing body
     const float HalfHeight=Elite()?187.5f*S*.5f:83.f;GetCapsuleComponent()->SetCapsuleHalfHeight(HalfHeight);
     Body->SetRelativeLocation(FVector(0,0,Elite()?62.5f*S-HalfHeight:-HalfHeight));Body->SetRelativeScale3D(FVector(S));
     ASAssets::Style(Eye,TEXT("Cube"),Kind==8?FLinearColor(.1f,.7f,1):FLinearColor(1,.09f,.025f),0,7);Eye->SetRelativeLocation(FVector(33*S,0,55*S));Eye->SetRelativeScale3D(FVector(.08f,.44f,.065f)*S);Eye->SetVisibility(Kind<5||Kind==ASExpedition::FlierKind);
     Crown->SetVisibility(false); // Crystals grow in the environment, never on enemy heads.
-    ASAssets::Style(Tell,TEXT("SM_Ring"),Kind==8?FLinearColor(.1f,.65f,1):FLinearColor(1,.1f,.02f),0,5);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+4));Tell->SetRelativeScale3D(FVector(Boss()?9:4,Boss()?9:4,1));
+    ASAssets::Style(Tell,TEXT("SM_Ring"),Kind==8?FLinearColor(.1f,.65f,1):FLinearColor(1,.1f,.02f),0,5);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+4));Tell->SetRelativeScale3D(FVector(Elite()?6.8f:4.2f,Elite()?6.8f:4.2f,1)); // 100cm mesh: diameter = the melee swing's damage radius x2 (210 / 340)
     {   // Flier wings: flat glowing slabs that flap. Fliers also pass over walls (no world-static collision), so v1 needs no pathfinding.
-        const bool Flier=Kind==ASExpedition::FlierKind;
+        const bool Flier=Flies();const float WingSize=Boss()?S:1.f; // the flying boss carries wings scaled to its body
         for(auto* Wing:{WingL.Get(),WingR.Get()}) if(Wing) {Wing->SetVisibility(Flier);if(Flier) {ASAssets::Style(Wing,TEXT("Cube"),FLinearColor(.16f,.03f,.26f),.2f,2.5f);Wing->SetCastShadow(false);}}
         if(Flier&&WingL&&WingR) {
-            WingL->SetRelativeLocation(FVector(-8,-70,30));WingR->SetRelativeLocation(FVector(-8,70,30));
-            WingL->SetRelativeScale3D(FVector(.6f,1.2f,.05f));WingR->SetRelativeScale3D(FVector(.6f,1.2f,.05f));
+            WingL->SetRelativeLocation(FVector(-8,-70,30)*WingSize);WingR->SetRelativeLocation(FVector(-8,70,30)*WingSize);
+            WingL->SetRelativeScale3D(FVector(.6f,1.2f,.05f)*WingSize);WingR->SetRelativeScale3D(FVector(.6f,1.2f,.05f)*WingSize);
             GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic,ECR_Ignore);GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);
         }
     }
     ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(.1f,.65f,1),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
     if(Humanoid) {
         const TCHAR* Meshes[]={TEXT("SM_Torso"),TEXT("SM_EnemyHelm"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_EnemyCape"),TEXT("SM_ArmorCore")};
-        const FLinearColor Metal=FMath::Lerp(FMath::Lerp(FLinearColor(.10f,.12f,.15f),Colors[FMath::Clamp(Kind,0,9)],.18f),FLinearColor(.45f,.05f,.04f),.2f),Fire(1.f,.065f,.025f);
+        const FLinearColor Metal=FMath::Lerp(FLinearColor(.10f,.12f,.15f),Colors[FMath::Clamp(Kind,0,9)],.18f),Fire(1.f,.065f,.025f);
         for(int32 I=0;I<21;++I) {const bool Glow=I==16||I==20,Fabric=I==15||I==19;ASAssets::Armor(ArmorParts[I],Meshes[I],Glow?Fire:(Fabric?FLinearColor(.018f,.008f,.012f):Metal),Fabric?0.f:.78f,Glow?4.f:0.f,Fabric?.96f:.45f);}
         ArmorFigure->SetRelativeLocation(FVector(0,0,-HalfHeight));ArmorFigure->SetRelativeScale3D(FVector(.82f,.70f,1.f)*(Elite()?S:.90f));
         ArmorParts[0]->SetRelativeLocation(FVector(0,0,111));ArmorParts[1]->SetRelativeLocation(FVector(0,0,165));ArmorParts[2]->SetRelativeLocation(FVector(0,0,78));
@@ -92,11 +92,38 @@ void AASEnemy::RefreshLook() {
     GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));RefreshStatus();
 }
 
+bool AASEnemy::ShowsStrikeCircle() const {
+    // 0.23.5: a circle means "damage lands here when it fills". Only the melee swing (Wraith/Brute kinds 0, 2, 3) damages the area the ring covers;
+    // shooters, the leaper's contact, shaman/boss blasts (their own field telegraph), the flier's dive and the sniper beam get no pre-attack circle.
+    return !bTrainingDummy&&!Boss()&&(Kind==0||Kind==2||Kind==3);
+}
+void AASEnemy::TickStatusTint() {
+    // 0.23.5: status effects pulse the body tint instead of drawing a ring at the feet. Cosmetic, runs where there is a screen.
+    const float Now=AS::Time(this);
+    const bool Active=StatusBits!=0&&Health>0;
+    if(!Active&&!bTintApplied) return;
+    TArray<UStaticMeshComponent*> Parts;Parts.Add(Body.Get());for(const auto& Part:ArmorParts) Parts.Add(Part.Get());
+    if(bTintApplied&&BaseTints.Num()!=Parts.Num()) {BaseTints.Reset();bTintApplied=false;} // part list changed: forget stale colours
+    if(!Active) { // restore the colours we saved
+        for(int32 I=0;I<Parts.Num();++I) if(Parts.IsValidIndex(I)&&Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),BaseTints[I]);
+        BaseTints.Reset();bTintApplied=false;return;
+    }
+    if(!bTintApplied) {
+        BaseTints.Reset();
+        for(auto* Part:Parts) {FLinearColor C(.1f,.1f,.1f);if(Part) if(auto* M=Cast<UMaterialInstanceDynamic>(Part->GetMaterial(0))) C=M->K2_GetVectorParameterValue(TEXT("Tint"));BaseTints.Add(C);}
+        bTintApplied=true;
+    }
+    const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
+    const FLinearColor Status=ASData::HitColor(Type);
+    const bool Frozen=(StatusBits&8)!=0;
+    const float Pulse=Frozen?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7)); // frozen: a steady strong tint; others: a pulse
+    for(int32 I=0;I<Parts.Num();++I) if(Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),FMath::Lerp(BaseTints[I],Status,FMath::Clamp(Pulse,0.f,.85f)));
+}
 void AASEnemy::RefreshStatus() {
     const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
     ASAssets::Style(Aura,TEXT("SM_Ring"),ASData::HitColor(Type),0,3);
     Aura->SetRelativeLocation(FVector(0,0,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+12));
-    const float Size=Boss()?2.4f:1.3f;Aura->SetRelativeScale3D(FVector(Size,Size,1));Aura->SetVisibility(StatusBits!=0);
+    const float Size=Boss()?2.4f:1.3f;Aura->SetRelativeScale3D(FVector(Size,Size,1));Aura->SetVisibility(false); // 0.23.5: the foot ring is gone; TickStatusTint pulses the body instead
 }
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
@@ -131,16 +158,16 @@ void AASEnemy::Tick(float Delta) {
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
-    Tell->SetVisibility(bWinding&&!bTrainingDummy);Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy);
+    Tell->SetVisibility(bWinding&&!bTrainingDummy&&ShowsStrikeCircle()); // only attacks that land damage on that circle get oneBeam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy);
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
-        if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Kind==ASExpedition::FlierKind) AnimateFlier();}
+        if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Flies()) AnimateFlier();TickStatusTint();}
         Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*(Kind==5?.30f:.12f))));
         Body->SetRelativeRotation(FRotator(bWinding?(Kind==5?-15.f:-7.f)*T:0,0,0));
         if(bWinding) {Tell->SetRelativeRotation(FRotator(0,S->SimTime*100,0));if(auto* M=Cast<UMaterialInstanceDynamic>(Tell->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+T*6);}
     }
     if(!HasAuthority()||Health<=0) return;
-    if(SpawnProtected()) {GetCharacterMovement()->StopMovementImmediately();Tell->SetVisibility(true);Tell->SetRelativeScale3D(FVector(10,10,1));return;}
+    if(SpawnProtected()) {if(Flies()&&GetCharacterMovement()->MovementMode!=MOVE_Flying) GetCharacterMovement()->SetMovementMode(MOVE_Flying);GetCharacterMovement()->StopMovementImmediately();Tell->SetVisibility(false);return;} // a flyer ignores the floor, so it must not be left walking // 0.23.5: no spawn ring (it was informational, not a damage zone)
     const bool Active=ASRules::CanDamageTarget(int(S->Phase),bTrainingDummy,false);
     if(!Active) {
         Elements=ASRules::ElementState();BurnPending=PoisonPending=BleedPending=0;
@@ -156,7 +183,7 @@ void AASEnemy::Tick(float Delta) {
     AASCharacter* Target=nullptr;float Best=FLT_MAX;
     for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) {float D=FVector::DistSquared2D(GetActorLocation(),H->GetActorLocation());if(D<Best){Best=D;Target=H.Get();}}
     if(!Target) return;
-    if(Kind==ASExpedition::FlierKind) {TickFlier(Delta,Target,Best);return;}
+    if(Flies()) {TickFlier(Delta,Target,Best);return;}
     if(GetActorLocation().Z<-500 && S->Arena) {SetActorLocation(S->Arena->SafeEnemyPoint(GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();}
     if(LeapUntil>S->SimTime) {
         GetCharacterMovement()->MaxWalkSpeed=1100;StuckFor=0;
@@ -239,7 +266,7 @@ void AASEnemy::CommitAttack() {
     }
     if(Boss()) {
         const bool PhaseTwo=Health<MaxHealth*.5f;
-        if(Ward==1 && Pattern%2==0) {ChargeUntil=S->SimTime+.7f;return;}
+        if(Ward==1 && Pattern%2==0 && !bAirborne) {ChargeUntil=S->SimTime+.7f;return;} // a flying boss cannot charge along the ground
         if(Ward==2 && PhaseTwo) for(auto W:S->Wells) if(W.IsValid()) W->bInverted=true;
         if(Ward==3 || Pattern%2==0) {
             for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) {
@@ -321,33 +348,44 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
 void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared) {
     auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
     if(Move->MovementMode!=MOVE_Flying) Move->SetMovementMode(MOVE_Flying);
+    const bool Big=Boss(); // the flying boss: same loop, bigger numbers
+    const float Hover=Big?ASExpedition::FlyingBossHover:ASExpedition::FlierHover,OrbitRadius=Big?ASExpedition::FlyingBossOrbitRadius:ASExpedition::FlierOrbitRadius;
+    const float DiveSpeed=Big?ASExpedition::FlyingBossDiveSpeed:ASExpedition::FlierDiveSpeed,DiveSeconds=Big?ASExpedition::FlyingBossDiveSeconds:ASExpedition::FlierDiveSeconds;
+    const float Windup=Big?ASExpedition::FlyingBossWindup:ASExpedition::FlierWindup,ContactRange=Big?ASExpedition::FlyingBossContactRange:170.f;
+    const float ContactDamage=Big?ASExpedition::FlyingBossContactDamage:ASExpedition::FlierContactDamage;
+    const float Half=GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f;
     const float Now=S->SimTime;const FVector Here=GetActorLocation(),There=Target->GetActorLocation();
     const float FloorZ=There.Z-88.f; // the target's feet: fliers hover relative to the fight, not to the terrain under them
-    Move->MaxFlySpeed=330.f*ASArsenal::EnemySpeedScale(false)*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f);
+    const float LowestZ=FloorZ+(Big?Half+40.f:70.f); // never dive below this (the boss's body is much taller)
+    Move->MaxFlySpeed=(Big?ASExpedition::FlyingBossFlySpeed:330.f)*ASArsenal::EnemySpeedScale(Big)*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f);
     if(DiveUntil>Now) {
         // Dive: fast, straight through where the player was; one contact hit; pull up on arrival or near the floor.
-        Move->Velocity=DiveDirection*ASExpedition::FlierDiveSpeed;
-        if(FVector::Dist(Here,There)<170.f&&Now>LastContact&&Here.Z>FloorZ-60.f) {LastContact=Now+.6f;Target->Hurt(ASExpedition::FlierContactDamage,this);}
-        if(Here.Z<=FloorZ+70.f||FVector::Dist(Here,DiveTarget)<80.f) DiveUntil=0.f;
+        Move->Velocity=DiveDirection*DiveSpeed;
+        if(FVector::Dist(Here,There)<ContactRange&&Now>LastContact&&Here.Z>FloorZ-60.f) {LastContact=Now+.6f;Target->Hurt(ContactDamage,this);}
+        if(Here.Z<=LowestZ||FVector::Dist(Here,DiveTarget)<80.f) DiveUntil=0.f;
         return;
     }
     if(bWinding) {
         Move->StopMovementImmediately();SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
         if(Now>=WindupEnd) {
-            bWinding=false;DiveTarget=There;DiveDirection=((There-FVector(0,0,20.f))-Here).GetSafeNormal();
-            DiveUntil=Now+ASExpedition::FlierDiveSeconds;NextAttack=Now+ASExpedition::FlierAttackDelay(FMath::FRand());ForceNetUpdate();
+            bWinding=false;
+            if(Big&&(++DiveCycle%2)==0) { // every second attack of the flying boss is its normal boss attack (blast fields or a shot ring), not a dive
+                CommitAttack();NextAttack=Now+3.f;ForceNetUpdate();return;
+            }
+            DiveTarget=There;DiveDirection=((There-FVector(0,0,20.f))-Here).GetSafeNormal();
+            DiveUntil=Now+DiveSeconds;NextAttack=Now+(Big?3.f:ASExpedition::FlierAttackDelay(FMath::FRand()));ForceNetUpdate();
         }
         return;
     }
-    if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f)) {
-        Aim=(There-Here).GetSafeNormal2D();WindupStart=Now;WindupEnd=Now+ASExpedition::FlierWindup;bWinding=true;ForceNetUpdate();return;
+    if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f+(Big?400.f:0.f))) {
+        Aim=(There-Here).GetSafeNormal2D();WindupStart=Now;WindupEnd=Now+Windup;bWinding=true;ForceNetUpdate();return;
     }
     // Circle the target at a fixed radius and hover height, with a slow bob.
     if(OrbitAngle==0.f) {OrbitSign=(GetUniqueID()&1)?1.f:-1.f;OrbitAngle=float(GetUniqueID()%628)/100.f+.01f;}
-    OrbitAngle+=Delta*.9f*OrbitSign;
-    const FVector Orbit=There+FVector(FMath::Cos(OrbitAngle),FMath::Sin(OrbitAngle),0.f)*ASExpedition::FlierOrbitRadius;
+    OrbitAngle+=Delta*(Big?.5f:.9f)*OrbitSign;
+    const FVector Orbit=There+FVector(FMath::Cos(OrbitAngle),FMath::Sin(OrbitAngle),0.f)*OrbitRadius;
     const float Bob=FMath::Sin(Now*2.3f+float(GetUniqueID()%7))*18.f;
-    const FVector Delta3=FVector(Orbit.X,Orbit.Y,FloorZ+ASExpedition::FlierHover+Bob)-Here;
+    const FVector Delta3=FVector(Orbit.X,Orbit.Y,FloorZ+Hover+Bob)-Here;
     AddMovementInput(Delta3.GetSafeNormal(),FMath::Clamp(Delta3.Size()/200.f,.2f,1.f),true);
     SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
 }
