@@ -18,7 +18,7 @@ public:
     UPROPERTY(Replicated) float MaxRadius=720.f; // where it ends
     UPROPERTY(Replicated) float Damage=18.f;
     TWeakObjectPtr<AASEnemy> EnemySource;
-    static AASShockwave* Spawn(UWorld* World,const FVector& Feet,AASEnemy* Source,float Damage,float MaxRadius); // Feet: the floor under the enemy
+    static AASShockwave* Spawn(UWorld* World,const FVector& Feet,AASEnemy* Source,float Damage,float MaxRadius,float Delay=0.f); // Feet: the floor under the enemy; Delay: it starts this many seconds from now
 private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Ring;
     float PrevRadius=0.f;bool bSwept=false;

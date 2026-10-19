@@ -25,15 +25,32 @@
 void AASEnemy::ShowTell(float Progress) {
     namespace ER=ASEnemyRules;
     if(!Tell||!TellFill||!GetCapsuleComponent()) return;
-    const int32 Shape=ER::SpecFor(Ability).Tell;const bool Disc=Shape==ER::TellDisc,HasSector=ASAssets::HasMesh(TEXT("SM_StrikeSector"));
+    const ER::AbilitySpec& Spec=ER::SpecFor(Ability);
+    const int32 Shape=Spec.Tell;const bool Disc=Shape==ER::TellDisc,Line=Shape==ER::TellLine,HasSector=ASAssets::HasMesh(TEXT("SM_StrikeSector"));
     if(Shape!=TellShape) { // a different shape than the one last drawn: swap both meshes (this happens only when an enemy with two kinds of warning switches)
-        const FString TellMesh=Disc?FString(TEXT("Cylinder")):(HasSector?FString(TEXT("SM_StrikeSector")):FString(TEXT("SM_Ring")));
+        const FString TellMesh=Disc?FString(TEXT("Cylinder")):(Line?FString(TEXT("Cube")):(HasSector?FString(TEXT("SM_StrikeSector")):FString(TEXT("SM_Ring"))));
         ASAssets::Style(Tell,TellMesh,FLinearColor(.55f,.05f,.02f),0,1.5f);ASAssets::Style(TellFill,TellMesh,FLinearColor(1.f,.16f,.03f),0,6.f);
         Tell->SetCastShadow(false);TellFill->SetCastShadow(false);TellShape=Shape;
     }
-    const float Radius=ER::TellRadiusFor(Ability,Elite()),Unit=Disc?50.f:(HasSector?50.f:53.f),Full=Radius/Unit,Grow=Full*FMath::Max(.04f,Progress),Flat=Disc?.02f:1.f; // the basic cylinder is 100 cm across: flattened it is a disc
-    Tell->SetRelativeScale3D(FVector(Full,Full,Flat));TellFill->SetRelativeScale3D(FVector(Grow,Grow,Flat*1.5f));
+    const float Floor=-GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    if(Line) { // a strip from the enemy along its aim: the dim strip is the whole path, the bright one grows along it (the basic cube is 100 cm each way)
+        const float Length=Spec.TellA,Width=Spec.TellB>0.f?Spec.TellB:200.f,Grown=Length*FMath::Max(.04f,Progress);
+        Tell->SetRelativeLocation(FVector(Length*.5f,0.f,Floor+3.f));Tell->SetRelativeScale3D(FVector(Length/100.f,Width/100.f,.02f));
+        TellFill->SetRelativeLocation(FVector(Grown*.5f,0.f,Floor+4.5f));TellFill->SetRelativeScale3D(FVector(Grown/100.f,Width/100.f*.95f,.03f));
+    } else {
+        const float Radius=ER::TellRadiusFor(Ability,Elite()),Unit=Disc?50.f:(HasSector?50.f:53.f),Full=Radius/Unit,Grow=Full*FMath::Max(.04f,Progress),Flat=Disc?.02f:1.f; // the basic cylinder is 100 cm across: flattened it is a disc
+        Tell->SetRelativeLocation(FVector(0.f,0.f,Floor+3.f));TellFill->SetRelativeLocation(FVector(0.f,0.f,Floor+4.5f));
+        Tell->SetRelativeScale3D(FVector(Full,Full,Flat));TellFill->SetRelativeScale3D(FVector(Grow,Grow,Flat*1.5f));
+    }
     if(auto* M=Cast<UMaterialInstanceDynamic>(TellFill->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+Progress*6);
+}
+
+// A ground boss outside Endless wave 50+ fights with its ward's kit (ASEnemyAbilities.h, BossKitFor). The flying boss keeps its dive-and-attack loop, and the Endless wave 50+
+// bosses keep the old boss attack with its lethal telegraphed patterns.
+bool AASEnemy::WardBossKit() const {
+    if(!Boss()||bAirborne) return false;
+    const auto* S=AS::State(this);
+    return !(S&&S->bEndless&&S->EndlessWave>50);
 }
 
 // What happens when an ability's wind-up ends, for the abilities in this file. Returns what comes next (see EFlow); FlowNotMine leaves the ability to CommitAttack, the older
@@ -184,6 +201,126 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
             if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
             const float Delay=ER::SeedFirstDelay+ER::SeedStagger*float(I);
             if(AASHazard::Spawn(World,At,ER::HazardVenom,this,Delay,ER::SeedImpact)) S->Effect(18,At,FVector::UpVector,FLinearColor(.25f,1.f,.30f),Delay); // the pod falls for as long as the warning lasts
+        }
+        return FlowFinish;
+    }
+    // ---- The ward bosses (ASEnemyAbilities.h, BossKitFor). Phase two (a replicated flag) widens and doubles up. ----
+    case ER::AbilityBossSlam: { // a huge shockwave ring; in the second phase a second ring follows it
+        ++Pattern;const bool Two=(Flags&ER::FlagPhaseTwo)!=0;
+        AASShockwave::Spawn(World,Feet,this,ER::BossSlamDamage,ER::BossSlamRadius);
+        if(Two) AASShockwave::Spawn(World,Feet,this,ER::BossSlamDamage,ER::BossSlamRadius,ER::BossTollGap);
+        S->Effect(6,Feet,FVector::UpVector,FLinearColor(1.f,.3f,.05f),420.f);S->Effect(11,Feet,FVector::UpVector,FLinearColor(.75f,.6f,.45f),3.f);
+        return FlowFinish;
+    }
+    case ER::AbilityBossMarks: { // a blast mark on every hero, each with its own warning; the second phase marks wider and adds a scattered volley
+        ++Pattern;const bool Two=(Flags&ER::FlagPhaseTwo)!=0;
+        for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(!Hero->bDowned) {
+            const FVector At=Hero->GetActorLocation()-FVector(0,0,77);
+            if(auto* Field=AASField::Spawn(World,0,At,Two?ER::BossMarkRadiusTwo:ER::BossMarkRadius,ER::BossMarkDamage,ER::BossMarkDelay,ER::BossMarkDelay+.4f)) Field->EnemySource=this;
+        }
+        if(Two) {
+            ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+            const int32 Count=Volley(3,GetUniqueID()*19u+uint32(Pattern),Points,Floor);
+            for(int32 I=0;I<Count;++I) {
+                FVector At(Points[I].X,Points[I].Y,Floor[I]+11.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                const float Delay=ER::BossMarkExtraDelay+.3f*float(I);
+                if(auto* Field=AASField::Spawn(World,0,At,ER::BossMarkRadius,ER::BossMarkDamage,Delay,Delay+.4f)) Field->EnemySource=this;
+            }
+        }
+        return FlowFinish;
+    }
+    case ER::AbilityBossRing: { // a ring of shots, turned a little further each time so the gaps are never in the same place
+        ++Pattern;const int32 Count=(Flags&ER::FlagPhaseTwo)?ER::BossRingShotsTwo:ER::BossRingShots;
+        for(int32 I=0;I<Count;++I) {
+            const FVector Dir=FRotator(0.f,float(Pattern)*ER::BossRingTurn+float(I)*360.f/float(Count),0.f).Vector();
+            if(auto* Shot=AASProjectile::Fire(World,Here+Dir*75.f+FVector(0,0,15),Dir,nullptr,2,ER::BossRingDamage,true)) Shot->EnemySource=this;
+        }
+        return FlowFinish;
+    }
+    case ER::AbilityBossCharge: { // the stampede: along the red strip, contact damage (TickGround's Attack state), faster in the second phase
+        ++Pattern;ChargeUntil=Now+ER::BossChargeSeconds;
+        S->Effect(11,Feet,FVector::UpVector,FLinearColor(.75f,.6f,.45f),2.f);
+        return FlowAttack;
+    }
+    case ER::AbilityBossToll: { // two rings, one after the other: the first is jumped, the second catches the one who lands
+        ++Pattern;
+        AASShockwave::Spawn(World,Feet,this,ER::BossTollDamage,ER::BossTollRadius);
+        AASShockwave::Spawn(World,Feet,this,ER::BossTollDamage,ER::BossTollRadius,ER::BossTollGap);
+        S->Effect(6,Feet,FVector::UpVector,FLinearColor(1.f,.3f,.05f),420.f);
+        return FlowFinish;
+    }
+    case ER::AbilityBossSeeds: { // venom pods onto each hero and around them
+        ++Pattern;ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+        const int32 Count=Volley((Flags&ER::FlagPhaseTwo)?ER::BossSeedsTwo:ER::BossSeeds,GetUniqueID()*23u+uint32(Pattern),Points,Floor);
+        for(int32 I=0;I<Count;++I) {
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            const float Delay=ER::BossSeedFirstDelay+ER::BossSeedStagger*float(I);
+            if(AASHazard::Spawn(World,At,ER::HazardVenom,this,Delay,ER::BossSeedImpact)) S->Effect(18,At,FVector::UpVector,FLinearColor(.25f,1.f,.30f),Delay);
+        }
+        return FlowFinish;
+    }
+    case ER::AbilityBossBloom: { // void blooms that open under and around the heroes and stay
+        ++Pattern;ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+        const int32 Count=Volley((Flags&ER::FlagPhaseTwo)?ER::BossBloomsTwo:ER::BossBlooms,GetUniqueID()*29u+uint32(Pattern),Points,Floor);
+        for(int32 I=0;I<Count;++I) {
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::BossBloomFirstDelay+ER::BossBloomStagger*float(I),ER::BossBloomImpact);
+        }
+        return FlowFinish;
+    }
+    case ER::AbilityBossRoots: { // roots erupt under every hero after a second; the second phase adds two more near them
+        ++Pattern;
+        for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(!Hero->bDowned) {
+            FVector At=Hero->GetActorLocation()-FVector(0,0,Hero->GetSimpleCollisionHalfHeight()-4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::BossRootDelay,ER::BossRootImpact);
+        }
+        if(Flags&ER::FlagPhaseTwo) {
+            ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+            const int32 Count=Volley(2,GetUniqueID()*37u+uint32(Pattern),Points,Floor);
+            for(int32 I=0;I<Count;++I) {
+                FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::BossRootExtraDelay+.3f*float(I),ER::BossRootImpact);
+            }
+        }
+        return FlowFinish;
+    }
+    case ER::AbilityBossGrasp: { // every hero in reach is flung toward the boss, then a ring sweeps out: land inside it and you must jump
+        ++Pattern;
+        for(auto W:S->Heroes) if(auto* Hero=W.Get()) if(!Hero->bDowned) {
+            const FVector To=Here-Hero->GetActorLocation();const float Distance=To.Size2D();
+            if(Distance>ER::GraspRadius) continue;
+            const FVector Dir=To.GetSafeNormal2D();const float Speed=ER::GraspSpeed(Distance);
+            if(Speed>0.f&&!Dir.IsNearlyZero()) Hero->LaunchCharacter(Dir*Speed+FVector(0,0,ER::GraspLift),true,true);
+        }
+        AASShockwave::Spawn(World,Feet,this,ER::GraspRingDamage,ER::GraspRingRadius,ER::GraspRingDelay);
+        S->Effect(6,Feet,FVector::UpVector,FLinearColor(.42f,.12f,.75f),ER::GraspRadius);
+        return FlowFinish;
+    }
+    case ER::AbilityBossPhase: { // the roar: the second phase begins, and the ward's set piece happens
+        Flags|=uint8(ER::FlagPhaseTwo);ForceNetUpdate();
+        S->Effect(6,Feet,FVector::UpVector,FLinearColor(1.f,.5f,.1f),1100.f);S->Effect(11,Here+FVector(0,0,80),FVector::UpVector,FLinearColor(.8f,.25f,.9f),3.f);
+        auto Summon=[&](int32 Count) { // grunts in a ring around the boss (nothing spawns past the enemy cap)
+            for(int32 I=0;I<Count;++I) {
+                const float Angle=UE_TWO_PI*float(I)/float(FMath::Max(1,Count))+.5f;
+                if(auto* GM=World->GetAuthGameMode<AASGameMode>()) if(GM->SpawnMinion(Here+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0.f)*420.f,this)) S->Effect(11,Here+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0.f)*420.f,FVector::UpVector,FLinearColor(.8f,.25f,.9f),2.f);
+            }
+        };
+        if(Ward==ER::BossWardIndexer) Summon(ER::PhaseClerks);       // the clerks the Indexer calls up
+        else if(Ward==ER::BossWardBellwether) Summon(ER::PhaseHerd);  // the herd the Bellwether calls
+        else if(Ward==ER::BossWardHorticulturist) { // the wells turn against you, and a ring of blooms opens around the boss
+            for(auto W:S->Wells) if(W.IsValid()) W->bInverted=true;
+            for(int32 I=0;I<ER::PhaseBloomsRing;++I) {
+                const float Angle=UE_TWO_PI*float(I)/float(ER::PhaseBloomsRing);FVector At=Feet+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0.f)*ER::PhaseBloomRadius;
+                if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::PhaseBloomDelay,ER::BossBloomImpact);
+            }
+        } else { // the Sovereign's roots rise near the heroes
+            ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
+            const int32 Count=Volley(ER::PhaseBloomsNear,GetUniqueID()*41u+uint32(Pattern),Points,Floor);
+            for(int32 I=0;I<Count;++I) {
+                FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::PhaseBloomDelay+.2f*float(I),ER::BossBloomImpact);
+            }
         }
         return FlowFinish;
     }

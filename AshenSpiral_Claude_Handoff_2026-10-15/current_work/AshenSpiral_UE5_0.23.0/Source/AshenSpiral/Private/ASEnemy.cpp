@@ -136,7 +136,7 @@ bool AASEnemy::ShowsStrikeCircle() const {
 void AASEnemy::TickStatusTint() {
     // 0.23.5: status effects pulse the body tint instead of drawing a ring at the feet. Cosmetic, runs where there is a screen.
     const float Now=AS::Time(this);
-    const bool Enraged=(Flags&ASEnemyRules::FlagEnraged)!=0,Mutated=Mutation!=ASEnemyRules::MutationNone;
+    const bool Enraged=(Flags&(ASEnemyRules::FlagEnraged|ASEnemyRules::FlagPhaseTwo))!=0,Mutated=Mutation!=ASEnemyRules::MutationNone; // a boss in its second phase is as angry as an enraged brute
     const bool Active=(StatusBits!=0||Enraged||Mutated)&&Health>0;
     if(!Active&&!bTintApplied) return;
     TArray<UStaticMeshComponent*> Parts;Parts.Add(Body.Get());for(const auto& Part:ArmorParts) Parts.Add(Part.Get());
@@ -291,7 +291,7 @@ void AASEnemy::FinishAttackPhase() {
 void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared) {
     namespace ER=ASEnemyRules;
     auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
-    const float Now=S->SimTime;const ER::Kit Kit=ER::KitWithMutation(ER::KitFor(Kind),Mutation); // a mutated elite owns one more ability
+    const float Now=S->SimTime;const ER::Kit Kit=WardBossKit()?ER::BossKitFor(Ward):ER::KitWithMutation(ER::KitFor(Kind),Mutation); // a ward's boss has its own kit, a mutated elite owns one more ability
     const FVector Here=GetActorLocation(),ToTarget=Target->GetActorLocation()-Here;
     CurrentTarget=Target;
     // ---- Committed phases: nothing else decides anything until they end. ----
@@ -331,7 +331,7 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
             return;
         }
         if(ChargeUntil>Now) { // a charge along the aim: one contact hit
-            Move->MaxWalkSpeed=1100;AddMovementInput(Aim,1,true);
+            Move->MaxWalkSpeed=1100.f*((Boss()&&(Flags&ER::FlagPhaseTwo))?ER::BossChargeSpeedTwo:1.f);AddMovementInput(Aim,1,true);
             if(DistanceSquared<200*200&&Now>LastContact&&AS::ClearSight(GetWorld(),Here,Target->GetActorLocation())) {LastContact=Now+.5f;Target->Hurt(Kind==6?20:28,this);}
             return;
         }
@@ -348,6 +348,7 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
     // Frail kinds fall back once when badly hurt (bounded, and never while only a couple of enemies remain).
     const bool Retreating=ER::UpdateRetreat(Kit,Health/FMath::Max(1.f,MaxHealth),S->Enemies.Num(),Now,Retreat);
     if(!Retreating&&ER::KitHas(Kit,ER::AbilityEnrage)&&ER::EnrageDue((Flags&ER::FlagEnraged)!=0,Health,MaxHealth)) {BeginAbility(ER::AbilityEnrage,ToTarget);return;} // at half health the brute roars (once)
+    if(ER::KitHas(Kit,ER::AbilityBossPhase)&&ER::BossPhaseDue((Flags&ER::FlagPhaseTwo)!=0,Health,MaxHealth)) {BeginAbility(ER::AbilityBossPhase,ToTarget);return;} // and a ward's boss roars into its second phase (once)
     if(Now<RelocateUntil) { // the sniper's new vantage point after a shot: brisk and straight along the route, no attack until it arrives (or its few seconds are up)
         const FVector Goal(RelocateGoal.X,RelocateGoal.Y,Here.Z);
         if(FVector::Dist2D(Here,Goal)>ER::RelocateArrive) {
@@ -362,8 +363,8 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
         RelocateUntil=0.f; // arrived, or no way there: back to the fight
     }
     if(!Retreating&&Sight&&Now>=NextAttack) {
-        ER::Context C;C.Distance=Distance;C.Now=Now;C.Sight=true;C.ClearPath=true;
-        if((Kind==5||Kind==6)&&Distance<Range&&S->Arena) C.ClearPath=S->Arena->CanWalkDirectly(Here,Target->GetActorLocation()); // leaps and charges need a clear straight walk
+        ER::Context C;C.Distance=Distance;C.Now=Now;C.Sight=true;C.ClearPath=true;C.PhaseTwo=(Flags&ER::FlagPhaseTwo)!=0;
+        if((Kind==5||Kind==6||WardBossKit())&&Distance<Range&&S->Arena) C.ClearPath=S->Arena->CanWalkDirectly(Here,Target->GetActorLocation()); // leaps and charges need a clear straight walk
         const int32 Chosen=ER::ChooseAbility(Kit,C,AbilityReadyAt,LastAbility,FMath::FRand());
         if(Chosen!=ER::AbilityNone) {BeginAbility(Chosen,ToTarget);return;}
     }

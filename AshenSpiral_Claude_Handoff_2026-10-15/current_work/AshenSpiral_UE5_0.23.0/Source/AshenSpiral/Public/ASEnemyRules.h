@@ -94,13 +94,16 @@ inline float CueDistanceGain(float Distance) {
 // warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
 constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilityShot=4,AbilityPounce=5,AbilityCharge=6,AbilityBlast=7,AbilitySnipe=8,AbilitySummon=9,AbilityBossAttack=10,
     AbilityShove=11,AbilityBackHop=12,AbilityParry=13,AbilityRiposte=14,AbilityPound=15,AbilityEnrage=16,AbilityBlink=17,AbilityBlinkStrike=18,AbilityMeteors=19,
-    AbilityGlacial=20,AbilityCinders=21,AbilityStorm=22,AbilitySeeds=23,AbilityCount=24; // 20-23: the elite mutations' signature abilities (ASEnemyAbilities.h)
-// The replicated byte AASEnemy::Flags: bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
-constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
+    AbilityGlacial=20,AbilityCinders=21,AbilityStorm=22,AbilitySeeds=23, // 20-23: the elite mutations' signature abilities (ASEnemyAbilities.h)
+    AbilityBossSlam=24,AbilityBossMarks=25,AbilityBossRing=26,AbilityBossCharge=27,AbilityBossToll=28,AbilityBossSeeds=29,AbilityBossBloom=30,AbilityBossRoots=31,AbilityBossGrasp=32,AbilityBossPhase=33,
+    AbilityCount=34; // 24-33: the ward bosses' abilities (each ward's kit is BossKitFor)
+// The replicated byte AASEnemy::Flags (PhaseTwo: a boss that has passed half health and made its roar): bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
+constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u,FlagPhaseTwo=16u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
 constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
 constexpr unsigned NeedsClearPath=1u;                        // may only start when a straight walk to the target is clear (leaps and charges)
 constexpr unsigned StanceFlag=2u;                            // a long stance or roar: the Special state, with no strike of its own (a parry, an enrage)
 constexpr unsigned OneShotFlag=4u;                           // happens once per enemy, triggered by the enemy itself, never chosen by the chooser
+constexpr unsigned PhaseTwoOnlyFlag=16u;                       // a boss ability that is only chosen once the boss is in its second phase
 constexpr unsigned NoKitCooldownFlag=8u;                     // does not delay the kit's next attack (a reposition, a stance, a roar: the attack it sets up should follow soon)
 struct AbilitySpec {
     float Windup;    // seconds of telegraph; 0 = the kit's wind-up
@@ -141,6 +144,16 @@ inline const AbilitySpec& SpecFor(int Id) {
         { .90f, 0.f, .60f,7.0f,200.f,950.f,1.4f,TellNone,  0.f,0.f,0u,CueBlastWind,CueBlastBurst},                // 21 cinder burst (burning elite: fire pools in a line toward you, each with its own warning)
         {1.0f,  0.f, .60f,8.5f,0.f,1300.f,1.4f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueNone},                      // 22 storm call (shocking elite: lightning on each hero and around, each with its own warning and thunder)
         { .80f, 0.f, .60f,7.0f,250.f,1100.f,1.4f,TellNone, 0.f,0.f,0u,CueSummonWind,CueEggLay},                    // 23 seed bombs (venomous elite: pods that land as venom pools)
+        {1.2f,  0.f, .90f,7.0f,0.f, 800.f,1.2f,TellDisc,900.f,0.f,0u,CueBossRoar,CueBossSlam},                    // 24 boss slam (Indexer, Sovereign: a huge shockwave ring)
+        {1.1f,  0.f, .70f,6.0f,0.f,1300.f,1.3f,TellNone,  0.f,0.f,0u,CueBossRoar,CueNone},                         // 25 boss marks (blasts on every hero, each with its own warning)
+        {1.0f,  0.f, .70f,5.0f,0.f,1300.f,1.0f,TellNone,  0.f,0.f,0u,CueBossRoar,CueBlastBurst},                   // 26 boss ring (a ring of shots)
+        {1.0f, .70f, .90f,8.0f,300.f,1300.f,1.4f,TellLine,950.f,220.f,NeedsClearPath,CueChargeWind,CueChargeRun},   // 27 boss charge (Bellwether: along a red strip)
+        {1.2f,  0.f, .90f,7.0f,0.f, 900.f,1.2f,TellDisc,800.f,0.f,0u,CueBossRoar,CueBossSlam},                    // 28 boss toll (Bellwether: two rings one after the other)
+        {1.0f,  0.f, .70f,6.5f,250.f,1300.f,1.3f,TellNone, 0.f,0.f,0u,CueSummonWind,CueEggLay},                    // 29 boss seeds (Horticulturist: venom pods)
+        {1.1f,  0.f, .70f,8.0f,0.f,1300.f,1.2f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueNone},                       // 30 boss bloom (Horticulturist: void blooms)
+        {1.0f,  0.f, .70f,6.0f,0.f,1300.f,1.4f,TellNone,  0.f,0.f,0u,CueBossRoar,CueNone},                         // 31 boss roots (Sovereign: roots erupt under every hero)
+        {1.3f,  0.f,1.00f,9.0f,0.f,1000.f,1.6f,TellDisc,900.f,0.f,PhaseTwoOnlyFlag,CueBossRoar,CueBossSlam},        // 32 boss grasp (Sovereign, second phase: pulls every hero in, then a ring)
+        {1.5f,  0.f, .60f,1.e9f,0.f,0.f,  0.f,TellNone,  0.f,0.f,StanceFlag|OneShotFlag|NoKitCooldownFlag,CueBossPhase,CueBossSummon}, // 33 boss phase (the roar at half health: set piece of its ward)
     };
     return Table[std::clamp(Id,0,AbilityCount-1)];
 }
@@ -191,7 +204,7 @@ inline float TellRadiusFor(int Ability,bool Elite) {
 inline bool KitHas(const Kit& K,int Ability) {for(int I=0;I<MaxKitAbilities;++I) {if(K.Abilities[I]==AbilityNone) return false;if(K.Abilities[I]==Ability) return true;}return false;}
 inline float WindupFor(const Kit& K,int Ability) {const float W=SpecFor(Ability).Windup;return W>0.f?W:K.Windup;}
 // What the chooser needs to know about the moment.
-struct Context {float Distance=0.f,Now=0.f;bool Sight=true,ClearPath=true;};
+struct Context {float Distance=0.f,Now=0.f;bool Sight=true,ClearPath=true,PhaseTwo=false;};
 // Picks the ability a kit starts now: among its abilities whose distance window contains the target, whose own cooldown is over (ReadyAt[id], may be null) and whose
 // path requirement holds; weighted by Roll in [0,1); never the same one twice running when something else is eligible. Returns AbilityNone when nothing is.
 inline int ChooseAbility(const Kit& K,const Context& C,const float* ReadyAt,int Last,float Roll) {
@@ -201,7 +214,7 @@ inline int ChooseAbility(const Kit& K,const Context& C,const float* ReadyAt,int 
         const int Id=K.Abilities[I];
         if(Id<=AbilityNone||Id>=AbilityCount) break;
         const AbilitySpec& A=SpecFor(Id);const float Max=A.MaxRange>0.f?A.MaxRange:K.AttackRange;
-        if(!(C.Distance>=A.MinRange&&C.Distance<Max)||((A.Flags&NeedsClearPath)&&!C.ClearPath)||(ReadyAt&&!(C.Now>=ReadyAt[Id]))||!(A.Weight>0.f)) continue;
+        if(!(C.Distance>=A.MinRange&&C.Distance<Max)||((A.Flags&NeedsClearPath)&&!C.ClearPath)||((A.Flags&PhaseTwoOnlyFlag)&&!C.PhaseTwo)||(ReadyAt&&!(C.Now>=ReadyAt[Id]))||!(A.Weight>0.f)) continue;
         Eligible[N++]=Id;
     }
     if(N==0) return AbilityNone;

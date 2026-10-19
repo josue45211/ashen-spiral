@@ -87,3 +87,18 @@ the engine: nothing was played. Poses: `Docs/ENEMY_POSES_0.24_PREVIEW.png`.
 
 Chained abilities (riposte after a block, the blink's strike) are never chosen by the chooser; the enemy asks for them itself, and their poses start where the one before them ended.
 
+## 8. The ward bosses (full redesign)
+
+Each ward's boss owns three attacks and a second phase; numbers are `ASEnemyAbilities.h` (BossKitFor and the Boss* constants), the ability rows are `ASEnemyRules.h` (ids 24-33).
+Every boss attack is announced for at least a second and leaves it exposed for at least 0.6 s. At half health the boss stops and **roars for 1.5 s** (it does nothing else), its ward's
+set piece happens, and from then on its body pulses hot red and its attacks widen, double up or speed up. The flying boss and the Endless wave 50+ bosses keep the old boss attack.
+
+| Boss | Attacks | Second phase (after the roar) |
+|---|---|---|
+| **The Indexer** (ward 0 in the code) | **Ledger slam**: a red disc 9 m wide, then a shockwave ring (jump or dash it). **Marks**: a blast mark on every hero (3 m, 0.95 s). **Page storm**: a ring of 12 shots, turned 15 degrees further each time | the roar calls **two clerks**; the slam sends a second ring 0.55 s behind the first; marks are 3.9 m and add three scattered marks; the page storm is 18 shots |
+| **The Bellwether** (ward 1) | **Stampede**: a red strip 9.5 m long and 2.2 m wide, then a charge along it (28 damage on contact). **Toll**: a red disc 8 m wide, then two rings 0.55 s apart (jump the first, the second catches the landing). **Marks** | the roar calls **three of the herd**; the charge is 20% faster |
+| **The Horticulturist** (ward 2) | **Seed bombs**: four venom pods fall on and around you. **Blooms**: three void blooms open under and around you and stay (6 s). **Thorn ring**: 12 shots | the roar turns **the wells against you** and opens **a ring of six void blooms** around the boss; six pods, five blooms, an 18-shot ring |
+| **The Rootbound Sovereign** (ward 3) | **Roots**: roots erupt under every hero after one second (24 damage, then a void zone). **Crown slam**: the shockwave ring. **Grasp** (second phase only): a red disc 9 m wide, every hero in it is flung toward the boss, then a ring follows 0.5 s later: land inside it and jump | the roar raises **four roots near the heroes**; roots add two more, the slam sends a second ring, and the grasp joins |
+
+Void zones are deep violet, venom is green, fire is orange-red, and nothing about a boss is ever blue.
+

@@ -224,6 +224,39 @@ int main() {
         for(int Style=0;Style<HazardStyles;++Style) {const int C=HazardArmCue(Style);Check(C>CueNone&&C<CueCount,"every hazard style has an arming sound");}
         Check(HazardArmCue(-3)>CueNone&&HazardArmCue(99)>CueNone,"a broken style still has a sound");
     }
+    // ---- Ward bosses ----
+    {
+        Check(BossPhaseDue(false,500.f,1000.f)&&BossPhaseDue(false,1.f,1000.f)&&!BossPhaseDue(false,501.f,1000.f)&&!BossPhaseDue(true,100.f,1000.f)&&!BossPhaseDue(false,0.f,1000.f)&&!BossPhaseDue(false,NaN,1000.f)&&!BossPhaseDue(false,10.f,0.f),"the phase roar is due once, at half health, while alive");
+        std::set<int> Everything;
+        for(int Ward=0;Ward<BossWards;++Ward) {
+            const Kit K=BossKitFor(Ward);int Count=0;bool Phase=false;
+            for(int I=0;I<MaxKitAbilities;++I) if(K.Abilities[I]!=AbilityNone) {++Count;Everything.insert(K.Abilities[I]);Phase|=K.Abilities[I]==AbilityBossPhase;Check(K.Abilities[I]>=AbilityBossSlam&&K.Abilities[I]<AbilityCount,"a boss kit holds only boss abilities");}
+            Check(Count==4&&Phase&&K.AnimSet==AnimHumanoid&&K.Speed==KitFor(BossKind).Speed&&K.Cooldown==KitFor(BossKind).Cooldown,"each ward's boss owns three abilities and the phase roar, and moves like the old boss");
+            int Chosen=0;
+            for(int I=0;I<MaxKitAbilities;++I) {const int Id=K.Abilities[I];if(Id!=AbilityNone&&SpecFor(Id).Weight>0.f) {++Chosen;Check(WindupFor(K,Id)>=1.f,"a boss attack is announced for at least a second");Check(SpecFor(Id).Recover>=.6f,"a boss attack leaves it exposed for at least 0.6 s");}}
+            Check(Chosen==3,"three boss abilities are chosen by the chooser (the roar is not)");
+        }
+        Check(BossKitFor(-1).Abilities[0]==BossKitFor(0).Abilities[0]&&BossKitFor(99).Abilities[0]==BossKitFor(BossWards-1).Abilities[0],"a broken ward falls to a real kit");
+        Check(Everything.size()==size_t(AbilityBossPhase-AbilityBossSlam+1),"every boss ability belongs to at least one ward's kit");
+        Check(BossKitFor(BossWardBellwether).Abilities[0]==AbilityBossCharge&&BossKitFor(BossWardSovereign).Abilities[2]==AbilityBossGrasp&&BossKitFor(BossWardHorticulturist).Abilities[0]==AbilityBossSeeds&&BossKitFor(BossWardIndexer).Abilities[0]==AbilityBossSlam,"each ward's signature is in its kit");
+        // The phase-two-only ability is chosen only in phase two, and the phase roar never by the chooser.
+        const Kit Sov=BossKitFor(BossWardSovereign);Context C;C.Now=10.f;C.Distance=500.f;
+        int Seen[AbilityCount]={};for(int I=0;I<600;++I) ++Seen[ChooseAbility(Sov,C,nullptr,AbilityNone,float(I)/600.f)];
+        Check(Seen[AbilityBossGrasp]==0&&Seen[AbilityBossRoots]>0&&Seen[AbilityBossSlam]>0&&Seen[AbilityBossPhase]==0,"before the roar the Sovereign roots and slams but cannot grasp");
+        C.PhaseTwo=true;int Seen2[AbilityCount]={};for(int I=0;I<600;++I) ++Seen2[ChooseAbility(Sov,C,nullptr,AbilityNone,float(I)/600.f)];
+        Check(Seen2[AbilityBossGrasp]>0&&Seen2[AbilityBossRoots]>0&&Seen2[AbilityBossPhase]==0,"after it, the grasp joins the others");
+        Check((SpecFor(AbilityBossGrasp).Flags&PhaseTwoOnlyFlag)&&!(SpecFor(AbilityBossSlam).Flags&PhaseTwoOnlyFlag),"only the grasp is second-phase only");
+        Check(SpecFor(AbilityBossPhase).Windup==1.5f&&(SpecFor(AbilityBossPhase).Flags&StanceFlag)&&(SpecFor(AbilityBossPhase).Flags&OneShotFlag),"the phase roar is a 1.5 s one-shot stance");
+        Check(SpecFor(AbilityBossCharge).Tell==TellLine&&SpecFor(AbilityBossCharge).TellA>SpecFor(AbilityBossCharge).TellB&&SpecFor(AbilityBossCharge).TellB>=180.f&&(SpecFor(AbilityBossCharge).Flags&NeedsClearPath),"the stampede warns with a red strip along its path, wide enough to see, and needs a clear run");
+        Check(SpecFor(AbilityBossCharge).Attack==BossChargeSeconds&&TellRadiusFor(AbilityBossSlam,true)==BossSlamRadius&&TellRadiusFor(AbilityBossToll,true)==BossTollRadius&&TellRadiusFor(AbilityBossGrasp,true)==GraspRadius,"the strip lasts as long as the charge and the discs are as wide as the rings and the pull reach");
+        Check(BossRingShotsTwo>BossRingShots&&BossMarkRadiusTwo>BossMarkRadius&&BossSeedsTwo>BossSeeds&&BossBloomsTwo>BossBlooms&&BossChargeSpeedTwo>1.f,"phase two widens, doubles up and speeds up");
+        Check(BossSlamRadius>PoundMaxRadius&&BossSlamDamage>PoundDamage&&BossTollRadius>PoundMaxRadius&&BossTollGap>.3f&&BossTollGap<1.f&&BossMarkDelay>=MeteorFirstDelay&&BossBloomFirstDelay>=1.f&&BossRootDelay>=.9f,"a boss hits harder and wider than an elite, and every warning lasts at least as long as an elite's");
+        float Last=-1.f;bool Monotone=true,Capped=true;
+        for(float D=0.f;D<2000.f;D+=10.f) {const float V=GraspSpeed(D);Monotone&=V>=Last-1e-4f;Capped&=V>=0.f&&V<=950.f;Last=V;}
+        Check(GraspSpeed(0.f)==0.f&&GraspSpeed(GraspStop)==0.f&&GraspSpeed(GraspStop+100.f)>0.f&&Monotone&&Capped&&GraspSpeed(NaN)==0.f&&GraspSpeed(-9.f)==0.f&&Near(GraspSpeed(1e6f),950.f),"the pull grows with the distance still to go, stops at the boss's feet, and is capped");
+        Check(GraspRadius<=SpecFor(AbilityBossGrasp).MaxRange+1.f&&GraspRingRadius>GraspStop&&GraspRingDelay>=.3f&&GraspRingDamage>=PoundDamage,"a pulled hero lands inside the ring that follows");
+        Check(PhaseClerks>=1&&PhaseHerd>=PhaseClerks&&PhaseBloomsRing>=PhaseBloomsNear&&PhaseBloomRadius>0.f&&PhaseBloomDelay>=1.f,"the set pieces are sized");
+    }
     std::printf("PASS: %lld enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation, egg sacs, pack dives).\nShared rules only; Unreal combat and gameplay are not executed.\n",Checks);
     return 0;
 }

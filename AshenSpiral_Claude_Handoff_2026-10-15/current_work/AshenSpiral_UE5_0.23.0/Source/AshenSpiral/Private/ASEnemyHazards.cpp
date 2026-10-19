@@ -21,13 +21,13 @@ AASShockwave::AASShockwave() {
     RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
     Ring=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Ring"));Ring->SetupAttachment(RootComponent);
 }
-AASShockwave* AASShockwave::Spawn(UWorld* World,const FVector& Feet,AASEnemy* Source,float Damage,float MaxRadius) {
+AASShockwave* AASShockwave::Spawn(UWorld* World,const FVector& Feet,AASEnemy* Source,float Damage,float MaxRadius,float Delay) {
     if(!World||World->GetNetMode()==NM_Client) return nullptr;
     auto* S=AS::State(World);if(!S) return nullptr;
     const FTransform T(FRotator::ZeroRotator,Feet);
     auto* Wave=World->SpawnActorDeferred<AASShockwave>(StaticClass(),T,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
     if(!Wave) return nullptr;
-    Wave->Born=S->SimTime;Wave->Damage=Damage;Wave->MaxRadius=MaxRadius;Wave->EnemySource=Source;
+    Wave->Born=S->SimTime+FMath::Max(0.f,Delay);Wave->Damage=Damage;Wave->MaxRadius=MaxRadius;Wave->EnemySource=Source;
     UGameplayStatics::FinishSpawningActor(Wave,T);return Wave;
 }
 void AASShockwave::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
@@ -44,6 +44,7 @@ void AASShockwave::Tick(float Delta) {
     namespace ER=ASEnemyRules;
     auto* S=AS::State(this);if(!S||S->Frozen()) return;
     const float Age=S->SimTime-Born;
+    if(Age<0.f) {if(Ring) Ring->SetVisibility(false);return;} // a ring that has not started yet (the second of a toll): nothing to draw, nobody to hurt
     const float Radius=ER::ShockwaveRadius(Age,ER::PoundStartRadius,ER::PoundSpeed,MaxRadius);
     const float Life=(MaxRadius-ER::PoundStartRadius)/ER::PoundSpeed+.25f; // the ring lingers for a quarter of a second at its full size, fading
     if(GetNetMode()!=NM_DedicatedServer&&Ring) {

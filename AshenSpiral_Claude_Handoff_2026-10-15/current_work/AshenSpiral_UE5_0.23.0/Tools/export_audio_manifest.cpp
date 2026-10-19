@@ -8,7 +8,8 @@ using namespace ASEnemyRules;
 static const char* AbilityName(int Id) {
     static const char* Names[]={"none","flier dive","flying boss molt","melee slash","archer shot","leaper pounce","bulwark charge","shaman blast","sniper shot","broodcaller summon","boss attack",
         "grunt shove","archer back-hop","duelist parry","duelist riposte","brute ground pound","brute enrage","leaper rift blink","leaper blink strike","shaman meteor rain",
-        "frostbound elite glacial slam","burning elite cinder burst","shocking elite storm call","venomous elite seed bombs"};
+        "frostbound elite glacial slam","burning elite cinder burst","shocking elite storm call","venomous elite seed bombs",
+        "boss slam","boss marks","boss ring","boss charge","boss toll","boss seed bombs","boss blooms","boss roots","boss grasp","boss phase roar"};
     static_assert(sizeof(Names)/sizeof(Names[0])==AbilityCount,"every ability needs a name in the audio manifest");
     return Id>=0&&Id<AbilityCount?Names[Id]:"?";
 }

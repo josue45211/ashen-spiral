@@ -229,6 +229,16 @@ inline int TrackIndex(int Ability) {
     case ASEnemyRules::AbilityCinders: return ASEnemyRules::AbilitySlash;   // the burning elite sweeps its fire out with a swing
     case ASEnemyRules::AbilityStorm:   return ASEnemyRules::AbilityMeteors; // the shocking elite calls lightning down with its weapon raised to the sky
     case ASEnemyRules::AbilitySeeds:   return ASEnemyRules::AbilityBlast;   // the venomous elite lobs its pods with a heave
+    case ASEnemyRules::AbilityBossSlam:   return ASEnemyRules::AbilityPound;      // a ground slam
+    case ASEnemyRules::AbilityBossMarks:  return ASEnemyRules::AbilityBossAttack; // arms flung wide, the weapon overhead, a two-handed slam
+    case ASEnemyRules::AbilityBossRing:   return ASEnemyRules::AbilityBossAttack;
+    case ASEnemyRules::AbilityBossCharge: return ASEnemyRules::AbilityCharge;     // head down, weapon back, a hard lean into the run
+    case ASEnemyRules::AbilityBossToll:   return ASEnemyRules::AbilityPound;
+    case ASEnemyRules::AbilityBossSeeds:  return ASEnemyRules::AbilityBlast;      // a heave forward with the free hand pointing at the target
+    case ASEnemyRules::AbilityBossBloom:  return ASEnemyRules::AbilityMeteors;    // the weapon raised to call it up
+    case ASEnemyRules::AbilityBossRoots:  return ASEnemyRules::AbilityPound;      // a stamp
+    case ASEnemyRules::AbilityBossGrasp:  return ASEnemyRules::AbilityEnrage;     // arms flung wide, then clenched
+    case ASEnemyRules::AbilityBossPhase:  return ASEnemyRules::AbilityEnrage;     // the roar
     default: return Id<OwnTracks?Id:ASEnemyRules::AbilityNone;
     }
 }

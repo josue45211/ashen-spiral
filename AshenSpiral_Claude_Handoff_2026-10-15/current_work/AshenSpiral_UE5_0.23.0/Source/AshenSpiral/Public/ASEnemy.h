@@ -148,4 +148,5 @@ private:
     void LayEggs();                                              // the broodcaller's summon: a fan of eggs that hatch into minions unless popped
     void CallPack(const FVector& TargetAt);                      // a Gloomwing about to dive sets the next dive of the idle ones near its target, one after another
     void ShowBeam(float Progress);                               // clients: amber while the sniper's beam tracks, white-amber and thicker once it has locked
+    bool WardBossKit() const;                                    // a ground boss outside Endless wave 50+ fights with its ward's kit (the flying boss and the late Endless bosses keep the old boss attack)
 };

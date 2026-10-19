@@ -208,6 +208,43 @@ inline int HazardArmCue(int Style) {
     }
 }
 
+// ---- Ward bosses (0.24): each ward's boss owns a kit of its own and a second phase. At half health it stops and roars (a one-shot Special-state ability, BossPhase), its ward's
+// set piece happens, and the abilities and numbers below that depend on the phase change. The flying boss and the Endless wave-50 bosses keep the old boss attack. ----
+constexpr int BossWardIndexer=0,BossWardBellwether=1,BossWardHorticulturist=2,BossWardSovereign=3,BossWards=4;
+constexpr float BossPhaseHealthFraction=.5f;
+inline bool BossPhaseDue(bool PhaseTwo,float Health,float MaxHealth) {
+    return !PhaseTwo&&std::isfinite(Health)&&std::isfinite(MaxHealth)&&MaxHealth>0.f&&Health>0.f&&Health<=MaxHealth*BossPhaseHealthFraction;
+}
+// The kit of a ward's boss: the boss row with that ward's four abilities (the last is the phase roar, asked for by the boss itself).
+inline Kit BossKitFor(int Ward) {
+    static constexpr int Lists[BossWards][4]={
+        {AbilityBossSlam,AbilityBossMarks,AbilityBossRing,AbilityBossPhase},       // The Indexer: slams, marks and page storms
+        {AbilityBossCharge,AbilityBossToll,AbilityBossMarks,AbilityBossPhase},     // The Bellwether: stampedes and tolls
+        {AbilityBossSeeds,AbilityBossBloom,AbilityBossRing,AbilityBossPhase},      // The Horticulturist: seed bombs, blooms and thorn rings
+        {AbilityBossRoots,AbilityBossSlam,AbilityBossGrasp,AbilityBossPhase},      // The Rootbound Sovereign: roots, slams and a grasp that pulls you in
+    };
+    Kit K=KitFor(BossKind);
+    const int* L=Lists[std::clamp(Ward,0,BossWards-1)];
+    for(int I=0;I<MaxKitAbilities;++I) K.Abilities[I]=I<4?L[I]:AbilityNone;
+    return K;
+}
+// Boss numbers. Phase two widens and doubles up (TUNABLE).
+constexpr float BossSlamDamage=26.f,BossSlamRadius=900.f,BossTollDamage=22.f,BossTollRadius=800.f,BossTollGap=.55f;
+constexpr float BossMarkRadius=300.f,BossMarkRadiusTwo=390.f,BossMarkDamage=28.f,BossMarkDelay=.95f,BossMarkExtraDelay=1.25f;
+constexpr int BossRingShots=12,BossRingShotsTwo=18;constexpr float BossRingDamage=20.f,BossRingTurn=15.f;
+constexpr float BossChargeSeconds=.70f,BossChargeSpeedTwo=1.2f;
+constexpr int BossSeeds=4,BossSeedsTwo=6;constexpr float BossSeedImpact=10.f,BossSeedFirstDelay=.9f,BossSeedStagger=.25f;
+constexpr int BossBlooms=3,BossBloomsTwo=5;constexpr float BossBloomImpact=14.f,BossBloomFirstDelay=1.2f,BossBloomStagger=.3f;
+constexpr float BossRootImpact=24.f,BossRootDelay=1.0f,BossRootExtraDelay=1.3f;
+constexpr float GraspRadius=900.f,GraspStop=260.f,GraspLift=120.f,GraspRingDelay=.5f,GraspRingRadius=600.f,GraspRingDamage=24.f;
+// How fast a hero at this flat distance from the boss is flung toward it (cm/s): proportional to the distance still to go, so heroes arrive near GraspStop together, and capped.
+inline float GraspSpeed(float Distance) {
+    if(!std::isfinite(Distance)||Distance<=GraspStop) return 0.f;
+    return std::min(950.f,(Distance-GraspStop)*1.4f);
+}
+// The phase-two set pieces: minions called by the roar (Indexer two, Bellwether three), the void blooms the Horticulturist (a ring) and the Sovereign (near the heroes) raise.
+constexpr int PhaseClerks=2,PhaseHerd=3,PhaseBloomsRing=6,PhaseBloomsNear=4;constexpr float PhaseBloomRadius=650.f,PhaseBloomDelay=1.6f;
+
 // ---- Sniper: the aiming beam tracks the hero for the first part of the wind-up, then locks and fires along the locked line. ----
 constexpr float SnipeTrackFraction=.70f,SnipeTurnRate=75.f;
 inline bool SnipeLocked(float Progress) {return std::isfinite(Progress)&&Progress>=SnipeTrackFraction;}
