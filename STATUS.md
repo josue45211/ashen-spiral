@@ -249,3 +249,24 @@ UNVERIFIED 0.23.4 checklist (playtest):
 9. Endless wave 50+: lightning strikes show a floor outline with a filling ring, hit after 0.5s, favour crowds, hurt players and enemies; check damage feel (20% / 30%).
 10. Gloomwings: appear in story from room 4 and Endless from wave 8; hover low, circle, telegraph, dive; melee and ranged can hit them; both players see them move, flap and die (topple).
 Needs Josue: nothing blocking. Judgment calls are IFFY in MERGE_LOG.md. Not pushed: no push order was given for this batch.
+
+## 0.23.5 batch (2026-10-18) - all 15 items done, none verified in-engine
+Bar: UBT editor build unity AND -DisableUnity on the final tree: Succeeded, no project warnings; Tests/run_tests.py exit 0 (inside vcvars64); crash-safety review per item. Code commit: e5ddcd6 (one commit for the batch). Root causes, tunables and confidence are in MERGE_LOG.md (not committed).
+
+Done: 1 co-op ready-up is host-only (Ready card and READY/NOT READY text deleted) | 2 P2 walls: collision on only when ~70% risen, held off while a hero stands in the footprint, smoothed client clock | 3 enemy rings gone, status effects pulse the body tint | 4 monster pathing root cause fixed (nav grid was built while new walls had collision off) | 5 hammer RMB no longer cancels when enemies start spawning | 6 hue tints removed | 7 low blocks full height | 8 shift slowed (sink/rise 1.6s, quadratic ease) | 9 max-range tick replaced by an in-reach gold crosshair | 10 lightning dodge 0.75s | 11 lightning scales (volleys up to 6, faster cadence) | 12 lightning 20% max HP for players and enemies | 13 pre-attack circles only for the melee swing | 14 Vanguard flat +25% for 10s | 15 flying boss on Endless boss waves 30/60/90.
+
+UNVERIFIED 0.23.5 checklist (playtest):
+1. Co-op: only the host presses E at an archway once everyone is in range; the guest has no step; hub menu has no ready card or READY / NOT READY text.
+2. Endless after the first shift, as P2: walls look and block the same (walk toward a sinking wall and a rising wall; no invisible collision, no rubber-banding). Collision turns on only once the wall is mostly up.
+3. Monsters path around walls after every shift (no standing against walls; watch for the stuck-and-teleport behaviour).
+4. No circle under any enemy or player. Frozen / burning / poisoned / bleeding enemies pulse their body colour instead.
+5. Hammer RMB cast during the countdown, just as enemies spawn, completes the leap.
+6. No green or red hue on players or enemies; the P1/P2 triangle remains.
+7. All obstacles, including the big squares, are full height; nothing is jumpable cover.
+8. Shift pacing: 1s banner, blocks sink for 1.6s (slow start, fast finish, thud), swap, new walls rise for 1.6s; the acceleration is now noticeable.
+9. Melee: the crosshair turns gold and opens up when an enemy is inside swing reach, normal again outside it; faint tick on each connecting swing, no gold ring.
+10. Lightning (wave 50+): 0.75s to dodge; enemies and players lose 20% max HP; more frequent, and several strikes at once as the wave climbs (check wave 65 / 80 / 100 feel).
+11. Telegraph circles: only plain melee enemies show one while winding up; shooters, leapers, shamans and bosses do not; the lightning outline is easy to spot.
+12. Vanguard: +25% damage for the first 10 seconds of each room, one pick only.
+13. Endless wave 30 (and 60, 90): the boss flies, circles, dives, and alternates dives with its normal attack; both players see it fly; it can be hit by melee when it dips. Waves 10, 20, 40, 50 bosses stay on the ground.
+Needs Josue: nothing blocking. Judgment calls are IFFY in MERGE_LOG.md.
