@@ -43,16 +43,22 @@ void AASEnemy::PlayCue(int32 CueId) {
 void AASEnemy::UpdateCues(float Now) {
     namespace ER=ASEnemyRules;
     if(bTrainingDummy||Health<=0) return;
+    // 1. A release (every ability stamps AttackReleaseTime). It is played first, with the ability seen BEFORE this update: a chained ability (a parry's riposte, a blink's strike) is
+    // begun by the server in the same update as the release of the one before it, and the release cue belongs to the one that ended. Only a fresh release plays: a client that
+    // joins mid-fight must not replay an old attack.
+    if(AttackReleaseTime!=SeenRelease) {
+        if(Now-AttackReleaseTime<.5f&&Now>=AttackReleaseTime-.1f) PlayCue(ER::SpecFor(SeenAbility).CueRelease);
+        SeenRelease=AttackReleaseTime;
+    }
+    // 2. A new telegraph: the state became Windup (or Special, a stance or a roar), or the ability being wound up changed.
     if(int32(AIState)!=SeenState||int32(Ability)!=SeenAbility) {
-        // A new telegraph: the state became Windup, or the ability being wound up changed. (The windup cue of the ability that just started.)
-        const bool NewWindup=AIState==ER::StateWindup&&Ability!=ER::AbilityNone&&(SeenState!=ER::StateWindup||int32(Ability)!=SeenAbility);
+        const bool Telegraph=AIState==ER::StateWindup||AIState==ER::StateSpecial;
+        const bool NewWindup=Telegraph&&Ability!=ER::AbilityNone&&(SeenState!=int32(AIState)||int32(Ability)!=SeenAbility);
         if(NewWindup) PlayCue(ER::SpecFor(Ability).CueWindup);
         SeenState=int32(AIState);
         if(Ability!=ER::AbilityNone) SeenAbility=int32(Ability); // remembered: the replicated ability resets when the recovery ends, the release cue may arrive after
     }
-    if(AttackReleaseTime!=SeenRelease) {
-        // A release (CommitAttack stamps the time). Only a fresh one: a client that joins mid-fight must not replay an old attack.
-        if(Now-AttackReleaseTime<.5f&&Now>=AttackReleaseTime-.1f) PlayCue(ER::SpecFor(SeenAbility).CueRelease);
-        SeenRelease=AttackReleaseTime;
-    }
+    // 3. The duelist's guard held against a blow (the server flips the bit on every block).
+    if(((int32(Flags)^SeenFlags)&int32(ER::FlagParryToggle))!=0) PlayCue(ER::CueParryBlock);
+    SeenFlags=int32(Flags);
 }

@@ -5,7 +5,9 @@
 #include <string>
 using namespace ASEnemyRules;
 static const char* AbilityName(int Id) {
-    static const char* Names[]={"none","flier dive","flying boss molt","melee slash","archer shot","leaper pounce","bulwark charge","shaman blast","sniper shot","broodcaller summon","boss attack"};
+    static const char* Names[]={"none","flier dive","flying boss molt","melee slash","archer shot","leaper pounce","bulwark charge","shaman blast","sniper shot","broodcaller summon","boss attack",
+        "grunt shove","archer back-hop","duelist parry","duelist riposte","brute ground pound","brute enrage","leaper rift blink","leaper blink strike","shaman meteor rain"};
+    static_assert(sizeof(Names)/sizeof(Names[0])==AbilityCount,"every ability needs a name in the audio manifest");
     return Id>=0&&Id<AbilityCount?Names[Id]:"?";
 }
 // What each cue is for. Cues wired to an ability in the ability table say so; the rest belong to the 0.24 ability kits that are still being built.
@@ -15,6 +17,7 @@ static std::string When(int Cue) {
         if(SpecFor(Id).CueWindup==Cue) Out+=std::string(Out.empty()?"":"; ")+"wind-up of "+AbilityName(Id);
         if(SpecFor(Id).CueRelease==Cue) Out+=std::string(Out.empty()?"":"; ")+"release of "+AbilityName(Id);
     }
+    if(Cue==CueParryBlock) Out+=std::string(Out.empty()?"":"; ")+"a duelist's parry guard holding against a blow (played from the replicated block flag)";
     return Out.empty()?"an ability of the 0.24 kits (wired as each is built)":Out;
 }
 int main() {

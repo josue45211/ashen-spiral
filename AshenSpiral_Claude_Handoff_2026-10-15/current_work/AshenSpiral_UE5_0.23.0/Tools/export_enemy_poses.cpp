@@ -13,6 +13,8 @@ static const std::vector<Preview>& Previews() {
     static const std::vector<Preview> P={
         {0,ER::AbilitySlash,false,.9f},{3,ER::AbilitySlash,false,1.45f},{1,ER::AbilityShot,false,.9f},{6,ER::AbilityCharge,false,.9f},{7,ER::AbilityBlast,false,.9f},
         {8,ER::AbilitySnipe,true,.9f},{4,ER::AbilityBossAttack,false,2.15f},{5,ER::AbilityPounce,false,1.f},{9,ER::AbilitySummon,false,1.f},
+        {0,ER::AbilityShove,false,.9f},{1,ER::AbilityBackHop,false,.9f},{2,ER::AbilityParry,false,.9f},{2,ER::AbilityRiposte,false,.9f},{3,ER::AbilityPound,false,1.45f},{3,ER::AbilityEnrage,false,1.45f},
+        {5,ER::AbilityBlink,false,1.f},{5,ER::AbilityBlinkStrike,false,1.f},{7,ER::AbilityMeteors,false,.9f},
         // 100 + variant: the baked Mannequin death tracks (ASEnemyDeathTracks.h), played over U 0..1
         {0,100,false,.9f},{0,101,false,.9f},{0,102,false,.9f},{0,103,false,.9f},{0,104,false,.9f},{0,105,false,.9f},
     };

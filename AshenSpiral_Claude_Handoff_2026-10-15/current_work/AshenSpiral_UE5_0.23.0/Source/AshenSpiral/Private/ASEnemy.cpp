@@ -1,6 +1,9 @@
+#include <limits>
 #include "ASEnemy.h"
 #include "ASExpeditionRules.h"
 #include "ASEnemyRules.h"
+#include "ASEnemyAbilities.h"
+#include "ASEnemyHazards.h"
 #include "EngineUtils.h"
 #include "Engine/StaticMesh.h"
 #include "HAL/IConsoleManager.h"
@@ -50,7 +53,7 @@ void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnP
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
-    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,AIState);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
+    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,AIState);DOREPLIFETIME(AASEnemy,Flags);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
 }
 void AASEnemy::RefreshLook() {
     const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
@@ -77,6 +80,7 @@ void AASEnemy::RefreshLook() {
         ASAssets::Style(Tell,TellMesh,FLinearColor(.55f,.05f,.02f),0,1.5f);Tell->SetCastShadow(false);Tell->SetRelativeLocation(FVector(0,0,-HalfHeight+3));Tell->SetRelativeScale3D(FVector(TellScale,TellScale,1));
         ASAssets::Style(TellFill,TellMesh,FLinearColor(1.f,.16f,.03f),0,6.f);TellFill->SetCastShadow(false);TellFill->SetRelativeLocation(FVector(0,0,-HalfHeight+4.5f));TellFill->SetRelativeScale3D(FVector(.02f,.02f,1));
         Tell->SetVisibility(false);TellFill->SetVisibility(false); // Tick shows them while a melee swing is being wound up
+        TellShape=ASEnemyRules::TellSector;
     }
     {   // Flier wings (0.24): a bat-style wing made of a membrane mesh and a bone-frame mesh, mirrored for the left side with a negative Y scale. The Gloomwing carries small ones;
         // the armoured flying boss carries big ones on its back. If the new meshes are not imported on this machine yet, the old flat slabs are used instead. Fliers also pass
@@ -121,14 +125,16 @@ void AASEnemy::RefreshLook() {
 }
 
 bool AASEnemy::ShowsStrikeCircle() const {
-    // A circle means "damage lands here when it fills". The ability being wound up says whether it has a ground warning (today only the melee slash's half disc); shots, leaps,
-    // charges, blasts (their own field telegraph), dives and the sniper beam draw none.
-    return !bTrainingDummy&&AIState==ASEnemyRules::StateWindup&&ASEnemyRules::SpecFor(Ability).Tell==ASEnemyRules::TellSector;
+    // A shape on the ground means "damage lands here when it fills". The ability being wound up says whether it has one: the melee swings' half disc, the ground pound's full
+    // disc. Shots, leaps, charges, blasts and meteors (their own field telegraph), dives and the sniper beam draw none.
+    const int32 Shape=ASEnemyRules::SpecFor(Ability).Tell;
+    return !bTrainingDummy&&AIState==ASEnemyRules::StateWindup&&(Shape==ASEnemyRules::TellSector||Shape==ASEnemyRules::TellDisc);
 }
 void AASEnemy::TickStatusTint() {
     // 0.23.5: status effects pulse the body tint instead of drawing a ring at the feet. Cosmetic, runs where there is a screen.
     const float Now=AS::Time(this);
-    const bool Active=StatusBits!=0&&Health>0;
+    const bool Enraged=(Flags&ASEnemyRules::FlagEnraged)!=0;
+    const bool Active=(StatusBits!=0||Enraged)&&Health>0;
     if(!Active&&!bTintApplied) return;
     TArray<UStaticMeshComponent*> Parts;Parts.Add(Body.Get());for(const auto& Part:ArmorParts) Parts.Add(Part.Get());
     if(bTintApplied&&BaseTints.Num()!=Parts.Num()) {BaseTints.Reset();bTintApplied=false;} // part list changed: forget stale colours
@@ -141,18 +147,20 @@ void AASEnemy::TickStatusTint() {
         for(auto* Part:Parts) {FLinearColor C(.1f,.1f,.1f);if(Part) if(auto* M=Cast<UMaterialInstanceDynamic>(Part->GetMaterial(0))) C=M->K2_GetVectorParameterValue(TEXT("Tint"));BaseTints.Add(C);}
         bTintApplied=true;
     }
-    const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
-    const FLinearColor Status=ASData::HitColor(Type);
-    const bool Frozen=(StatusBits&8)!=0;
-    const float Pulse=Frozen?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7)); // frozen: a steady strong tint; others: a pulse
+    FLinearColor Status(1.f,.16f,.03f);float Pulse=.32f+.28f*FMath::Sin(Now*11.f+float(GetUniqueID()%7)); // enraged: a fast hot-red pulse (a status effect on top of it shows its own colour)
+    if(StatusBits!=0) {
+        const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));
+        const bool Frozen=(StatusBits&8)!=0;
+        Status=ASData::HitColor(Type);Pulse=Frozen?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7)); // frozen: a steady strong tint; others: a pulse
+    }
     for(int32 I=0;I<Parts.Num();++I) if(Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),FMath::Lerp(BaseTints[I],Status,FMath::Clamp(Pulse,0.f,.85f)));
 }
 void AASEnemy::EndWindup() {
     namespace ER=ASEnemyRules;
     const float Now=AS::Time(this);
-    const bool Idle=!bWinding&&Ability==ER::AbilityNone&&(AIState==ER::StateApproach||AIState==ER::StateStrafe||AIState==ER::StateRetreat)&&LeapUntil<=Now&&ChargeUntil<=Now&&DiveUntil<=Now;
+    const bool Idle=!bWinding&&Ability==ER::AbilityNone&&(AIState==ER::StateApproach||AIState==ER::StateStrafe||AIState==ER::StateRetreat)&&LeapUntil<=Now&&ChargeUntil<=Now&&DiveUntil<=Now&&HopUntil<=Now;
     if(Idle) return;
-    Ability=uint8(ER::AbilityNone);LeapUntil=ChargeUntil=DiveUntil=0;bTraversalLeap=false; // a stunned or interrupted charge, leap or dive does not resume afterwards
+    Ability=uint8(ER::AbilityNone);LeapUntil=ChargeUntil=DiveUntil=HopUntil=0;bTraversalLeap=false;RiposteAt=-1.f;bParryBlocked=false; // a stunned or interrupted charge, leap, dive, hop or stance does not resume afterwards
     SetAIState(ER::StateApproach);ForceNetUpdate(); // the replicated flags are what every machine draws the ground warning and the pose from
 }
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup) {
@@ -175,7 +183,7 @@ bool AASEnemy::TickElements(float Delta) {
             const float Amount=Pending;Pending=0;if(Amount<=0||!Source.IsValid()||!Source->CanDamage(this)) return false;
             const FVector P=GetActorLocation()+FVector(0,0,80);
             if(auto* PC=Cast<AASPlayerController>(Source->GetController())) PC->DamageNumber(P,Amount*Source->ElementalDamageMultiplier(),false,Type);
-            return Hit(Amount*Source->ElementalDamageMultiplier(),Source.Get()); // Attunement scales status damage; DOT does not crit or trigger on-hit effects.
+            return Hit(Amount*Source->ElementalDamageMultiplier(),Source.Get(),false); // Attunement scales status damage; DOT does not crit or trigger on-hit effects (and no guard holds against it).
         };
         if(Apply(BurnPending,BurnSource,EASHitKind::Burn)) return false;
         if(Apply(PoisonPending,PoisonSource,EASHitKind::Poison)) return false;
@@ -199,11 +207,7 @@ void AASEnemy::Tick(float Delta) {
             Body->SetRelativeScale3D(FVector(BodyScale*(1.f+T*.07f),BodyScale*(1.f+T*.07f),BodyScale*(1.f-T*.12f)));
             Body->SetRelativeRotation(FRotator(bWinding?-7.f*T:0,0,0));
         }
-        if(ShowWarning) { // the bright half disc grows over the dim full-size one; both stay flat on the floor and face the swing
-            const float StrikeR=ASEnemyRules::StrikeRadius(Elite()),Grow=StrikeR/(ASAssets::HasMesh(TEXT("SM_StrikeSector"))?50.f:53.f)*FMath::Max(.04f,T);
-            TellFill->SetRelativeScale3D(FVector(Grow,Grow,1));
-            if(auto* M=Cast<UMaterialInstanceDynamic>(TellFill->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+T*6);
-        }
+        if(ShowWarning) ShowTell(T); // the bright shape grows over the dim full-size one; both stay flat on the floor and face the attack
     }
     if(!HasAuthority()||Health<=0) return;
     if(SpawnProtected()) {if(Flies()&&GetCharacterMovement()->MovementMode!=MOVE_Flying) GetCharacterMovement()->SetMovementMode(MOVE_Flying);GetCharacterMovement()->StopMovementImmediately();EndWindup();return;} // a flyer ignores the floor, so it must not be left walking
@@ -243,17 +247,27 @@ void AASEnemy::BeginAbility(int32 AbilityId,const FVector& ToTarget) {
     namespace ER=ASEnemyRules;
     auto* S=AS::State(this);if(!S) return;
     Aim=FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal();if(Aim.IsNearlyZero()) Aim=GetActorForwardVector();
-    Ability=uint8(FMath::Clamp(AbilityId,0,ER::AbilityCount-1));LastAbility=AbilityId;
-    WindupStart=S->SimTime;WindupEnd=S->SimTime+ER::WindupFor(ER::KitFor(Kind),AbilityId);
-    SetAIState(ER::StateWindup);SetActorRotation(Aim.Rotation());ForceNetUpdate();
+    const int32 Id=FMath::Clamp(AbilityId,0,ER::AbilityCount-1);const ER::AbilitySpec& Spec=ER::SpecFor(Id);
+    Ability=uint8(Id);LastAbility=Id;
+    if(Id==ER::AbilityParry) {RiposteAt=-1.f;bParryBlocked=false;}
+    const float Anger=((Flags&ER::FlagEnraged)&&!(Spec.Flags&ER::StanceFlag))?ER::EnrageWindupScale:1.f; // an enraged enemy winds up faster
+    WindupStart=S->SimTime;WindupEnd=S->SimTime+ER::WindupFor(ER::KitFor(Kind),Id)*Anger;
+    SetAIState((Spec.Flags&ER::StanceFlag)?ER::StateSpecial:ER::StateWindup);SetActorRotation(Aim.Rotation());ForceNetUpdate();
 }
 void AASEnemy::ReleaseAbility() {
     namespace ER=ASEnemyRules;
     auto* S=AS::State(this);if(!S) return;
-    const ER::Kit& Kit=ER::KitFor(Kind);const int32 Id=Ability;const float Now=S->SimTime;
-    CommitAttack(); // the effect of the attack by kind (it also starts a leap or a charge by setting LeapUntil / ChargeUntil)
-    NextAttack=Now+Kit.Cooldown;AbilityReadyAt[FMath::Clamp(Id,0,ER::AbilityCount-1)]=Now+ER::SpecFor(Id).Cooldown;
-    if(LeapUntil>Now||ChargeUntil>Now) SetAIState(ER::StateAttack);
+    const ER::Kit& Kit=ER::KitFor(Kind);const int32 Id=FMath::Clamp<int32>(Ability,0,ER::AbilityCount-1);const float Now=S->SimTime;
+    const ER::AbilitySpec& Spec=ER::SpecFor(Id);
+    const FVector ToTarget=CurrentTarget.IsValid()?CurrentTarget->GetActorLocation()-GetActorLocation():Aim;
+    AttackReleaseTime=Now;ForceNetUpdate(); // every release is stamped (the pose and the release cue are timed from it)
+    const int32 Flow=ReleaseOwnAbility(Id,ToTarget); // the 0.24 abilities with their own effect and flow
+    if(Flow==FlowNotMine) CommitAttack(); // the effect of the attack by kind (it also starts a leap or a charge by setting LeapUntil / ChargeUntil)
+    const float Anger=(Flags&ER::FlagEnraged)?ER::EnrageCooldownScale:1.f; // an enraged enemy recharges faster
+    if(!(Spec.Flags&ER::NoKitCooldownFlag)) NextAttack=Now+Kit.Cooldown*Anger;
+    AbilityReadyAt[Id]=Now+Spec.Cooldown*Anger;
+    if(Flow==FlowChained) return; // another ability began inside the handler; its state is already set
+    if(Flow==FlowAttack||LeapUntil>Now||ChargeUntil>Now) SetAIState(ER::StateAttack);
     else FinishAttackPhase();
 }
 void AASEnemy::FinishAttackPhase() {
@@ -269,14 +283,31 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
     auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
     const float Now=S->SimTime;const ER::Kit& Kit=ER::KitFor(Kind);
     const FVector Here=GetActorLocation(),ToTarget=Target->GetActorLocation()-Here;
+    CurrentTarget=Target;
     // ---- Committed phases: nothing else decides anything until they end. ----
     if(AIState==ER::StateWindup||AIState==ER::StateSpecial) {
         StuckFor=0;LastRoutePosition=Here;Move->StopMovementImmediately();
+        if(Ability==ER::AbilityParry) { // the guard keeps facing its target, and a block is answered by a counter-slash a moment later
+            const FVector Look=FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal();
+            if(!Look.IsNearlyZero()) SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(),FRotator(0.f,Look.Rotation().Yaw,0.f),Delta,Kit.TurnRate));
+            if(RiposteAt>=0.f&&Now>=RiposteAt) {
+                AbilityReadyAt[ER::AbilityParry]=Now+ER::SpecFor(ER::AbilityParry).Cooldown;
+                RiposteAt=-1.f;bParryBlocked=false;
+                BeginAbility(ER::AbilityRiposte,ToTarget);return; // the counter begins straight out of the guard
+            }
+        }
         if(Now>=WindupEnd) ReleaseAbility();
         return;
     }
     if(AIState==ER::StateAttack) {
         Move->MaxAcceleration=2048.f; // the old default: a charge reaches full speed as it always did, whatever the kit's walking acceleration
+        if(HopUntil>Now) { // a back-hop: a fast, straight push away from the target (the direction was chosen at the release), facing it all the while
+            Move->MaxAcceleration=12000.f;Move->MaxWalkSpeed=ER::BackHopSpeed;StuckFor=0;AddMovementInput(HopDirection,1,true);
+            const FVector Look=FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal();
+            if(!Look.IsNearlyZero()) SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(),FRotator(0.f,Look.Rotation().Yaw,0.f),Delta,Kit.TurnRate));
+            return;
+        }
+        if(HopUntil>0.f) {HopUntil=0.f;Move->StopMovementImmediately();S->Effect(11,Here-FVector(0,0,60),FVector::UpVector,FLinearColor(.55f,.55f,.6f),1.f);} // the landing: a puff of dust, and it stops dead
         if(LeapUntil>Now) { // a leap: fast, one contact hit
             Move->MaxWalkSpeed=1100;StuckFor=0;
             if(DistanceSquared<170*170&&Now>LastContact&&AS::ClearSight(GetWorld(),Here,Target->GetActorLocation())) {LastContact=Now+.5f;Target->Hurt(16,this);}
@@ -299,6 +330,7 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
     const bool Sight=AS::ClearSight(GetWorld(),Here,Target->GetActorLocation());
     // Frail kinds fall back once when badly hurt (bounded, and never while only a couple of enemies remain).
     const bool Retreating=ER::UpdateRetreat(Kit,Health/FMath::Max(1.f,MaxHealth),S->Enemies.Num(),Now,Retreat);
+    if(!Retreating&&ER::KitHas(Kit,ER::AbilityEnrage)&&ER::EnrageDue((Flags&ER::FlagEnraged)!=0,Health,MaxHealth)) {BeginAbility(ER::AbilityEnrage,ToTarget);return;} // at half health the brute roars (once)
     if(!Retreating&&Sight&&Now>=NextAttack) {
         ER::Context C;C.Distance=Distance;C.Now=Now;C.Sight=true;C.ClearPath=true;
         if((Kind==5||Kind==6)&&Distance<Range&&S->Arena) C.ClearPath=S->Arena->CanWalkDirectly(Here,Target->GetActorLocation()); // leaps and charges need a clear straight walk
@@ -357,7 +389,7 @@ void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared
     if(!Look.IsNearlyZero()) SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(),FRotator(0.f,Look.Rotation().Yaw,0.f),Delta,Kit.TurnRate));
     Move->MaxAcceleration=Kit.Accel;Move->BrakingDecelerationWalking=Kit.Brake;
     Move->MaxWalkSpeed=Kit.Speed*ASArsenal::EnemySpeedScale(Elite()||Boss())*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f)*ASMelee::ApproachScale(Distance,Range,Boss())
-        *(SlowUntil>Now?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f))*(Plan.Mode==ER::ModeHold?1.f:FMath::Max(.05f,Plan.Speed));
+        *(SlowUntil>Now?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f))*((Flags&ER::FlagEnraged)?ER::EnrageSpeedScale:1.f)*(Plan.Mode==ER::ModeHold?1.f:FMath::Max(.05f,Plan.Speed));
     if(Plan.Mode!=ER::ModeHold) {
         AddMovementInput(Direction,1,true);
         if(Now>=NextStuckCheck) {
@@ -438,12 +470,25 @@ void AASEnemy::CommitAttack() {
         }
     }
 }
-bool AASEnemy::Hit(float Damage,AASCharacter* Source) {
+bool AASEnemy::Hit(float Damage,AASCharacter* Source,bool bDirect) {
     if(!HasAuthority()||SpawnProtected()||Health<=0||!FMath::IsFinite(Damage)||Damage<=0) return false;
+    namespace ER=ASEnemyRules;
     if(Kind==6&&IsValid(Source)&&FVector::DotProduct(GetActorForwardVector(),(Source->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>.35f) Damage*=.5f;
+    bool Blocked=false; // the duelist's parry: a direct blow from its front is taken at a fraction of its strength, the first of them is answered with a counter-slash
+    if(Ability==ER::AbilityParry&&AIState==ER::StateSpecial) {
+        const float Forward=IsValid(Source)?FVector::DotProduct(GetActorForwardVector(),(Source->GetActorLocation()-GetActorLocation()).GetSafeNormal2D()):std::numeric_limits<float>::quiet_NaN();
+        if(ER::ParryBlocks(true,bDirect,Forward)) {
+            Blocked=true;Damage=ER::ParryDamage(true,Damage);
+            if(!bParryBlocked) {
+                bParryBlocked=true;RiposteAt=AS::Time(this)+ER::ParryRiposteDelay;
+                Flags^=uint8(ER::FlagParryToggle); // every machine plays the clang when this bit flips
+                if(auto* S=AS::State(this)) S->Effect(5,GetActorLocation()+GetActorForwardVector()*55.f+FVector(0,0,45),FVector::UpVector,FLinearColor(1.f,.9f,.55f),70.f); // a gold spark where the blades met
+            }
+        }
+    }
     if(FirstEngagedAt<0) FirstEngagedAt=AS::Time(this);
     if(IsValid(Source)&&!bTrainingDummy) if(auto* Player=Source->GetPlayerState<AASPlayerState>()) Player->RunDamage=FMath::Min(1.e12f,Player->RunDamage+FMath::Min(Damage,Health));
-    BeginHitReaction(IsValid(Source)?Source->GetActorLocation():GetActorLocation()-GetActorForwardVector(),Damage>=MaxHealth*.12f);
+    if(!Blocked) BeginHitReaction(IsValid(Source)?Source->GetActorLocation():GetActorLocation()-GetActorForwardVector(),Damage>=MaxHealth*.12f); // a blocked blow does not stagger it
     LastDamageTime=AS::Time(this);Health=FMath::Max(bTrainingDummy?1.f:0.f,Health-Damage);ForceNetUpdate();
     if(Health<=0) {
         if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->EnemyKilled(this,Source);

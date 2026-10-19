@@ -20,7 +20,7 @@ CLOTH = (.24, .14, .19)
 FIRE = (1.0, .09, .03)
 SLOT_COLOR = [METAL, METAL, DARK, DARK, METAL, DARK, METAL, DARK, METAL, DARK, METAL, DARK, DARK, METAL, METAL, CLOTH, FIRE, DARK, DARK, CLOTH, FIRE]
 GLOWING = {16, 20}
-ABILITY_NAMES = {0: 'neutral', 1: 'dive', 2: 'molt', 3: 'slash', 4: 'shot', 5: 'pounce', 6: 'charge', 7: 'blast', 8: 'snipe', 9: 'summon', 10: 'boss attack',
+ABILITY_NAMES = {0: 'neutral', 1: 'dive', 2: 'molt', 3: 'slash', 4: 'shot', 5: 'pounce', 6: 'charge', 7: 'blast', 8: 'snipe', 9: 'summon', 10: 'boss attack', 11: 'shove', 12: 'back-hop', 13: 'parry', 14: 'riposte', 15: 'ground pound', 16: 'enrage', 17: 'rift blink', 18: 'blink strike', 19: 'meteor rain',
                  100: 'death front 1', 101: 'death front 2', 102: 'death front 3', 103: 'death back', 104: 'death left', 105: 'death right'}
 
 

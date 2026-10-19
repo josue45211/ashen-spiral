@@ -447,6 +447,13 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         else if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
         return;
     }
+    if(Kind==18) {
+        // 0.24 meteor: a fireball that falls from the sky onto its ground warning and lands exactly as the warning fires (Size is the fall time in seconds). Cosmetic only; the
+        // blast itself is the field's. The colour is the glow of the fall.
+        ASAssets::Style(Visual,TEXT("Sphere"),FLinearColor(C.R,C.G,C.B,1.f),0,10.f);Visual->SetCastShadow(false);
+        Duration=FMath::Clamp(R,.2f,3.f);Anchor=At;SetActorLocation(At+FVector(0,0,1500.f));Visual->SetRelativeScale3D(FVector(.9f));
+        return;
+    }
     ASAssets::Style(Visual,Kind==15?TEXT("SM_Chest"):(Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring")))),C,0,Kind==15?3:6);
     Duration=Kind==15?ASPresentation::ChestPopLife:(Kind==8?.32f:(Kind==6?.48f:(Kind>=12?.34f:.24f)));
     const TCHAR* Sound=Kind==1||Kind==2?TEXT("S_Attack"):(Kind==3?TEXT("S_Spiral"):(Kind==4?TEXT("S_Dash"):(Kind==5?TEXT("S_Hit"):(Kind==7?TEXT("S_Reward"):TEXT("S_Collapse")))));
@@ -480,6 +487,14 @@ void AASVisualEffect::Tick(float Delta) {
         Visual->SetRelativeScale3D(FVector(Radius,Radius,bFinisherArc?2.f:1.f));
         if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(bFinisherArc?13.f:9.f)*FMath::Square(1.f-T));
         if(T>.86f) Visual->SetVisibility(false);
+        return;
+    }
+    if(Kind==18) {
+        // It speeds up as it falls (T squared), grows a little as it nears the ground and flares in the last fifth of its fall.
+        SetActorLocation(Anchor+FVector(0,0,1500.f*(1.f-T*T)));
+        const float Flare=FMath::Square(FMath::Max(0.f,T-.8f)/.2f);
+        Visual->SetRelativeScale3D(FVector(.9f+.6f*Flare));
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),10.f+8.f*Flare);
         return;
     }
     float Scale=Size/50.f*(Kind==2||Kind==5?1-T:(Kind==8||Kind>=12?.3f+T*1.8f:.2f+T));

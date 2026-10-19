@@ -59,3 +59,22 @@ frostbound is cyan, burning is orange-red (a damage hazard), shocking is violet-
 3. A recovery of at least 0.2 s.
 4. A colour from the table above, and never blue for anything but frost.
 5. Listed in the audio manifest with a fallback sound.
+
+## 7. The 0.24 abilities and how to read them
+
+Numbers live in `ASEnemyRules.h` (the ability table) and `ASEnemyAbilities.h` (their geometry), and are exercised by `Tests/enemy_ability_024_tests.cpp`. All of it is UNVERIFIED in
+the engine: nothing was played. Poses: `Docs/ENEMY_POSES_0.24_PREVIEW.png`.
+
+| Ability | Who | What you see and hear | How you beat it |
+|---|---|---|---|
+| Shove | Grunt | 0.6 s: both hands drawn back, a red **half disc 2.6 m** on the floor filling up | step out of the half disc; if it lands it hurts a little and throws you about 5 m |
+| Back-hop | Archer | 0.5 s crouch, then a 5 m hop straight away from you (dust at both ends), staff still pointing at you | it lands exposed for 0.4 s; close in or shoot it; it only hops when you are within 5 m |
+| Parry | Duelist | 0.95 s guard: blade up across the body, visor and chest core glowing | **do not hit the front** while it is up (blows take 15% and spark gold); hit it from the side or behind, or wait it out: it is exposed for 0.4 s afterwards |
+| Riposte | Duelist | straight out of a block: a red half disc 2.6 m for 0.28 s | step out, or dash through it |
+| Ground pound | Brute | 1.0 s: maul overhead, a **red disc 7.2 m across** filling up; then a ring sweeps out at 9 m/s | jump the ring (feet 45 cm off the floor) or dash through it; standing still on the ground is what hurts |
+| Enrage | Brute | at half health, a 1.2 s roar with its core flaring; afterwards a fast hot-red pulse on the body | it is 25% faster, winds up 20% quicker and recharges 40% quicker: stagger it before it does more |
+| Rift blink | Leaper | 0.55 s squash with violet light, then it vanishes along a violet trail and reappears about 2.6 m **behind you** | the strike (red half disc 2.6 m, 0.4 s) starts the moment it appears: turn and dash |
+| Meteor rain | Shaman | 1.0 s: staff raised to the sky; red discs (2 m) appear on **each hero** and around them, with fireballs falling onto them | move out of every disc before its fireball lands (0.85 s for the first, 0.3 s later for each next) |
+
+Chained abilities (riposte after a block, the blink's strike) are never chosen by the chooser; the enemy asks for them itself, and their poses start where the one before them ended.
+

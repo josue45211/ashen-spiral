@@ -1,0 +1,2 @@
+PASS: 39887 enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation).
+Shared rules only; Unreal combat and gameplay are not executed.

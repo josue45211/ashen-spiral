@@ -92,9 +92,15 @@ inline float CueDistanceGain(float Distance) {
 // ---- Abilities (0.24) ----
 // The replicated byte AASEnemy::Ability: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body and draws the right
 // warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
-constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilityShot=4,AbilityPounce=5,AbilityCharge=6,AbilityBlast=7,AbilitySnipe=8,AbilitySummon=9,AbilityBossAttack=10,AbilityCount=11;
+constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilityShot=4,AbilityPounce=5,AbilityCharge=6,AbilityBlast=7,AbilitySnipe=8,AbilitySummon=9,AbilityBossAttack=10,
+    AbilityShove=11,AbilityBackHop=12,AbilityParry=13,AbilityRiposte=14,AbilityPound=15,AbilityEnrage=16,AbilityBlink=17,AbilityBlinkStrike=18,AbilityMeteors=19,AbilityCount=20;
+// The replicated byte AASEnemy::Flags: bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
+constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once
 constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
 constexpr unsigned NeedsClearPath=1u;                        // may only start when a straight walk to the target is clear (leaps and charges)
+constexpr unsigned StanceFlag=2u;                            // a long stance or roar: the Special state, with no strike of its own (a parry, an enrage)
+constexpr unsigned OneShotFlag=4u;                           // happens once per enemy, triggered by the enemy itself, never chosen by the chooser
+constexpr unsigned NoKitCooldownFlag=8u;                     // does not delay the kit's next attack (a reposition, a stance, a roar: the attack it sets up should follow soon)
 struct AbilitySpec {
     float Windup;    // seconds of telegraph; 0 = the kit's wind-up
     float Attack;    // seconds of committed motion after the release (a leap, a charge); 0 = the release is instant
@@ -121,6 +127,15 @@ inline const AbilitySpec& SpecFor(int Id) {
         {  0.f,  0.f, .42f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueSnipeAim,CueSnipeFire},              // 8 snipe
         {  0.f,  0.f, .40f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueSummonWind,CueEggLay},              // 9 summon (or a shot, plus the heal tethers)
         {  0.f,  0.f, .60f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u,CueBossRoar,CueBossSlam},               // 10 boss attack (blast fields, a shot ring, a charge)
+        { .60f, 0.f, .50f,3.5f,0.f,230.f,.7f,TellSector,260.f,0.f,0u,CueShoveWind,CueShoveBash},                 // 11 shove (grunt: a shoulder-barge that throws the hero)
+        { .50f,.28f, .40f,5.0f,0.f,520.f,3.f,TellNone,  0.f,0.f,NoKitCooldownFlag,CueBackHop,CueNone},                           // 12 back-hop (archer: away from a hero that has closed in)
+        { .95f, 0.f, .40f,6.5f,0.f,460.f,1.f,TellNone,  0.f,0.f,StanceFlag|NoKitCooldownFlag,CueParryRaise,CueNone},          // 13 parry (duelist: a guard stance; the block's clang plays from the replicated Flags toggle, not at the stance's end)
+        { .28f, 0.f, .50f,0.f, 0.f, 0.f, 0.f,TellSector,260.f,0.f,0u,CueRiposteSlash,CueNone},                    // 14 riposte (the counter after a block; never chosen)
+        {1.0f,  0.f, .90f,7.0f,0.f,650.f,1.3f,TellDisc,720.f,0.f,0u,CuePoundWind,CuePoundSlam},                   // 15 ground pound (brute: a shockwave ring)
+        {1.2f,  0.f, .50f,1.e9f,0.f,0.f, 0.f,TellNone,  0.f,0.f,StanceFlag|OneShotFlag|NoKitCooldownFlag,CueEnrageRoar,CueNone},   // 16 enrage (brute at half health: a roar)
+        { .55f, 0.f, .40f,8.0f,350.f,1100.f,1.2f,TellNone,0.f,0.f,NoKitCooldownFlag,CueBlinkCharge,CueBlinkAppear},             // 17 rift blink (leaper: reappear behind you)
+        { .40f, 0.f, .60f,0.f, 0.f, 0.f, 0.f,TellSector,260.f,0.f,0u,CueSlashWind,CueSlashSwing},                 // 18 blink strike (the slash after a blink; never chosen)
+        {1.0f,  0.f, .60f,9.0f,0.f,1300.f,1.f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueMeteorFall},                 // 19 meteor rain (shaman)
     };
     return Table[std::clamp(Id,0,AbilityCount-1)];
 }
@@ -130,7 +145,7 @@ inline const AbilitySpec& SpecFor(int Id) {
 // likes to move: shooters and casters keep a distance band and side-step inside it, melee kinds circle just outside their reach while an attack recharges, and the
 // frailest kinds fall back once when badly hurt. How heavy it feels (acceleration, braking, turn rate), which animation family poses it, and which abilities it owns
 // are part of the row. TUNABLE.
-constexpr int MaxKitAbilities=4;
+constexpr int MaxKitAbilities=6;
 constexpr int AnimHumanoid=0,AnimBlob=1,AnimFlier=2,AnimSkeletal=3; // 21-part armour rig / a single squashing body / wings / a skeletal mesh (the spike)
 struct Kit {
     float Speed;        // base walk speed, before the elite / anger / approach / slow multipliers
@@ -148,20 +163,27 @@ struct Kit {
 inline const Kit& KitFor(int Kind) {
     static constexpr Kit Table[KindCount]={
         //  speed range windup  cd  bandMin bandMax circle strafe retreat  accel brake turn  anim         abilities
-        {340.f, 180.f,.85f,1.8f,    0.f,    0.f, 250.f,.55f,  0.f, 2400.f,2400.f,540.f,AnimHumanoid,{AbilitySlash,0,0,0}},      // 0 grunt
-        {275.f,1300.f,.85f,1.8f,  650.f, 1050.f,   0.f,.60f, .25f, 2600.f,2600.f,600.f,AnimHumanoid,{AbilityShot,0,0,0}},       // 1 archer
-        {275.f, 180.f,.85f,1.8f,    0.f,    0.f, 260.f,.60f,  0.f, 3000.f,3000.f,720.f,AnimHumanoid,{AbilitySlash,0,0,0}},      // 2 duelist
-        {275.f, 180.f,.85f,1.8f,    0.f,    0.f, 300.f,.45f,  0.f, 1200.f,1000.f,300.f,AnimHumanoid,{AbilitySlash,0,0,0}},      // 3 brute
-        {235.f,1300.f,1.1f,2.0f,    0.f,    0.f,   0.f,.50f,  0.f, 1000.f, 800.f,220.f,AnimHumanoid,{AbilityBossAttack,0,0,0}}, // 4 boss (its own movement arrives with the boss kits)
-        {390.f, 650.f,.85f,1.8f,    0.f,    0.f, 300.f,.70f,  0.f, 3200.f,2800.f,720.f,AnimBlob,    {AbilityPounce,0,0,0}},     // 5 leaper
-        {230.f, 650.f,1.1f,1.8f,    0.f,    0.f, 240.f,.40f,  0.f,  900.f,1100.f,240.f,AnimHumanoid,{AbilityCharge,0,0,0}},     // 6 bulwark
-        {275.f,1300.f,.85f,1.8f,  800.f, 1200.f,   0.f,.60f, .30f, 1800.f,1800.f,450.f,AnimHumanoid,{AbilityBlast,0,0,0}},      // 7 shaman
-        {275.f,1700.f,1.5f,1.8f, 1200.f, 1650.f,   0.f,.50f, .35f, 1800.f,1800.f,360.f,AnimHumanoid,{AbilitySnipe,0,0,0}},      // 8 sniper
-        {275.f,1300.f,1.4f,1.8f,  700.f, 1100.f,   0.f,.50f, .30f, 1400.f,1400.f,300.f,AnimBlob,    {AbilitySummon,0,0,0}},     // 9 broodcaller
-        {330.f,1100.f,.70f,5.0f,    0.f,    0.f,   0.f, 0.f,  0.f, 2000.f,2000.f,540.f,AnimFlier,   {AbilityDive,0,0,0}},       // 10 gloomwing (its flight loop uses the ASExpedition::Flier* numbers)
+        {340.f, 180.f,.85f,1.8f,    0.f,    0.f, 250.f,.55f,  0.f, 2400.f,2400.f,540.f,AnimHumanoid,{AbilitySlash,AbilityShove,0,0,0,0}},      // 0 grunt
+        {275.f,1300.f,.85f,1.8f,  650.f, 1050.f,   0.f,.60f, .25f, 2600.f,2600.f,600.f,AnimHumanoid,{AbilityShot,AbilityBackHop,0,0,0,0}},       // 1 archer
+        {275.f, 180.f,.85f,1.8f,    0.f,    0.f, 260.f,.60f,  0.f, 3000.f,3000.f,720.f,AnimHumanoid,{AbilitySlash,AbilityParry,AbilityRiposte,0,0,0}},      // 2 duelist
+        {275.f, 180.f,.85f,1.8f,    0.f,    0.f, 300.f,.45f,  0.f, 1200.f,1000.f,300.f,AnimHumanoid,{AbilitySlash,AbilityPound,AbilityEnrage,0,0,0}},      // 3 brute
+        {235.f,1300.f,1.1f,2.0f,    0.f,    0.f,   0.f,.50f,  0.f, 1000.f, 800.f,220.f,AnimHumanoid,{AbilityBossAttack,0,0,0,0,0}}, // 4 boss (its own movement arrives with the boss kits)
+        {390.f, 650.f,.85f,1.8f,    0.f,    0.f, 300.f,.70f,  0.f, 3200.f,2800.f,720.f,AnimBlob,    {AbilityPounce,AbilityBlink,AbilityBlinkStrike,0,0,0}},     // 5 leaper
+        {230.f, 650.f,1.1f,1.8f,    0.f,    0.f, 240.f,.40f,  0.f,  900.f,1100.f,240.f,AnimHumanoid,{AbilityCharge,0,0,0,0,0}},     // 6 bulwark
+        {275.f,1300.f,.85f,1.8f,  800.f, 1200.f,   0.f,.60f, .30f, 1800.f,1800.f,450.f,AnimHumanoid,{AbilityBlast,AbilityMeteors,0,0,0,0}},      // 7 shaman
+        {275.f,1700.f,1.5f,1.8f, 1200.f, 1650.f,   0.f,.50f, .35f, 1800.f,1800.f,360.f,AnimHumanoid,{AbilitySnipe,0,0,0,0,0}},      // 8 sniper
+        {275.f,1300.f,1.4f,1.8f,  700.f, 1100.f,   0.f,.50f, .30f, 1400.f,1400.f,300.f,AnimBlob,    {AbilitySummon,0,0,0,0,0}},     // 9 broodcaller
+        {330.f,1100.f,.70f,5.0f,    0.f,    0.f,   0.f, 0.f,  0.f, 2000.f,2000.f,540.f,AnimFlier,   {AbilityDive,0,0,0,0,0}},       // 10 gloomwing (its flight loop uses the ASExpedition::Flier* numbers)
     };
     return Table[std::clamp(Kind,0,KindCount-1)];
 }
+// The radius a ground warning is drawn at: the melee slash's is the strike radius (the elite's is wider), every other warning's size is in its row.
+inline float TellRadiusFor(int Ability,bool Elite) {
+    if(Ability==AbilitySlash) return StrikeRadius(Elite);
+    const float R=SpecFor(Ability).TellA;return R>0.f?R:StrikeRadius(Elite);
+}
+// Whether a kit owns an ability (the one-shot triggers are not chosen, they are asked for by id).
+inline bool KitHas(const Kit& K,int Ability) {for(int I=0;I<MaxKitAbilities;++I) {if(K.Abilities[I]==AbilityNone) return false;if(K.Abilities[I]==Ability) return true;}return false;}
 inline float WindupFor(const Kit& K,int Ability) {const float W=SpecFor(Ability).Windup;return W>0.f?W:K.Windup;}
 // What the chooser needs to know about the moment.
 struct Context {float Distance=0.f,Now=0.f;bool Sight=true,ClearPath=true;};

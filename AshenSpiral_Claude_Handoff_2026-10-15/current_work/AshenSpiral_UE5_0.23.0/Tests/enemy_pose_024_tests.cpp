@@ -70,7 +70,8 @@ int main() {
             Check(Channels.insert(C.Channel).second,"a channel is driven by one curve per track");
             int N=0;while(N<MaxKeys&&C.Keys[N].T>=0.f) ++N;
             Check(N>=2&&N<=MaxKeys,"a curve has between two keys and the maximum");
-            Check(C.Keys[0].T==0.f&&C.Keys[0].V==0.f,"every curve starts at neutral at the very start");
+            const bool Chained=Ability==ER::AbilityRiposte||Ability==ER::AbilityBlinkStrike; // these begin straight out of another ability's pose (the parry's guard, the blink's pop)
+            Check(C.Keys[0].T==0.f&&(Chained||C.Keys[0].V==0.f),"every curve starts at neutral at the very start (a chained ability starts where the one before it ended)");
             Check(C.Keys[N-1].T==TrackEnd&&C.Keys[N-1].V==0.f,"... and ends at neutral exactly at the end of the recovery");
             for(int K=1;K<N;++K) Check(C.Keys[K].T>C.Keys[K-1].T&&C.Keys[K].T<=TrackEnd,"keys are strictly increasing inside the track");
             const float Limit=C.Channel==ChPlant?1.f:(C.Channel==ChBend||C.Channel==ChBendRoll?120.f:(C.Channel>=ChScaleX&&C.Channel<=ChScaleZ?.8f:(C.Channel==ChCrouch?30.f:(C.Channel==ChLeanX||C.Channel==ChLeanY?40.f:(C.Channel>=ChHandLX&&C.Channel<=ChHandRZ?140.f:(C.Channel==ChFootLX||C.Channel==ChFootRX?40.f:(C.Channel==ChStance?30.f:(C.Channel==ChGlow?3.f:120.f))))))));

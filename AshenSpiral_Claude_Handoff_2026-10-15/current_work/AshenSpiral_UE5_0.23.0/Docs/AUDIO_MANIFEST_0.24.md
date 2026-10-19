@@ -21,31 +21,31 @@ Telegraph and release cues together are the readability rule of this update: a p
 
 | # | File | Plays at | What it should sound like | Until delivered |
 |---|---|---|---|---|
-| 1 | `E_SlashWind.wav` | wind-up of melee slash | a blade drawn back: a low, rising breath and a metal scrape, about 0.4 s | `S_Attack.wav` x0.22 volume, pitch 0.60 |
-| 2 | `E_SlashSwing.wav` | release of melee slash | the hostile swing itself: a short heavy whoosh with a metal edge (until delivered, the swing arc plays S_Attack) | silent (the swing arc keeps playing `S_Attack` until this is delivered) |
-| 3 | `E_ShoveWind.wav` | an ability of the 0.24 kits (wired as each is built) | a grunt bracing a shield: a short grunt and a leather creak | `S_HammerSwing.wav` x0.22 volume, pitch 0.80 |
-| 4 | `E_ShoveBash.wav` | an ability of the 0.24 kits (wired as each is built) | a shield bash: a dull thud with a rattle | `S_HammerHit.wav` x0.32 volume, pitch 1.20 |
+| 1 | `E_SlashWind.wav` | wind-up of melee slash; wind-up of leaper blink strike | a blade drawn back: a low, rising breath and a metal scrape, about 0.4 s | `S_Attack.wav` x0.22 volume, pitch 0.60 |
+| 2 | `E_SlashSwing.wav` | release of melee slash; release of leaper blink strike | the hostile swing itself: a short heavy whoosh with a metal edge (until delivered, the swing arc plays S_Attack) | silent (the swing arc keeps playing `S_Attack` until this is delivered) |
+| 3 | `E_ShoveWind.wav` | wind-up of grunt shove | a grunt bracing a shield: a short grunt and a leather creak | `S_HammerSwing.wav` x0.22 volume, pitch 0.80 |
+| 4 | `E_ShoveBash.wav` | release of grunt shove | a shield bash: a dull thud with a rattle | `S_HammerHit.wav` x0.32 volume, pitch 1.20 |
 | 5 | `E_ShotDraw.wav` | wind-up of archer shot | a staff charging: a thin rising shimmer, about 0.5 s | `S_Spiral.wav` x0.16 volume, pitch 1.70 |
 | 6 | `E_ShotLoose.wav` | release of archer shot | a bolt leaving a staff: a sharp zip | `S_Attack.wav` x0.22 volume, pitch 1.60 |
-| 7 | `E_BackHop.wav` | an ability of the 0.24 kits (wired as each is built) | a quick back-step and a soft smoke puff | `S_Dash.wav` x0.30 volume, pitch 1.30 |
-| 8 | `E_ParryRaise.wav` | an ability of the 0.24 kits (wired as each is built) | a blade lifted into guard: a clean steel ring | `S_Reward.wav` x0.20 volume, pitch 1.80 |
-| 9 | `E_ParryBlock.wav` | an ability of the 0.24 kits (wired as each is built) | a blocked blow: a bright metal clang with a gold sparkle tail | `S_HammerHit.wav` x0.40 volume, pitch 1.60 |
-| 10 | `E_RiposteSlash.wav` | an ability of the 0.24 kits (wired as each is built) | a fast counter-slash: a hard sharp whoosh | `S_Attack.wav` x0.35 volume, pitch 1.30 |
-| 11 | `E_PoundWind.wav` | an ability of the 0.24 kits (wired as each is built) | a heavy enemy rearing up: a deep grunt and armour rattle, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.55 |
-| 12 | `E_PoundSlam.wav` | an ability of the 0.24 kits (wired as each is built) | a ground-pound: a deep boom with a rolling shockwave tail | `S_HammerSmash.wav` x0.55 volume, pitch 0.80 |
-| 13 | `E_EnrageRoar.wav` | an ability of the 0.24 kits (wired as each is built) | an elite roaring into a rage: a bellow, about 1.2 s | `S_Collapse.wav` x0.50 volume, pitch 0.55 |
+| 7 | `E_BackHop.wav` | wind-up of archer back-hop | a quick back-step and a soft smoke puff | `S_Dash.wav` x0.30 volume, pitch 1.30 |
+| 8 | `E_ParryRaise.wav` | wind-up of duelist parry | a blade lifted into guard: a clean steel ring | `S_Reward.wav` x0.20 volume, pitch 1.80 |
+| 9 | `E_ParryBlock.wav` | a duelist's parry guard holding against a blow (played from the replicated block flag) | a blocked blow: a bright metal clang with a gold sparkle tail | `S_HammerHit.wav` x0.40 volume, pitch 1.60 |
+| 10 | `E_RiposteSlash.wav` | wind-up of duelist riposte | a fast counter-slash: a hard sharp whoosh | `S_Attack.wav` x0.35 volume, pitch 1.30 |
+| 11 | `E_PoundWind.wav` | wind-up of brute ground pound | a heavy enemy rearing up: a deep grunt and armour rattle, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.55 |
+| 12 | `E_PoundSlam.wav` | release of brute ground pound | a ground-pound: a deep boom with a rolling shockwave tail | `S_HammerSmash.wav` x0.55 volume, pitch 0.80 |
+| 13 | `E_EnrageRoar.wav` | wind-up of brute enrage | an elite roaring into a rage: a bellow, about 1.2 s | `S_Collapse.wav` x0.50 volume, pitch 0.55 |
 | 14 | `E_PounceCoil.wav` | wind-up of leaper pounce | a leaper coiling: a low hiss and a joint click | `S_Dash.wav` x0.18 volume, pitch 0.75 |
 | 15 | `E_PounceLeap.wav` | release of leaper pounce | a leaper launching: a whoosh | `S_HammerLeap.wav` x0.26 volume, pitch 1.40 |
 | 16 | `E_PounceLand.wav` | an ability of the 0.24 kits (wired as each is built) | a leaper landing: a thud and a skitter | `S_HammerHit.wav` x0.28 volume, pitch 0.90 |
-| 17 | `E_BlinkCharge.wav` | an ability of the 0.24 kits (wired as each is built) | a rift building around a leaper: a rising shimmer, about 0.5 s | `S_Spiral.wav` x0.20 volume, pitch 2.00 |
-| 18 | `E_BlinkAppear.wav` | an ability of the 0.24 kits (wired as each is built) | reappearing behind you: a sharp rift snap | `S_Dash.wav` x0.35 volume, pitch 1.80 |
+| 17 | `E_BlinkCharge.wav` | wind-up of leaper rift blink | a rift building around a leaper: a rising shimmer, about 0.5 s | `S_Spiral.wav` x0.20 volume, pitch 2.00 |
+| 18 | `E_BlinkAppear.wav` | release of leaper rift blink | reappearing behind you: a sharp rift snap | `S_Dash.wav` x0.35 volume, pitch 1.80 |
 | 19 | `E_ChargeWind.wav` | wind-up of bulwark charge | a bulwark digging in to charge: a stamp and a snort, about 1 s | `S_HammerLeap.wav` x0.30 volume, pitch 0.60 |
 | 20 | `E_ChargeRun.wav` | release of bulwark charge | a heavy charge: pounding steps, a rolling rumble | `S_HammerSwing.wav` x0.20 volume, pitch 0.60 |
 | 21 | `E_GuardBreak.wav` | an ability of the 0.24 kits (wired as each is built) | a shield shattering open: a loud metal crack with sparks | `S_HammerSmash.wav` x0.50 volume, pitch 1.40 |
 | 22 | `E_BlastWind.wav` | wind-up of shaman blast | a caster gathering fire: a rising hum, about 0.8 s | `S_Spiral.wav` x0.20 volume, pitch 0.55 |
 | 23 | `E_BlastBurst.wav` | release of shaman blast | a fire blast: a short fiery whump | `S_Collapse.wav` x0.35 volume, pitch 1.00 |
-| 24 | `E_MeteorCall.wav` | an ability of the 0.24 kits (wired as each is built) | calling meteors: a deep rumble that climbs | `S_Collapse.wav` x0.35 volume, pitch 0.50 |
-| 25 | `E_MeteorFall.wav` | an ability of the 0.24 kits (wired as each is built) | a meteor falling: a long falling whistle, about 0.9 s | `S_Dash.wav` x0.22 volume, pitch 0.50 |
+| 24 | `E_MeteorCall.wav` | wind-up of shaman meteor rain | calling meteors: a deep rumble that climbs | `S_Collapse.wav` x0.35 volume, pitch 0.50 |
+| 25 | `E_MeteorFall.wav` | release of shaman meteor rain | a meteor falling: a long falling whistle, about 0.9 s | `S_Dash.wav` x0.22 volume, pitch 0.50 |
 | 26 | `E_MeteorImpact.wav` | an ability of the 0.24 kits (wired as each is built) | a meteor landing: a boom with crackling embers | `S_HammerSmash.wav` x0.45 volume, pitch 0.90 |
 | 27 | `E_SnipeAim.wav` | wind-up of sniper shot | a sniper tracking you: a thin rising whine, about 1 s | `S_Reward.wav` x0.12 volume, pitch 2.30 |
 | 28 | `E_SnipeLock.wav` | an ability of the 0.24 kits (wired as each is built) | the aim locking: a sharp click and the whine cuts off | `S_Hit.wav` x0.30 volume, pitch 2.40 |

@@ -230,12 +230,12 @@ int main(int argc,char** argv) {
             if(A.MaxRange>0.f) Check(A.MaxRange>A.MinRange,"a distance window is ordered");
             Check(A.Tell>=TellNone&&A.Tell<=TellLine,"a warning shape is a known shape");
             if(A.Tell!=TellNone) Check(A.TellA>0.f,"a warning has a size");
-            if(Id!=AbilityNone) Check(A.Weight>0.f,"every real ability can be chosen");
+            if(Id!=AbilityNone) Check(A.Weight>0.f||Id==AbilityRiposte||Id==AbilityBlinkStrike||(A.Flags&OneShotFlag),"every real ability can be chosen, except the follow-ups chained after another (riposte, blink strike) and the one-shot triggers (enrage)");
         }
         // Every ability a kit owns has a readable wind-up (resolved against the kit) and, when it is a walker's, a recovery.
         for(int Kind=0;Kind<KindCount;++Kind) for(int I=0;I<MaxKitAbilities;++I) {
             const int Id=KitFor(Kind).Abilities[I];if(Id==AbilityNone) break;
-            Check(WindupFor(KitFor(Kind),Id)>=.5f,"every owned ability telegraphs for at least half a second");
+            if(SpecFor(Id).Weight>0.f) Check(WindupFor(KitFor(Kind),Id)>=.5f,"every ability a kit can start telegraphs for at least half a second (a chained follow-up rides on the long telegraph before it)");
             if(Kind!=Gloomwing) Check(SpecFor(Id).Recover>0.f,"a walker's every ability ends with a short exposed recovery");
         }
         // The numbers the old code used for committed motion.
@@ -272,7 +272,7 @@ int main(int argc,char** argv) {
     {
         Context C;C.Now=10.f;
         for(int Kind=0;Kind<=9;++Kind) {
-            const Kit& K=KitFor(Kind);const int Only=K.Abilities[0];
+            Kit K=KitFor(Kind);const int Only=K.Abilities[0];for(int I=1;I<MaxKitAbilities;++I) K.Abilities[I]=AbilityNone; // the primary attack on its own (the extra abilities are tested below)
             C.Distance=K.AttackRange-1.f;C.Sight=true;C.ClearPath=true;
             Check(ChooseAbility(K,C,nullptr,AbilityNone,.3f)==Only,"in range with sight, a single-ability kit chooses its ability");
             C.Distance=K.AttackRange;Check(ChooseAbility(K,C,nullptr,AbilityNone,.3f)==AbilityNone,"exactly at the attack range is out of range (strictly inside, as before)");
@@ -284,6 +284,23 @@ int main(int argc,char** argv) {
             float Ready[AbilityCount]={};for(float& R:Ready) R=C.Now+1.f;
             Check(ChooseAbility(K,C,Ready,AbilityNone,.3f)==AbilityNone,"an ability on its own cooldown is not chosen");
             Ready[Only]=C.Now;Check(ChooseAbility(K,C,Ready,AbilityNone,.3f)==Only,"... and is again the moment the cooldown ends");
+        }
+        {   // The extra abilities of the 0.24 kits open and close at their own distances.
+            auto Pick=[&](int Kind,float Distance,float Roll,int Last=AbilityNone) {Context X;X.Now=10.f;X.Distance=Distance;return ChooseAbility(KitFor(Kind),X,nullptr,Last,Roll);};
+            Check(Pick(Grunt,100.f,.0f)==AbilitySlash&&Pick(Grunt,200.f,.5f)==AbilityShove&&Pick(Grunt,240.f,.5f)==AbilityNone,"the grunt slashes up close, shoves from a little farther, and nothing beyond the shove's reach");
+            Check(Pick(Archer,400.f,.0f)==AbilityShot&&Pick(Archer,400.f,.9f)==AbilityBackHop&&Pick(Archer,700.f,.9f)==AbilityShot,"the archer back-hops only when a hero has closed within 5 m, otherwise it shoots");
+            Check(Pick(Duelist,100.f,.0f)==AbilitySlash&&Pick(Duelist,300.f,.5f)==AbilityParry&&Pick(Duelist,500.f,.5f)==AbilityNone,"the duelist raises its guard at mid distance and never chooses its riposte");
+            int Counts[AbilityCount]={};for(int I=0;I<1000;++I) ++Counts[Pick(Brute,100.f,float(I)/1000.f)];
+            Check(Counts[AbilitySlash]>0&&Counts[AbilityPound]>0&&Counts[AbilityEnrage]==0&&Counts[AbilityRiposte]==0,"the brute slashes and pounds, and its enrage is never picked by the chooser");
+            Check(Pick(Brute,500.f,.5f)==AbilityPound,"the brute pounds from a distance too");
+            Check(Pick(Leaper,200.f,.5f)==AbilityPounce&&Pick(Leaper,200.f,.99f)==AbilityPounce&&Pick(Leaper,500.f,.0f)==AbilityPounce&&Pick(Leaper,500.f,.99f)==AbilityBlink&&Pick(Leaper,900.f,.0f)==AbilityBlink&&Pick(Leaper,1200.f,.5f)==AbilityNone,"the leaper pounces when close, chooses between pounce and blink from 3.5 to 6.5 m, and only blinks out to 11 m");
+            Check(Pick(Shaman,500.f,.0f)==AbilityBlast&&Pick(Shaman,500.f,.99f)==AbilityMeteors,"the shaman alternates ground blasts and meteor rain");
+            Check(Pick(Duelist,300.f,.5f,AbilityParry)==AbilityParry,"a lone eligible ability repeats when there is nothing else");
+            for(int Kind=0;Kind<KindCount;++Kind) for(int I=0;I<400;++I) {
+                Context X;X.Now=10.f;X.Distance=float(I)*4.f;X.ClearPath=(I&1)!=0;
+                const int Id=ChooseAbility(KitFor(Kind),X,nullptr,AbilityNone,float(I%97)/97.f);
+                Check(Id==AbilityNone||(SpecFor(Id).Weight>0.f&&!(SpecFor(Id).Flags&OneShotFlag)),"the chooser never returns a chained follow-up or a one-shot trigger");
+            }
         }
         C.Distance=NaN;Check(ChooseAbility(KitFor(Grunt),C,nullptr,0,.3f)==AbilityNone,"a non-finite distance chooses nothing");
         C.Distance=100.f;C.Now=NaN;Check(ChooseAbility(KitFor(Grunt),C,nullptr,0,.3f)==AbilityNone,"a non-finite clock chooses nothing");

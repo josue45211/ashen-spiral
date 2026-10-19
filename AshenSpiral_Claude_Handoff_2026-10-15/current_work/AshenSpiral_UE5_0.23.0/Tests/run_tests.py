@@ -179,6 +179,7 @@ def validate():
     arsenal_024=reload_navigation
     ai_024=reload_navigation
     pose_024=reload_navigation
+    ability_024=reload_navigation
     if compiler:
         with tempfile.TemporaryDirectory(prefix='ashen_native_') as d:
             exe=Path(d)/('rules_tests.exe' if sys.platform=='win32' else 'rules_tests')
@@ -307,6 +308,7 @@ def validate():
             arsenal_024=native_suite('arsenal_024_tests','0.24 on-hit reward scaling (per-weapon base rate, equal reward rate, exact expected value) passed')
             ai_024=native_suite('enemy_ai_024_tests','0.24 enemy foundation (kits equal the old numbers, fluid movement planning, retreat bounds, pack spreading, unsticking, sound cues) passed',str(ROOT))
             pose_024=native_suite('enemy_pose_024_tests','0.24 enemy pose system (Unreal-faithful rotation math, track structure, timeline, neutral pose equals the old gait, sweeps over every ability) passed')
+            ability_024=native_suite('enemy_ability_024_tests','0.24 enemy abilities (shove, back-hop, parry, shockwave swept against heroes, enrage, hazards, guard break, meteor volleys, blink, sniper tracking) passed')
             trig=subprocess.run([sys.executable,str(ROOT/'Tests/check_trig_overloads.py')],check=True,text=True,capture_output=True).stdout.strip()
             check(trig.startswith('PASS:'),'Actual fern expressions compile against the float/double overloads from the reported C2668 diagnostic')
     report={
@@ -314,7 +316,7 @@ def validate():
         'mesh_count':len(meshes),'mesh_vertex_count':vertices,'mesh_triangle_count':triangles,
         'degenerate_triangles':degenerates,'texture_count':len(textures),'audio_count':len(sounds),
         'rpc_implementation_presence_checks':rpcs,'native_tests':native,'gameplay_tests':gameplay,'buildcraft_tests':buildcraft,'adventure_tests':adventure,'career_tests':career,
-        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
+        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
         'unreal_module_compile':'NOT RUN - Unreal Engine unavailable',
         'unreal_import_and_material_compile':'NOT RUN',
         'unreal_visual_physics_network_performance_tests':'NOT RUN',

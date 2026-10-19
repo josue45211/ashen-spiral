@@ -28,11 +28,12 @@ public:
     UPROPERTY(Replicated) bool bWinding=false;
     UPROPERTY(Replicated) uint8 Ability=0; // ASEnemyRules::Ability*: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body
     UPROPERTY(Replicated) uint8 AIState=0; // ASEnemyRules::State*: approach, strafe, windup, attack, recover, retreat, special. The server's state machine; every machine poses from it
+    UPROPERTY(Replicated) uint8 Flags=0;   // ASEnemyRules::Flag*: what every machine shows about an enemy beyond its state (enraged tint, a parry's block flash)
     float SlowUntil=0,PulledUntil=0,MarkUntil=0,StunUntil=0,RootUntil=0,StunImmuneUntil=0,RootImmuneUntil=0;
     float LastHitTime=-10,NextDamageNumber=0;
     TWeakObjectPtr<AASCharacter> LastHitter;
     TWeakObjectPtr<AASEnemy> Summoner; // server only: the Broodcaller that spawned this minion (if any)
-    bool Hit(float Damage,AASCharacter* Source);
+    bool Hit(float Damage,AASCharacter* Source,bool bDirect=true); // bDirect: a blow, not status damage ticking in (a parry guard holds only against blows)
     UPROPERTY(Replicated) float SpawnProtectedUntil=0;
     float FirstEngagedAt=-1;
     bool SpawnProtected() const;
@@ -127,4 +128,13 @@ private:
     int32 LastAbility=0;
     float RecoverUntil=0;
     bool bTraversalLeap=false;                                   // the leaper's jump across a gap: no recovery pause afterwards
+    // 0.24 abilities with their own effect and flow (ASEnemyAbilities.cpp; rules and numbers in ASEnemyAbilities.h).
+    enum EFlow : int32 {FlowNotMine,FlowFinish,FlowChained,FlowAttack}; // after an ability's effect: the old by-kind path / the recovery / another ability began / committed motion began
+    int32 ReleaseOwnAbility(int32 AbilityId,const FVector& ToTarget);   // ReleaseAbility calls it first; FlowNotMine means CommitAttack handles the ability as before
+    void ShowTell(float Progress);                               // the ground warning of the ability being wound up: its shape, its radius, its fill
+    TWeakObjectPtr<AASCharacter> CurrentTarget;                  // authority: the hero TickGround is working against this tick
+    float HopUntil=0,RiposteAt=-1.f;                             // the archer's back-hop in flight; when the duelist's counter starts after a block
+    FVector HopDirection=FVector::ZeroVector;
+    bool bParryBlocked=false;
+    int32 TellShape=-1,SeenFlags=0;                              // clients: which warning mesh is applied; the flag bits UpdateCues has seen
 };
