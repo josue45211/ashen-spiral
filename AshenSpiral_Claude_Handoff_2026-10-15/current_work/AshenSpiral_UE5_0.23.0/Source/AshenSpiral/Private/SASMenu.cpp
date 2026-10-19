@@ -203,7 +203,7 @@ void SASMenu::Construct(const FArguments& Args) {
                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("CONTROLS"),10,11)]
                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("SETTINGS"),10,8)]
                                 +SHorizontalBox::Slot().FillWidth(1).HAlign(HAlign_Right).VAlign(VAlign_Center)
-                                    [SNew(STextBlock).Text(Txt(TEXT("ASHEN SPIRAL  0.23.2"))).Font(Font(11)).ColorAndOpacity(ASMenuMuted)]]]]]]];
+                                    [SNew(STextBlock).Text(Txt(FString::Printf(TEXT("ASHEN SPIRAL  %s"),ASData::Version))).Font(Font(11)).ColorAndOpacity(ASMenuMuted)]]]]]]];
     if(!GI||!S) {Text(TEXT("Loading the world and personal profile..."));return;}
     const auto& P=GI->Profile;
     const auto* Hero=Cast<AASCharacter>(C->GetPawn());

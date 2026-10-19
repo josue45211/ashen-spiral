@@ -74,7 +74,7 @@ void AASGameMode::PreLogin(const FString& Options,const FString& Address,const F
 #endif
     const FString ID=UGameplayStatics::ParseOption(Options,TEXT("Profile"));
     if(!EditorTest) {
-        if(UGameplayStatics::GetIntOption(Options,TEXT("Protocol"),0)!=ASData::Protocol) {Error=TEXT("Both players need Ashen Spiral UE 0.23.0 (protocol 2300).");return;}
+        if(UGameplayStatics::GetIntOption(Options,TEXT("Protocol"),0)!=ASData::Protocol) {Error=FString::Printf(TEXT("Both players need Ashen Spiral UE %s (protocol %d)."),ASData::Version,ASData::Protocol);return;}
         if(UGameplayStatics::ParseOption(Options,TEXT("Code")).ToUpper()!=S->SessionCode) {Error=TEXT("Session code does not match the host.");return;}
         if(S->Phase!=EASPhase::Hub && !Disconnected.Contains(ID)) {Error=TEXT("An expedition is already running. Join in the hub.");return;}
     }
