@@ -119,6 +119,7 @@ private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Visual;
     float Age=0,Duration=.35f,Size=1;
     uint8 Kind=0;
+    bool bFinisherArc=false; // Kind 17 (0.24 swing arc): the combo's third swing is drawn brighter and holds a little longer
 };
 
 // Cosmetic-only kill burst: a handful of glowing shards thrown outward with gravity. Spawned locally by the GameState effect multicast.

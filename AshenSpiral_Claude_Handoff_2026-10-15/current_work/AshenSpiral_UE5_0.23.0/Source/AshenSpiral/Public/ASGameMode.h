@@ -52,7 +52,7 @@ public:
     void Reward(AASPlayerController* PC,int32 Index);
     void Reroll(AASPlayerController* PC);
     void ToggleWager(AASPlayerController* PC,bool Enabled);
-    void SpawnMinion(const FVector& Position);
+    AASEnemy* SpawnMinion(const FVector& Position,AASEnemy* Summoner=nullptr); // returns the minion (or null) so the summoner can count its brood
     void Interact(AASPlayerController* PC,int32 Target=0);
     void UseShrine(AASPlayerController* PC);
     void GambleAtWell(AASPlayerController* PC,int32 StakeIndex);

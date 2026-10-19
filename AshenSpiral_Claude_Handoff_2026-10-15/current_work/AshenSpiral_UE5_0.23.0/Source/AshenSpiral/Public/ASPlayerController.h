@@ -50,7 +50,6 @@ public:
     UFUNCTION(Client,Reliable) void RequestProfile();
     UFUNCTION(Server,Reliable) void SubmitProfile(const FString& Id,const FASBuild& Build,int32 Protocol,int32 Experience,int32 ColorChoice,bool RaiseStakes,int32 TitleIndex,int32 TitleTier,int32 ClearedMask,int32 EndlessChoices);
     UFUNCTION(Server,Reliable) void CancelActions();
-    UFUNCTION(Server,Reliable) void SetReady(bool Ready);
     UFUNCTION(Server,Reliable) void StartRun(int32 Seed);
     UFUNCTION(Server,Reliable) void ChooseReward(int32 Index);
     UFUNCTION(Server,Reliable) void RerollRewards();

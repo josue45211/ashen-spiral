@@ -10,6 +10,7 @@
 #include "ASBreakable.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
@@ -430,6 +431,19 @@ void AASShardBurst::Tick(float Delta) {
 AASVisualEffect::AASVisualEffect() {PrimaryActorTick.bCanEverTick=true;Visual=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Flash"));RootComponent=Visual;}
 void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearColor C,float R) {
     Kind=T;Size=R;SetActorLocation(At);SetActorRotation(D.Rotation());
+    if(Kind==17) {
+        // 0.24 swing arc: a frontal crescent whose outer edge is exactly the swing's reach (Size). The colour's alpha carries the combo step (0, 1, 2 = finisher).
+        // If the mesh has not been imported on this machine yet (Setup not re-run), fall back to the older slash mesh instead of a stray cube.
+        const int32 Step=FMath::Clamp(FMath::RoundToInt(C.A),0,2);bFinisherArc=Step==2;
+        const float Tilt=Step==0?24.f:(Step==1?-24.f:0.f); // alternating diagonals, a flat finisher
+        SetActorRotation(FRotator(0.f,D.Rotation().Yaw,Tilt));
+        const bool HasArc=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/Art/Meshes/SM_SwingArc.SM_SwingArc"))!=nullptr;
+        FLinearColor Tint=FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.4f);
+        ASAssets::Style(Visual,HasArc?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,9.f);
+        Duration=bFinisherArc?.28f:.22f;
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
+        return;
+    }
     ASAssets::Style(Visual,Kind==15?TEXT("SM_Chest"):(Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring")))),C,0,Kind==15?3:6);
     Duration=Kind==15?ASPresentation::ChestPopLife:(Kind==8?.32f:(Kind==6?.48f:(Kind>=12?.34f:.24f)));
     const TCHAR* Sound=Kind==1||Kind==2?TEXT("S_Attack"):(Kind==3?TEXT("S_Spiral"):(Kind==4?TEXT("S_Dash"):(Kind==5?TEXT("S_Hit"):(Kind==7?TEXT("S_Reward"):TEXT("S_Collapse")))));
@@ -453,7 +467,19 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
 void AASVisualEffect::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
     Age+=Delta;if(Age>=Duration) {Destroy();return;}
-    float T=Age/Duration;float Scale=Size/50.f*(Kind==2||Kind==5?1-T:(Kind==8||Kind>=12?.3f+T*1.8f:.2f+T));
+    float T=Age/Duration;
+    if(Kind==17) {
+        // The crescent shows the true reach at once (a short ease-out from 90% to 100% of it), holds, then draws in toward the swinger while it dims.
+        // The material is opaque, so it is hidden near the end rather than faded.
+        const float Pop=FMath::Min(1.f,T*7.f),Ease=1.f-FMath::Square(1.f-Pop);
+        const float Collapse=T<.55f?1.f:1.f-.4f*FMath::Square((T-.55f)/.45f);
+        const float Radius=Size/50.f*(.9f+.1f*Ease)*Collapse;
+        Visual->SetRelativeScale3D(FVector(Radius,Radius,bFinisherArc?2.f:1.f));
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(bFinisherArc?13.f:9.f)*FMath::Square(1.f-T));
+        if(T>.86f) Visual->SetVisibility(false);
+        return;
+    }
+    float Scale=Size/50.f*(Kind==2||Kind==5?1-T:(Kind==8||Kind>=12?.3f+T*1.8f:.2f+T));
     Visual->SetRelativeScale3D(Kind==15?FVector(Size*ASPresentation::ChestPopScale(Age)):(Kind==9||Kind==10?FVector(Size/100.f,.05f*(1-T),.05f*(1-T)):FVector(Scale,Scale,Kind==2||Kind==5?Scale:1)));
     if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),6*(1-T));
 }

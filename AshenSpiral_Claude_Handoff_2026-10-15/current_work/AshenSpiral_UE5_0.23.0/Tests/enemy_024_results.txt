@@ -1,0 +1,2 @@
+PASS: 16 enemy-rule checks (broodcaller summon cap, cooldown and long-fight regression).
+Engine-independent rules only; Unreal actors, animation, replication and gameplay are not executed.

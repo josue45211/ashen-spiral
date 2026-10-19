@@ -4,7 +4,7 @@
 namespace ASData {
 const FASWeapon Weapons[ASRules::WeaponCount] = {
     {TEXT("Cinder Blade"), TEXT("Hold Attack for a fast three-hit combo. The third strike lunges forward. No reload; attack speed accelerates the full swing. Slash detonates ash on pulled enemies."), 0, ASArsenal::Rate(0)},
-    {TEXT("Grav Hammer"), TEXT("Hold Attack: left swing, right swing, planted frontal smash (2.6x damage). Two hands; no reload. Hit three commits and collapses your nearest well. RMB leaps; G uses Spiral."), 15, ASArsenal::Rate(1)},
+    {TEXT("Hoarfrost Maul"), TEXT("Hold Attack: left swing, right swing, planted frontal smash (2.6x damage). Two hands; no reload. Every blow builds frost. RMB leaps; G uses Spiral."), 15, ASArsenal::Rate(1)}, // 0.24: renamed from "Grav Hammer" (it is a frost weapon; swings no longer touch wells)
     {TEXT("Ash Bow"), TEXT("Accurate arrows pass straight through wells. Splits require a Split upgrade and an enemy hit."), 25, 0.3f},
     {TEXT("Spiral Glaive"), TEXT("Thrown blades orbit a well, cutting enemies inside."), 35, 0.48f},
     {TEXT("Ember Staff"), TEXT("Mark enemies with ash. Wells burn marks; perfect wells slow."), 45, 0.34f},

@@ -107,7 +107,7 @@ def validate():
                       f'{field}: declared replicated property has a registration macro')
     bounds=json.loads((ROOT/'SourceArt/mesh_bounds.json').read_text())
     meshes=sorted((ROOT/'SourceArt/Meshes').glob('*.obj'))
-    check(len(meshes)==78,'78 original meshes including the 7-mesh Archives kit')
+    check(len(meshes)==79,'79 meshes: the 78 originals (including the 7-mesh Archives kit) plus the 0.24 swing arc')
     vertices=triangles=degenerates=0
     for p in meshes:
         v=[];uv=[];norm=[];faces=[]
@@ -166,6 +166,7 @@ def validate():
     bugfix_020=reload_navigation
     melee_021=reload_navigation
     hammer_022=reload_navigation
+    enemy_024=reload_navigation
     if compiler:
         with tempfile.TemporaryDirectory(prefix='ashen_native_') as d:
             exe=Path(d)/('rules_tests.exe' if sys.platform=='win32' else 'rules_tests')
@@ -279,6 +280,17 @@ def validate():
             hammer_022=subprocess.run([str(hammer_exe),str(ROOT)],check=True,text=True,capture_output=True).stdout.strip()
             (ROOT/'Tests/hammer_022_results.txt').write_text(hammer_022+'\n')
             check(hammer_022.startswith('PASS:'),'0.22 hammer orientation, two-hand reach, hitstop, damage cadence and leap boundaries passed')
+            def native_suite(name,description,*args):
+                """0.24 suites: compile one Tests/<name>.cpp, fail on any compiler warning, run it, store <prefix>_results.txt."""
+                src=ROOT/'Tests'/(name+'.cpp');exe=Path(d)/(name+('.exe' if sys.platform=='win32' else ''))
+                cmd=[compiler,'/nologo','/std:c++17','/EHsc','/W4',str(src),'/Fe:'+str(exe)] if Path(compiler).stem.lower()=='cl' else [compiler,'-std=c++17','-O2','-Wall','-Wextra','-pedantic',str(src),'-o',str(exe)]
+                built=subprocess.run(cmd,cwd=d,check=True,text=True,capture_output=True)
+                check('warning' not in (built.stdout+built.stderr).lower(),f'{name}: compiles without warnings')
+                out=subprocess.run([str(exe),*args],check=True,text=True,capture_output=True).stdout.strip()
+                (ROOT/'Tests'/(name.replace('_tests','')+'_results.txt')).write_text(out+'\n')
+                check(out.startswith('PASS:'),description)
+                return out
+            enemy_024=native_suite('enemy_024_tests','0.24 enemy rules (broodcaller cap/cooldown and the rules added after it) passed',str(ROOT))
             trig=subprocess.run([sys.executable,str(ROOT/'Tests/check_trig_overloads.py')],check=True,text=True,capture_output=True).stdout.strip()
             check(trig.startswith('PASS:'),'Actual fern expressions compile against the float/double overloads from the reported C2668 diagnostic')
     report={
@@ -286,7 +298,7 @@ def validate():
         'mesh_count':len(meshes),'mesh_vertex_count':vertices,'mesh_triangle_count':triangles,
         'degenerate_triangles':degenerates,'texture_count':len(textures),'audio_count':len(sounds),
         'rpc_implementation_presence_checks':rpcs,'native_tests':native,'gameplay_tests':gameplay,'buildcraft_tests':buildcraft,'adventure_tests':adventure,'career_tests':career,
-        'hammer_022_tests':hammer_022,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
+        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
         'unreal_module_compile':'NOT RUN - Unreal Engine unavailable',
         'unreal_import_and_material_compile':'NOT RUN',
         'unreal_visual_physics_network_performance_tests':'NOT RUN',

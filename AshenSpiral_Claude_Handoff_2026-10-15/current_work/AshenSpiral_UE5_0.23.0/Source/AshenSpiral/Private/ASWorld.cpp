@@ -280,8 +280,8 @@ void AASWorld::MakeHub() {
     Add(TEXT("SM_Ring"),TEXT("HubInlay"),FVector(0,0,12),FVector(14,14,1),Trim,false,0,.3f,.6f);
     Add(TEXT("SM_Ring"),TEXT("HubInlay"),FVector(0,0,12),FVector(7,7,1),Trim,false,0,.3f,.6f);
     Add(TEXT("SM_Obelisk"),TEXT("Hearth"),FVector(-600,800,0),FVector(1.1f),Stone);
-    Stations={{FVector(700,0,0),1,TEXT("THE SPIRAL\nExpedition / Ready")},
-              {FVector(0,-650,0),2,TEXT("THE ARMORY\nWalk up to a weapon / E")},
+    // 0.24: the old "THE SPIRAL / Expedition / Ready" station (orb, ring, light, label) is gone; departure is the archways. Station ids are not indexes.
+    Stations={{FVector(0,-650,0),2,TEXT("THE ARMORY\nWalk up to a weapon / E")},
               {FVector(350,1000,0),3,TEXT("ABILITY SANCTUM\n6 active abilities + Spiral styles")},
               {FVector(-600,800,0),4,TEXT("ASHEN HEARTH\nPermanent ranks")},
               {FVector(-1100,-100,0),5,TEXT("IONE'S WORKBENCH\nCraft and remember")},

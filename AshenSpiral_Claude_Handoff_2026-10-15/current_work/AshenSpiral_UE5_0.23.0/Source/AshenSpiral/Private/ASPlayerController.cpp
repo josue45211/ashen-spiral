@@ -289,7 +289,6 @@ void AASPlayerController::ProfileRejected_Implementation(const FString& KeptProf
     }
 }
 void AASPlayerController::CancelActions_Implementation() {if(auto* H=Cast<AASCharacter>(GetPawn())) H->ResetInput();}
-void AASPlayerController::SetReady_Implementation(bool Ready) {auto* S=AS::State(this);if(S&&S->Phase==EASPhase::Hub) if(auto* PS=GetPlayerState<AASPlayerState>()) if(PS->bProfileReady) PS->bReady=Ready;}
 void AASPlayerController::SetDifficulty_Implementation(int32 Difficulty) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->SetDifficulty(this,Difficulty);}
 void AASPlayerController::GambleAtWell_Implementation(int32 StakeIndex) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->GambleAtWell(this,StakeIndex);}
 void AASPlayerController::BuyShopItem_Implementation(int32 Index) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) GM->BuyShopItem(this,Index);}
@@ -411,7 +410,6 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
     }
     if(Code==31) {Notice=TEXT("Choose Ember, Ashen or Blood at the three hub portals. Press E at an archway to depart.");}
-    else if(Code==76) {int32 Seed=1103;if(!TryParseInt32Strict(SeedText,Seed)) {Notice=TEXT("Use a whole-number seed between -2147483648 and 2147483647.");return;}EnterPortal(SelectedPortal,Seed);}
     else if(Code==32) {ChooseReward(Index);CloseMenu();}
     else if(Code==33) {ReturnHub();CloseMenu();}
     else if(Code==34) {ContinueAlone();CloseMenu();}

@@ -118,7 +118,7 @@ void AASGameMode::ProfileArrived(AASPlayerController* PC,const FString& ID,const
         if(S->Phase!=EASPhase::Hub||PS->bSavePending||PS->ReceiptQueue.Num()>0||Disconnected.Contains(PS->ProfileId)) {PC->Notify(TEXT("Character can only be switched in the hub with no pending saves."));PC->ProfileRejected(PS->ProfileId);return;}
         LiveSnapshots.Remove(PS->ProfileId);
     }
-    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->ClearedMask=ClearedMask&7;PS->EndlessChoices=FMath::Clamp(EndlessChoices,0,2);PS->bEndlessUnlocked=ASExpedition::EndlessUnlocked(PS->ClearedMask);PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;PS->bReady=false;
+    PS->ColorChoice=FMath::Clamp(ColorChoice,-1,7);PS->CharacterLevel=ASCareer::Level(Experience);PS->ProfileId=ID;PS->ClearedMask=ClearedMask&7;PS->EndlessChoices=FMath::Clamp(EndlessChoices,0,2);PS->bEndlessUnlocked=ASExpedition::EndlessUnlocked(PS->ClearedMask);PS->Build=InBuild;PS->Build.Sanitize();PS->bProfileReady=true;
     RestartPlayer(PC);auto* H=Cast<AASCharacter>(PC->GetPawn());if(!H) return;
     H->ColorIndex=PS->PlayerIndex;H->ApplyBuild(PS->Build,true);
     if(FASReconnect* Saved=Disconnected.Find(ID)) {
@@ -751,7 +751,7 @@ void AASGameMode::BackToHub() {
     bEndlessBossPending=false;EndlessShuffleAt=-1.f;PendingRelocateAt=-1.f;S->ShiftAt=-100.f;bHubPending=false;bAdvancePending=false;ClearCombat();AbandonReconnect();LiveSnapshots.Empty();S->bEndless=false;S->EndlessWave=0;S->ClearedEndlessWave=0;S->Phase=EASPhase::Hub;S->Room=0;S->Wave=0;S->Cinders=0;S->Challenge=0;S->VaultMask=0;S->bVaultClaimed=false;S->bPartyPaused=false;bEnding=false;
     S->Arena->Configure(-1,1103);SpawnPracticeDummy();
     for(auto W:S->Heroes) if(auto* H=W.Get()) {
-        if(auto* PS=H->GetPlayerState<AASPlayerState>()) {PS->bReady=false;PS->bRewardClaimed=false;PS->Offers.Empty();H->ApplyBuild(PS->Build,true);}
+        if(auto* PS=H->GetPlayerState<AASPlayerState>()) {PS->bRewardClaimed=false;PS->Offers.Empty();H->ApplyBuild(PS->Build,true);}
         H->ResetInput(true);H->SetActorLocation(S->Arena->SpawnPoint(H->ColorIndex));H->Movement()->StopMovementImmediately();H->Movement()->SetMovementMode(MOVE_Walking);
     }
 }
@@ -775,11 +775,15 @@ void AASGameMode::ToggleWager(AASPlayerController* PC,bool Enabled) {
     PS->bWagerVote=Enabled;PS->ForceNetUpdate();PC->Notify(PS->bWagerVote?TEXT("Stakes enabled until unchecked. All players must opt in; harder clears improve rare reward odds."):TEXT("Stakes disabled. The next chamber returns to normal difficulty and reward odds."));
 }
 
-void AASGameMode::SpawnMinion(const FVector& Near) {
-    auto* S=AS::State(this);if(!S||!S->Arena||S->Phase!=EASPhase::Combat||S->Enemies.Num()+Queued>=ASRules::MaxEnemies) return;
-    FVector At;if(!S->Arena->FreeEnemyPoint(Near,At)) return;const FTransform T(At);
+AASEnemy* AASGameMode::SpawnMinion(const FVector& Near,AASEnemy* Summoner) {
+    auto* S=AS::State(this);if(!S||!S->Arena||S->Phase!=EASPhase::Combat||S->Enemies.Num()+Queued>=ASRules::MaxEnemies) return nullptr;
+    FVector At;if(!S->Arena->FreeEnemyPoint(Near,At)) return nullptr;const FTransform T(At);
     auto* E=GetWorld()->SpawnActorDeferred<AASEnemy>(AASEnemy::StaticClass(),T,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn);
-    if(E) {E->Kind=0;E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);E->MaxHealth=(45.f+15.f*E->Ward)*ASBuild::ChallengeHealth(S->Challenge)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);E->Health=E->MaxHealth;UGameplayStatics::FinishSpawningActor(E,T);S->Effect(3,At,FVector::UpVector,FLinearColor(.2f,1,.4f),100);}
+    if(!E) return nullptr;
+    E->Kind=0;E->Ward=ASRules::Ward(S->Room);E->Theme=ASAdventure::Biome(S->Room);E->MaxHealth=(45.f+15.f*E->Ward)*ASBuild::ChallengeHealth(S->Challenge)*(S->PlayerArray.Num()==2?1.45f:1.f)*ASExpedition::EnemyHealthScale(S->Difficulty);E->Health=E->MaxHealth;
+    E->Summoner=Summoner; // lets the summoner count its living brood (Broodcaller cap)
+    UGameplayStatics::FinishSpawningActor(E,T);S->Effect(3,At,FVector::UpVector,FLinearColor(.2f,1,.4f),100);
+    return E;
 }
 bool AASGameMode::InteractVault(AASPlayerController* PC,int32 Target) {
     auto* S=AS::State(this);auto* H=PC?Cast<AASCharacter>(PC->GetPawn()):nullptr;

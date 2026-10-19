@@ -34,7 +34,6 @@ public:
     }
     void DrainCareer(FASReceipt& Receipt) {Receipt.Experience=PendingExperience;Receipt.Career=PendingCareer;PendingExperience=0;PendingCareer.Empty();}
     UPROPERTY(Replicated) int32 PlayerIndex=0;
-    UPROPERTY(Replicated) bool bReady=false;
     UPROPERTY(Replicated) bool bWagerVote=false;
     UPROPERTY(Replicated) bool bShrineUsed=false;
     UPROPERTY(Replicated) bool bProfileReady=false;

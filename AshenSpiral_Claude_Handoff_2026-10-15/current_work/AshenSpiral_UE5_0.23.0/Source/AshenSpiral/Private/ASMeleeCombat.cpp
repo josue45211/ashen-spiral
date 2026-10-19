@@ -83,6 +83,11 @@ void AASCharacter::ResolveMelee() {
         &&(FVector::DotProduct(Forward,(B->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>0)
         &&B->VisibleFrom(GetActorLocation())) {Contact=true;B->Strike(this,Damage*DamageScale(true));}
     if(Build.Weapon==1) {bHammerContact=Contact;HammerCue(uint8(MeleeStep),Contact,GetActorLocation()+Forward*(Slam?100.f:115.f)-FVector(0,0,Slam?85.f:10.f),Forward);ForceNetUpdate();}
-    else S->Effect(1,GetActorLocation()-FVector(0,0,20),Forward,BodyColor(),Reach);
+    else {
+        // 0.24: Blade and Scythe draw a frontal crescent whose outer edge is exactly this swing's reach, so every swing teaches the real range.
+        // The colour's alpha carries the combo step (0, 1, 2 = finisher) to the effect.
+        FLinearColor Tint=BodyColor();Tint.A=float(FMath::Clamp(MeleeStep,0,2));
+        S->Effect(17,GetActorLocation()-FVector(0,0,35),Forward,Tint,Reach);
+    }
     // Hammer swings no longer plant or collapse gravity wells (removed 2026-10-16; may return reworked).
 }

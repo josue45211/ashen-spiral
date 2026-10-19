@@ -167,8 +167,9 @@ void SASMenu::Construct(const FArguments& Args) {
     PC=Args._Controller;Page=Args._Page;auto* C=PC.Get();auto* GI=C?C->GetGameInstance<UASGameInstance>():nullptr;
     auto* S=C?AS::State(C):nullptr;auto* PS=C?C->GetPlayerState<AASPlayerState>():nullptr;
     const bool Hub=S&&S->Phase==EASPhase::Hub;
-    const TCHAR* Titles[]={TEXT("THE EMBER NEXUS"),TEXT("ENTER THE SPIRAL"),TEXT("THE ARMORY"),TEXT("ABILITY SANCTUM"),TEXT("ASHEN HEARTH"),TEXT("IONE'S WORKBENCH"),TEXT("CONSTELLATIONS"),TEXT("TWO SOULS, ONE SPIRAL"),TEXT("SETTINGS"),TEXT("CLAIM YOUR REWARD"),TEXT("EXPEDITION COMPLETE"),TEXT("CONTROLS"),TEXT("RETURN TO THE HUB?"),TEXT("LEAVE THIS SESSION?"),TEXT("WEAPON SHOWROOM"),TEXT("YOUR PROGRESS"),TEXT("RESTORE PROGRESS?"),TEXT("YOUR RUN BUILD"),TEXT("EMBER BARGAIN"),TEXT("CHARACTER & ACHIEVEMENTS")};
-    const FString Title=Titles[FMath::Clamp(Page,0,19)];const auto Weak=PC;
+    const TCHAR* Titles[]={TEXT("THE EMBER NEXUS"),TEXT("ENTER THE SPIRAL"),TEXT("THE ARMORY"),TEXT("ABILITY SANCTUM"),TEXT("ASHEN HEARTH"),TEXT("IONE'S WORKBENCH"),TEXT("CONSTELLATIONS"),TEXT("TWO SOULS, ONE SPIRAL"),TEXT("SETTINGS"),TEXT("CLAIM YOUR REWARD"),TEXT("EXPEDITION COMPLETE"),TEXT("CONTROLS"),TEXT("RETURN TO THE HUB?"),TEXT("LEAVE THIS SESSION?"),TEXT("WEAPON SHOWROOM"),TEXT("YOUR PROGRESS"),TEXT("RESTORE PROGRESS?"),TEXT("YOUR RUN BUILD"),TEXT("EMBER BARGAIN"),TEXT("CHARACTER & ACHIEVEMENTS"),
+        TEXT("ASHEN SPIRAL"),TEXT("THE WISHING WELL"),TEXT("THE ENDLESS PORTAL"),TEXT("THE LUCKY SHOP")}; // 0.24: pages 21-23 used to fall back to the last title above (the array stopped at 19)
+    const FString Title=Titles[FMath::Clamp(Page,0,int32(UE_ARRAY_COUNT(Titles))-1)];const auto Weak=PC;
     if(Page==9&&GI&&S) {RewardScreen();return;}
     ChildSlot
     [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(0,0,0,.28f)).Padding(24)
@@ -221,6 +222,7 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
         Text(Hub?TEXT("An ember survives. Choose your weapon, shape your gravity, then descend together."):TEXT("The expedition is paused only when the shared pause indicator is shown. Escape resumes."));
         Card(TEXT("Expedition"),TEXT("Four wards. Eight rooms per ward. Automatic waves and personal rewards; either player can continue once both have chosen."),Hub?TEXT("PREPARE"):TEXT("RESUME"),Hub?10:0,1);
+        if(Hub) Input(TEXT("Deterministic expedition seed (the host's seed is used at the story archways)"),2); // 0.24: the seed is entered here only
         if(Hub) {Card(TEXT("Armory and Sanctum"),TEXT("Walk to a displayed weapon and press E to try or buy it. Test weapons and Spiral on the practice target. Purchases save immediately."),TEXT("LOADOUT"),10,2);
             Card(TEXT("Permanent upgrades"),TEXT("Ability cooldown, attack speed, damage, health, movement speed, critical chance, and more."),TEXT("UPGRADES"),10,4);
             Card(TEXT("Ione and the Constellations"),TEXT("Craft permanent skill points, spend materials, and strengthen your next expedition."),TEXT("WORKBENCH"),10,5);}
@@ -238,12 +240,11 @@ void SASMenu::Construct(const FArguments& Args) {
             FString Status;auto* Local=Weak.Get();auto* State=Local?AS::State(Local):nullptr;if(!State) return Txt(TEXT("Waiting for host..."));
             for(auto V:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(V)) Status+=FString::Printf(TEXT("PLAYER %d / LEVEL %d / %s\n%s   |   %s\n"),Player->PlayerIndex+1,Player->CharacterLevel,*ASData::CareerTitle(Player->TitleIndex,Player->TitleTier),Player->bProfileReady?TEXT("PROFILE LOADED"):TEXT("LOADING PROFILE"),ASData::Weapons[Player->Build.Weapon].Name);
             return Txt(Status);})];
-        Text(TEXT("To depart: gather every player at the Ember, Ashen or Blood archway (or the Endless portal once unlocked). The host presses E to step through together."),16,ASMenuGold);
-        Input(TEXT("Deterministic expedition seed (story portals)"),2);
+        Text(TEXT("To depart: gather every player at the Ember, Ashen or Blood archway (or the Endless portal once unlocked). The host presses E to step through together. The expedition seed is set in the Esc menu."),16,ASMenuGold);
         Card(TEXT("Endless records and upgrades"),TEXT("Your best Endless runs and the permanent chest-choices upgrade. Enter Endless at its portal in the hub."),TEXT("ENDLESS"),10,22);
         Card(TEXT("Choose equipment"),FString::Printf(TEXT("Equipped: %s  /  %s"),ASData::Weapons[P.Build.Weapon].Name,ASData::Styles[P.Build.Style].Name),TEXT("ARMORY"),10,2);
         Card(TEXT("Build your stats"),TEXT("Preview current and next values for permanent cooldown, attack-speed, damage, health, movement, and critical upgrades."),TEXT("UPGRADES"),10,4);
-        Card(TEXT("Bring a partner"),TEXT("Host first, share the code and reachable IP, and wait for both ready checks."),TEXT("CO-OP"),10,7);
+        Card(TEXT("Bring a partner"),TEXT("Host first, share the code and reachable IP, then walk to an archway together."),TEXT("CO-OP"),10,7);
     } else if(Page==2) {
         for(int32 I=0;I<ASRules::WeaponCount;++I) {
             const bool Owned=(P.OwnedWeapons&(1<<I))!=0;
@@ -267,19 +268,11 @@ void SASMenu::Construct(const FArguments& Args) {
             const FString Price=Item.Ash>0?FString::Printf(TEXT("%d ASH"),Item.Ash):FString::Printf(TEXT("%d SCRAP"),Item.Scrap);
             Card(Name,Description,(PS&&(PS->ShopBought&(1<<I)))?FString(TEXT("BOUGHT")):Price,75,I,Fits&&Open&&PS&&ASExpedition::CanBuyShopItem(I,PS->AvailableScrap,PS->AvailableAsh,PS->ShopBought,S->bRareShop));
         }
-    } else if(Page==24) {
-        // Portal page (Astra flow): details, seed, then the host's ENTER starts the walk-in.
-        const int32 D=PC.IsValid()?FMath::Clamp(PC->SelectedPortal,0,2):0;
-        const bool Unlocked=ASExpedition::DifficultyUnlocked(D,PS?PS->ClearedMask:0);
-        Text(FString::Printf(TEXT("%s portal / %s"),UTF8_TO_TCHAR(ASExpedition::PortalName(D)),UTF8_TO_TCHAR(ASExpedition::PortalDifficultyName(D))),20,ASMenuGold);
-        Text(Unlocked?FString(UTF8_TO_TCHAR(ASExpedition::PortalModifiers(D))):FString(TEXT("LOCKED: "))+UTF8_TO_TCHAR(ASExpedition::UnlockCondition(D))+TEXT("."),16,Unlocked?ASMenuGold:ASMenuMuted);
-        Input(TEXT("Deterministic expedition seed"),2);
-        Card(TEXT("Step through"),TEXT("Host only. Both players must be ready. You walk into the archway together and the first chamber begins."),!Unlocked?TEXT("LOCKED"):TEXT("ENTER PORTAL"),76,0,Hub&&PS&&PS->PlayerIndex==0&&Unlocked);
     } else if(Page==22) {
         const bool Open=PS&&PS->bEndlessUnlocked;
         Text(Open?TEXT("Endless: one huge arena, chained waves, a boss every ten waves. Many entered, none came back whole. Permanent skill-tree upgrades come with you; everything else starts fresh."):TEXT("The portal is sealed. Beat Normal mode once to open it."),18,Open?ASMenuGold:ASMenuMuted);
         Text(FString::Printf(TEXT("Best cleared wave: %d"),P.BestEndlessWave),16,ASMenuGold);
-        Card(TEXT("Enter the Endless portal"),TEXT("Host only. Both players must be ready. Either player presses E at the chest to start the next wave; there is no timer."),TEXT("ENTER ENDLESS"),74,0,Hub&&PS&&PS->PlayerIndex==0&&Open);
+        Card(TEXT("Enter the Endless portal"),TEXT("Host only, with the party at the Endless archway. Either player presses E at the chest to start the next wave; there is no timer."),TEXT("ENTER ENDLESS"),74,0,Hub&&PS&&PS->PlayerIndex==0&&Open);
         if(P.EndlessChoices<2) {
             const int32 Cost=ASExpedition::ChoiceCost(P.EndlessChoices);
             Card(FString::Printf(TEXT("Chest choices: %d -> %d"),3+P.EndlessChoices,4+P.EndlessChoices),TEXT("Permanent: more upgrade choices at every Endless chest."),FString::Printf(TEXT("%d ASH"),Cost),29,0,Hub&&P.Ash>=Cost);
@@ -474,7 +467,7 @@ void SASMenu::Construct(const FArguments& Args) {
     } else if(Page==11) {
         Text(TEXT("Mouse wheel: zoom in / out. Q: switch shoulder. Tab: inspect acquired upgrades and equipped abilities."));
         KeyRow(TEXT("Build menu"),"Build");KeyRow(TEXT("Hammer former alt ability"),"HammerAlt");
-        Text(TEXT("Move with WASD and look with the mouse. R reloads ranged weapons (left-stick click on controller). Melee weapons never reload. SPACE jumps; SHIFT spends available dash charges, including in the air. Hold Attack to chain swings: Cinder Blade lunges on hit three; Grav Hammer plants its feet for a frontal hit-three smash and can collapse its nearest well. With the hammer, RMB leaps (7.5s cooldown); G holds/releases Spiral. Hit-three wind-up commits you until recovery. Blade and ranged controls are unchanged. Hold Spiral and release in the gold timing window. F casts your equipped active ability; choose one at the Sanctum. Q swaps shoulders. Hold V within 3 meters of a downed ally for 2 seconds to revive, including after the room is cleared."));
+        Text(TEXT("Move with WASD and look with the mouse. R reloads ranged weapons (left-stick click on controller). Melee weapons never reload. SPACE jumps; SHIFT spends available dash charges, including in the air. Hold Attack to chain swings: Cinder Blade lunges on hit three; the Hoarfrost Maul plants its feet for a frontal hit-three smash. With the hammer, RMB leaps (7.5s cooldown); G holds/releases Spiral. Hit-three wind-up commits you until recovery. Blade and ranged controls are unchanged. Hold Spiral and release in the gold timing window. F casts your equipped active ability; choose one at the Sanctum. Q swaps shoulders. Hold V within 3 meters of a downed ally for 2 seconds to revive, including after the room is cleared."));
         Text(TEXT("Controller defaults: left stick move, right stick look, RB attack, RT active ability, X Spiral, A jump, B dash, Y interact, LB revive, right-stick click shoulder, Select/View build, Start menu. Menu navigation uses D-pad / A / B."));
         Text(TEXT("Editor tip: if Esc stops your play test, change the editor's Stop shortcut in Edit > Editor Preferences > Keyboard Shortcuts. Search Stop and clear Escape or assign Shift+Escape."));
         Text(TEXT("Damage colors: burn orange, poison green, bleed pink, shock yellow, frost cyan, Spiral violet, physical white, health lost red, shield hits blue. Crits add a gold burst and CRIT label. Enemy bars stay visible for 3 seconds after damage, then fade through second 5."));

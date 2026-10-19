@@ -254,7 +254,6 @@ void AASHUD::DrawHUD() {
     FString Objective;
     if(S->Phase==EASPhase::Countdown) Objective=FString::Printf(TEXT("WAVE IN %.0f / WATCH RED MARKERS"),FMath::CeilToFloat(S->CountdownEnd-S->SimTime));
     else if(S->Phase==EASPhase::Victory) Objective=TEXT("EXPEDITION COMPLETE / RETURN PORTAL");
-    else if(S->Phase==EASPhase::Reward) Objective=TEXT("CLEARED / FOLLOW THE GOLD PATH");
     if(!Objective.IsEmpty()) {Group(CX-230*UI,24,UI);Text(Objective,14,10,ASHudGold,.68f);Group();}
     for(auto W:S->Enemies) if(auto* Enemy=W.Get()) if(Enemy->Boss()) {
         Group(CX-230*UI,24,UI);Text(ASData::Bosses[Enemy->Ward],14,8,ASHudGold,.8f);Bar(14,39,432,4,Enemy->Health/Enemy->MaxHealth,ASHudRed);Group();break;

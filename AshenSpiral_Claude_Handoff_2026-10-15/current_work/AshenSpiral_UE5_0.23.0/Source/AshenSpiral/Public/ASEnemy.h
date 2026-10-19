@@ -27,6 +27,7 @@ public:
     float SlowUntil=0,PulledUntil=0,MarkUntil=0,StunUntil=0,RootUntil=0,StunImmuneUntil=0,RootImmuneUntil=0;
     float LastHitTime=-10,NextDamageNumber=0;
     TWeakObjectPtr<AASCharacter> LastHitter;
+    TWeakObjectPtr<AASEnemy> Summoner; // server only: the Broodcaller that spawned this minion (if any)
     bool Hit(float Damage,AASCharacter* Source);
     UPROPERTY(Replicated) float SpawnProtectedUntil=0;
     float FirstEngagedAt=-1;
@@ -84,7 +85,7 @@ private:
     TWeakObjectPtr<AASCharacter> BurnSource,PoisonSource,BleedSource;
     float BurnPending=0,PoisonPending=0,BleedPending=0,NextStatusDamage=0;
     bool TickElements(float Delta);
-    float NextAttack=0,NextRoute=0,ChargeUntil=0,LastContact=0,NextStuckCheck=0,StuckFor=0;
+    float NextAttack=0,NextRoute=0,ChargeUntil=0,LastContact=0,NextStuckCheck=0,StuckFor=0,NextSummon=0;
     float LeapUntil=0,BodyScale=1;
     FVector LastRoutePosition=FVector::ZeroVector;
     FVector MoveGoal=FVector::ZeroVector;

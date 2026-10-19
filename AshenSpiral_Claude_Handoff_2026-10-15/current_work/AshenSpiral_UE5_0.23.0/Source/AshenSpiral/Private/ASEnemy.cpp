@@ -1,5 +1,6 @@
 #include "ASEnemy.h"
 #include "ASExpeditionRules.h"
+#include "ASEnemyRules.h"
 #include "ASPresentationRules.h"
 #include "ASMeleeRules.h"
 #include "ASExpeditionRules.h"
@@ -73,7 +74,7 @@ void AASEnemy::RefreshLook() {
             GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldStatic,ECR_Ignore);GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);
         }
     }
-    ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(.1f,.65f,1),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
+    ASAssets::Style(Beam,TEXT("Cube"),FLinearColor(1.f,.62f,.12f),0,5);Beam->SetRelativeLocation(FVector(850,0,15));Beam->SetRelativeScale3D(FVector(17,.035f,.035f));Beam->SetVisibility(false);
     if(Humanoid) {
         const TCHAR* Meshes[]={TEXT("SM_Torso"),TEXT("SM_EnemyHelm"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_EnemyCape"),TEXT("SM_ArmorCore")};
         const FLinearColor Metal=FMath::Lerp(FLinearColor(.10f,.12f,.15f),Colors[FMath::Clamp(Kind,0,9)],.18f),Fire(1.f,.065f,.025f);
@@ -158,7 +159,8 @@ void AASEnemy::Tick(float Delta) {
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
-    Tell->SetVisibility(bWinding&&!bTrainingDummy&&ShowsStrikeCircle()); // only attacks that land damage on that circle get oneBeam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy);
+    Tell->SetVisibility(bWinding&&!bTrainingDummy&&ShowsStrikeCircle()); // only attacks that land damage on that circle get one
+    Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside the comment above, so the sniper's aiming beam never showed
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
         if(GetNetMode()!=NM_DedicatedServer) {AnimateArmor(Delta,T);if(Flies()) AnimateFlier();TickStatusTint();}
@@ -246,8 +248,12 @@ void AASEnemy::CommitAttack() {
     if(Kind==7) {for(auto H:S->Heroes) if(H.IsValid()&&!H->bDowned) Blast(H->GetActorLocation()-FVector(0,0,77),220,18,.9f);return;}
     if(Kind==8) {Shot(Aim,8,24);return;}
     if(Kind==9) {
-        if(Pattern<=2) {if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) for(int32 I=0;I<2;++I) GM->SpawnMinion(GetActorLocation()+FVector(160,I?150:-150,0));}
-        else Shot(Aim,2,13);
+        // 0.24: summon in pairs while the living brood is under the cap and the cooldown is over; otherwise shoot. (It used to summon on its first two attacks only.)
+        int32 Live=0;for(auto W:S->Enemies) if(const auto* M=W.Get()) if(M->Summoner.Get()==this&&M->Health>0) ++Live;
+        if(ASEnemyRules::BroodShouldSummon(Live,S->PlayerArray.Num()>1?ASEnemyRules::BroodMinionCapCoop:ASEnemyRules::BroodMinionCap,S->SimTime,NextSummon)) {
+            if(auto* GM=GetWorld()->GetAuthGameMode<AASGameMode>()) for(int32 I=0;I<ASEnemyRules::BroodMinionPair;++I) GM->SpawnMinion(GetActorLocation()+FVector(160,I?150:-150,0),this);
+            NextSummon=S->SimTime+ASEnemyRules::BroodSummonCooldown;
+        } else Shot(Aim,2,13);
         for(auto W:S->Enemies) if(auto* E=W.Get()) if(E!=this&&!E->Boss()&&FVector::DistSquared2D(E->GetActorLocation(),GetActorLocation())<550*550&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) {E->Health=FMath::Min(E->MaxHealth,E->Health+8);E->ForceNetUpdate();}
         S->Effect(6,GetActorLocation(),FVector::UpVector,FLinearColor(.2f,1,.35f),550);return;
     }
@@ -278,7 +284,7 @@ void AASEnemy::CommitAttack() {
             for(int32 I=0;I<Count;++I) Shot(FRotator(0,I*360.f/Count,0).Vector(),2,20);
         }
     } else if(Kind==1) {
-        for(int32 I=0;I<(Kind==2?3:1);++I) Shot(Aim.RotateAngleAxis((I-(Kind==2?1:0))*13,FVector::UpVector),2,14);
+        Shot(Aim,2,14); // 0.24: the old "Kind 2 fires three" loop lived here but this branch is Kind 1 only, so it never ran; Kind 2 gets its own duelist kit
     } else {
         S->Effect(1,GetActorLocation()-FVector(0,0,40),Aim,FLinearColor(1,.1f,.02f),Elite()?340:210);
         for(auto H:S->Heroes) if(H.IsValid() && FVector::DistSquared2D(GetActorLocation(),H->GetActorLocation())<FMath::Square(Elite()?340.f:210.f) && FVector::DotProduct(Aim,(H->GetActorLocation()-GetActorLocation()).GetSafeNormal2D())>0 && AS::ClearSight(GetWorld(),GetActorLocation(),H->GetActorLocation())) H->Hurt(Elite()?24:12,this);
