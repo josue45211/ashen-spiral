@@ -17,9 +17,214 @@ inline bool StrikeHits(float Distance2D,float ForwardDot,float Radius) {
     return std::isfinite(Distance2D)&&std::isfinite(ForwardDot)&&std::isfinite(Radius)&&Distance2D<Radius&&ForwardDot>0.f;
 }
 
-// ---- Abilities (replicated byte; 0 = none) ----
-// The id of the attack being wound up, so every machine can pose the right wind-up. New kits extend this list; ids are never reused.
-constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2;
+// ---- AI states (0.24) ----
+// The replicated byte AASEnemy::AIState. The server runs one small state machine per walker; every machine poses the body from it (a windup, a strike, a recovery, a
+// run). Approach and Strafe are the two ways of moving (closing in, or circling / backing away); Special is a long kind-specific behaviour (a parry stance, a roar).
+constexpr int StateApproach=0,StateStrafe=1,StateWindup=2,StateAttack=3,StateRecover=4,StateRetreat=5,StateSpecial=6,StateCount=7;
+
+// ---- Abilities (0.24) ----
+// The replicated byte AASEnemy::Ability: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body and draws the right
+// warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
+constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilityShot=4,AbilityPounce=5,AbilityCharge=6,AbilityBlast=7,AbilitySnipe=8,AbilitySummon=9,AbilityBossAttack=10,AbilityCount=11;
+constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
+constexpr unsigned NeedsClearPath=1u;                        // may only start when a straight walk to the target is clear (leaps and charges)
+struct AbilitySpec {
+    float Windup;    // seconds of telegraph; 0 = the kit's wind-up
+    float Attack;    // seconds of committed motion after the release (a leap, a charge); 0 = the release is instant
+    float Recover;   // seconds standing exposed afterwards
+    float Cooldown;  // this ability's own cooldown on top of the kit's; 0 = none
+    float MinRange,MaxRange; // distance window it may start in; MaxRange 0 = the kit's attack range
+    float Weight;    // relative chance among the abilities that are eligible
+    int Tell;        // ground warning shape
+    float TellA,TellB; // its size: sector / disc radius, or line length and width
+    unsigned Flags;
+};
+inline const AbilitySpec& SpecFor(int Id) {
+    static constexpr AbilitySpec Table[AbilityCount]={
+        // windup attack recover  cd  min  max weight  tell        a    b  flags
+        {  0.f,  0.f,  0.f,0.f,0.f,0.f,0.f,TellNone,  0.f,0.f,0u},            // 0 none
+        { .7f, .55f,  0.f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 1 dive (the fliers' own loop uses the ASExpedition::Flier* numbers; these time the pose)
+        {1.5f,  0.f,  0.f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 2 molt
+        {  0.f,  0.f, .30f,0.f,0.f,0.f,1.f,TellSector,210.f,0.f,0u},          // 3 slash (half disc of StrikeRadius; the elite's is wider)
+        {  0.f,  0.f, .25f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 4 shot
+        {  0.f, .65f, .45f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,NeedsClearPath}, // 5 pounce (the leaper's leap)
+        {  0.f, .60f, .90f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,NeedsClearPath}, // 6 charge (the bulwark's shield charge and its end blast)
+        {  0.f,  0.f, .35f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 7 blast (targeted ground blasts)
+        {  0.f,  0.f, .40f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 8 snipe
+        {  0.f,  0.f, .35f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 9 summon (or a shot, plus the heal tethers)
+        {  0.f,  0.f, .60f,0.f,0.f,0.f,1.f,TellNone,  0.f,0.f,0u},            // 10 boss attack (blast fields, a shot ring, a charge)
+    };
+    return Table[std::clamp(Id,0,AbilityCount-1)];
+}
+
+// ---- Kits (0.24): the numbers an ordinary enemy moves and attacks by ----
+// One row per kind. Everything the old ASEnemy::Tick spelled out as nested conditionals (speed, attack range, wind-up, cooldown) lives here, together with how the kind
+// likes to move: shooters and casters keep a distance band and side-step inside it, melee kinds circle just outside their reach while an attack recharges, and the
+// frailest kinds fall back once when badly hurt. How heavy it feels (acceleration, braking, turn rate), which animation family poses it, and which abilities it owns
+// are part of the row. TUNABLE.
+constexpr int MaxKitAbilities=4;
+constexpr int AnimHumanoid=0,AnimBlob=1,AnimFlier=2,AnimSkeletal=3; // 21-part armour rig / a single squashing body / wings / a skeletal mesh (the spike)
+struct Kit {
+    float Speed;        // base walk speed, before the elite / anger / approach / slow multipliers
+    float AttackRange;  // may start an attack when the target is closer than this (flat distance)
+    float Windup;       // seconds from the start of the telegraph to the hit
+    float Cooldown;     // seconds after an attack before the next may start
+    float BandMin,BandMax; // shooters/casters: preferred distance from the target (both 0 for melee kinds)
+    float Circle;       // melee: radius it circles at while its attack recharges (0 = it closes in and waits, as before 0.24)
+    float Strafe;       // fraction of Speed while circling or side-stepping
+    float RetreatBelow; // falls back once when its health fraction is under this (0 = never)
+    float Accel,Brake,TurnRate; // cm/s^2 up to speed, cm/s^2 when stopping, degrees per second of turning
+    int AnimSet;        // which animation family poses it
+    int Abilities[MaxKitAbilities]; // ability ids it may start (0-terminated)
+};
+inline const Kit& KitFor(int Kind) {
+    static constexpr Kit Table[KindCount]={
+        //  speed range windup  cd  bandMin bandMax circle strafe retreat  accel brake turn  anim         abilities
+        {340.f, 180.f,.85f,1.8f,    0.f,    0.f, 250.f,.55f,  0.f, 2400.f,2400.f,540.f,AnimHumanoid,{AbilitySlash,0,0,0}},      // 0 grunt
+        {275.f,1300.f,.85f,1.8f,  650.f, 1050.f,   0.f,.60f, .25f, 2600.f,2600.f,600.f,AnimHumanoid,{AbilityShot,0,0,0}},       // 1 archer
+        {275.f, 180.f,.85f,1.8f,    0.f,    0.f, 260.f,.60f,  0.f, 3000.f,3000.f,720.f,AnimHumanoid,{AbilitySlash,0,0,0}},      // 2 duelist
+        {275.f, 180.f,.85f,1.8f,    0.f,    0.f, 300.f,.45f,  0.f, 1200.f,1000.f,300.f,AnimHumanoid,{AbilitySlash,0,0,0}},      // 3 brute
+        {235.f,1300.f,1.1f,2.0f,    0.f,    0.f,   0.f,.50f,  0.f, 1000.f, 800.f,220.f,AnimHumanoid,{AbilityBossAttack,0,0,0}}, // 4 boss (its own movement arrives with the boss kits)
+        {390.f, 650.f,.85f,1.8f,    0.f,    0.f, 300.f,.70f,  0.f, 3200.f,2800.f,720.f,AnimBlob,    {AbilityPounce,0,0,0}},     // 5 leaper
+        {230.f, 650.f,1.1f,1.8f,    0.f,    0.f, 240.f,.40f,  0.f,  900.f,1100.f,240.f,AnimHumanoid,{AbilityCharge,0,0,0}},     // 6 bulwark
+        {275.f,1300.f,.85f,1.8f,  800.f, 1200.f,   0.f,.60f, .30f, 1800.f,1800.f,450.f,AnimHumanoid,{AbilityBlast,0,0,0}},      // 7 shaman
+        {275.f,1700.f,1.5f,1.8f, 1200.f, 1650.f,   0.f,.50f, .35f, 1800.f,1800.f,360.f,AnimHumanoid,{AbilitySnipe,0,0,0}},      // 8 sniper
+        {275.f,1300.f,1.4f,1.8f,  700.f, 1100.f,   0.f,.50f, .30f, 1400.f,1400.f,300.f,AnimBlob,    {AbilitySummon,0,0,0}},     // 9 broodcaller
+        {330.f,1100.f,.70f,5.0f,    0.f,    0.f,   0.f, 0.f,  0.f, 2000.f,2000.f,540.f,AnimFlier,   {AbilityDive,0,0,0}},       // 10 gloomwing (its flight loop uses the ASExpedition::Flier* numbers)
+    };
+    return Table[std::clamp(Kind,0,KindCount-1)];
+}
+inline float WindupFor(const Kit& K,int Ability) {const float W=SpecFor(Ability).Windup;return W>0.f?W:K.Windup;}
+// What the chooser needs to know about the moment.
+struct Context {float Distance=0.f,Now=0.f;bool Sight=true,ClearPath=true;};
+// Picks the ability a kit starts now: among its abilities whose distance window contains the target, whose own cooldown is over (ReadyAt[id], may be null) and whose
+// path requirement holds; weighted by Roll in [0,1); never the same one twice running when something else is eligible. Returns AbilityNone when nothing is.
+inline int ChooseAbility(const Kit& K,const Context& C,const float* ReadyAt,int Last,float Roll) {
+    if(!std::isfinite(C.Distance)||!std::isfinite(C.Now)||!C.Sight) return AbilityNone;
+    int Eligible[MaxKitAbilities];int N=0;
+    for(int I=0;I<MaxKitAbilities;++I) {
+        const int Id=K.Abilities[I];
+        if(Id<=AbilityNone||Id>=AbilityCount) break;
+        const AbilitySpec& A=SpecFor(Id);const float Max=A.MaxRange>0.f?A.MaxRange:K.AttackRange;
+        if(!(C.Distance>=A.MinRange&&C.Distance<Max)||((A.Flags&NeedsClearPath)&&!C.ClearPath)||(ReadyAt&&!(C.Now>=ReadyAt[Id]))||!(A.Weight>0.f)) continue;
+        Eligible[N++]=Id;
+    }
+    if(N==0) return AbilityNone;
+    float Total=0.f,Weights[MaxKitAbilities];
+    for(int I=0;I<N;++I) {Weights[I]=(N>1&&Eligible[I]==Last)?0.f:SpecFor(Eligible[I]).Weight;Total+=Weights[I];}
+    if(!(Total>0.f)) return Eligible[0];
+    float Target=std::clamp(std::isfinite(Roll)?Roll:0.f,0.f,.99999f)*Total;
+    for(int I=0;I<N;++I) {Target-=Weights[I];if(Target<0.f&&Weights[I]>0.f) return Eligible[I];}
+    return Eligible[N-1];
+}
+
+// ---- Fluid movement (0.24) ----
+// Pure planning of where an enemy steps next. World-space flat vectors in, a flat unit direction and a speed fraction out. Nothing here touches the world:
+// the caller supplies whether a probe step is clear, and the planner is exercised by Tests/enemy_ai_024_tests.cpp over hundreds of thousands of random states.
+constexpr int ModeHold=0,ModeAdvance=1,ModeCircle=2,ModeBackpedal=3,ModeRetreat=4;
+constexpr float CircleReachSlack=120.f;  // a melee enemy circles only while within Circle + this of its target; farther out it closes in
+constexpr float HoldDistance=145.f;      // a melee enemy that has closed in this far (with sight) stands and waits, as before 0.24
+constexpr float BackpedalSpeed=.9f,RetreatSpeed=1.15f;
+namespace Detail {
+inline void Rotate(float X,float Y,float Degrees,float& OutX,float& OutY) {
+    const float Radians=Degrees*0.017453292f,C=std::cos(Radians),S=std::sin(Radians);
+    OutX=X*C-Y*S;OutY=X*S+Y*C;
+}
+// Makes (X,Y) a unit vector; false (and a zero vector) when it has no usable direction.
+inline bool Unit(float& X,float& Y) {
+    const float L=std::sqrt(X*X+Y*Y);
+    if(!(L>1e-4f)||!std::isfinite(L)) {X=Y=0.f;return false;}
+    X/=L;Y/=L;return true;
+}
+}
+struct MovePlan {int Mode=ModeHold;float X=0.f,Y=0.f,Speed=0.f;bool Face=false;}; // Face: turn to look at the target (strafing, backing away) instead of along the motion
+// Distance: flat distance to the target. (ToX,ToY): from the enemy to the target. (RouteX,RouteY): the nav-grid direction toward the target (zero = use the straight line).
+// Ready: its attack is off cooldown. Sight: clear line to the target. Side: +1 or -1, which way it circles. FlankDegrees: pack-spreading angle added to an advance.
+inline MovePlan PlanMovement(const Kit& K,float Distance,float ToX,float ToY,float RouteX,float RouteY,bool Ready,bool Sight,bool Retreating,float Side,float FlankDegrees) {
+    MovePlan P;
+    if(!std::isfinite(Distance)||!std::isfinite(ToX)||!std::isfinite(ToY)) return P;
+    float tx=ToX,ty=ToY;
+    if(!Detail::Unit(tx,ty)) return P; // standing on the target: no sensible direction
+    float rx=RouteX,ry=RouteY;
+    if(!std::isfinite(rx)||!std::isfinite(ry)||!Detail::Unit(rx,ry)) {rx=tx;ry=ty;}
+    const float Sign=Side<0.f?-1.f:1.f;
+    auto Advance=[&]() {
+        const float Flank=std::isfinite(FlankDegrees)?std::clamp(FlankDegrees,-45.f,45.f):0.f;
+        Detail::Rotate(rx,ry,Flank,P.X,P.Y);P.Mode=ModeAdvance;P.Speed=1.f;P.Face=false;
+    };
+    // Walk around the target at Radius: mostly sideways, with a radial pull that eases it back onto the circle.
+    auto Orbit=[&](float Radius,float Speed) {
+        const float Pull=std::clamp((Distance-Radius)/180.f,-1.f,1.f);
+        float dx=-ty*Sign*.85f+tx*Pull*.9f,dy=tx*Sign*.85f+ty*Pull*.9f;
+        if(!Detail::Unit(dx,dy)) return;
+        P.Mode=ModeCircle;P.X=dx;P.Y=dy;P.Speed=Speed;P.Face=true;
+    };
+    if(Retreating) { // away from the target and a little to one side, turning to run rather than backing up
+        Detail::Rotate(-tx,-ty,20.f*Sign,P.X,P.Y);P.Mode=ModeRetreat;P.Speed=RetreatSpeed;P.Face=false;return P;
+    }
+    if(K.BandMax>0.f) { // shooter or caster
+        if(!Sight||Distance>K.BandMax) {Advance();return P;}
+        if(Distance<K.BandMin) {Detail::Rotate(-tx,-ty,25.f*Sign,P.X,P.Y);P.Mode=ModeBackpedal;P.Speed=BackpedalSpeed;P.Face=true;return P;}
+        Orbit(.5f*(K.BandMin+K.BandMax),K.Strafe);
+        if(P.Mode==ModeHold) Advance();
+        return P;
+    }
+    if(K.Circle>0.f&&!Ready&&Sight&&Distance<K.Circle+CircleReachSlack) { // melee waiting for its attack: circle just outside reach instead of standing in the target's face
+        Orbit(K.Circle,K.Strafe);
+        if(P.Mode!=ModeHold) return P;
+    }
+    if(Distance<=HoldDistance&&Sight) {P.Mode=ModeHold;P.Face=true;return P;}
+    Advance();return P;
+}
+// Which way to circle: +1 or -1, flipping every 2.2 to 4.0 seconds (a different rhythm per enemy), so a crowd does not all swirl the same way in lockstep.
+inline float StrafeSide(unsigned Id,float Seconds) {
+    if(!std::isfinite(Seconds)) return 1.f;
+    const float Period=2.2f+float((Id*7u)%19u)*.1f;
+    const long long N=static_cast<long long>(std::floor((Seconds+float(Id%13u)*.31f)/Period));
+    return ((N+static_cast<long long>(Id&1u))&1LL)?1.f:-1.f;
+}
+// Pack spreading: each enemy approaches from its own angle (stable per enemy, up to FlankSpread degrees either way), fading out as it gets close.
+constexpr float FlankSpread=34.f,FlankNear=450.f,FlankFar=1000.f;
+inline float FlankDegrees(unsigned Id,float Distance) {
+    if(!std::isfinite(Distance)) return 0.f;
+    unsigned H=Id*2654435761u;H^=H>>15;H*=2246822519u;H^=H>>13;
+    const float U=float(H%2001u)/1000.f-1.f; // -1..1
+    const float T=std::clamp((Distance-FlankNear)/(FlankFar-FlankNear),0.f,1.f);
+    return U*FlankSpread*T*T*(3.f-2.f*T);
+}
+// Falling back when hurt: once per enemy, for at most RetreatSeconds, and never while only a couple of enemies remain (the last stragglers must come to the
+// player, not run from them). A retreat that was refused because too few enemies were left is not used up; it can still happen later.
+constexpr float RetreatSeconds=2.f;
+constexpr int RetreatMinLiving=3;
+struct RetreatState {float Until=-1.f;bool Used=false;};
+inline bool UpdateRetreat(const Kit& K,float HealthFraction,int Living,float Now,RetreatState& S) {
+    if(!std::isfinite(Now)||!std::isfinite(HealthFraction)||HealthFraction<=0.f) return false;
+    if(Now<S.Until) return true;
+    if(S.Used||!(K.RetreatBelow>0.f)||HealthFraction>=K.RetreatBelow||Living<RetreatMinLiving) return false;
+    S.Until=Now+RetreatSeconds;S.Used=true;return true;
+}
+// Stuck against something: step sideways to the wanted direction (75 or 90 degrees off), alternating side as the stuck time grows, instead of pushing into it.
+inline void UnstickDirection(float DesiredX,float DesiredY,float StuckSeconds,unsigned Id,float& OutX,float& OutY) {
+    OutX=OutY=0.f;
+    float x=DesiredX,y=DesiredY;
+    if(!std::isfinite(x)||!std::isfinite(y)||!std::isfinite(StuckSeconds)||!Detail::Unit(x,y)) return;
+    const int Whole=static_cast<int>(std::clamp(StuckSeconds,0.f,1000.f));
+    const float Degrees=((Id+static_cast<unsigned>(Whole))&1u)?(Whole%2?90.f:75.f):-(Whole%2?90.f:75.f);
+    Detail::Rotate(x,y,Degrees,OutX,OutY);
+}
+// Picks the first usable direction from a fan around the wanted one (straight, then 40, 80 and 125 degrees to either side, nearest first). Clear(dx,dy) says whether a
+// short probe step that way is free. Returns false (and a zero direction) when every direction is blocked.
+template<class ClearFn> inline bool ChooseClearDirection(float WantX,float WantY,ClearFn&& Clear,float& OutX,float& OutY) {
+    OutX=OutY=0.f;
+    float x=WantX,y=WantY;
+    if(!std::isfinite(x)||!std::isfinite(y)||!Detail::Unit(x,y)) return false;
+    static constexpr float Offsets[]={0.f,40.f,-40.f,80.f,-80.f,125.f,-125.f};
+    for(float Offset:Offsets) {
+        float cx,cy;Detail::Rotate(x,y,Offset,cx,cy);
+        if(Clear(cx,cy)) {OutX=cx;OutY=cy;return true;}
+    }
+    return false;
+}
 
 // ---- Fliers: where they may go (Gloomwing and the flying boss) ----
 // Fliers ignore walls and floor collision, so they are kept inside the arena by explicit limits. TUNABLE.

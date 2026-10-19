@@ -28,7 +28,7 @@ AASEnemy::AASEnemy() {
     GetCapsuleComponent()->InitCapsuleSize(38,80);GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera,ECR_Ignore);
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn,ECR_Block);GetCapsuleComponent()->CanCharacterStepUpOn=ECB_No;GetCharacterMovement()->bEnablePhysicsInteraction=false;
     GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);GetMesh()->SetHiddenInGame(true);
-    GetCharacterMovement()->bRunPhysicsWithNoController=true;GetCharacterMovement()->bOrientRotationToMovement=true;
+    GetCharacterMovement()->bRunPhysicsWithNoController=true;GetCharacterMovement()->bOrientRotationToMovement=false;bUseControllerRotationYaw=false; // 0.24: Tick turns it (toward the target when strafing or backing away, along its motion otherwise)
     GetCharacterMovement()->MaxWalkSpeed=310;GetCharacterMovement()->RotationRate=FRotator(0,540,0);GetCharacterMovement()->MaxStepHeight=35;
     ArmorFigure=CreateDefaultSubobject<USceneComponent>(TEXT("SinisterArmor"));ArmorFigure->SetupAttachment(RootComponent);
     for(int32 I=0;I<21;++I) {auto* Part=CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("EnemyArmor%02d"),I));Part->SetupAttachment(ArmorFigure);Part->SetCollisionEnabled(ECollisionEnabled::NoCollision);ArmorParts.Add(Part);}
@@ -50,7 +50,7 @@ void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnP
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
-    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
+    DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,AIState);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
 }
 void AASEnemy::RefreshLook() {
     const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
@@ -121,9 +121,9 @@ void AASEnemy::RefreshLook() {
 }
 
 bool AASEnemy::ShowsStrikeCircle() const {
-    // 0.23.5: a circle means "damage lands here when it fills". Only the melee swing (Wraith/Brute kinds 0, 2, 3) damages the area the ring covers;
-    // shooters, the leaper's contact, shaman/boss blasts (their own field telegraph), the flier's dive and the sniper beam get no pre-attack circle.
-    return !bTrainingDummy&&!Boss()&&(Kind==0||Kind==2||Kind==3);
+    // A circle means "damage lands here when it fills". The ability being wound up says whether it has a ground warning (today only the melee slash's half disc); shots, leaps,
+    // charges, blasts (their own field telegraph), dives and the sniper beam draw none.
+    return !bTrainingDummy&&AIState==ASEnemyRules::StateWindup&&ASEnemyRules::SpecFor(Ability).Tell==ASEnemyRules::TellSector;
 }
 void AASEnemy::TickStatusTint() {
     // 0.23.5: status effects pulse the body tint instead of drawing a ring at the feet. Cosmetic, runs where there is a screen.
@@ -148,8 +148,12 @@ void AASEnemy::TickStatusTint() {
     for(int32 I=0;I<Parts.Num();++I) if(Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),FMath::Lerp(BaseTints[I],Status,FMath::Clamp(Pulse,0.f,.85f)));
 }
 void AASEnemy::EndWindup() {
-    if(!bWinding) return;
-    bWinding=false;Ability=uint8(ASEnemyRules::AbilityNone);ForceNetUpdate(); // the replicated flag is what every machine draws the ground warning from
+    namespace ER=ASEnemyRules;
+    const float Now=AS::Time(this);
+    const bool Idle=!bWinding&&Ability==ER::AbilityNone&&(AIState==ER::StateApproach||AIState==ER::StateStrafe||AIState==ER::StateRetreat)&&LeapUntil<=Now&&ChargeUntil<=Now&&DiveUntil<=Now;
+    if(Idle) return;
+    Ability=uint8(ER::AbilityNone);LeapUntil=ChargeUntil=DiveUntil=0;bTraversalLeap=false; // a stunned or interrupted charge, leap or dive does not resume afterwards
+    SetAIState(ER::StateApproach);ForceNetUpdate(); // the replicated flags are what every machine draws the ground warning and the pose from
 }
 void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
@@ -218,57 +222,157 @@ void AASEnemy::Tick(float Delta) {
     if(!Target) {EndWindup();return;} // nobody left to hit: drop the attack and its ground warning
     if(Flies()) {TickFlier(Delta,Target,Best);return;}
     if(GetActorLocation().Z<-500 && S->Arena) {SetActorLocation(S->Arena->SafeEnemyPoint(GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();}
-    if(LeapUntil>S->SimTime) {
-        GetCharacterMovement()->MaxWalkSpeed=1100;StuckFor=0;
-        if(Best<170*170&&S->SimTime>LastContact&&AS::ClearSight(GetWorld(),GetActorLocation(),Target->GetActorLocation())) {LastContact=S->SimTime+.5f;Target->Hurt(16,this);}return;
+    TickGround(Delta,Target,Best);
+}
+// ---- The walker state machine (0.24) ----
+// AIState is replicated. The server moves between Approach (closing in) and Strafe (circling or backing away), Windup (the telegraph), Attack (committed motion: a leap, a
+// charge), Recover (a short exposed pause) and back to moving, with Retreat (falling back once when badly hurt) and Special (long kind-specific behaviours) alongside.
+// Stun, freeze, death and the end of combat abandon whatever is running through EndWindup(). Which abilities a kind owns, how long each takes and how it moves come from
+// ASEnemyRules (kits and the ability table), so the numbers are tested as plain C++.
+void AASEnemy::SetAIState(int32 NewState) {
+    if(!HasAuthority()) return;
+    const int32 Clamped=FMath::Clamp(NewState,0,ASEnemyRules::StateCount-1);
+    const bool Telegraphing=Clamped==ASEnemyRules::StateWindup||Clamped==ASEnemyRules::StateSpecial;
+    if(int32(AIState)!=Clamped) {AIState=uint8(Clamped);ForceNetUpdate();}
+    if(bWinding!=Telegraphing) {bWinding=Telegraphing;ForceNetUpdate();}
+}
+void AASEnemy::BeginAbility(int32 AbilityId,const FVector& ToTarget) {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);if(!S) return;
+    Aim=FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal();if(Aim.IsNearlyZero()) Aim=GetActorForwardVector();
+    Ability=uint8(FMath::Clamp(AbilityId,0,ER::AbilityCount-1));LastAbility=AbilityId;
+    WindupStart=S->SimTime;WindupEnd=S->SimTime+ER::WindupFor(ER::KitFor(Kind),AbilityId);
+    SetAIState(ER::StateWindup);SetActorRotation(Aim.Rotation());ForceNetUpdate();
+}
+void AASEnemy::ReleaseAbility() {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);if(!S) return;
+    const ER::Kit& Kit=ER::KitFor(Kind);const int32 Id=Ability;const float Now=S->SimTime;
+    CommitAttack(); // the effect of the attack by kind (it also starts a leap or a charge by setting LeapUntil / ChargeUntil)
+    NextAttack=Now+Kit.Cooldown;AbilityReadyAt[FMath::Clamp(Id,0,ER::AbilityCount-1)]=Now+ER::SpecFor(Id).Cooldown;
+    if(LeapUntil>Now||ChargeUntil>Now) SetAIState(ER::StateAttack);
+    else FinishAttackPhase();
+}
+void AASEnemy::FinishAttackPhase() {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);if(!S) return;
+    const ER::AbilitySpec& Spec=ER::SpecFor(Ability);
+    if(Spec.Recover>0.f&&!bTraversalLeap) {RecoverUntil=S->SimTime+Spec.Recover;SetAIState(ER::StateRecover);}
+    else {Ability=uint8(ER::AbilityNone);SetAIState(ER::StateApproach);}
+    bTraversalLeap=false;
+}
+void AASEnemy::TickGround(float Delta,AASCharacter* Target,float DistanceSquared) {
+    namespace ER=ASEnemyRules;
+    auto* S=AS::State(this);auto* Move=GetCharacterMovement();if(!S||!Move||!Target) return;
+    const float Now=S->SimTime;const ER::Kit& Kit=ER::KitFor(Kind);
+    const FVector Here=GetActorLocation(),ToTarget=Target->GetActorLocation()-Here;
+    // ---- Committed phases: nothing else decides anything until they end. ----
+    if(AIState==ER::StateWindup||AIState==ER::StateSpecial) {
+        StuckFor=0;LastRoutePosition=Here;Move->StopMovementImmediately();
+        if(Now>=WindupEnd) ReleaseAbility();
+        return;
     }
-    if(ChargeUntil>S->SimTime) {
-        GetCharacterMovement()->MaxWalkSpeed=1100;AddMovementInput(Aim,1,true);
-        if(Best<200*200 && S->SimTime>LastContact&&AS::ClearSight(GetWorld(),GetActorLocation(),Target->GetActorLocation())) {LastContact=S->SimTime+.5f;Target->Hurt(Kind==6?20:28,this);}return;
+    if(AIState==ER::StateAttack) {
+        Move->MaxAcceleration=2048.f; // the old default: a charge reaches full speed as it always did, whatever the kit's walking acceleration
+        if(LeapUntil>Now) { // a leap: fast, one contact hit
+            Move->MaxWalkSpeed=1100;StuckFor=0;
+            if(DistanceSquared<170*170&&Now>LastContact&&AS::ClearSight(GetWorld(),Here,Target->GetActorLocation())) {LastContact=Now+.5f;Target->Hurt(16,this);}
+            return;
+        }
+        if(ChargeUntil>Now) { // a charge along the aim: one contact hit
+            Move->MaxWalkSpeed=1100;AddMovementInput(Aim,1,true);
+            if(DistanceSquared<200*200&&Now>LastContact&&AS::ClearSight(GetWorld(),Here,Target->GetActorLocation())) {LastContact=Now+.5f;Target->Hurt(Kind==6?20:28,this);}
+            return;
+        }
+        FinishAttackPhase(); // the committed motion is over
     }
-    if(bWinding) {StuckFor=0;LastRoutePosition=GetActorLocation();GetCharacterMovement()->StopMovementImmediately();if(S->SimTime>=WindupEnd) {bWinding=false;CommitAttack();NextAttack=S->SimTime+(Boss()?2.f:1.8f);}return;}
-    const float Range=Kind==8?1700.f:((Kind==1||Kind==7||Kind==9||Boss())?1300.f:(Kind==5||Kind==6?650.f:180.f));
-    GetCharacterMovement()->MaxWalkSpeed=(Boss()?235.f:(Kind==5?390.f:(Kind==6?230.f:(Kind==0?340.f:275.f))))*ASArsenal::EnemySpeedScale(Elite()||Boss())*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f)*ASMelee::ApproachScale(FMath::Sqrt(Best),Range,Boss())*(SlowUntil>S->SimTime?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f));
-    const bool Sight=AS::ClearSight(GetWorld(),GetActorLocation(),Target->GetActorLocation());
-    if(Best<FMath::Square(Range) && S->SimTime>=NextAttack && Sight&&((Kind!=5&&Kind!=6)||!S->Arena||S->Arena->CanWalkDirectly(GetActorLocation(),Target->GetActorLocation()))) {
-        Aim=(Target->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();WindupStart=S->SimTime;WindupEnd=S->SimTime+(Kind==8?1.5f:(Kind==9?1.4f:(Boss()||Kind==6?1.1f:.85f)));bWinding=true;SetActorRotation(Aim.Rotation());return;
+    if(AIState==ER::StateRecover) {
+        StuckFor=0;LastRoutePosition=Here;Move->StopMovementImmediately();
+        if(Now<RecoverUntil) return;
+        Ability=uint8(ER::AbilityNone);SetAIState(ER::StateApproach);
     }
-    if(RootUntil>S->SimTime) {GetCharacterMovement()->StopMovementImmediately();StuckFor=0;LastRoutePosition=GetActorLocation();return;}
-    if(S->SimTime>=NextRoute||FVector::DistSquared2D(MoveGoal,GetActorLocation())<65*65) {
-        NextRoute=S->SimTime+.25f;
-        FVector Takeoff=FVector::ZeroVector,Landing=FVector::ZeroVector;const bool Jump=Kind==5&&S->Arena&&S->Arena->JumpPlan(GetActorLocation(),Target->GetActorLocation(),Takeoff,Landing);
+    // ---- Moving: approach, strafe or retreat, and starting an attack. ----
+    const float Range=Kit.AttackRange,Distance=FMath::Sqrt(DistanceSquared);
+    const bool Sight=AS::ClearSight(GetWorld(),Here,Target->GetActorLocation());
+    // Frail kinds fall back once when badly hurt (bounded, and never while only a couple of enemies remain).
+    const bool Retreating=ER::UpdateRetreat(Kit,Health/FMath::Max(1.f,MaxHealth),S->Enemies.Num(),Now,Retreat);
+    if(!Retreating&&Sight&&Now>=NextAttack) {
+        ER::Context C;C.Distance=Distance;C.Now=Now;C.Sight=true;C.ClearPath=true;
+        if((Kind==5||Kind==6)&&Distance<Range&&S->Arena) C.ClearPath=S->Arena->CanWalkDirectly(Here,Target->GetActorLocation()); // leaps and charges need a clear straight walk
+        const int32 Chosen=ER::ChooseAbility(Kit,C,AbilityReadyAt,LastAbility,FMath::FRand());
+        if(Chosen!=ER::AbilityNone) {BeginAbility(Chosen,ToTarget);return;}
+    }
+    if(RootUntil>Now) {Move->StopMovementImmediately();StuckFor=0;LastRoutePosition=Here;return;}
+    if(Now>=NextRoute||FVector::DistSquared2D(MoveGoal,Here)<65*65) {
+        NextRoute=Now+.25f;
+        bDirectClear=S->Arena&&S->Arena->CanWalkDirectly(Here,Target->GetActorLocation()); // pack spreading only fans out across open ground
+        FVector Takeoff=FVector::ZeroVector,Landing=FVector::ZeroVector;const bool Jump=Kind==5&&S->Arena&&S->Arena->JumpPlan(Here,Target->GetActorLocation(),Takeoff,Landing);
         if(Jump) {
             MoveGoal=Takeoff;
-            if(FVector::DistSquared2D(GetActorLocation(),Takeoff)<55*55&&!GetCharacterMovement()->IsFalling()) {
-                const float Time=.95f;FVector V=(Landing-GetActorLocation())/Time;V.Z=FMath::Abs(GetCharacterMovement()->GetGravityZ())*Time*.5f;
-                GetCharacterMovement()->MaxWalkSpeed=1100;GetCharacterMovement()->AirControl=0;LaunchCharacter(V,true,true);LeapUntil=S->SimTime+Time;return;
+            if(FVector::DistSquared2D(Here,Takeoff)<55*55&&!Move->IsFalling()) { // a leap across a gap: a committed Attack with no recovery afterwards
+                const float Time=.95f;FVector V=(Landing-Here)/Time;V.Z=FMath::Abs(Move->GetGravityZ())*Time*.5f;
+                Move->MaxWalkSpeed=1100;Move->AirControl=0;LaunchCharacter(V,true,true);LeapUntil=Now+Time;
+                bTraversalLeap=true;Ability=uint8(ER::AbilityPounce);SetAIState(ER::StateAttack);return;
             }
-        } else MoveGoal=S->Arena?S->Arena->Route(GetActorLocation(),Target->GetActorLocation()):Target->GetActorLocation();
+        } else MoveGoal=S->Arena?S->Arena->Route(Here,Target->GetActorLocation()):Target->GetActorLocation();
     }
-    FVector Move=(MoveGoal-GetActorLocation()).GetSafeNormal2D();
+    // ---- Where to step (0.24): the kit decides how this kind moves. Shooters keep a distance band and side-step inside it, melee kinds circle just outside their reach
+    // while an attack recharges, a hurt frail kind runs for a moment, and the pack spreads out across open ground (ASEnemyRules::PlanMovement, tested as pure rules).
+    FVector RouteDir=(MoveGoal-Here).GetSafeNormal2D();
+    const unsigned Id=GetUniqueID();
+    ER::MovePlan Plan=ER::PlanMovement(Kit,Distance,ToTarget.X,ToTarget.Y,RouteDir.X,RouteDir.Y,Now>=NextAttack,Sight,Retreating,ER::StrafeSide(Id,Now),(bDirectClear&&Sight)?ER::FlankDegrees(Id,Distance):0.f);
+    if(Plan.Mode==ER::ModeCircle||Plan.Mode==ER::ModeBackpedal||Plan.Mode==ER::ModeRetreat) {
+        // A side-step, back-step or retreat is only worth taking if there is ground to take it on: probe a short step (at most every .12 s) and, if blocked, fan out to the
+        // nearest clear direction. The chosen angle is kept between probes, so the circling direction stays smooth. Fully boxed in: close in along the route instead.
+        if(Now>=NextClearProbe||ProbeMode!=Plan.Mode) {
+            NextClearProbe=Now+.12f;ProbeMode=Plan.Mode;
+            float Cx=Plan.X,Cy=Plan.Y;
+            bProbeBlocked=S->Arena&&!ER::ChooseClearDirection(Plan.X,Plan.Y,[&](float Dx,float Dy) {return S->Arena->CanWalkDirectly(Here,Here+FVector(Dx,Dy,0.f)*130.f);},Cx,Cy);
+            ProbeOffsetDegrees=bProbeBlocked?0.f:FMath::RadiansToDegrees(FMath::Atan2(Plan.X*Cy-Plan.Y*Cx,Plan.X*Cx+Plan.Y*Cy));
+        }
+        if(bProbeBlocked) {
+            const FVector Fallback=RouteDir.IsNearlyZero()?FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal():RouteDir;
+            Plan.Mode=ER::ModeAdvance;Plan.X=Fallback.X;Plan.Y=Fallback.Y;Plan.Speed=1.f;Plan.Face=false;
+        } else if(!FMath::IsNearlyZero(ProbeOffsetDegrees)) {
+            float Rx,Ry;ER::Detail::Rotate(Plan.X,Plan.Y,ProbeOffsetDegrees,Rx,Ry);Plan.X=Rx;Plan.Y=Ry;
+        }
+    }
+    SetAIState(Plan.Mode==ER::ModeRetreat?ER::StateRetreat:((Plan.Mode==ER::ModeCircle||Plan.Mode==ER::ModeBackpedal)?ER::StateStrafe:ER::StateApproach));
+    FVector Direction(Plan.X,Plan.Y,0.f);
+    const bool Nudging=Now<NudgeUntil;
+    if(Nudging) Direction=FVector(NudgeDirection.X,NudgeDirection.Y,0.f); // pinned a moment ago: a short sideways step out of it
     // Local separation steers around blocking bodies without pushing or contact damage.
     FVector Separate=FVector::ZeroVector;
     for(auto W:S->Enemies) if(auto* Other=W.Get()) if(Other!=this) {
-        const FVector Away=GetActorLocation()-Other->GetActorLocation();const float D=Away.Size2D();
+        const FVector Away=Here-Other->GetActorLocation();const float D=Away.Size2D();
         const float Spacing=GetCapsuleComponent()->GetScaledCapsuleRadius()+Other->GetCapsuleComponent()->GetScaledCapsuleRadius()+35.f;
         if(D>1&&D<Spacing&&FMath::Abs(Away.Z)<150.f) Separate+=Away.GetSafeNormal2D()*(1.f-D/Spacing);
     }
-    if(!Move.IsNearlyZero()) {Separate-=Move*FVector::DotProduct(Separate,Move);Move=(Move+Separate*.8f).GetSafeNormal2D();}
-    if(Best>145*145||!Sight) {
-        if(RootUntil<=S->SimTime) AddMovementInput(Move,1,true);else GetCharacterMovement()->StopMovementImmediately();
-        if(S->SimTime>=NextStuckCheck) {
-            NextStuckCheck=S->SimTime+1.f;
-            StuckFor=FVector::DistSquared2D(LastRoutePosition,GetActorLocation())<25*25?StuckFor+1.f:0.f;
-            LastRoutePosition=GetActorLocation();
-            if(StuckFor>=3.f&&S->Arena&&Best>600.f*600.f) {
+    if(!Direction.IsNearlyZero()) {Separate-=Direction*FVector::DotProduct(Separate,Direction);Direction=(Direction+Separate*.8f).GetSafeNormal2D();}
+    // Facing: toward the target while strafing, backing away or standing; along the motion otherwise, at the kit's turn rate.
+    const FVector Look=(Plan.Face&&!Nudging)?FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal():Direction;
+    if(!Look.IsNearlyZero()) SetActorRotation(FMath::RInterpConstantTo(GetActorRotation(),FRotator(0.f,Look.Rotation().Yaw,0.f),Delta,Kit.TurnRate));
+    Move->MaxAcceleration=Kit.Accel;Move->BrakingDecelerationWalking=Kit.Brake;
+    Move->MaxWalkSpeed=Kit.Speed*ASArsenal::EnemySpeedScale(Elite()||Boss())*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f)*ASMelee::ApproachScale(Distance,Range,Boss())
+        *(SlowUntil>Now?.45f:(Elements.Frost>0?(Boss()?.75f:.65f):1.f))*(Plan.Mode==ER::ModeHold?1.f:FMath::Max(.05f,Plan.Speed));
+    if(Plan.Mode!=ER::ModeHold) {
+        AddMovementInput(Direction,1,true);
+        if(Now>=NextStuckCheck) {
+            NextStuckCheck=Now+1.f;
+            StuckFor=FVector::DistSquared2D(LastRoutePosition,Here)<25*25?StuckFor+1.f:0.f;
+            LastRoutePosition=Here;
+            if(StuckFor>=1.f&&DistanceSquared<600.f*600.f) { // pinned close to the target: step sideways for a moment before anything drastic
+                float Nx,Ny;ER::UnstickDirection(Plan.X,Plan.Y,StuckFor,Id,Nx,Ny);
+                NudgeDirection=FVector2D(Nx,Ny);NudgeUntil=Now+.8f;
+            }
+            if(StuckFor>=3.f&&S->Arena&&DistanceSquared>600.f*600.f) {
                 // Recover only after sustained failure. Navigation nodes were collision-
                 // checked for the largest enemy and connected to the player spawn.
-                SetActorLocation(S->Arena->RecoverEnemy(GetActorLocation(),Target->GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);
-                GetCharacterMovement()->StopMovementImmediately();NextRoute=0;StuckFor=0;
+                SetActorLocation(S->Arena->RecoverEnemy(Here,Target->GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);
+                Move->StopMovementImmediately();NextRoute=0;StuckFor=0;
             }
         }
-    } else {StuckFor=0;LastRoutePosition=GetActorLocation();}
-
+    } else {StuckFor=0;LastRoutePosition=Here;}
 }
 void AASEnemy::CommitAttack() {
     auto* S=AS::State(this);if(!S||SpawnProtected()) return;++Pattern;AttackReleaseTime=S->SimTime;ForceNetUpdate();
@@ -442,13 +546,13 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
         Move->Velocity=DiveDirection*DiveSpeed;
         if(FVector::Dist(Here,There)<ContactRange&&Now>LastContact&&Here.Z>FloorZ-60.f) {LastContact=Now+.6f;Target->Hurt(ContactDamage,this);}
         const bool Arrived=Big?FVector::Dist2D(Here,DiveTarget)<80.f:FVector::Dist(Here,DiveTarget)<80.f;
-        if(Arrived||(!Big&&Here.Z<=FMath::Max(LowestZ,FloorZ+70.f))) DiveUntil=0.f;
+        if(Arrived||(!Big&&Here.Z<=FMath::Max(LowestZ,FloorZ+70.f))) {DiveUntil=0.f;Ability=uint8(ASEnemyRules::AbilityNone);SetAIState(ASEnemyRules::StateApproach);}
         return;
     }
     if(bWinding) {
         Move->StopMovementImmediately();SetActorRotation(FRotator(0.f,(There-Here).Rotation().Yaw,0.f));
         if(Now>=WindupEnd) {
-            bWinding=false;const uint8 Done=Ability;Ability=uint8(ASEnemyRules::AbilityNone);
+            const uint8 Done=Ability;Ability=uint8(ASEnemyRules::AbilityNone);SetAIState(ASEnemyRules::StateApproach);
             if(Done==ASEnemyRules::AbilityMolt) {Molt();NextAttack=Now+2.5f;ForceNetUpdate();return;}
             if(Big&&(++DiveCycle%2)==0) { // every second attack of the flying boss is its normal boss attack (blast fields or a shot ring), not a dive
                 CommitAttack();NextAttack=Now+3.f;ForceNetUpdate();return;
@@ -456,16 +560,16 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
             DiveTarget=There;
             FVector Toward=Big?FVector(There.X-Here.X,There.Y-Here.Y,0.f):((There-FVector(0,0,20.f))-Here);
             DiveDirection=Toward.GetSafeNormal();if(DiveDirection.IsNearlyZero()) DiveDirection=GetActorForwardVector();
-            DiveUntil=Now+DiveSeconds;NextAttack=Now+(Big?3.f:ASExpedition::FlierAttackDelay(FMath::FRand()));ForceNetUpdate();
+            DiveUntil=Now+DiveSeconds;NextAttack=Now+(Big?3.f:ASExpedition::FlierAttackDelay(FMath::FRand()));Ability=uint8(ASEnemyRules::AbilityDive);SetAIState(ASEnemyRules::StateAttack);ForceNetUpdate();
         }
         return;
     }
     if(Big&&ASEnemyRules::MoltDue(bMolted,Health,MaxHealth)) { // at half health the boss rears back and screams before it releases its hatchlings (once per fight)
         bMolted=true;Ability=uint8(ASEnemyRules::AbilityMolt);Aim=(There-Here).GetSafeNormal2D();
-        WindupStart=Now;WindupEnd=Now+ASEnemyRules::MoltWindupSeconds;bWinding=true;ForceNetUpdate();return;
+        WindupStart=Now;WindupEnd=Now+ASEnemyRules::MoltWindupSeconds;SetAIState(ASEnemyRules::StateWindup);ForceNetUpdate();return;
     }
     if(Now>=NextAttack&&DistanceSquared<FMath::Square(1100.f+(Big?400.f:0.f))) {
-        Aim=(There-Here).GetSafeNormal2D();Ability=uint8(ASEnemyRules::AbilityDive);WindupStart=Now;WindupEnd=Now+Windup;bWinding=true;ForceNetUpdate();return;
+        Aim=(There-Here).GetSafeNormal2D();Ability=uint8(ASEnemyRules::AbilityDive);WindupStart=Now;WindupEnd=Now+Windup;SetAIState(ASEnemyRules::StateWindup);ForceNetUpdate();return;
     }
     // Circle the target at a breathing radius and the hover height, with a slow bob. The radius swings between OrbitMin (a sweep inside melee reach) and OrbitMax.
     if(OrbitAngle==0.f) {OrbitSign=(GetUniqueID()&1)?1.f:-1.f;OrbitAngle=float(GetUniqueID()%628)/100.f+.01f;}

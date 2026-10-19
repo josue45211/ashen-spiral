@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "ASData.h"
+#include "ASEnemyRules.h"
 #include "ASEnemy.generated.h"
 class USceneComponent;class UStaticMeshComponent;class AASCharacter;
 UCLASS() class ASHENSPIRAL_API AASEnemy : public ACharacter {
@@ -24,7 +25,8 @@ public:
     UPROPERTY(Replicated) float WindupStart=0;
     UPROPERTY(Replicated) FVector Aim=FVector::ForwardVector;
     UPROPERTY(Replicated) bool bWinding=false;
-    UPROPERTY(Replicated) uint8 Ability=0; // ASEnemyRules::Ability*: which attack is being wound up (0 = none), so every machine poses the right wind-up
+    UPROPERTY(Replicated) uint8 Ability=0; // ASEnemyRules::Ability*: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body
+    UPROPERTY(Replicated) uint8 AIState=0; // ASEnemyRules::State*: approach, strafe, windup, attack, recover, retreat, special. The server's state machine; every machine poses from it
     float SlowUntil=0,PulledUntil=0,MarkUntil=0,StunUntil=0,RootUntil=0,StunImmuneUntil=0,RootImmuneUntil=0;
     float LastHitTime=-10,NextDamageNumber=0;
     TWeakObjectPtr<AASCharacter> LastHitter;
@@ -42,7 +44,7 @@ public:
     void BeginHitReaction(const FVector& SourceLocation,bool Heavy);
     void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup=1.f); // Buildup scales the frost added per application (0.24 on-hit reward scaling)
     void Control(int32 Type,const FVector& Direction,float Strength);
-    void EndWindup(); // authority: clears bWinding on every path that abandons an attack, so the ground warning can never outlive the attack
+    void EndWindup(); // authority: abandons whatever attack is in progress (windup, committed motion, recovery) and returns to moving, so the ground warning can never outlive the attack
     // 0.23.5: the Endless flying boss is a normal boss (Kind 4) that flies; the Gloomwing is Kind 10.
     UPROPERTY(ReplicatedUsing=RefreshLook) bool bAirborne=false;
     int32 DiveCycle=0;
@@ -96,6 +98,21 @@ private:
     float LeapUntil=0,BodyScale=1;
     FVector LastRoutePosition=FVector::ZeroVector;
     FVector MoveGoal=FVector::ZeroVector;
+    // 0.24 fluid movement (authority only, nothing replicated; the gait reads the replicated velocity).
+    ASEnemyRules::RetreatState Retreat;               // frail kinds fall back for a moment when badly hurt (bounded, paused, never for the last few)
+    float NextClearProbe=0,ProbeOffsetDegrees=0,NudgeUntil=0;
+    int32 ProbeMode=-1;bool bProbeBlocked=false,bDirectClear=false;
+    FVector2D NudgeDirection=FVector2D::ZeroVector;   // a short sideways step out of a pin (ASEnemyRules::UnstickDirection)
     int32 Pattern=0;
     void CommitAttack();
+    // 0.24 state machine (authority). Walkers run TickGround; a state is entered with SetAIState, which also keeps the replicated bWinding (telegraph on) in step.
+    void TickGround(float Delta,AASCharacter* Target,float DistanceSquared);
+    void SetAIState(int32 NewState);
+    void BeginAbility(int32 AbilityId,const FVector& ToTarget); // Windup: pick the aim, start the telegraph
+    void ReleaseAbility();                                       // end of the windup: the effect, then committed motion (Attack), a short Recover, or back to moving
+    void FinishAttackPhase();                                    // after the effect or the committed motion: Recover if the ability has one, otherwise moving again
+    float AbilityReadyAt[ASEnemyRules::AbilityCount]={};         // per-ability cooldowns (SimTime)
+    int32 LastAbility=0;
+    float RecoverUntil=0;
+    bool bTraversalLeap=false;                                   // the leaper's jump across a gap: no recovery pause afterwards
 };
