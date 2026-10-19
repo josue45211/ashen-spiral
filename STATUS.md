@@ -270,3 +270,39 @@ UNVERIFIED 0.23.5 checklist (playtest):
 12. Vanguard: +25% damage for the first 10 seconds of each room, one pick only.
 13. Endless wave 30 (and 60, 90): the boss flies, circles, dives, and alternates dives with its normal attack; both players see it fly; it can be hit by melee when it dips. Waves 10, 20, 40, 50 bosses stay on the ground.
 Needs Josue: nothing blocking. Judgment calls are IFFY in MERGE_LOG.md.
+
+## 0.24 (2026-10-19) - ALL 7 MILESTONES DONE, nothing verified in-engine
+Bar per milestone: UBT editor build unity AND -DisableUnity (0 errors; every warning is from an engine header, none from our sources), Tests/run_tests.py exit 0, native tests where logic exists, crash-safety review. Details, tunables and confidence: MERGE_LOG.md (not committed).
+Milestones (7 in the approved plan; M6 was split into four commits):
+1. M1 fixes: Ready orb removed, Hoarfrost Maul rename, golden-path text gone, violet-white lightning, per-swing slash arc, sniper/Broodcaller/Kind 2 bugs - DONE (ab27859)
+2. M2 rings: every enemy ring hunted down, melee warning = exact damage shape, as.ringaudit - DONE (2bc2491)
+3. M3 P2 walls: server decides Endless cover collision, host+client shift logging - DONE (8a56919); root cause still unproven, the next playtest logs (AshenShift / AshenCorrect lines on both machines) decide
+4. M4 flying boss, per-weapon on-hit scaling, protocol 2400 / version 0.24.0 - DONE (b407a3c, 4369082, 4f80445)
+5. M5 AI state machine, fluid movement, Tier 0 pose tracks, sound cues, skeletal spike (Mannequin deaths retargeted; no runtime skeleton) - DONE (02d12f3, b7f6c69, d69c39c)
+6. M6 abilities, elite mutations, boss redesign, readability - DONE: a1 regular kinds (86bc5ce), a2 bulwark/sniper/broodcaller/Gloomwing (9d58ee1), a3 elite mutations (9761588), a4 full ward boss redesign (d1c5d49)
+7. M7 Part C - DONE (cdd275f): C-3 perfect dash, C-1 proc echoes, C-2 impact knockback, C-5 reward ceremony without slow-mo, C-6 four metamorphoses, C-7 death-screen lines
+Not done by design: Tier 1/2 skeletal rigs (Docs/SKELETAL_SPIKE_0.24.md: creature kinds have no animation source; humanoids use baked Mannequin death curves). Parked Part C items: dash-triggered traits, the rest of the metamorphoses.
+Needs Josue: (1) confirm the Epic UE-Only Content licence wording for the baked Mannequin death curves before a commercial release. (2) Tier 1 creature rigs only if you want a Blender-made rig that I cannot verify without playing (it would ship behind the Tier 0 poses).
+
+### Part C, as built (all values TUNABLE in Source/AshenSpiral/Public/ASPartCRules.h)
+- C-3 PERFECT DASH: a blow that lands inside the dash protection or within 0.15 s after it ends is dodged outright: dash refunded (cooldown 0, +1 charge), 0.15 s extra protection, gold ring, "PERFECT DASH" notice. 0.6 s cooldown. Dash-triggered traits are parked.
+- C-1 PROC ECHOES: with Chain Lightning, Storm Touch or Impact Bloom, an element proc (burn, poison, bleed, frost) echoes to the nearest enemy within 4.5 m, then once more (depth 2), at 60% then 36% strength; one chain per 0.45 s.
+- C-2 IMPACT KNOCKBACK: a launch of 250+ strength (Heavy Impact, Repulse) makes the enemy a projectile for 0.7 s: a wall slam hurts it (17-42 damage, credited to the hero), hitting another enemy hurts both and throws the struck one on at 65% strength (up to 2 hops, each weaker). Gravity pulls do not count.
+- C-5 REWARD CEREMONY: opening the chest = 70 ms hit-stop (host only) and a smooth camera push-in (FOV -9) that holds while the choices are up, then the choices open after 0.4 s. No slow-mo. Off with Motion sickness reduction.
+- C-6 METAMORPHOSES at the catalogue maximum rank: WILDFIRE (Kindling Touch x3: a burning enemy explodes on death, 50% of its health to neighbours within 3.8 m and re-ignites them), SHATTER (Winter Touch x3: a frozen enemy shatters, 60% of its health within 3.4 m and chills them), PINBALL (Heavy Impact x3: impacts do 2.5x), STORM WEB (Chain Lightning x3: two extra links, 40% more reach). A banner names it when you reach it.
+- C-7 WHAT YOU LEARNED: the death screen shows up to three lines picked from what the run did (metamorphosis, echoes, impacts, perfect dashes, build size, co-op, Endless depth).
+
+### UNVERIFIED 0.24 playtest checklist (everything below needs a human)
+1. Hub: no Ready orb; Esc menu has the seed field; hammer is the Hoarfrost Maul; no "follow the golden path" text.
+2. P2 walls (Endless, after several shifts): walls look and block the same for P2. If not, send both logs: compare AshenShift hashes/transitions and AshenCorrect lines.
+3. Blade/Scythe show a crescent slash arc per swing. Lightning is violet-white (blue is frost only). No circle under any enemy; as.ringaudit lists nothing unexpected.
+4. Flying boss (Endless wave 30/60/90): wings flap, stays in the arena, melee can reach it, hatchlings burst out at half health.
+5. On-hit rewards scale with the weapon base swing rate: Hammer procs hit hard but rarely, Rotary procs often but light. Watch Rotary and Hammer.
+6. Enemy fluidity: ranged kinds keep their distance and side-step, melee circle while recharging, frail ranged kinds retreat once at low health, stragglers still come to you. Every attack has a body wind-up and a sound (fallback sounds until Edison delivers E_*.wav).
+7. Abilities: grunt shove, archer back-hop, duelist parry and riposte, brute ground pound and enrage, leaper rift blink, shaman meteor rain, bulwark guard-break, sniper tracking laser and relocation, broodcaller egg sacs, Gloomwing pack dive. Read each against Docs/TELEGRAPH_LANGUAGE_0.24.md section 7.
+8. Elite brutes spawn with one mutation (frost, burning, shocking, venomous): tint pulse, extra ability, lingering zones.
+9. Ward bosses: three attacks each, a 1.5 s roar at half health with the ward set piece, then a harder second phase (Docs/TELEGRAPH_LANGUAGE_0.24.md section 8). Endless wave 50+ bosses keep the old attack.
+10. Armoured walkers die in one of six collapses by the direction of the killing blow.
+11. Part C (above): perfect dash feel and window; echoes visible and not overwhelming; wall slams and pile-ups hurt and chain; chest opening pushes the camera in with no slow-mo; metamorphosis banner at max rank and its effect; death screen "WHAT YOU LEARNED".
+12. Balance to watch: Hammer knockback/pull now ~2.2x per hit; Rotary ~0.3x; elite fire trail littering small rooms; echo chains with many procs.
+Judgment calls and confidence per item: MERGE_LOG.md.
