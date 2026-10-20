@@ -84,7 +84,7 @@ for i in range(7):
 save('SM_Tree',tree)
 save('SM_Canopy',[ico(170,(180*math.cos(i*2.4),180*math.sin(i*2.4),460+i*12),(1.05,.9,.5),1) for i in range(7)])
 save('SM_Leaf',[ico(85,scale=(.3,1.1,.12),sub=1)])
-save('SM_Chest',[beveled((115,170,70),12),cyl(45,155,sides=10)])
+# SM_Chest and SM_ChestTrim: Tools/make_chest_meshes.py since 0.24.2 (this line's lid cylinder stood upright through the box: the chest drew as a stepped octagon)
 save('SM_Ring',ring());save('SM_Slash',ring(50,3,4,32,math.pi*1.4))
 save('SM_Brazier',[cyl(65,24,(0,0,12),10),cyl(25,100,(0,0,60),8),cyl(65,25,(0,0,113),12)])
 save('SM_Torso',beveled((42,62,64),12))

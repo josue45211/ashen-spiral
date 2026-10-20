@@ -394,6 +394,20 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
                     Floor->SetVectorParameterValue(TEXT("Tint"),Group.StartsWith(TEXT("EndlessGround"))?FLinearColor(.36f,.35f,.34f):FLinearColor(.56f,.54f,.52f));
                     Mat=Floor;
                 }
+        // 0.24.2 aesthetics: the reward chest and the vault's cache are planked wood (the Archives' wood maps on the chest's box-mapped UVs) under their trim, which is worn gold
+        // plate (M_Armor, Tools/import_vault_assets.py phase M) where that is imported and plain polished metal otherwise
+        if((Group==TEXT("Chest")||Group==TEXT("VaultCache"))&&Mat)
+            for(const auto& Pair:TArray<TPair<FString,FString>>{{TEXT("AlbedoMap"),TEXT("")},{TEXT("NormalMap"),TEXT("_Normal")},{TEXT("RoughnessMap"),TEXT("_Roughness")}})
+                if(auto* Texture=LoadObject<UTexture>(nullptr,*FString::Printf(TEXT("/Game/Art/Textures/T_ArchiveWood%s.T_ArchiveWood%s"),*Pair.Value,*Pair.Value))) Mat->SetTextureParameterValue(FName(*Pair.Key),Texture);
+        if(Group.EndsWith(TEXT("ChestTrim"))) {
+            if(Mat) {Mat->SetScalarParameterValue(TEXT("SurfaceDetail"),0.f);Mat->SetScalarParameterValue(TEXT("Roughness"),.3f);}
+            if(auto* Plate=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/Armor/M_Armor.M_Armor"),nullptr,LOAD_NoWarn|LOAD_Quiet))
+                if(auto* Gold=UMaterialInstanceDynamic::Create(Plate,C)) {
+                    Gold->SetVectorParameterValue(TEXT("Tint"),Color);Gold->SetScalarParameterValue(TEXT("Metallic"),Metal);
+                    Gold->SetScalarParameterValue(TEXT("Roughness"),.3f);Gold->SetScalarParameterValue(TEXT("Wear"),.35f); // gilding worn through here and there
+                    Mat=Gold;
+                }
+        }
         ASAssets::Paint(C,Mat); // every section of the mesh (0.24.2: only the first had a material; the rest drew the engine's grid)
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
@@ -725,7 +739,9 @@ void AASWorld::MakeRoom() {
             Add(TEXT("SM_Ring"),TEXT("VaultSigilRing"),P+FVector(0,0,8),FVector(1.1f,1.1f,1),Glow,false,0,4);
 
         }
-        Add(TEXT("SM_Chest"),TEXT("VaultCache"),VaultPoint(3)+FVector(0,0,50),FVector(.85f),FLinearColor(.15f,.5f,.7f),false,0,1,.5f);
+        // 0.24.2: the cache is a chest with its trim (silvered), standing on the floor (the chest's base is 43.3 cm below its middle)
+        Add(TEXT("SM_Chest"),TEXT("VaultCache"),VaultPoint(3)+FVector(0,0,37),FVector(.85f),FLinearColor(.15f,.5f,.7f),false,0,1,.5f);
+        Add(TEXT("SM_ChestTrim"),TEXT("CacheChestTrim"),VaultPoint(3)+FVector(0,0,37),FVector(.85f),FLinearColor(.62f,.7f,.78f),false,0,0,.95f);
 
     }
     if(HasShrine()) {
@@ -744,7 +760,9 @@ void AASWorld::MakeRoom() {
         Add(TEXT("Sphere"),TEXT("ReturnPortal"),Exit+FVector(0,0,240),FVector(.08f,3.7f,4.5f),FLinearColor(.06f,.75f,.65f),false,0,1.5f);
         Text(TEXT("RETURN PORTAL / CLEAR THE FINAL CHAMBER"),Exit+FVector(0,0,590),180,23);
     } else {
-        Add(TEXT("SM_Chest"),TEXT("Chest"),Exit+FVector(0,0,52),FVector(1.2f),FLinearColor(.5f,.29f,.09f),true,0,0,.45f);
+        // 0.24.2 aesthetics: planks under a domed lid (Tools/make_chest_meshes.py; it used to draw as a stepped octagon) with gold bands, braces and lock plates
+        Add(TEXT("SM_Chest"),TEXT("Chest"),Exit+FVector(0,0,52),FVector(1.2f),FLinearColor(.70f,.52f,.36f),true,0,0,0.f);
+        Add(TEXT("SM_ChestTrim"),TEXT("ChestTrim"),Exit+FVector(0,0,52),FVector(1.2f),FLinearColor(1.f,.64f,.2f),false,0,0,.95f);
 
     }
     Text(ASData::Biomes[Biome()],CellPosition(0)+FVector(560,0,580),180,38);

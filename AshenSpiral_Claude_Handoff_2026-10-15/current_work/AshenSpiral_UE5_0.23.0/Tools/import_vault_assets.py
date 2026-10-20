@@ -1088,6 +1088,7 @@ def create_armor_material(grunge_tex, scratch_tex, bump_tex):
     require(edit.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
     require(edit.connect_material_property(normal, "", unreal.MaterialProperty.MP_NORMAL), "normal")
     require(edit.connect_material_property(glowing, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "emissive")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the chest's gold trim is part of the world's instanced batches
     edit.layout_material_expressions(material)
     edit.recompile_material(material)
     require(assets.save_loaded_asset(material, False), "Could not save M_Armor")

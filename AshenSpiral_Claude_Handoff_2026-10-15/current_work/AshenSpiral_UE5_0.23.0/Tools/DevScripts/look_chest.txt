@@ -1,0 +1,19 @@
+# 0.24.2 aesthetics: the reward chest - planks under a domed lid with gold trim - from two sides.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.station 9
+wait 0.6
+as.dev.follow 420 120 200 55 120
+wait 0.5
+as.dev.shot chest_01 0
+as.dev.follow 360 200 120 55 120
+wait 0.5
+as.dev.shot chest_02 0
+wait 0.3
+quit
