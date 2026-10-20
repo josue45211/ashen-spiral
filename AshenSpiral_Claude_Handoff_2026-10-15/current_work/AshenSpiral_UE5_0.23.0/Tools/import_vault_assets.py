@@ -9,9 +9,11 @@ Phase B: the arena concrete. Tools/make_concrete_tile.ps1 cuts a seamless 2048 t
 M_ArenaConcrete, a world-aligned (triplanar) material, so the stretched, scaled cover blocks show the concrete at one scale on every face. No mesh changes: the blocks keep their own geometry and collision.
 Phase C: the Dragon Cave stone kit for the Endless arena skin. The pack is an Unreal project, so its static meshes (not its 5 GB of textures or its materials) are copied into the project, duplicated as
 SM_DC_<name> under /Game/Art/Meshes with every material slot set to the arena concrete, and the copies are deleted again. The decor uses the meshes' own measured bounds (written to the report).
-Phase E: audio. Twelve concrete running-foley steps from the Game Animation Sample become /Game/Audio/Imported/Foley/S_Step01..12 (the player's footsteps, ASFoleyRules.h), and the Horror Template's monster
+Phase E: audio. Concrete foley from the Game Animation Sample becomes /Game/Audio/Imported/Foley (the player's footsteps, ASFoleyRules.h): running steps S_Step01..12, and since 0.24.2 (Josue: "make
+the footsteps more natural, like the default Unreal Engine character") walking steps S_StepWalk01..12, strafing S_StepStrafe01..08, backpedalling S_StepBack01..08, landings S_Land01..08 and jumps
+S_Jump01..06. The Horror Template's monster
 sound can become /Game/Audio/E_BossRoar, the file the boss-roar cue looks for first (Docs/AUDIO_MANIFEST_0.24.md), but only with ASHEN_IMPORT_MONSTER=1 (it is 6.4 s and unheard, so it is off); sounds are copied as sound waves, duplicated under their new names, and the staging copies deleted.
-Set ASHEN_VAULT to override the vault folder. The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
+Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCE to run only those phases (all by default). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
 import json
@@ -444,6 +446,8 @@ def import_dragon_cave():
 GASP_STEPS = VAULT.parent / "GameAnimationSample_5.8" / "data" / "Content" / "Audio" / "Foley" / "SoundWaves" / "Sneaker" / "Concrete"
 HORROR_ROAR = VAULT.parent / "FREEComp8a724140adb8V1" / "data" / "Content" / "HorrorTemplate" / "Audio" / "SW_Monster.uasset"
 STEP_VARIANTS = 12
+# (GASP clip stem, how many, our name prefix): the running set keeps its old S_StepNN names so older code still finds it.
+STEP_SETS = (("run", 12, "S_Step"), ("walk", 12, "S_StepWalk"), ("strafe", 8, "S_StepStrafe"), ("runBackwds", 8, "S_StepBack"), ("land", 8, "S_Land"), ("jump", 6, "S_Jump"))
 
 
 def import_audio():
@@ -453,11 +457,14 @@ def import_audio():
     wanted = []  # (staged package, new folder, new name)
     if GASP_STEPS.is_dir():
         steps.mkdir(parents=True, exist_ok=True)
-        for n in range(1, STEP_VARIANTS + 1):
-            source = GASP_STEPS / ("Foley_fs_1p_sneaker_concrete_run_%02d.uasset" % n)
-            if source.is_file():
-                shutil.copy2(source, steps / source.name)
-                wanted.append(("/Game/Audio/Foley/SoundWaves/Sneaker/Concrete/" + source.stem, "/Game/Audio/Imported/Foley", "S_Step%02d" % n))
+        for clip, count, prefix in STEP_SETS:
+            for n in range(1, count + 1):
+                source = GASP_STEPS / ("Foley_fs_1p_sneaker_concrete_%s_%02d.uasset" % (clip, n))
+                if source.is_file():
+                    shutil.copy2(source, steps / source.name)
+                    wanted.append(("/Game/Audio/Foley/SoundWaves/Sneaker/Concrete/" + source.stem, "/Game/Audio/Imported/Foley", "%s%02d" % (prefix, n)))
+                else:
+                    report["notes"].append("phase E: missing " + source.name)
     else:
         report["notes"].append("phase E: no Game Animation Sample audio at " + str(GASP_STEPS))
     # The Horror Template's monster sound is 6.4 s, stereo, 24 kHz and unheard (nothing here can listen), too long and too unknown for the 1.5 s boss roar: it is only imported when asked for.
@@ -478,6 +485,9 @@ def import_audio():
             failed.append(package)
             continue
         assets.make_directory(folder)
+        if assets.does_asset_exist(folder + "/" + name) and os.environ.get("ASHEN_FORCE_IMPORT") != "1":  # already imported by an earlier run: keep it
+            audio[name] = {"kept": True}
+            continue
         copy = tools.duplicate_asset(name, folder, original)
         if copy is None:
             failed.append(package)
@@ -523,7 +533,10 @@ def main():
 try:
     # Each phase stands alone: one failing (a missing pack, say) must not stop the others.
     errors = []
-    for phase in (main, import_concrete, import_dragon_cave, import_audio):
+    chosen = os.environ.get("ASHEN_PHASES", "ABCE").upper()
+    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio)):
+        if letter not in chosen:
+            continue
         try:
             phase()
         except Exception:

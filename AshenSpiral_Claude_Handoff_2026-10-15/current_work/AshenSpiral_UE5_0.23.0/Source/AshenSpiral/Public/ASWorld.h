@@ -117,7 +117,9 @@ private:
     void SetCoverCollision(bool On);
     void BuildNavigationGrids();
     void BuildEndlessCover(const FVector& Center);
-    void BuildEndlessDecor(const FVector& Center);   // 0.25 phase C: the scenery ring beyond the walls and the loot beside the chest (visual only)
+    void BuildEndlessDecor(const FVector& Center);   // 0.25 phase C: the scenery ring round the fight square and the loot beside the chest; solid since 0.24.2 (the walls stand beyond it)
+    void ApplyDecorStage(int32 SkyStage);            // 0.24.2: a stage's solids switch on with it (every machine); the server moves anyone standing in a new piece and re-routes
+    int32 DecorSolidStage=-1;
     void ShowDecorStage(int32 SkyStage);             // shows the decor stages the sky has reached
     int32 DecorStageShown=-1;
     void RebuildEndlessCover();

@@ -207,7 +207,9 @@ inline std::vector<BossProp> BossProps(int Ward) {
 // ---- Endless arena (0.23 B8): one very large enclosed cell, about three times a boss arena by area.
 // The centre (chest and spawn) stays clear. Obstacles are generated deterministically from a seed so server and
 // clients rebuild the same arena; a shuffle re-rolls the seed while keeping cover off players.
-constexpr int EndlessRoom=100,EndlessShape=20,EndlessHalf=3100;
+// 0.24.2 (Josue after the 0.24.1 playtest: "remove our old endless map ... or make the walls further out so that we can explore the map"): the walls now stand beyond the scenery ring
+// (ASDecorRules.h), so the ruins are ground to explore with real collision, while the cover still fills the old fight square, EndlessCoverHalf, the size the arena used to be.
+constexpr int EndlessRoom=100,EndlessShape=20,EndlessHalf=5600,EndlessCoverHalf=3100;
 inline Layout GenerateEndless() {
     Layout L;L.Shape=EndlessShape;L.Width=1;L.Height=1;
     Cell C;C.X=0;C.Y=0;C.SpanX=5;C.SpanY=5;C.HalfX=EndlessHalf;C.HalfY=EndlessHalf;C.WorldX=0;C.WorldY=0;
@@ -219,7 +221,7 @@ constexpr float EndlessCentreClear=800.f,EndlessKeepRadius=520.f,EndlessGap=330.
 constexpr float EndlessWallHeight=380.f; // every obstacle shares one height (0.23.5: the 160cm jumpable low blocks are gone)
 inline std::vector<EndlessObstacle> EndlessProps(std::uint32_t Seed,const std::array<KeepOut,2>& Keep) {
     Random R(Seed*2654435761u+977u);std::vector<EndlessObstacle> Out;
-    const float Limit=float(EndlessHalf)-380.f;
+    const float Limit=float(EndlessCoverHalf)-380.f; // the cover stays in the fight square
     for(int Try=0;Try<6000&&Out.size()<72;++Try) {
         EndlessObstacle O;const int Kind=R.Range(10);
         O.X=float(R.Range(int(Limit*2)+1))-Limit;O.Y=float(R.Range(int(Limit*2)+1))-Limit;
@@ -254,7 +256,7 @@ inline bool CoverListSane(const CoverRect* Items,int Count) {
     for(int I=0;I<Count;++I) {
         const CoverRect& R=Items[I];
         if(R.Length<=0||R.Thickness<=0||R.Length>900||R.Thickness>900) return false;
-        if(R.X<-EndlessHalf||R.X>EndlessHalf||R.Y<-EndlessHalf||R.Y>EndlessHalf) return false;
+        if(R.X<-EndlessCoverHalf||R.X>EndlessCoverHalf||R.Y<-EndlessCoverHalf||R.Y>EndlessCoverHalf) return false;
         if(R.Yaw<0||R.Yaw>=360) return false;
     }
     return true;

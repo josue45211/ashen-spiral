@@ -1,2 +1,2 @@
-PASS: 1739407 decor checks; kit table, deterministic ring (400 seeds), ring bounds, spacing, stage counts and order, stage visibility.
+PASS: 1774007 decor checks; kit table, deterministic ring (400 seeds), ring bounds, spacing, stage counts and order, stage visibility.
 Shared rules only; the imported meshes, their scale, and how the ring looks are Unreal gameplay: UNVERIFIED.

@@ -1,0 +1,59 @@
+# 0.24.2 Endless map: the walls stand beyond the scenery ring; the ruins are solid ground to explore. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.state
+# a high view over the whole arena: the fight square, the ring, the walls
+as.dev.cam -9000 0 6500 -35 0 70
+wait 1.5
+as.dev.shot endless_01_overview
+as.dev.cam 0 -9000 6500 -35 90 70
+wait 0.8
+as.dev.shot endless_02_overview_side
+# walk out of the fight square into the ring and into whatever stands in the way (the hero stops at a solid)
+as.dev.cam off
+as.dev.place 2900 0 0
+as.dev.walk 0 4
+wait 4.2
+as.dev.state
+as.dev.cam 3800 -1400 600 -20 60 75
+wait 0.6
+as.dev.shot endless_03_in_the_ring
+as.dev.walk 90 3
+wait 3.2
+as.dev.state
+as.dev.walk 45 3
+wait 3.2
+as.dev.state
+# the correct hitbox: walk straight at the nearest standing ruin; the hero must stop at its surface
+as.dev.cam off
+as.dev.place 2600 600 0
+as.dev.decortest
+wait 2.8
+as.dev.decorcheck
+as.dev.place -2600 -900 0
+as.dev.decortest
+wait 2.8
+as.dev.decorcheck
+as.dev.place 900 -2700 0
+as.dev.decortest
+wait 2.8
+as.dev.decorcheck
+# the gloomy stage (wave 21+): its pieces rise and become solid
+as.dev.wave 25
+wait 3
+as.dev.cam -9000 0 6500 -35 0 70
+wait 1
+as.dev.shot endless_04_stage1_overview
+as.dev.wave 55
+wait 4
+as.dev.shot endless_05_stage2_overview
+as.dev.cam 2600 2600 900 -18 45 75
+wait 0.6
+as.dev.shot endless_06_stage2_ground
+as.dev.state
+wait 1
+quit

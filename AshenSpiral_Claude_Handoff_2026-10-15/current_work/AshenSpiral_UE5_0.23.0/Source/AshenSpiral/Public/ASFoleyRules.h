@@ -10,9 +10,18 @@
 namespace ASFoley {
 
 constexpr int StepVariants=12;
-constexpr float StepVolume=.16f;                 // the hero's own steps; other heroes' are quieter with distance
-constexpr float StepPitchLow=.82f,StepPitchHigh=.96f; // armoured boots: a little lower than the sneakers they were recorded in
+// 0.24.2 (Josue after the 0.24.1 playtest: "reduce footstep volume or make the footsteps more natural, like the default Unreal Engine robotic character"): the Game Animation
+// Sample's own way - a WALK set at walking pace, a RUN set when running, STRAFE and BACKPEDAL sets when moving sideways or backwards against the facing (the hero faces its aim),
+// landings and jumps - at the pitch they were recorded at (no more pitching sneakers down to sound like boots) and a good deal quieter.
+enum StepSet : int {SetRun=0,SetWalk,SetStrafe,SetBack,SetCount};
+constexpr int SetVariants[SetCount]={12,12,8,8};
+constexpr const char* SetPrefix[SetCount]={"S_Step","S_StepWalk","S_StepStrafe","S_StepBack"}; // /Game/Audio/Imported/Foley/<prefix>NN (Tools/import_vault_assets.py)
+constexpr float StepVolume=.10f;                 // the hero's own running steps (was .16); other heroes' are quieter with distance
+constexpr float WalkVolume=.065f,LandVolume=.16f,JumpVolume=.07f;
+constexpr float StepPitchLow=.95f,StepPitchHigh=1.04f; // as recorded, with a little variety
 constexpr float MinStepSpeed=140.f;              // cm/s: slower than this is shuffling, not running
+constexpr float WalkBelow=360.f;                 // cm/s: below this a step is a walking one
+constexpr float LandMinFall=380.f;               // cm/s downward: a softer landing than this makes no sound
 constexpr float TwoPi=6.28318530717958647692f;
 
 // How many half strides (multiples of pi) the gait phase passed going from Prev to Now: 0 normally, 1 on a step, never more than 2 (a long frame must not play a burst).
@@ -28,6 +37,22 @@ inline int NextVariant(int Last,std::uint32_t Roll) {
     if(StepVariants<2) return 0;
     const int Pick=int(Roll%std::uint32_t(StepVariants-1));
     return Last<0||Last>=StepVariants?int(Roll%std::uint32_t(StepVariants)):(Pick>=Last?Pick+1:Pick);
+}
+// Which set a step comes from: by speed, then by how the motion points against the facing (ForwardDot: the unit motion's dot with the facing, -1 straight backwards).
+inline StepSet SetFor(float Speed,float ForwardDot) {
+    if(!std::isfinite(Speed)||!std::isfinite(ForwardDot)) return SetRun;
+    if(ForwardDot<-.45f) return Speed<WalkBelow?SetWalk:SetBack; // GASP's backpedal steps are the running ones; a slow backwards step is a walk step
+    if(ForwardDot<.45f) return SetStrafe;
+    return Speed<WalkBelow?SetWalk:SetRun;
+}
+inline float SetVolume(StepSet Set) {return Set==SetWalk?WalkVolume:StepVolume;}
+// A landing: silent below LandMinFall, loudest from a long fall; Jump: a small push-off.
+inline float LandGain(float FallSpeed) {return std::isfinite(FallSpeed)?std::clamp((FallSpeed-LandMinFall)/900.f+.35f,0.f,1.f)*(FallSpeed>=LandMinFall?1.f:0.f):0.f;}
+// The next variant of a set with Count clips: never the one just played.
+inline int NextVariantOf(int Count,int Last,std::uint32_t Roll) {
+    if(Count<2) return 0;
+    const int Pick=int(Roll%std::uint32_t(Count-1));
+    return Last<0||Last>=Count?int(Roll%std::uint32_t(Count)):(Pick>=Last?Pick+1:Pick);
 }
 // Volume of a step for a hero this far from the local player's hero (the local hero is 0 away): full inside 6 m, silent beyond 32 m, as the enemy cues are.
 inline float StepGain(float Distance,float Speed) {

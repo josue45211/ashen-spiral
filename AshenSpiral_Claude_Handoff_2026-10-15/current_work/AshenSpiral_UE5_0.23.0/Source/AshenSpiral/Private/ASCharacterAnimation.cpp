@@ -37,7 +37,9 @@ void AASCharacter::Animate(float Delta) {
     const bool Planted=Build.Weapon==1&&(HammerCommitted()||HammerLeapState==1||HammerLeapState==3);
     LocomotionWeight=FMath::Lerp(LocomotionWeight,FMath::Clamp(Planted?0.f:Speed/RunningSpeed(),0.f,1.f),ASAnimation::Blend(Delta,12.f));
     AirWeight=FMath::Lerp(AirWeight,Airborne?1.f:0.f,ASAnimation::Blend(Delta,13.f));
-    if(bWasAirborne&&!Airborne) LandingAge=0;else LandingAge+=Delta;bWasAirborne=Airborne;
+    if(Airborne) FallSpeed=FMath::Max(FallSpeed,-GetVelocity().Z);
+    if(!bWasAirborne&&Airborne&&GetVelocity().Z>200.f&&!Dashing) PlayFoley(TEXT("S_Jump"),6,ASFoley::JumpVolume); // a push-off, only for a real jump (not stepping off a ledge)
+    if(bWasAirborne&&!Airborne) {LandingAge=0;if(!bDowned) PlayFoley(TEXT("S_Land"),8,ASFoley::LandVolume*ASFoley::LandGain(FallSpeed));FallSpeed=0.f;} else LandingAge+=Delta;bWasAirborne=Airborne;
     const float Landing=FMath::Exp(-LandingAge*9.f)*FMath::Sin(FMath::Min(LandingAge*18.f,UE_PI));
     const float PreviousWalkPhase=WalkPhase;
     if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/ASAnimation::StrideDistance(LocomotionWeight)*UE_TWO_PI;
@@ -238,9 +240,13 @@ void AASCharacter::PlayFootstep(float Speed) {
     if(GetNetMode()==NM_DedicatedServer||!GetWorld()) return;
     static bool bStepsAbsent=false; // the first lookup decides: no imported steps on this machine, no more lookups
     if(bStepsAbsent) return;
-    const int32 Variant=ASFoley::NextVariant(LastStepVariant,uint32(FMath::Rand()));
-    const FString Name=FString::Printf(TEXT("S_Step%02d"),Variant+1);
-    USoundBase* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/Imported/Foley/%s.%s"),*Name,*Name),nullptr,LOAD_NoWarn);
+    // 0.24.2: the set by speed and by how the motion points against the facing (walk, run, strafe, backpedal); a machine with only the older running set falls back to it.
+    const FVector Move=GetVelocity().GetSafeNormal2D();
+    ASFoley::StepSet Set=ASFoley::SetFor(Speed,FVector::DotProduct(Move,GetActorForwardVector().GetSafeNormal2D()));
+    const int32 Variant=ASFoley::NextVariantOf(ASFoley::SetVariants[Set],LastStepVariant,uint32(FMath::Rand()));
+    auto Find=[](ASFoley::StepSet From,int32 Index) {const FString Name=FString::Printf(TEXT("%s%02d"),UTF8_TO_TCHAR(ASFoley::SetPrefix[From]),Index+1);return LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/Imported/Foley/%s.%s"),*Name,*Name),nullptr,LOAD_NoWarn);};
+    USoundBase* Sound=Find(Set,Variant);
+    if(!Sound&&Set!=ASFoley::SetRun) {Set=ASFoley::SetRun;Sound=Find(Set,Variant%ASFoley::StepVariants);}
     if(!Sound) {if(LastStepVariant<0) bStepsAbsent=true;return;}
     LastStepVariant=Variant;
     float Distance=0.f;
@@ -248,7 +254,22 @@ void AASCharacter::PlayFootstep(float Speed) {
         const APlayerController* Local=UGameplayStatics::GetPlayerController(this,0);const APawn* Pawn=Local?Local->GetPawn():nullptr;
         Distance=Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f;
     }
-    const float Volume=ASFoley::StepVolume*ASFoley::StepGain(Distance,Speed);
+    const float Volume=ASFoley::SetVolume(Set)*ASFoley::StepGain(Distance,Speed);
     if(Volume<.01f) return;
     UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Volume,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
+}
+void AASCharacter::PlayFoley(const TCHAR* Prefix,int32 Count,float Volume) {
+    if(GetNetMode()==NM_DedicatedServer||!GetWorld()||Volume<.01f) return;
+    const int32 Variant=ASFoley::NextVariantOf(Count,LastFoleyVariant,uint32(FMath::Rand()));
+    const FString Name=FString::Printf(TEXT("%s%02d"),Prefix,Variant+1);
+    USoundBase* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/Imported/Foley/%s.%s"),*Name,*Name),nullptr,LOAD_NoWarn);
+    if(!Sound) return; // not imported on this machine: silent, as before
+    LastFoleyVariant=Variant;
+    float Distance=0.f;
+    if(!IsLocallyControlled()) {
+        const APlayerController* Local=UGameplayStatics::GetPlayerController(this,0);const APawn* Pawn=Local?Local->GetPawn():nullptr;
+        Distance=Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f;
+    }
+    const float Gain=Volume*ASFoley::StepGain(Distance,640.f);
+    if(Gain>=.01f) UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Gain,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
 }

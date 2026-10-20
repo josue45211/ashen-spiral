@@ -14,6 +14,7 @@
 #include "ASBuildRules.h"
 #include "ASExpeditionRules.h"
 #include "ASLightning.h"
+#include "ASDecorRules.h"
 #include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
@@ -25,6 +26,8 @@
 #include "Misc/Paths.h"
 #include "Containers/Ticker.h"
 #include "UnrealClient.h"
+#include "Camera/CameraActor.h"
+#include "Camera/CameraComponent.h"
 
 namespace ASDev {
 UWorld* GameWorld() {
@@ -38,6 +41,8 @@ AASGameMode* Mode(UWorld* W) {return W?W->GetAuthGameMode<AASGameMode>():nullptr
 float ArgFloat(const TArray<FString>& Args,int32 I,float Default) {return Args.IsValidIndex(I)?FCString::Atof(*Args[I]):Default;}
 int32 ArgInt(const TArray<FString>& Args,int32 I,int32 Default) {return Args.IsValidIndex(I)?FCString::Atoi(*Args[I]):Default;}
 bool bGod=false;
+float WalkYaw=0.f;double WalkUntil=0.0;
+bool Tick(float);extern FTSTicker::FDelegateHandle Handle; // as.dev.walk: the host hero walks this way until then
 
 // The direction from a point to the nearest wall (world-static, side-on) between MinDistance and MaxDistance, from 24 probes; false when none is in that band.
 bool NearestWall(UWorld* W,const FVector& From,float MinDistance,float MaxDistance,FVector& Direction,float& Distance) {
@@ -111,11 +116,28 @@ void Weapon(const TArray<FString>& Args,UWorld* W) {
     auto* H=HostHero(W);if(!H) return;FASBuild B=H->Build;B.Weapon=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WeaponCount-1);H->ApplyBuild(B,false);H->RefreshLook();
     UE_LOG(LogTemp,Display,TEXT("AshenDev: weapon %d"),B.Weapon);
 }
+// as.dev.walk <yaw> <seconds>: the host hero walks that way (input, through its own movement and collision); the script keeps ticking meanwhile.
+void Walk(const TArray<FString>& Args,UWorld* W) {
+    WalkYaw=ArgFloat(Args,0,0.f);WalkUntil=FPlatformTime::Seconds()+ArgFloat(Args,1,1.f);
+    if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: walking yaw %.0f for %.1f s from %s"),WalkYaw,ArgFloat(Args,1,1.f),HostHero(W)?*HostHero(W)->GetActorLocation().ToCompactString():TEXT("-"));
+}
 void God(const TArray<FString>& Args,UWorld*) {bGod=ArgInt(Args,0,1)!=0;UE_LOG(LogTemp,Display,TEXT("AshenDev: god %d"),bGod?1:0);}
 // as.dev.place <x> <y> [yaw] / as.dev.face <yaw>: move or turn the hero (and its controller, so the camera follows).
 void Place(const TArray<FString>& Args,UWorld* W) {
     auto* H=HostHero(W);if(!H) return;FVector P=H->GetActorLocation();P.X=ArgFloat(Args,0,P.X);P.Y=ArgFloat(Args,1,P.Y);
     H->SetActorLocation(P,false,nullptr,ETeleportType::TeleportPhysics);if(Args.IsValidIndex(2)) if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(-15.f,ArgFloat(Args,2,0.f),0.f));
+}
+// as.dev.cam <x> <y> <z> <pitch> <yaw> [fov] | as.dev.cam off: a fixed photo camera for screenshots (the game's own camera follows the aim), or back to the hero's.
+TWeakObjectPtr<ACameraActor> PhotoCamera;
+void Cam(const TArray<FString>& Args,UWorld* W) {
+    auto* PC=HostController(W);if(!PC||!W) return;
+    if(Args.IsValidIndex(0)&&Args[0]==TEXT("off")) {if(APawn* P=PC->GetPawn()) PC->SetViewTarget(P);if(PhotoCamera.IsValid()) PhotoCamera->Destroy();PhotoCamera.Reset();return;}
+    if(!PhotoCamera.IsValid()) PhotoCamera=W->SpawnActor<ACameraActor>();
+    if(!PhotoCamera.IsValid()) return;
+    PhotoCamera->SetActorLocationAndRotation(FVector(ArgFloat(Args,0,0.f),ArgFloat(Args,1,0.f),ArgFloat(Args,2,800.f)),FRotator(ArgFloat(Args,3,-30.f),ArgFloat(Args,4,0.f),0.f));
+    if(UCameraComponent* C=PhotoCamera->GetCameraComponent()) {C->SetFieldOfView(ArgFloat(Args,5,80.f));C->SetConstraintAspectRatio(false);}
+    PC->SetViewTarget(PhotoCamera.Get());
 }
 void Face(const TArray<FString>& Args,UWorld* W) {if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(ArgFloat(Args,1,-15.f),ArgFloat(Args,0,0.f),0.f));}
 // as.dev.shot <name> [ui]: a screenshot of the game view to Saved/Screenshots/Dev/<name>.png (ui 1: with the HUD).
@@ -140,6 +162,29 @@ void Lightning(const TArray<FString>& Args,UWorld* W) {
     }
     UE_LOG(LogTemp,Display,TEXT("AshenDev: %d lightning strikes called"),Count);
 }
+// as.dev.decortest: the hero is put 5 m from the nearest standing ruin (stage 0) and walks straight at its middle for 2.5 s; a later as.dev.decorcheck reports how far from
+// the middle it stopped against the footprint's radius (it should stop at radius + its capsule, never inside: the "correct hitbox" check for the explorable ring).
+FVector DecorCore=FVector::ZeroVector;float DecorRadius=0.f;
+void DecorTest(const TArray<FString>&,UWorld* W) {
+    auto* H=HostHero(W);auto* S=AS::State(W);if(!H||!S||!S->Arena) return;
+    float Best=FLT_MAX;
+    for(const auto& P:ASDecor::Ring(uint32(S->Arena->Config.Seed))) {
+        if(P.Kit<0||P.Kit>=int(ASDecor::Kits().size())) continue;const auto& K=ASDecor::Kits()[size_t(P.Kit)];if(K.Stage!=0||K.Legs) continue;
+        const FVector Core(S->Arena->CellPosition(0).X+P.X,S->Arena->CellPosition(0).Y+P.Y,H->GetActorLocation().Z);const float D=FVector::Dist2D(Core,H->GetActorLocation());
+        if(D<Best) {Best=D;DecorCore=Core;DecorRadius=ASDecor::SolidFor(K,P.Scale).Radius;}
+    }
+    if(Best==FLT_MAX) return;
+    const FVector Toward=(DecorCore-S->Arena->CellPosition(0)).GetSafeNormal2D(); // approach from the arena side
+    H->SetActorLocation(DecorCore-Toward*(DecorRadius+500.f),false,nullptr,ETeleportType::TeleportPhysics);
+    WalkYaw=Toward.Rotation().Yaw;WalkUntil=FPlatformTime::Seconds()+2.5;
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: decortest walking at a ruin of solid radius %.0f from 5 m"),DecorRadius);
+}
+void DecorCheck(const TArray<FString>&,UWorld* W) {
+    auto* H=HostHero(W);if(!H) return;
+    const float D=FVector::Dist2D(H->GetActorLocation(),DecorCore),Capsule=H->GetCapsuleComponent()->GetScaledCapsuleRadius();
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: decorcheck stopped %.0f cm from the ruin's middle; footprint %.0f + capsule %.0f = %.0f: %s"),D,DecorRadius,Capsule,DecorRadius+Capsule,
+        D>=DecorRadius+Capsule-8.f&&D<=DecorRadius+Capsule+60.f?TEXT("PASS (stopped at the surface)"):(D<DecorRadius?TEXT("FAIL (inside the ruin)"):TEXT("FAIL (stopped short or slid past)")));
+}
 // as.dev.wave <n>: sets the Endless wave number (the sky, scenery stage and lightning follow it at the next wave's checks).
 void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->EndlessWave=FMath::Clamp(ArgInt(Args,0,1),1,999);S->ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("AshenDev: endless wave set to %d"),S->EndlessWave);}}
 // as.dev.state: one line with the phase, the wave, the hero and every enemy (kind, health, state, launched), for a run's log.
@@ -162,6 +207,7 @@ bool Tick(float) {
     UWorld* W=GameWorld();
     if(bGod) if(auto* H=HostHero(W)) {H->InvulnerableUntil=AS::Time(W)+1.f;if(H->Health<H->MaxHealth*.5f) H->Health=H->MaxHealth;}
     const double Now=FPlatformTime::Seconds();
+    if(Now<WalkUntil) if(auto* H=HostHero(W)) H->AddMovementInput(FRotator(0.f,WalkYaw,0.f).Vector(),1.f,true);
     if(Next>=Lines.Num()) return true; // keep ticking for god mode; a new script restarts the list
     if(Now<ResumeAt) return true;
     if(!WaitingFor.IsEmpty()) {
@@ -199,11 +245,15 @@ AS_DEV_COMMAND("as.dev.slamtest",SlamTest,"Launches a grunt at the nearest wall 
 AS_DEV_COMMAND("as.dev.piletest",PileTest,"Launches a grunt into another across open ground: [strength=950]. Watch the log for AshenKnock: pile-up.");
 AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host hero.");
 AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8).");
+AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
 AS_DEV_COMMAND("as.dev.god",God,"1: the host hero cannot be hurt (and is healed back up); 0: off.");
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
+AS_DEV_COMMAND("as.dev.cam",Cam,"A fixed photo camera: <x> <y> <z> <pitch> <yaw> [fov=80], or off.");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
 AS_DEV_COMMAND("as.dev.shot",Shot,"Screenshot to Saved/Screenshots/Dev/<name>.png [ui=1].");
 AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around the host hero [distance=520].");
+AS_DEV_COMMAND("as.dev.decortest",DecorTest,"Walks the host hero at the nearest standing ruin from 5 m.");
+AS_DEV_COMMAND("as.dev.decorcheck",DecorCheck,"Logs whether the hero stopped at the ruin's surface.");
 AS_DEV_COMMAND("as.dev.wave",Wave,"Sets the Endless wave number <n>.");
 AS_DEV_COMMAND("as.dev.state",State,"Logs the phase, wave, hero and every enemy.");
 AS_DEV_COMMAND("as.dev.script",Script,"Plays a script file: one console command per line, plus wait <s> and waitfor ready|combat|hub [timeout].");

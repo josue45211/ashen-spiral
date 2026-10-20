@@ -36,7 +36,8 @@ int main() {
             Check(std::isfinite(A.X)&&std::isfinite(A.Y)&&std::isfinite(A.Yaw)&&std::isfinite(A.Scale),"placements are finite");
             const float Edge=std::max(std::fabs(A.X),std::fabs(A.Y));
             Check(Edge>=RingInner&&Edge<=RingOuter+.01f,"decor stands in the ring beyond the walls");
-            Check(Edge>ArenaHalf+300.f,"and never inside, or against, the arena walls");
+            Check(Edge>ArenaHalf+300.f,"and never in, or against, the fight square");
+            Check(Edge+Table[size_t(A.Kit)].Radius*A.Scale<=WallHalf-150.f,"0.24.2: every piece stands inside the arena walls, clear of them (the ring is ground to explore)");
             Check(A.Scale>=ScaleMin-.001f&&A.Scale<=ScaleMax+.001f,"scale jitter stays in its range");
             Check(A.Yaw>=0.f&&A.Yaw<=360.f,"yaw is a full turn");
         }
@@ -48,11 +49,19 @@ int main() {
         for(size_t I=0;I<Ring1.size();++I) for(size_t J=I+1;J<Ring1.size();++J) {
             const auto &A=Ring1[I],&B=Ring1[J];
             const float Need=(Table[size_t(A.Kit)].Radius*A.Scale+Table[size_t(B.Kit)].Radius*B.Scale)*.6f;
-            Check(std::hypot(A.X-B.X,A.Y-B.Y)>=Need-.01f,"no two pieces of scenery overlap");
+            Check((A.X-B.X)*(A.X-B.X)+(A.Y-B.Y)*(A.Y-B.Y)>=Need*Need-.5f,"no two pieces of scenery overlap");
         }
         Instances=std::max<long long>(Instances,(long long)Ring1.size());
     }
     Check(Instances<=600,"the ring stays inside the plan's 600-instance budget");
+    // ---- 0.24.2: every piece is solid, with a footprint no larger than the piece ----
+    for(const auto& K:Table) for(float Sc:{ScaleMin,1.f,ScaleMax}) {
+        const Solid S=SolidFor(K,Sc);
+        Check(S.Count==(K.Legs?2:1)&&S.Radius>20.f&&S.Radius<=K.Radius*Sc+.01f,"a footprint is real and never wider than the piece");
+        Check(S.Height>=300.f&&S.Height<=SolidHeight+.01f,"tall enough that nobody hops onto it, never taller than SolidHeight");
+        if(K.Legs) Check(S.Offset+S.Radius<=K.Radius*Sc*1.01f&&S.Offset>S.Radius,"an arch's two legs stand apart, inside its span (walk under the middle)");
+    }
+    {int Trees=0;for(const auto& K:Table) if(std::strstr(K.Mesh,"DeadTree")) {++Trees;Check(K.Body<=.25f,"a dead tree collides at its trunk, not its branches");}Check(Trees>=3,"the dead trees are in the table");}
     // ---- Different arenas look different ----
     {const auto A=Ring(1),B=Ring(2);bool Differ=false;for(size_t I=0;I<A.size()&&I<B.size();++I) if(A[I].X!=B[I].X||A[I].Kit!=B[I].Kit) Differ=true;Check(Differ,"another seed gives another ring");}
     // ---- Which stage shows when ----

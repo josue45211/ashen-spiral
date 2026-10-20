@@ -5,6 +5,9 @@
 #include "ASData.h"
 #include "ASGameState.h"
 #include "ASCharacter.h"
+#include "ASEnemy.h"
+#include "Components/CapsuleComponent.h"
+#include "GameFramework/Character.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/TextRenderComponent.h"
@@ -144,7 +147,10 @@ void AASWorld::Tick(float Delta) {
         }
     }
     if(IsEndlessArena()) ApplyShopVisibility(ShopOpen());
-    if(auto* ShiftState=AS::State(this)) AnimateShift(ShiftState); // runs on dedicated servers too (collision); visuals and sound only where there is a screen
+    if(auto* ShiftState=AS::State(this)) {
+        AnimateShift(ShiftState); // runs on dedicated servers too (collision); visuals and sound only where there is a screen
+        if(IsEndlessArena()) ApplyDecorStage(ASExpedition::EndlessSkyStage(ShiftState->bEndless,ShiftState->Phase!=EASPhase::Hub,ShiftState->EndlessWave)); // 0.24.2: decor solids follow the stage everywhere
+    }
     if(GetNetMode()==NM_DedicatedServer) return;
     const auto* S=AS::State(this);if(!S) return;
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
@@ -289,7 +295,7 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
         C->SetCollisionObjectType(ECC_WorldStatic);C->SetCollisionResponseToAllChannels(ECR_Block);C->SetGenerateOverlapEvents(false);
         C->SetCanEverAffectNavigation(false);C->SetCullDistances(0,0);
-        if(Group.StartsWith(TEXT("EndlessSolid"))) {C->SetVisibility(false);C->SetHiddenInGame(true);C->SetCastShadow(false);} // collision-only proxy
+        if(Group.StartsWith(TEXT("EndlessSolid"))||Group.StartsWith(TEXT("EndlessDecorSolid"))) {C->SetVisibility(false);C->SetHiddenInGame(true);C->SetCastShadow(false);} // collision-only proxy
         C->RegisterComponent();Batches.Add(Key,C);
     }
     C->AddInstance(FTransform(FRotator(0,Yaw,0),P,Scale),true);
@@ -398,17 +404,31 @@ void AASWorld::OnRep_Cover() {
     UE_LOG(LogTemp,Display,TEXT("AshenShift: the host's cover list for gen=%d arrived after the cover was built from %d: rebuilding"),Config.Generation,CoverBuiltFrom);
     BuiltGeneration=Config.Generation;RebuildEndlessCover();
 }
-// 0.25 phase C: the Endless arena's skin (Docs/0.25_ASSET_PLAN.md). A ring of ruins, rocks, dead trees and bones stands beyond the walls in three stages that follow the sky: clear, gloomy (wave 21),
-// red (wave 50). It is scenery only: no collision, no navigation, nothing inside the playable square, and the placements come from the arena seed (ASDecorRules.h), so every player sees the same
+// 0.25 phase C: the Endless arena's skin (Docs/0.25_ASSET_PLAN.md). A ring of ruins, rocks, dead trees and bones stands round the fight square in three stages that follow the sky: clear, gloomy
+// (wave 21), red (wave 50). Since 0.24.2 the walls stand beyond it and every piece is solid (see below); the placements come from the arena seed (ASDecorRules.h), so every player sees the same
 // ring. The meshes are the Dragon Cave kit imported locally as SM_DC_*; a machine without the import builds nothing here and keeps the bare arena. Each piece is scaled from its own measured
 // bounds to its target height and set on the ground, whatever the mesh's pivot.
 void AASWorld::BuildEndlessDecor(const FVector& Center) {
-    if(GetNetMode()==NM_DedicatedServer) return;                       // no screen, nothing to collide: the host and the clients build it
-    if(!ASAssets::HasMesh(TEXT("SM_DC_LargeRock01"))) return;         // the stone kit has not been imported on this machine
+    // 0.24.2: every piece is solid (ASDecor::SolidFor: one or two hidden upright cylinders). The solids are built on EVERY machine, the dedicated server too, from the same deterministic
+    // placements, whether or not this machine has the meshes, so every machine collides alike; the later stages' solids switch on with their stage (ApplyDecorStage).
+    const auto Placements=ASDecor::Ring(uint32(Config.Seed));
+    for(const auto& P:Placements) {
+        if(P.Kit<0||P.Kit>=int(ASDecor::Kits().size())) continue;
+        const auto& Kit=ASDecor::Kits()[size_t(P.Kit)];const ASDecor::Solid Body=ASDecor::SolidFor(Kit,P.Scale);
+        const FVector Along=FRotator(0.f,P.Yaw,0.f).Vector();
+        for(int32 Leg=0;Leg<Body.Count;++Leg) {
+            const float Side=Body.Count==2?(Leg==0?-1.f:1.f):0.f;
+            const FVector At=Center+FVector(P.X,P.Y,0.f)+Along*(Body.Offset*Side)+FVector(0.f,0.f,Body.Height*.5f);
+            Add(TEXT("Cylinder"),FString::Printf(TEXT("EndlessDecorSolid%d"),Kit.Stage),At,FVector(Body.Radius/50.f,Body.Radius/50.f,Body.Height/100.f),FLinearColor::Black,true); // the 100 cm cylinder: radius / 50 across
+        }
+    }
+    DecorSolidStage=-1;ApplyDecorStage(0);
+    if(GetNetMode()==NM_DedicatedServer) return;                       // no screen: nothing to draw
+    if(!ASAssets::HasMesh(TEXT("SM_DC_LargeRock01"))) return;         // the stone kit has not been imported on this machine (it still collides like every other)
     const FLinearColor StageTint[ASDecor::StageCount]={FLinearColor(.19f,.19f,.20f),FLinearColor(.14f,.13f,.12f),FLinearColor(.17f,.07f,.06f)};
     // Without ground the scenery would float in the sky: a flat plate far wider than the ring, just under the arena floor (the arena's own floor hides it inside the walls).
     Add(TEXT("Cube"),TEXT("EndlessGround"),Center+FVector(0,0,-40),FVector(170.f,170.f,.2f),FLinearColor(.055f,.05f,.05f),false);
-    for(const auto& P:ASDecor::Ring(uint32(Config.Seed))) {
+    for(const auto& P:Placements) {
         if(!ASDecor::Kits().size()||P.Kit<0||P.Kit>=int(ASDecor::Kits().size())) continue;
         const auto& Kit=ASDecor::Kits()[size_t(P.Kit)];
         const FString Name=UTF8_TO_TCHAR(Kit.Mesh);
@@ -420,7 +440,9 @@ void AASWorld::BuildEndlessDecor(const FVector& Center) {
         if(!(Height>1.f)) continue;
         const float Scale=FMath::Clamp(Kit.Height*P.Scale/Height,.05f,60.f);
         const float Z=Center.Z-(Box.Origin.Z-Box.BoxExtent.Z)*Scale-10.f; // the lowest point of the mesh sits 10 cm into the ground
-        Add(Name,FString::Printf(TEXT("EndlessDecor%d"),Kit.Stage),FVector(Center.X+P.X,Center.Y+P.Y,Z),FVector(Scale),StageTint[Kit.Stage],false,P.Yaw,0,0.f);
+        // 0.24.2: and its middle sits on the placement, whatever the pack's pivot (seen in-engine: off-centre pivots put pieces metres from their solids)
+        const FVector Off=FRotator(0.f,P.Yaw,0.f).RotateVector(FVector(Box.Origin.X,Box.Origin.Y,0.f)*Scale);
+        Add(Name,FString::Printf(TEXT("EndlessDecor%d"),Kit.Stage),FVector(Center.X+P.X-Off.X,Center.Y+P.Y-Off.Y,Z),FVector(Scale),StageTint[Kit.Stage],false,P.Yaw,0,0.f);
     }
     // The chest's loot: a few treasure piles round it, at their own size (the arena's own chest and lucky shop stall are untouched, and nothing here collides).
     struct Loot {const TCHAR* Mesh;float X,Y,Yaw,Scale;};
@@ -435,6 +457,37 @@ void AASWorld::BuildEndlessDecor(const FVector& Center) {
         Add(L.Mesh,TEXT("EndlessDecorLoot"),FVector(At.X,At.Y,Center.Z-(Box.Origin.Z-Box.BoxExtent.Z)*L.Scale),FVector(L.Scale),FLinearColor(.26f,.18f,.04f),false,L.Yaw,0,.6f);
     }
     DecorStageShown=-1;ShowDecorStage(0); // a rebuild starts with every stage visible: hide the later ones until the sky reaches them
+}
+// 0.24.2: the solids of a stage switch on when the sky reaches it (every machine, the server included). Whoever stands where a piece now stands is put just outside it, and the server
+// rebuilds the routing grid, so nobody is stuck inside a rock and the monsters path round the new pieces.
+void AASWorld::ApplyDecorStage(int32 SkyStage) {
+    if(DecorSolidStage==SkyStage) return;
+    const int32 Before=DecorSolidStage;DecorSolidStage=SkyStage;
+    for(auto& Pair:Batches) if(Pair.Value) for(int32 Stage=0;Stage<ASDecor::StageCount;++Stage)
+        if(Pair.Key.ToString().Contains(FString::Printf(TEXT("_EndlessDecorSolid%d_"),Stage))) Pair.Value->SetCollisionEnabled(ASDecor::StageVisible(Stage,SkyStage)?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
+    if(!HasAuthority()||Before<0||SkyStage<=Before) return; // the first stage at a build, or a stage going away: nothing new to stand in
+    auto* S=AS::State(this);if(!S) return;
+    const auto Placements=ASDecor::Ring(uint32(Config.Seed));
+    auto Evict=[&](ACharacter* Body,bool Hero) {
+        if(!IsValid(Body)) return;
+        const float Capsule=Body->GetCapsuleComponent()?Body->GetCapsuleComponent()->GetScaledCapsuleRadius():40.f;
+        for(const auto& P:Placements) {
+            if(P.Kit<0||P.Kit>=int(ASDecor::Kits().size())) continue;
+            const auto& Kit=ASDecor::Kits()[size_t(P.Kit)];if(Kit.Stage==0||!ASDecor::StageVisible(Kit.Stage,SkyStage)||ASDecor::StageVisible(Kit.Stage,Before)) continue; // only pieces that just appeared
+            const ASDecor::Solid Solid=ASDecor::SolidFor(Kit,P.Scale);const FVector Along=FRotator(0.f,P.Yaw,0.f).Vector();
+            for(int32 Leg=0;Leg<Solid.Count;++Leg) {
+                const FVector Core=EndlessCenter+FVector(P.X,P.Y,0.f)+Along*(Solid.Offset*(Solid.Count==2?(Leg==0?-1.f:1.f):0.f));
+                const FVector Here=Body->GetActorLocation();const FVector Away=FVector(Here.X-Core.X,Here.Y-Core.Y,0.f);const float Clear=Solid.Radius+Capsule+15.f;
+                if(Away.SizeSquared()>=Clear*Clear) continue;
+                const FVector Out=Core+(Away.IsNearlyZero()?FVector(1.f,0.f,0.f):Away.GetSafeNormal())*(Clear+10.f);
+                Body->SetActorLocation(FVector(Out.X,Out.Y,Here.Z),false,nullptr,ETeleportType::TeleportPhysics);
+                UE_LOG(LogTemp,Display,TEXT("AshenDecor: %s moved out of a %s that rose at stage %d"),Hero?TEXT("hero"):TEXT("enemy"),UTF8_TO_TCHAR(Kit.Mesh),SkyStage);
+            }
+        }
+    };
+    for(auto W:S->Heroes) Evict(W.Get(),true);
+    for(auto W:S->Enemies) if(AASEnemy* E=W.Get()) if(!E->Flies()) Evict(E,false);
+    BuildNavigation();
 }
 // Stage 0 is always standing; a later stage appears when the sky reaches it and goes again when a new run resets the sky.
 void AASWorld::ShowDecorStage(int32 SkyStage) {

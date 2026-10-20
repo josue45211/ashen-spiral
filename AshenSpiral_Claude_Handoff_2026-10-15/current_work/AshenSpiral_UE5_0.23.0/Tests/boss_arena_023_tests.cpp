@@ -1,4 +1,5 @@
 // Native structural tests for the 0.23 boss arena layouts. Not Unreal navigation/collision tests.
+#include "../Source/AshenSpiral/Public/ASDecorRules.h"
 #include "../Source/AshenSpiral/Public/ASRules.h"
 #include <cmath>
 #include <cstdlib>
@@ -62,8 +63,10 @@ int main() {
     {
         const auto L=GenerateEndless();
         Check(L.Cells.size()==1&&L.Exit==0&&L.Shape==EndlessShape,"endless arena is one enclosed cell");
-        const float EndlessArea=float(2*EndlessHalf)*float(2*EndlessHalf),BossArea=float(2*BossArenaHalf)*float(2*BossArenaHalf);
-        Check(EndlessArea/BossArea>=2.7f&&EndlessArea/BossArea<=3.3f,"endless arena is about three times a boss arena by area");
+        const float EndlessArea=float(2*EndlessCoverHalf)*float(2*EndlessCoverHalf),BossArea=float(2*BossArenaHalf)*float(2*BossArenaHalf);
+        Check(EndlessArea/BossArea>=2.7f&&EndlessArea/BossArea<=3.3f,"endless fight square is about three times a boss arena by area");
+        Check(EndlessHalf>=EndlessCoverHalf+2400,"0.24.2: the walls stand well beyond the fight square (the scenery ring between them is ground to explore)");
+        Check(ASDecor::WallHalf==float(EndlessHalf)&&ASDecor::ArenaHalf==float(EndlessCoverHalf),"the decor ring and the arena agree on where the walls and the fight square are");
         std::array<KeepOut,2> None;
         for(std::uint32_t Seed=1;Seed<40;++Seed) {
             const auto A=EndlessProps(Seed,None),B=EndlessProps(Seed,None);
@@ -72,7 +75,7 @@ int main() {
             for(std::size_t I=0;I<A.size();++I) {
                 Check(A[I].X==B[I].X&&A[I].Y==B[I].Y&&A[I].Yaw==B[I].Yaw,"endless props are identical on server and client");
                 Check(std::hypot(A[I].X,A[I].Y)>=EndlessCentreClear,"endless centre (chest and spawn) stays clear");
-                Check(std::abs(A[I].X)<=EndlessHalf-300&&std::abs(A[I].Y)<=EndlessHalf-300,"endless obstacles stay inside the walls");
+                Check(std::abs(A[I].X)<=EndlessCoverHalf-300&&std::abs(A[I].Y)<=EndlessCoverHalf-300,"endless cover stays inside the fight square");
                 for(std::size_t J=I+1;J<A.size();++J) {
                     const float Ri=.5f*std::hypot(A[I].Length,A[I].Thickness),Rj=.5f*std::hypot(A[J].Length,A[J].Thickness);
                     Check(std::hypot(A[I].X-A[J].X,A[I].Y-A[J].Y)>=Ri+Rj+EndlessGap-.01f,"endless obstacles leave a navigable gap");
@@ -98,8 +101,8 @@ int main() {
         Check(CoverListSane(&Good,1)&&CoverListSane(nullptr,0),"a sane rectangle, and an empty list, pass");
         CoverRect Bad=Good;Bad.Length=0;Check(!CoverListSane(&Bad,1),"a rectangle with no length is rejected");
         Bad=Good;Bad.Thickness=-5;Check(!CoverListSane(&Bad,1),"a negative thickness is rejected");
-        Bad=Good;Bad.X=EndlessHalf+1;Check(!CoverListSane(&Bad,1),"a rectangle outside the walls is rejected");
-        Bad=Good;Bad.Y=-EndlessHalf-1;Check(!CoverListSane(&Bad,1),"... on any side");
+        Bad=Good;Bad.X=EndlessCoverHalf+1;Check(!CoverListSane(&Bad,1),"a rectangle outside the fight square is rejected");
+        Bad=Good;Bad.Y=-EndlessCoverHalf-1;Check(!CoverListSane(&Bad,1),"... on any side");
         Bad=Good;Bad.Length=100000;Check(!CoverListSane(&Bad,1),"an enormous rectangle is rejected");
         Bad=Good;Bad.Yaw=720;Check(!CoverListSane(&Bad,1),"a yaw outside 0..359 is rejected");
         CoverRect Many[CoverMax+1];for(auto& R:Many) R=Good;

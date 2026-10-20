@@ -37,5 +37,15 @@ int main() {
     Check(std::fabs(StepGain(1234.f,640.f)-ASEnemyRules::CueDistanceGain(1234.f))<.001f,"the distance falloff is the enemy cues' falloff");
     // ---- The constants make sense ----
     Check(StepVolume>.05f&&StepVolume<.4f&&StepPitchLow<StepPitchHigh&&StepPitchLow>.5f&&StepPitchHigh<1.2f,"steps are quiet, and the pitch range is sane");
-    std::cout<<"PASS: "<<Checks<<" footstep checks; one step per half stride, audibility, variant rotation, distance gain.\nShared rules only; the imported sounds, their level and how they sit in the mix are unverified.\n";
+    // ---- 0.24.2: walk / run / strafe / backpedal sets, quieter, natural pitch, landings ----
+    Check(SetFor(250.f,1.f)==SetWalk&&SetFor(600.f,1.f)==SetRun&&SetFor(600.f,0.f)==SetStrafe&&SetFor(250.f,.1f)==SetStrafe&&SetFor(600.f,-1.f)==SetBack&&SetFor(250.f,-1.f)==SetWalk,"the set follows speed and the motion against the facing");
+    Check(SetFor(Nan,1.f)==SetRun&&SetFor(600.f,Nan)==SetRun,"bad inputs fall back to the running set");
+    Check(StepVolume<=.12f&&WalkVolume<StepVolume&&StepPitchLow>=.9f&&StepPitchHigh<=1.1f,"0.24.2: quieter than before (.16), walking quieter still, pitched as recorded");
+    for(int S=0;S<SetCount;++S) {
+        Check(SetVariants[S]>=2&&SetPrefix[S][0]=='S',"every set has clips and a name");
+        int Last=-1;std::uint32_t R=99u+unsigned(S);
+        for(int I=0;I<4000;++I) {R=R*1664525u+1013904223u;const int V=NextVariantOf(SetVariants[S],Last,R>>8);Check(V>=0&&V<SetVariants[S]&&V!=Last,"a set's variants rotate without repeats");Last=V;}
+    }
+    Check(LandGain(100.f)==0.f&&LandGain(LandMinFall)>0.f&&LandGain(2000.f)==1.f&&LandGain(900.f)>LandGain(500.f)&&LandGain(Nan)==0.f,"landings are silent when soft, louder from higher, capped");
+    std::cout<<"PASS: "<<Checks<<" footstep checks; one step per half stride, audibility, variant rotation, distance gain, walk/run/strafe/backpedal sets, landings.\nShared rules only; the imported sounds, their level and how they sit in the mix are unverified.\n";
 }
