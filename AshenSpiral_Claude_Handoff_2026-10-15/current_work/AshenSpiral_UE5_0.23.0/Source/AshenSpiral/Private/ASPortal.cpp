@@ -4,6 +4,7 @@
 #include "ASExpeditionRules.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Net/UnrealNetwork.h"
 #include "Engine/World.h"
 
@@ -43,7 +44,15 @@ void AASPortal::Refresh() {
         bStyled=true;
     }
     // Lens (the portal itself): glowing when open, a cold dark blank when locked or dormant.
-    ASAssets::Style(Lens,TEXT("Sphere"),bLocked?FLinearColor(.025f,.02f,.025f):LensColor[K],0.f,bLocked?0.f:OpenGlow[K]);
+    // 0.24.2 aesthetics: a turning vortex (M_Portal, made by the bootstrap) - bright and quick in the portal's colour when open, a slow dark smoke when sealed; the flat glow otherwise
+    if(auto* Vortex=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Portal.M_Portal"),nullptr,LOAD_NoWarn|LOAD_Quiet)) {
+        Lens->SetStaticMesh(ASAssets::Mesh(TEXT("Sphere")));
+        if(auto* M=UMaterialInstanceDynamic::Create(Vortex,Lens)) {
+            M->SetVectorParameterValue(TEXT("Tint"),bLocked?FLinearColor(.07f,.05f,.06f):LensColor[K]);M->SetScalarParameterValue(TEXT("Emission"),bLocked?.8f:OpenGlow[K]);
+            M->SetScalarParameterValue(TEXT("Speed"),bLocked?.25f:(K==3?1.4f:1.f));
+            ASAssets::Paint(Lens,M);
+        }
+    } else ASAssets::Style(Lens,TEXT("Sphere"),bLocked?FLinearColor(.025f,.02f,.025f):LensColor[K],0.f,bLocked?0.f:OpenGlow[K]);
     Lens->SetRelativeLocation(FVector(20,0,245));Lens->SetRelativeScale3D(FVector(.12f,4.3f,5.0f));
     // Chains: two crossing bars of links across the archway, plus a padlock block. Visible only while locked (difficulty portals).
     const bool ShowChains=bLocked&&K<3;
@@ -71,7 +80,11 @@ void AASPortal::Refresh() {
     // Ember burns: three flames at the arch feet.
     for(int32 I=0;I<Flames.Num();++I) if(auto* C=Flames[I].Get()) {
         C->SetVisibility(K==0);
-        if(K==0) {ASAssets::Style(C,TEXT("Sphere"),FLinearColor(1.f,.4f,.05f),0.f,6.f);C->SetRelativeLocation(FVector(-10,(I-1)*250.f,40.f+(I%2)*18.f));C->SetRelativeScale3D(FVector(.32f,.32f,.7f));}
+        if(K==0) {
+            ASAssets::Style(C,TEXT("Sphere"),FLinearColor(1.f,.4f,.05f),0.f,6.f);C->SetRelativeLocation(FVector(-10,(I-1)*250.f,40.f+(I%2)*18.f));C->SetRelativeScale3D(FVector(.32f,.32f,.7f));
+            if(auto* Fire=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Flame.M_Flame"),nullptr,LOAD_NoWarn|LOAD_Quiet)) // 0.24.2: a flame, not an orange egg
+                if(auto* Burning=UMaterialInstanceDynamic::Create(Fire,C)) {Burning->SetVectorParameterValue(TEXT("Tint"),FLinearColor(1.f,.4f,.05f));Burning->SetScalarParameterValue(TEXT("Emission"),8.f);ASAssets::Paint(C,Burning);}
+        }
     }
     // Endless: old blood, scratch marks, trophies of those who never came back whole.
     for(int32 I=0;I<Relics.Num();++I) if(auto* C=Relics[I].Get()) {

@@ -241,6 +241,106 @@ def create_glow_band_material():
     return material
 
 
+def create_portal_material():
+    """0.24.2 aesthetics: M_Portal, the face of a portal - a slow vortex of spiral arms turning against a fainter counter-swirl, a white-hot core and a bright rim, in the
+    portal's colour; a sealed portal is the same vortex, dark and slow (the game sets Tint, Emission and Speed). Unlit. The lens is the engine's sphere (radius 50) pressed flat
+    along x, so the pattern is laid out on its local y and z."""
+    package = "/Game/Art/Materials/M_Portal"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_Portal", "/Game/Art/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_Portal")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    sources = {"LP": edit.create_material_expression(material, unreal.MaterialExpressionLocalPosition, -700, -300),
+               "T": edit.create_material_expression(material, unreal.MaterialExpressionTime, -700, -200)}
+    for row, (name, value) in enumerate((("Emission", 1.0), ("Speed", 1.0), ("Arms", 3.0), ("Twist", 6.0))):
+        param = edit.create_material_expression(material, unreal.MaterialExpressionScalarParameter, -700, -100 + row * 100)
+        param.set_editor_property("parameter_name", name)
+        param.set_editor_property("default_value", value)
+        sources[name] = param
+    tint = edit.create_material_expression(material, unreal.MaterialExpressionVectorParameter, -700, 350)
+    tint.set_editor_property("parameter_name", "Tint")
+    tint.set_editor_property("default_value", unreal.LinearColor(1, .5, .2, 1))
+    sources["Tint"] = tint
+    code = ("float2 p=LP.yz/50.0;float r=saturate(length(p));float a=atan2(p.y,p.x);float t=T*Speed;"
+            "float s1=0.5+0.5*sin(a*Arms+r*Twist-t*3.0);float s2=0.5+0.5*sin(a*(Arms+2.0)-r*Twist*1.7+t*2.2);"
+            "float arms=s1*s1*(0.45+0.55*s2);float core=exp(-r*r*18.0);float rim=smoothstep(0.82,1.0,r);"
+            "float lum=dot(Tint.rgb,float3(0.3,0.59,0.11));"  # the core runs hot in the portal's own colour: a dark, sealed portal keeps a dark heart
+            "float3 c=Tint.rgb*(0.06+1.5*arms)*(1.0-0.35*r)+(Tint.rgb*1.2+lum*0.5)*core+Tint.rgb*rim*0.6;"
+            "return c*Emission*0.3;")
+    custom = edit.create_material_expression(material, unreal.MaterialExpressionCustom, -300, 0)
+    custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    custom.set_editor_property("description", "Portal vortex")
+    custom.set_editor_property("code", code)
+    inputs = []
+    for name in sources:
+        item = unreal.CustomInput()
+        item.set_editor_property("input_name", name)
+        inputs.append(item)
+    custom.set_editor_property("inputs", inputs)
+    for name, source in sources.items():
+        require(edit.connect_material_expressions(source, "", custom, name), "M_Portal input " + name)
+    require(edit.connect_material_property(custom, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "M_Portal output")
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_Portal")
+    return material
+
+
+def create_flame_material():
+    """0.24.2 aesthetics: M_Flame, a flame on the engine's sphere (radius 50, the game stretches it upward): white-hot at its foot, turning to the Tint toward a thinning
+    tip, licks running up it, soft at the silhouette. Unlit and additive, so it is light. The hub's station flames were glowing spheres that bloomed into white eggs."""
+    package = "/Game/Art/Materials/M_Flame"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_Flame", "/Game/Art/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_Flame")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    sources = {"LP": edit.create_material_expression(material, unreal.MaterialExpressionLocalPosition, -700, -400),
+               "T": edit.create_material_expression(material, unreal.MaterialExpressionTime, -700, -300),
+               "N": edit.create_material_expression(material, unreal.MaterialExpressionVertexNormalWS, -700, -200),
+               "V": edit.create_material_expression(material, unreal.MaterialExpressionCameraVectorWS, -700, -100)}
+    for row, (name, value) in enumerate((("Emission", 1.0), ("Flicker", 1.0))):
+        param = edit.create_material_expression(material, unreal.MaterialExpressionScalarParameter, -700, row * 100)
+        param.set_editor_property("parameter_name", name)
+        param.set_editor_property("default_value", value)
+        sources[name] = param
+    tint = edit.create_material_expression(material, unreal.MaterialExpressionVectorParameter, -700, 250)
+    tint.set_editor_property("parameter_name", "Tint")
+    tint.set_editor_property("default_value", unreal.LinearColor(1, .45, .08, 1))
+    sources["Tint"] = tint
+    code = ("float h=saturate(LP.z/100.0+0.5);float facing=saturate(dot(normalize(N),normalize(V)));float body=facing*facing;"
+            "float a=atan2(LP.y,LP.x);float t=T*Flicker;"
+            "float lick=0.6+0.4*sin(a*5.0+h*9.0-t*7.0)*sin(a*3.0-h*6.0+t*5.0);"
+            "float taper=saturate(1.15-h*h*1.3);"
+            "float i=body*taper*(0.55+0.45*lick*h)+pow(body,6.0)*(1.0-h)*0.8;"
+            "float3 hot=lerp(float3(1.0,0.95,0.8),Tint.rgb,saturate(h*1.4));"
+            "return hot*i*Emission*0.25;")
+    custom = edit.create_material_expression(material, unreal.MaterialExpressionCustom, -300, 0)
+    custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    custom.set_editor_property("description", "Flame")
+    custom.set_editor_property("code", code)
+    inputs = []
+    for name in sources:
+        item = unreal.CustomInput()
+        item.set_editor_property("input_name", name)
+        inputs.append(item)
+    custom.set_editor_property("inputs", inputs)
+    for name, source in sources.items():
+        require(edit.connect_material_expressions(source, "", custom, name), "M_Flame input " + name)
+    require(edit.connect_material_property(custom, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "M_Flame output")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the hub's flames are one instanced batch
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_Flame")
+    return material
+
+
 def main():
     MARKER.parent.mkdir(parents=True, exist_ok=True)
     MARKER.unlink(missing_ok=True)
@@ -263,6 +363,8 @@ def main():
     material = create_material()
     glow = create_glow_material()
     band = create_glow_band_material()
+    portal = create_portal_material()
+    flame = create_flame_material()
     manifest_path = ART / "mesh_bounds.json"
     expected = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for file in sorted((ART / "Meshes").glob("*.obj")):
@@ -296,7 +398,7 @@ def main():
     expected_count = len(list((ART / "Meshes").glob("*.obj"))) + len(list((ART / "Textures").glob("*.png"))) + len(list((ART / "Audio").glob("*.wav")))
     require(len(imported) == expected_count, "Incomplete art import: imported {} of {} source files".format(len(imported), expected_count))
     report = {"success": True, "source_version": "0.24.1", "weapon_art_revision": WEAPON_ART_REVISION, "engine": unreal.SystemLibrary.get_engine_version(),
-              "asset_count": len(imported) + 4, "assets": imported + [material.get_path_name(), glow.get_path_name(), band.get_path_name(), map_path],
+              "asset_count": len(imported) + 6, "assets": imported + [material.get_path_name(), glow.get_path_name(), band.get_path_name(), portal.get_path_name(), flame.get_path_name(), map_path],
               "bootstrap_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     MARKER.write_text(json.dumps(report, indent=2))
     unreal.log("ASHEN BOOTSTRAP COMPLETE: {} assets/map entries. Press Play in the AshenSpiral map.".format(report["asset_count"]))

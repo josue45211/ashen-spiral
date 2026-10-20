@@ -408,6 +408,10 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
                     Mat=Gold;
                 }
         }
+        // 0.24.2 aesthetics: the stations' flames burn (M_Flame, made by the bootstrap) instead of blooming into white eggs; Color and Glow as before
+        if(Group==TEXT("HubFlame"))
+            if(auto* Fire=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Flame.M_Flame"),nullptr,LOAD_NoWarn|LOAD_Quiet))
+                if(auto* Burning=UMaterialInstanceDynamic::Create(Fire,C)) {Burning->SetVectorParameterValue(TEXT("Tint"),Color);Burning->SetScalarParameterValue(TEXT("Emission"),Glow);Mat=Burning;C->SetCastShadow(false);}
         ASAssets::Paint(C,Mat); // every section of the mesh (0.24.2: only the first had a material; the rest drew the engine's grid)
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);

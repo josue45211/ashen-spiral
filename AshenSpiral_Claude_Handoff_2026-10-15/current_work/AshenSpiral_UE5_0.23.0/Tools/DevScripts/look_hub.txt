@@ -1,4 +1,4 @@
-# 0.24.2 aesthetics: the hub from look.txt's first view, and a closer one over its inlaid rings.
+# 0.24.2 aesthetics: the hub from look.txt's first view, a closer one over its inlaid rings, the portals' faces up close (Ember open, Ashen sealed, Endless) and the armory's flame.
 waitfor ready 60
 wait 3
 as.dev.god 1
@@ -8,5 +8,17 @@ as.dev.shot look_01_hub 0
 as.dev.cam -500 0 700 -50 0 70
 wait 1
 as.dev.shot hub_02_inlays 0
+as.dev.cam 640 -620 250 0 0 55
+wait 0.8
+as.dev.shot hub_03_portal_ember 0
+as.dev.cam 640 0 250 0 0 55
+wait 0.8
+as.dev.shot hub_04_portal_sealed 0
+as.dev.cam -300 760 250 0 90 55
+wait 0.8
+as.dev.shot hub_05_portal_endless 0
+as.dev.cam 0 -330 210 0 -90 45
+wait 0.8
+as.dev.shot hub_06_flame 0
 wait 0.3
 quit
