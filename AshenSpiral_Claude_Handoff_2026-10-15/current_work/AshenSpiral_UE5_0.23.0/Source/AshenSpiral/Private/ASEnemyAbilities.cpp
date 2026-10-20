@@ -60,6 +60,15 @@ bool AASEnemy::WardBossKit() const {
     return !(S&&S->bEndless&&S->EndlessWave>50);
 }
 
+// A point pulled onto the map. In the Endless arena that is inside its walls by a margin (a flier stays further in), in story rooms it is over walkable floor, a room or a corridor
+// between rooms, pulled in from its edge: the room boxes alone missed the corridors (a hero standing in one had its meteors dropped in the nearest room) and, with the old
+// 3 m of slack, let fliers hover outside the map where no hero could reach them (0.24 playtest).
+FVector AASEnemy::ConfineToMap(const FVector& P,bool bFlier) const {
+    const auto* S=AS::State(this);if(!S||!S->Arena) return P;
+    if(S->bEndless) return S->Arena->ClampToArena(P,-(bFlier?ASEnemyRules::FlightEdgeMargin:80.f));
+    return S->Arena->ClampToFloor(P,bFlier?ASEnemyRules::FlightFloorInset:80.f);
+}
+
 // What happens when an ability's wind-up ends, for the abilities in this file. Returns what comes next (see EFlow); FlowNotMine leaves the ability to CommitAttack, the older
 // by-kind code (slash, shot, pounce, charge, blast, snipe, summon and the boss).
 int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
@@ -165,7 +174,7 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
         const int32 Count=Volley(ER::MeteorCount(S->PlayerArray.Num()),GetUniqueID()*31u+uint32(Pattern),Points,Floor);
         for(int32 I=0;I<Count;++I) {
             FVector At(Points[I].X,Points[I].Y,Floor[I]+11.f); // the old blasts sat 77 cm under the hero's centre: 11 cm over the floor
-            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);  // never into a wall
+            if(S->Arena) At=ConfineToMap(At,false);  // never into a wall
             if(auto* Field=AASField::Spawn(World,0,At,ER::MeteorRadius,ER::MeteorDamage,Points[I].Delay,Points[I].Delay+.4f)) Field->EnemySource=this; // the ground warning, then the blast
             S->Effect(18,At,FVector::UpVector,FLinearColor(1.f,.4f,.08f),Points[I].Delay);                 // the meteor itself falls for as long as the warning lasts
         }
@@ -196,7 +205,7 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
         const int32 Count=Volley(ER::MeteorCount(S->PlayerArray.Num()),GetUniqueID()*17u+uint32(Pattern),Points,Floor);
         for(int32 I=0;I<Count;++I) {
             FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);
-            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            if(S->Arena) At=ConfineToMap(At,false);
             AASHazard::Spawn(World,At,ER::HazardStorm,this,Points[I].Delay,ER::StormImpact);
         }
         return FlowFinish;
@@ -207,7 +216,7 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
         const int32 Count=Volley(S->PlayerArray.Num()>1?4:3,GetUniqueID()*13u+uint32(Pattern),Points,Floor);
         for(int32 I=0;I<Count;++I) {
             FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);
-            if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            if(S->Arena) At=ConfineToMap(At,false);
             const float Delay=ER::SeedFirstDelay+ER::SeedStagger*float(I);
             if(AASHazard::Spawn(World,At,ER::HazardVenom,this,Delay,ER::SeedImpact)) S->Effect(18,At,FVector::UpVector,FLinearColor(.25f,1.f,.30f),Delay); // the pod falls for as long as the warning lasts
         }
@@ -231,7 +240,7 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
             ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
             const int32 Count=Volley(3,GetUniqueID()*19u+uint32(Pattern),Points,Floor);
             for(int32 I=0;I<Count;++I) {
-                FVector At(Points[I].X,Points[I].Y,Floor[I]+11.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                FVector At(Points[I].X,Points[I].Y,Floor[I]+11.f);if(S->Arena) At=ConfineToMap(At,false);
                 const float Delay=ER::BossMarkExtraDelay+.3f*float(I);
                 if(auto* Field=AASField::Spawn(World,0,At,ER::BossMarkRadius,ER::BossMarkDamage,Delay,Delay+.4f)) Field->EnemySource=this;
             }
@@ -262,7 +271,7 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
         ++Pattern;ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
         const int32 Count=Volley((Flags&ER::FlagPhaseTwo)?ER::BossSeedsTwo:ER::BossSeeds,GetUniqueID()*23u+uint32(Pattern),Points,Floor);
         for(int32 I=0;I<Count;++I) {
-            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=ConfineToMap(At,false);
             const float Delay=ER::BossSeedFirstDelay+ER::BossSeedStagger*float(I);
             if(AASHazard::Spawn(World,At,ER::HazardVenom,this,Delay,ER::BossSeedImpact)) S->Effect(18,At,FVector::UpVector,FLinearColor(.25f,1.f,.30f),Delay);
         }
@@ -272,7 +281,7 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
         ++Pattern;ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
         const int32 Count=Volley((Flags&ER::FlagPhaseTwo)?ER::BossBloomsTwo:ER::BossBlooms,GetUniqueID()*29u+uint32(Pattern),Points,Floor);
         for(int32 I=0;I<Count;++I) {
-            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=ConfineToMap(At,false);
             AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::BossBloomFirstDelay+ER::BossBloomStagger*float(I),ER::BossBloomImpact);
         }
         return FlowFinish;
@@ -280,14 +289,14 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
     case ER::AbilityBossRoots: { // roots erupt under every hero after a second; the second phase adds two more near them
         ++Pattern;
         for(auto W:S->Heroes) if(const auto* Hero=W.Get()) if(!Hero->bDowned) {
-            FVector At=Hero->GetActorLocation()-FVector(0,0,Hero->GetSimpleCollisionHalfHeight()-4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+            FVector At=Hero->GetActorLocation()-FVector(0,0,Hero->GetSimpleCollisionHalfHeight()-4.f);if(S->Arena) At=ConfineToMap(At,false);
             AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::BossRootDelay,ER::BossRootImpact);
         }
         if(Flags&ER::FlagPhaseTwo) {
             ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
             const int32 Count=Volley(2,GetUniqueID()*37u+uint32(Pattern),Points,Floor);
             for(int32 I=0;I<Count;++I) {
-                FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=ConfineToMap(At,false);
                 AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::BossRootExtraDelay+.3f*float(I),ER::BossRootImpact);
             }
         }
@@ -320,14 +329,14 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
             for(auto W:S->Wells) if(W.IsValid()) W->bInverted=true;
             for(int32 I=0;I<ER::PhaseBloomsRing;++I) {
                 const float Angle=UE_TWO_PI*float(I)/float(ER::PhaseBloomsRing);FVector At=Feet+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0.f)*ER::PhaseBloomRadius;
-                if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                if(S->Arena) At=ConfineToMap(At,false);
                 AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::PhaseBloomDelay,ER::BossBloomImpact);
             }
         } else { // the Sovereign's roots rise near the heroes
             ER::MeteorPoint Points[ER::MeteorMax];float Floor[ER::MeteorMax];
             const int32 Count=Volley(ER::PhaseBloomsNear,GetUniqueID()*41u+uint32(Pattern),Points,Floor);
             for(int32 I=0;I<Count;++I) {
-                FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=S->Arena->ClampToArena(At,-80.f);
+                FVector At(Points[I].X,Points[I].Y,Floor[I]+4.f);if(S->Arena) At=ConfineToMap(At,false);
                 AASHazard::Spawn(World,At,ER::HazardVoid,this,ER::PhaseBloomDelay+.2f*float(I),ER::BossBloomImpact);
             }
         }
@@ -345,7 +354,7 @@ void AASEnemy::StartRelocation() {
     float Ox=0.f,Oy=0.f;ER::RelocateOffset(GetUniqueID()*7u+uint32(Pattern),Ox,Oy);
     FVector Goal=Target->GetActorLocation()+FVector(Ox,Oy,0.f);
     if(S->Arena) {
-        Goal=S->Arena->ClampToArena(Goal,-160.f);FVector Free;
+        Goal=ConfineToMap(Goal,false);FVector Free;
         if(!S->Arena->FreeEnemyPoint(Goal,Free)) return; // nowhere free near that spot: it stays where it is
         Goal=Free;
     }

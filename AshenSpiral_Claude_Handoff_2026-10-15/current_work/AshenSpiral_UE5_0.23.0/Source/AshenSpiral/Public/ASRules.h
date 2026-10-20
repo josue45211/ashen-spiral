@@ -234,6 +234,31 @@ inline std::vector<EndlessObstacle> EndlessProps(std::uint32_t Seed,const std::a
     }
     return Out;
 }
+// ---- The host's finished cover list (0.24.1) ----
+// The generator above decides each obstacle with float comparisons (hypot against thresholds), and every decision changes everything that follows. Two machines whose float library
+// results differ in the last bit could therefore build different arenas from the same seed: the 0.24 playtest had P2 seeing different cover and running into walls the host had.
+// The host now publishes the finished list, in whole centimetres and degrees, and every machine (the host too) builds the cover from that list, so nothing is ever re-derived.
+struct CoverRect {int X=0,Y=0,Length=0,Thickness=0,Yaw=0;};
+constexpr int CoverMax=72;
+inline std::vector<CoverRect> EndlessCover(std::uint32_t Seed,const std::array<KeepOut,2>& Keep) {
+    std::vector<CoverRect> Out;
+    for(const auto& O:EndlessProps(Seed,Keep)) {
+        if(int(Out.size())>=CoverMax) break;
+        Out.push_back({int(std::lround(O.X)),int(std::lround(O.Y)),int(std::lround(O.Length)),int(std::lround(O.Thickness)),int(std::lround(O.Yaw))});
+    }
+    return Out;
+}
+// Whether a list that arrived from the network describes an arena this game could have made: at most CoverMax rectangles, each with a sane size, inside the walls.
+inline bool CoverListSane(const CoverRect* Items,int Count) {
+    if(Count<0||Count>CoverMax||(Count>0&&!Items)) return false;
+    for(int I=0;I<Count;++I) {
+        const CoverRect& R=Items[I];
+        if(R.Length<=0||R.Thickness<=0||R.Length>900||R.Thickness>900) return false;
+        if(R.X<-EndlessHalf||R.X>EndlessHalf||R.Y<-EndlessHalf||R.Y>EndlessHalf) return false;
+        if(R.Yaw<0||R.Yaw>=360) return false;
+    }
+    return true;
+}
 inline int NextCell(const Layout& L,int From,int To)
 {
     if(From<0||To<0||From>=int(L.Cells.size())||To>=int(L.Cells.size())) return -1;

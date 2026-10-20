@@ -123,6 +123,6 @@ namespace ASData {
     extern const TCHAR* CrosshairStyles[4];
     FLinearColor BiomeColor(int32 Index);
     // 0.24 changed replicated state (enemy Ability byte, GameState.bCoverSolid; bReady and SetReady removed), so 0.23 and 0.24 players cannot join each other.
-    constexpr int32 Protocol=2400;
-    constexpr const TCHAR* Version=TEXT("0.24.0"); // menu label and join-error text; keep equal to ProjectVersion in Config/DefaultGame.ini (run_tests.py checks)
+    constexpr int32 Protocol=2401;
+    constexpr const TCHAR* Version=TEXT("0.24.1"); // menu label and join-error text; keep equal to ProjectVersion in Config/DefaultGame.ini (run_tests.py checks)
 }

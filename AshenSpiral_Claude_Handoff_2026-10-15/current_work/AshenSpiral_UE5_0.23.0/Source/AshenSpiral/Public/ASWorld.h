@@ -17,6 +17,15 @@ USTRUCT() struct FASLayoutConfig {
     UPROPERTY() int32 KeepCount=0;
     UPROPERTY() float KeepX0=0,KeepY0=0,KeepX1=0,KeepY1=0;
 };
+// One obstacle of the Endless arena's cover as the host publishes it (whole centimetres and degrees; ASRules::CoverRect). Every machine builds the cover from this list.
+USTRUCT() struct FASCoverRect {
+    GENERATED_BODY()
+    UPROPERTY() int16 X=0;
+    UPROPERTY() int16 Y=0;
+    UPROPERTY() int16 Length=0;
+    UPROPERTY() int16 Thickness=0;
+    UPROPERTY() int16 Yaw=0;
+};
 struct FASStation {FVector Position;int32 Menu;FString Name;};
 namespace ASAssets {
     UStaticMesh* Mesh(const FString& Name);
@@ -33,6 +42,10 @@ public:
     virtual void Tick(float Delta) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UPROPERTY(ReplicatedUsing=Rebuild) FASLayoutConfig Config;
+    // The Endless cover as the host decided it (0.24.1): the list and the Config.Generation it was made for. Clients build from it instead of re-running the generator.
+    UPROPERTY(ReplicatedUsing=OnRep_Cover) TArray<FASCoverRect> CoverList;
+    UPROPERTY(Replicated) int32 CoverGeneration=-1;
+    UFUNCTION() void OnRep_Cover();
     UFUNCTION() void Rebuild();
     void Configure(int32 Room,int32 Seed);
     void ConfigureEndless(int32 Seed,int32 Shuffle,const TArray<FVector>& Keep);
@@ -58,6 +71,7 @@ public:
     int32 VaultInteraction(const FVector& Position) const;
     FVector EnemySpawn(const FVector& Near,FRandomStream& Random) const;
     FVector SafeEnemyPoint(const FVector& Near) const;
+    FVector ClampToFloor(const FVector& Point,float Inset) const; // 0.24: nearest point over walkable floor (a room or a corridor between rooms), pulled in by Inset: story rooms, where ClampToArena's room boxes miss the corridors
     FVector ClampToArena(const FVector& Point,float Margin) const; // nearest point inside any room box, each grown by Margin (negative = shrunk): keeps fliers, which ignore walls, in the arena
     bool FreeEnemyPoint(const FVector& Near,FVector& Point) const;
     FVector2D CellHalfSize(int32 Index) const;
@@ -88,6 +102,7 @@ private:
     UPROPERTY() TArray<TObjectPtr<UActorComponent>> Labels;
     UPROPERTY() TArray<TObjectPtr<AActor>> LocalLights;
     int32 BuiltGeneration=-1;
+    int32 CoverBuiltFrom=-2; // which list the cover on screen was built from: the host's list for that generation, or -1 for one generated locally while the host's had not arrived
     // Endless shuffles only rebuild the cover blocks (same epoch + room), never the floors, so nobody loses ground and the frame stays cheap.
     int32 BuiltEpoch=-1,BuiltRoom=-99;
     FVector EndlessCenter=FVector::ZeroVector;

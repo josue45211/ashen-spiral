@@ -653,7 +653,7 @@ void AASEnemy::ConfineFlight(float CapsuleHalfHeight) {
     // outside the walls whenever its target stood near an edge, and nothing ever rescued a flier that ended up below the map. Authority only: clients follow replication.
     auto* S=AS::State(this);if(!S||!HasAuthority()) return;
     const FVector Here=GetActorLocation();FVector P=Here;
-    if(S->Arena) P=S->Arena->ClampToArena(P,S->bEndless?-ASEnemyRules::FlightEdgeMargin:ASEnemyRules::FlightRoomSlack);
+    P=ConfineToMap(P,true);
     P.Z=ASEnemyRules::ClampFlightHeight(P.Z,0.f,CapsuleHalfHeight);
     if(P.Equals(Here,1.f)) return;
     SetActorLocation(P,false,nullptr,ETeleportType::None);
@@ -672,7 +672,7 @@ void AASEnemy::Molt() {
     for(int32 I=0;I<Count;++I) {
         const float Angle=UE_TWO_PI*float(I)/float(Count)+float(GetUniqueID()%7)*.3f;
         FVector At=Here+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0.f)*(Boss()?330.f:200.f)+FVector(0,0,FMath::Sin(Angle*2.f)*40.f);
-        if(S->Arena) At=S->Arena->ClampToArena(At,S->bEndless?-ASEnemyRules::FlightEdgeMargin:ASEnemyRules::FlightRoomSlack);
+        At=ConfineToMap(At,true);
         At.Z=ASEnemyRules::ClampFlightHeight(At.Z,0.f,83.f);
         if(GM->SpawnMinion(At,this,ASExpedition::FlierKind,ASEnemyRules::HatchlingHealthScale,true)) S->Effect(11,At,FVector::UpVector,FLinearColor(.7f,.2f,.9f),2.f); // elite-sized burst
     }
@@ -730,7 +730,7 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
     OrbitAngle+=Delta*(Big?.5f:.9f)*OrbitSign;
     const float Radius=ASEnemyRules::OrbitRadius(Now+float(GetUniqueID()%7),OrbitMin,OrbitMax,OrbitCycle);
     FVector Orbit=There+FVector(FMath::Cos(OrbitAngle),FMath::Sin(OrbitAngle),0.f)*Radius;
-    if(S->Arena) Orbit=S->Arena->ClampToArena(Orbit,S->bEndless?-ASEnemyRules::FlightEdgeMargin:ASEnemyRules::FlightRoomSlack); // never steer to a point outside the arena
+    Orbit=ConfineToMap(Orbit,true); // never steer to a point outside the map
     const float Bob=FMath::Sin(Now*2.3f+float(GetUniqueID()%7))*18.f;
     const FVector Delta3=FVector(Orbit.X,Orbit.Y,ASEnemyRules::ClampFlightHeight(FloorZ+Hover+Bob,0.f,Half))-Here;
     AddMovementInput(Delta3.GetSafeNormal(),FMath::Clamp(Delta3.Size()/200.f,.2f,1.f),true);

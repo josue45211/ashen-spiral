@@ -1,2 +1,2 @@
-PASS: 1539324 enemy foundation checks (kits equal the old numbers, ability table and chooser, movement planning over 200000 random states, kiting/circling/retreat simulations, pack spreading, one-time retreat, unsticking).
+PASS: 1539326 enemy foundation checks (kits equal the old numbers, ability table and chooser, movement planning over 200000 random states, kiting/circling/retreat simulations, pack spreading, one-time retreat, unsticking).
 Shared rules only; Unreal movement, navigation and gameplay are not executed.

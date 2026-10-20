@@ -85,5 +85,25 @@ int main() {
         for(int Seed2=1;Seed2<=30;++Seed2) for(const auto& O:EndlessProps(Seed2,None)) Check(O.Height==EndlessWallHeight,"0.23.5: every endless obstacle (pillars, walls and the former low blocks) is the tallest wall height");
         Check(EndlessProps(1,None).size()!=0&&(EndlessProps(1,None)[0].X!=EndlessProps(2,None)[0].X||EndlessProps(1,None)[0].Y!=EndlessProps(2,None)[0].Y),"different seeds give different layouts");
     }
+    // ---- The host's finished cover list (0.24.1): exactly the generator's output in whole centimetres, and the network's version of it is checked before use ----
+    {
+        std::array<KeepOut,2> None;std::array<KeepOut,2> Two;Two[0]={1200.f,-900.f,true};Two[1]={-2000.f,1500.f,true};
+        for(std::uint32_t Seed=1;Seed<60;++Seed) for(const auto& Keep:{None,Two}) {
+            const auto Props=EndlessProps(Seed,Keep);const auto List=EndlessCover(Seed,Keep);
+            Check(List.size()==Props.size()&&int(List.size())<=CoverMax,"the cover list has one rectangle per generated obstacle, at most CoverMax");
+            for(std::size_t I=0;I<List.size();++I) Check(float(List[I].X)==Props[I].X&&float(List[I].Y)==Props[I].Y&&float(List[I].Length)==Props[I].Length&&float(List[I].Thickness)==Props[I].Thickness&&float(List[I].Yaw)==Props[I].Yaw,"rounding to whole centimetres and degrees loses nothing (the generator only makes whole numbers)");
+            Check(CoverListSane(List.data(),int(List.size())),"a list the host makes passes the check a client applies to it");
+        }
+        CoverRect Good{100,-200,420,130,45};
+        Check(CoverListSane(&Good,1)&&CoverListSane(nullptr,0),"a sane rectangle, and an empty list, pass");
+        CoverRect Bad=Good;Bad.Length=0;Check(!CoverListSane(&Bad,1),"a rectangle with no length is rejected");
+        Bad=Good;Bad.Thickness=-5;Check(!CoverListSane(&Bad,1),"a negative thickness is rejected");
+        Bad=Good;Bad.X=EndlessHalf+1;Check(!CoverListSane(&Bad,1),"a rectangle outside the walls is rejected");
+        Bad=Good;Bad.Y=-EndlessHalf-1;Check(!CoverListSane(&Bad,1),"... on any side");
+        Bad=Good;Bad.Length=100000;Check(!CoverListSane(&Bad,1),"an enormous rectangle is rejected");
+        Bad=Good;Bad.Yaw=720;Check(!CoverListSane(&Bad,1),"a yaw outside 0..359 is rejected");
+        CoverRect Many[CoverMax+1];for(auto& R:Many) R=Good;
+        Check(CoverListSane(Many,CoverMax)&&!CoverListSane(Many,CoverMax+1)&&!CoverListSane(Many,-1)&&!CoverListSane(nullptr,3),"the size limit holds, and a null or negative list is rejected");
+    }
     std::cout<<"PASS: "<<Checks<<" boss arena structure checks.\n";
 }

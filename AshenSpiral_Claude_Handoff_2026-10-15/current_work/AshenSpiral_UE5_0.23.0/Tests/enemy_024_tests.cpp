@@ -153,6 +153,56 @@ int main(int argc,char** argv) {
             Check(UnderTop(Arc,49.5*std::cos(A),49.5*std::sin(A),1.6),"the swing arc covers the whole frontal half just inside its outer edge");
         }
     }
+    // ---- Floor-aware confinement (0.24 playtest: fliers left the map in story rooms) ----
+    {
+        unsigned FloorSeed=11u;auto Rand=[&FloorSeed]() {FloorSeed=FloorSeed*1664525u+1013904223u;return float((FloorSeed>>8)&0xFFFF)/65535.f;};
+        auto Range=[&Rand](float A,float B) {return A+(B-A)*Rand();};
+        auto Near=[](float A,float B,float E) {return std::fabs(A-B)<=E;};
+        FloorRect Room;Room.Cx=0.f;Room.Cy=0.f;Room.HalfLength=600.f;Room.HalfWidth=500.f;
+        float X=100.f,Y=-50.f;Check(NearestOnFloor(&Room,1,90.f,X,Y)==0&&X==100.f&&Y==-50.f,"a point over the floor stays where it is");
+        X=900.f;Y=0.f;NearestOnFloor(&Room,1,90.f,X,Y);Check(Near(X,510.f,.01f)&&Near(Y,0.f,.01f),"a point beyond the wall lands 90 cm inside it");
+        X=-2000.f;Y=3000.f;NearestOnFloor(&Room,1,0.f,X,Y);Check(Near(X,-600.f,.01f)&&Near(Y,500.f,.01f),"a far point lands on the nearest corner");
+        X=590.f;Y=0.f;NearestOnFloor(&Room,1,90.f,X,Y);Check(Near(X,510.f,.01f),"inside the wall but within the inset is pulled in too");
+        FloorRect Tiny;Tiny.HalfLength=10.f;Tiny.HalfWidth=10.f;X=500.f;Y=0.f;NearestOnFloor(&Tiny,1,90.f,X,Y);Check(Near(X,40.f,.01f),"a room is never thinner than 40 cm half-size after the inset");
+        // Two rooms joined by a corridor (as AASWorld builds them): the corridor is walkable between them, the void either side of it is not.
+        FloorRect Pair[3];Pair[0].HalfLength=600.f;Pair[0].HalfWidth=600.f;
+        Pair[1].Cx=1920.f;Pair[1].HalfLength=600.f;Pair[1].HalfWidth=600.f;
+        Pair[2].Cx=960.f;Pair[2].Dx=1.f;Pair[2].HalfLength=960.f;Pair[2].HalfWidth=220.f;
+        X=960.f;Y=100.f;Check(NearestOnFloor(Pair,3,90.f,X,Y)==2&&X==960.f&&Y==100.f,"a point in the corridor between two rooms stays where it is (the old room boxes would have dragged it into a room)");
+        X=960.f;Y=300.f;NearestOnFloor(Pair,3,90.f,X,Y);Check(Near(X,960.f,.01f)&&Near(Y,130.f,.01f),"beside the corridor (nearer to it than to a room) it lands on the corridor's edge, 90 cm in");
+        X=960.f;Y=-5000.f;const int Ended=NearestOnFloor(Pair,3,90.f,X,Y);Check(Ended>=0&&Ended<3&&(Ended==2?Near(Y,-130.f,.01f):std::fabs(Y)<=510.01f),"far beside it, it lands over the nearest room or corridor");
+        // A corridor along a diagonal.
+        FloorRect Diag;const float Inv=.70710678f;Diag.Dx=Inv;Diag.Dy=Inv;Diag.HalfLength=1000.f;Diag.HalfWidth=220.f;
+        X=0.f;Y=0.f;Check(NearestOnFloor(&Diag,1,90.f,X,Y)==0&&X==0.f&&Y==0.f,"the centre of a diagonal corridor is floor");
+        X=500.f;Y=-500.f;NearestOnFloor(&Diag,1,0.f,X,Y);Check(Near(X,155.56f,.1f)&&Near(Y,-155.56f,.1f),"across a diagonal corridor the nearest point is on its side line");
+        // Properties over many random layouts.
+        for(int N=0;N<400;++N) {
+            FloorRect Rects[6];const int Count=1+int(Rand()*5.99f);
+            for(int I=0;I<Count;++I) {const float A=Range(0.f,6.2831853f);Rects[I].Cx=Range(-3000.f,3000.f);Rects[I].Cy=Range(-3000.f,3000.f);Rects[I].Dx=std::cos(A);Rects[I].Dy=std::sin(A);Rects[I].HalfLength=Range(100.f,1200.f);Rects[I].HalfWidth=Range(100.f,700.f);}
+            const float Inset=Range(0.f,200.f);
+            for(int K=0;K<20;++K) {
+                float Px=Range(-6000.f,6000.f),Py=Range(-6000.f,6000.f);const float Ox=Px,Oy=Py;
+                const int In=NearestOnFloor(Rects,Count,Inset,Px,Py);
+                bool Inside=false;
+                for(int I=0;I<Count;++I) {const FloorRect& R=Rects[I];const float Hl=std::max(40.f,R.HalfLength-Inset)+.05f,Hw=std::max(40.f,R.HalfWidth-Inset)+.05f;const float Rx=Px-R.Cx,Ry=Py-R.Cy;Inside|=std::fabs(Rx*R.Dx+Ry*R.Dy)<=Hl&&std::fabs(-Rx*R.Dy+Ry*R.Dx)<=Hw;}
+                Check(In>=0&&In<Count&&Inside,"the result is always over one of the rectangles");
+                float Again=Px,AgainY=Py;NearestOnFloor(Rects,Count,Inset,Again,AgainY);Check(Near(Again,Px,.05f)&&Near(AgainY,Py,.05f),"confining twice changes nothing");
+                const float Moved=std::hypot(Px-Ox,Py-Oy);
+                // No point inside any (pulled-in) rectangle is closer to the original than the result.
+                for(int S=0;S<12;++S) {
+                    const FloorRect& R=Rects[int(Rand()*Count*.9999f)];const float Hl=std::max(40.f,R.HalfLength-Inset),Hw=std::max(40.f,R.HalfWidth-Inset);
+                    const float A=Range(-Hl,Hl),B=Range(-Hw,Hw);const float Sx=R.Cx+R.Dx*A-R.Dy*B,Sy=R.Cy+R.Dy*A+R.Dx*B;
+                    Check(std::hypot(Sx-Ox,Sy-Oy)>=Moved-.05f,"no floor point is nearer than the one chosen");
+                }
+            }
+        }
+        float Nx=std::numeric_limits<float>::quiet_NaN(),Ny=5.f;FloorRect R2;R2.Cx=10.f;R2.Cy=20.f;R2.HalfLength=100.f;R2.HalfWidth=100.f;
+        Check(NearestOnFloor(&R2,1,0.f,Nx,Ny)==0&&Nx==10.f&&Ny==20.f,"a broken point lands on the first rectangle's centre");
+        float Ix=std::numeric_limits<float>::infinity(),Iy=0.f;Check(NearestOnFloor(&R2,1,0.f,Ix,Iy)==0&&Ix==10.f,"an infinite point does too");
+        float Zx=5.f,Zy=5.f;Check(NearestOnFloor(nullptr,3,0.f,Zx,Zy)==-1&&NearestOnFloor(&R2,0,0.f,Zx,Zy)==-1&&Zx==5.f&&Zy==5.f,"no rectangles leaves the point alone");
+        float Bx=700.f,By=0.f;Check(NearestOnFloor(&Room,1,std::numeric_limits<float>::quiet_NaN(),Bx,By)==0&&Near(Bx,600.f,.01f),"a broken inset counts as none");
+        Check(FlightFloorInset>=60.f&&FlightFloorInset<=200.f,"fliers stay a little inside the floor's edge");
+    }
     std::printf("PASS: %lld enemy-rule checks (broodcaller cap/cooldown, melee strike shape, flier limits, flying-boss reach and molt, and the strike-sector and swing-arc meshes against those rules).\nEngine-independent rules and source geometry only; Unreal actors, animation, replication and gameplay are not executed.\n",Checks);
     return 0;
 }

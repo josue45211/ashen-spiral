@@ -1,5 +1,6 @@
 #pragma once
 #include <algorithm>
+#include <limits>
 #include <cmath>
 // Engine-independent enemy rules (0.24). The kind ids are the long-standing runtime ids (see ASEnemy.cpp RefreshLook); nothing here touches Unreal types,
 // so Tests/enemy_024_tests.cpp can exercise it as plain C++. TUNABLE values are marked.
@@ -88,11 +89,11 @@ inline float CueDistanceGain(float Distance) {
     const float T=std::clamp((std::max(0.f,Distance)-600.f)/2600.f,0.f,1.f);
     return (1.f-T)*(1.f-T);
 }
-
 // A boss roar is heard across the whole arena (playtest: the roar was too quiet): never below this share of its volume, wherever the listener stands. TUNABLE.
 constexpr float RoarFloorGain=.7f;
 inline bool IsRoarCue(int Id) {return Id==CueBossRoar||Id==CueBossPhase;}
 inline float RoarGain(float Distance) {return std::isfinite(Distance)?std::max(CueDistanceGain(Distance),RoarFloorGain):0.f;}
+
 // ---- Abilities (0.24) ----
 // The replicated byte AASEnemy::Ability: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body and draws the right
 // warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
@@ -354,7 +355,7 @@ template<class ClearFn> inline bool ChooseClearDirection(float WantX,float WantY
 constexpr float FlightFloorClearance=25.f;   // the capsule's bottom never goes below this height above the floor
 constexpr float FlightCeiling=1100.f;        // the capsule's centre never goes above this height above the floor
 constexpr float FlightEdgeMargin=260.f;      // Endless: stay this far inside the arena walls
-constexpr float FlightRoomSlack=300.f;       // story rooms: may overhang a room by this much (corridors between rooms)
+constexpr float FlightFloorInset=90.f;       // story rooms: stay over walkable floor (a room or a corridor), this far in from its edge (the 0.24 playtest found fliers hovering outside the map)
 // Height band for a flier's CENTRE.
 inline float ClampFlightHeight(float Z,float FloorZ,float CapsuleHalfHeight) {
     const float Low=FloorZ+std::max(0.f,CapsuleHalfHeight)+FlightFloorClearance,High=std::max(Low+50.f,FloorZ+FlightCeiling);
@@ -367,6 +368,28 @@ inline void ClampToRect(float MinX,float MaxX,float MinY,float MaxY,float& X,flo
     if(MinY>MaxY) MinY=MaxY=(MinY+MaxY)*.5f;
     X=std::isnan(X)?(MinX+MaxX)*.5f:std::clamp(X,MinX,MaxX);
     Y=std::isnan(Y)?(MinY+MaxY)*.5f:std::clamp(Y,MinY,MaxY);
+}
+// A stretch of walkable floor as an oriented rectangle: a room (axis-aligned) or the corridor between two rooms (along the line joining their centres). Fliers and ground attacks
+// are kept over these (the same floor AASWorld::FloorAt describes).
+struct FloorRect {float Cx=0.f,Cy=0.f,Dx=1.f,Dy=0.f,HalfLength=0.f,HalfWidth=0.f;}; // centre; unit direction of the long side; half sizes along it and across it
+// Moves (X,Y) to the nearest point of the union of the rectangles, each pulled in by Inset (but never thinner than 40 cm either way); a point already over the floor stays where it
+// is. Returns the index of the rectangle it ended in, or -1 when there are none (then it is left alone). A non-finite point lands on the first rectangle's centre.
+inline int NearestOnFloor(const FloorRect* Rects,int Count,float Inset,float& X,float& Y) {
+    if(!Rects||Count<=0) return -1;
+    if(!std::isfinite(X)||!std::isfinite(Y)) {X=Rects[0].Cx;Y=Rects[0].Cy;return 0;}
+    const float In=std::isfinite(Inset)?std::max(0.f,Inset):0.f;
+    float Best=std::numeric_limits<float>::max(),Bx=X,By=Y;int Found=-1;
+    for(int I=0;I<Count;++I) {
+        const FloorRect& R=Rects[I];
+        const float Hl=std::max(40.f,R.HalfLength-In),Hw=std::max(40.f,R.HalfWidth-In);
+        const float Rx=X-R.Cx,Ry=Y-R.Cy;
+        const float Along=std::clamp(Rx*R.Dx+Ry*R.Dy,-Hl,Hl),Across=std::clamp(-Rx*R.Dy+Ry*R.Dx,-Hw,Hw);
+        const float Px=R.Cx+R.Dx*Along-R.Dy*Across,Py=R.Cy+R.Dy*Along+R.Dx*Across;
+        const float D=(Px-X)*(Px-X)+(Py-Y)*(Py-Y);
+        if(D<Best) {Best=D;Bx=Px;By=Py;Found=I;}
+        if(D<1e-8f) break; // already over this one
+    }
+    X=Bx;Y=By;return Found;
 }
 // A flier circles its target. The radius "breathes" between Min and Max so melee players get regular windows when it sweeps within reach:
 // Min at the start of each cycle, Max half a cycle later.

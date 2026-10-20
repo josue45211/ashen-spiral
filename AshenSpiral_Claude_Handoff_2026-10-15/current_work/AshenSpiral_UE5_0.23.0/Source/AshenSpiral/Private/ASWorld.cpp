@@ -1,4 +1,5 @@
 #include "ASWorld.h"
+#include "ASEnemyRules.h"
 #include "Engine/Texture.h"
 #include "ASNavigationRules.h"
 #include "ASData.h"
@@ -60,7 +61,7 @@ void Style(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float 
 }
 }
 AASWorld::AASWorld() {PrimaryActorTick.bCanEverTick=true;bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));RootComponent->SetMobility(EComponentMobility::Static);}
-void AASWorld::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASWorld,Config);}
+void AASWorld::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASWorld,Config);DOREPLIFETIME(AASWorld,CoverList);DOREPLIFETIME(AASWorld,CoverGeneration);}
 void AASWorld::ConfigureEndless(int32 Seed,int32 Shuffle,const TArray<FVector>& Keep) {
     if(!HasAuthority()) return;
     Config.Room=ASRules::EndlessRoom;Config.Seed=Seed;Config.Shuffle=Shuffle;Config.KeepCount=FMath::Min(2,Keep.Num());
@@ -364,13 +365,38 @@ void AASWorld::BuildEndlessCover(const FVector& Center) {
     std::array<ASRules::KeepOut,2> Keep;
     if(Config.KeepCount>0) Keep[0]={Config.KeepX0,Config.KeepY0,true};
     if(Config.KeepCount>1) Keep[1]={Config.KeepX1,Config.KeepY1,true};
-    for(const auto& O:ASRules::EndlessProps(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep)) {
-        const FVector At=Center+FVector(O.X,O.Y,O.Height*.5f),Scale(O.Length/100.f,O.Thickness/100.f,O.Height/100.f);
-        const FLinearColor Tint=Stone*(O.Height>=ASRules::EndlessWallHeight-10.f?1.15f:1.f);
-        Add(TEXT("Cube"),FString::Printf(TEXT("EndlessCover%d"),O.Height>=ASRules::EndlessWallHeight-10.f?0:2),At,Scale,Tint,false,O.Yaw,0,.05f); // visual, animated
-        CoverFootprints.Add({float(Center.X+O.X),float(Center.Y+O.Y),O.Length,O.Thickness,O.Yaw});
-        Add(TEXT("Cube"),TEXT("EndlessSolid"),At,Scale,Tint,true,O.Yaw,0,.05f);                                                                  // collision proxy, fixed
+    // 0.24.1: the host decides the cover and publishes the finished list (CoverList, replicated); every machine, the host included, builds from that list. The generator is only
+    // run on the host, or here as a fallback while the host's list for this generation has not arrived (OnRep_Cover rebuilds as soon as it does).
+    std::vector<ASRules::CoverRect> List;const TCHAR* Source=TEXT("published by the host");
+    if(HasAuthority()) {
+        List=ASRules::EndlessCover(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep);
+        CoverList.Reset();
+        for(const auto& R:List) {FASCoverRect Item;Item.X=int16(R.X);Item.Y=int16(R.Y);Item.Length=int16(R.Length);Item.Thickness=int16(R.Thickness);Item.Yaw=int16(R.Yaw);CoverList.Add(Item);}
+        CoverGeneration=Config.Generation;CoverBuiltFrom=Config.Generation;ForceNetUpdate();
+    } else {
+        std::vector<ASRules::CoverRect> Received;
+        for(const auto& Item:CoverList) Received.push_back({Item.X,Item.Y,Item.Length,Item.Thickness,Item.Yaw});
+        if(CoverGeneration==Config.Generation&&ASRules::CoverListSane(Received.data(),int(Received.size()))) {List=Received;CoverBuiltFrom=Config.Generation;Source=TEXT("received from the host");}
+        else {
+            List=ASRules::EndlessCover(uint32(Config.Seed)^uint32(Config.Shuffle*7919),Keep);CoverBuiltFrom=-1;Source=TEXT("generated locally (the host's list has not arrived)");
+        }
     }
+    UE_LOG(LogTemp,Display,TEXT("AshenShift: cover list %s net=%d gen=%d count=%d"),Source,int32(GetNetMode()),Config.Generation,int32(List.size()));
+    for(const auto& R:List) {
+        const float Height=ASRules::EndlessWallHeight; // every obstacle is the tallest height since 0.23.5
+        const FVector At=Center+FVector(R.X,R.Y,Height*.5f),Scale(R.Length/100.f,R.Thickness/100.f,Height/100.f);
+        const FLinearColor Tint=Stone*1.15f;
+        Add(TEXT("Cube"),TEXT("EndlessCover0"),At,Scale,Tint,false,float(R.Yaw),0,.05f); // visual, animated
+        CoverFootprints.Add({float(Center.X+R.X),float(Center.Y+R.Y),float(R.Length),float(R.Thickness),float(R.Yaw)});
+        Add(TEXT("Cube"),TEXT("EndlessSolid"),At,Scale,Tint,true,float(R.Yaw),0,.05f);   // collision proxy, fixed
+    }
+}
+// The host's list arrived or changed. If the cover on screen was built from anything else (a locally generated fallback, or an older list), rebuild it from this one.
+void AASWorld::OnRep_Cover() {
+    if(HasAuthority()||Config.Room!=ASRules::EndlessRoom||BuiltRoom!=Config.Room||BuiltEpoch!=Config.Epoch||Batches.IsEmpty()) return; // a full rebuild (Rebuild) handles those
+    if(CoverGeneration!=Config.Generation||CoverBuiltFrom==CoverGeneration) return;
+    UE_LOG(LogTemp,Display,TEXT("AshenShift: the host's cover list for gen=%d arrived after the cover was built from %d: rebuilding"),Config.Generation,CoverBuiltFrom);
+    BuiltGeneration=Config.Generation;RebuildEndlessCover();
 }
 // 0.25 phase C: the Endless arena's skin (Docs/0.25_ASSET_PLAN.md). A ring of ruins, rocks, dead trees and bones stands beyond the walls in three stages that follow the sky: clear, gloomy (wave 21),
 // red (wave 50). It is scenery only: no collision, no navigation, nothing inside the playable square, and the placements come from the arena seed (ASDecorRules.h), so every player sees the same
@@ -895,6 +921,19 @@ bool AASWorld::JumpPlan(const FVector& From,const FVector& To,FVector& Takeoff,F
         if(Clear) {Takeoff=P;Landing=Q;return true;}
     }
     return false;
+}
+FVector AASWorld::ClampToFloor(const FVector& P,float Inset) const {
+    if(Layout.Cells.empty()||P.ContainsNaN()) return P;
+    TArray<ASEnemyRules::FloorRect,TInlineAllocator<24>> Rects;
+    const int32 Cells=int32(Layout.Cells.size());
+    for(int32 I=0;I<Cells;++I) {const FVector C=CellPosition(I);const FVector2D H=CellHalfSize(I);ASEnemyRules::FloorRect R;R.Cx=C.X;R.Cy=C.Y;R.HalfLength=float(H.X);R.HalfWidth=float(H.Y);Rects.Add(R);}
+    for(const auto& E:Layout.Edges) { // the corridor between two rooms: the strip FloorAt accepts, 220 cm either side of the line joining their centres
+        if(E.A<0||E.B<0||E.A>=Cells||E.B>=Cells) continue;
+        const FVector A=CellPosition(E.A),B=CellPosition(E.B),D=B-A;const float L=float(D.Size2D());if(L<1.f) continue;
+        ASEnemyRules::FloorRect R;R.Cx=(A.X+B.X)*.5f;R.Cy=(A.Y+B.Y)*.5f;R.Dx=float(D.X)/L;R.Dy=float(D.Y)/L;R.HalfLength=L*.5f;R.HalfWidth=220.f;Rects.Add(R);
+    }
+    float X=float(P.X),Y=float(P.Y);ASEnemyRules::NearestOnFloor(Rects.GetData(),Rects.Num(),Inset,X,Y);
+    return FVector(X,Y,P.Z);
 }
 FVector AASWorld::ClampToArena(const FVector& P,float Margin) const {
     if(Layout.Cells.empty()||!FMath::IsFinite(P.X)||!FMath::IsFinite(P.Y)) return P;
