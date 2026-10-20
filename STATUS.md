@@ -313,3 +313,8 @@ Doc: AshenSpiral_Claude_Handoff_2026-10-15/current_work/AshenSpiral_UE5_0.23.0/D
 Top 5: Dragon Cave stone kit (endless arena skin and decay), Paragon animations retargeted to Manny, Molten Face Hammer (elite hammer enemy and slam socket), Concrete column texture (arena blocks), Game Animation Sample (foley, player model option).
 Needs Josue: (1) licences are NOT in the vault files; confirm each listing's licence on its Fab library page. (2) Four listings are AI-generated (Inferno Dragon, Warrior Titan, Harpy, Stonereaver): decide if acceptable. (3) Replacing the player model is HIGH-COST: only on your say-so.
 Bugs from the 0.24 playtest are separate and should land before art touches those systems: P2 invisible walls, endless cover desync, flying enemies leaving the map, unlit sigils/vault (looks like a regression, cause not investigated).
+
+### 0.25 asset plan finalized (2026-10-19) - plan only, no code, nothing imported
+Doc: AshenSpiral_Claude_Handoff_2026-10-15/current_work/AshenSpiral_UE5_0.23.0/Docs/0.25_ASSET_PLAN.md
+Phases: A hammer + import pipeline (S), B concrete block material (S), C endless arena skin and decay stages (M), D Paragon enemy animations (L), E audio (S). Held: player model, AI creatures.
+Needs Josue: (1) licence check on the five packs, (2) bug-fix batch before B and C, (3) Paragon repackaging only if its licence is clear, (4) leave the player model closed, (5) AI creatures stay held for P2.
