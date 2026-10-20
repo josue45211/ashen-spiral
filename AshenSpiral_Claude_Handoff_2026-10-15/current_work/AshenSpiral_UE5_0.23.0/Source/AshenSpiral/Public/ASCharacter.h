@@ -191,6 +191,8 @@ private:
     void ResolveHammerLanding(const FVector& At);
     void AnimateHammer(float Now,ASHammer::Pose& OutPose,ASHammer::Frame& OutFrame) const;
     float PoseAge=10,WalkPhase=0,ResonanceAt=0,AllyHealAt=0;
+    int32 LastStepVariant=-1;                         // 0.25 phase E: the footstep sound played last (ASFoleyRules.h)
+    void PlayFootstep(float Speed);                   // a step sound for this hero, at the volume its distance from the local hero allows
     float LocomotionWeight=0,LandingAge=10,AirWeight=0,CapeLean=0;
     bool bWasAirborne=false;
     FVector AnimationVelocity=FVector::ZeroVector,PreviousVisualVelocity=FVector::ZeroVector;

@@ -1,0 +1,2 @@
+PASS: 46017 footstep checks; one step per half stride, audibility, variant rotation, distance gain.
+Shared rules only; the imported sounds, their level and how they sit in the mix are unverified.

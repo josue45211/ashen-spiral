@@ -7,6 +7,10 @@
 #include "ASSpell.h"
 #include "ASPresentationRules.h"
 #include "ASWorld.h"
+#include "ASFoleyRules.h"
+#include "Kismet/GameplayStatics.h"
+#include "Sound/SoundBase.h"
+#include "GameFramework/PlayerController.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -35,7 +39,9 @@ void AASCharacter::Animate(float Delta) {
     AirWeight=FMath::Lerp(AirWeight,Airborne?1.f:0.f,ASAnimation::Blend(Delta,13.f));
     if(bWasAirborne&&!Airborne) LandingAge=0;else LandingAge+=Delta;bWasAirborne=Airborne;
     const float Landing=FMath::Exp(-LandingAge*9.f)*FMath::Sin(FMath::Min(LandingAge*18.f,UE_PI));
+    const float PreviousWalkPhase=WalkPhase;
     if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/ASAnimation::StrideDistance(LocomotionWeight)*UE_TWO_PI;
+    if(ASFoley::StepsCrossed(PreviousWalkPhase,WalkPhase)>0&&ASFoley::Audible(Airborne,Dashing,bDowned,Speed)) PlayFootstep(Speed); // a step each time the gait passes a half stride
     const float Step=FMath::Sin(WalkPhase)*LocomotionWeight*(1.f-AirWeight);
     const FVector LocalMove=GetActorTransform().InverseTransformVectorNoScale(GetVelocity()).GetSafeNormal2D();
     const float LeapPhase=ASMelee::Phase(Now,HammerLeapStarted,ASHammer::Startup);
@@ -224,4 +230,25 @@ void AASCharacter::CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const 
     for(const auto& Part:Parts) if(Part&&Part->GetStaticMesh()&&Part->IsVisible()) Out.Add(Part.Get());
     for(const auto& Piece:FlowingCape) if(Piece&&Piece->GetStaticMesh()&&Piece->IsVisible()) Out.Add(Piece.Get());
     if(WeaponMesh&&WeaponMesh->GetStaticMesh()&&WeaponMesh->IsVisible()) Out.Add(WeaponMesh.Get());
+}
+
+// 0.25 phase E: footsteps. The sounds are 12 concrete running steps imported locally (/Game/Audio/Imported/Foley/S_Step01..12, Tools/import_vault_assets.py); a machine without them is silent, as it
+// always was. Every machine plays the steps of every hero itself from the replicated velocity, so they cost no network traffic; dedicated servers have no ears.
+void AASCharacter::PlayFootstep(float Speed) {
+    if(GetNetMode()==NM_DedicatedServer||!GetWorld()) return;
+    static bool bStepsAbsent=false; // the first lookup decides: no imported steps on this machine, no more lookups
+    if(bStepsAbsent) return;
+    const int32 Variant=ASFoley::NextVariant(LastStepVariant,uint32(FMath::Rand()));
+    const FString Name=FString::Printf(TEXT("S_Step%02d"),Variant+1);
+    USoundBase* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/Imported/Foley/%s.%s"),*Name,*Name),nullptr,LOAD_NoWarn);
+    if(!Sound) {if(LastStepVariant<0) bStepsAbsent=true;return;}
+    LastStepVariant=Variant;
+    float Distance=0.f;
+    if(!IsLocallyControlled()) {
+        const APlayerController* Local=UGameplayStatics::GetPlayerController(this,0);const APawn* Pawn=Local?Local->GetPawn():nullptr;
+        Distance=Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f;
+    }
+    const float Volume=ASFoley::StepVolume*ASFoley::StepGain(Distance,Speed);
+    if(Volume<.01f) return;
+    UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Volume,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
 }
