@@ -32,7 +32,8 @@ void AASEnemy::PlayCue(int32 CueId) {
     if(CueId<=ASEnemyRules::CueNone||GetNetMode()==NM_DedicatedServer||!GetWorld()) return;
     // The cue sounds have no attenuation of their own, so the volume follows the distance to the local player (full inside 6 m, silent beyond 32 m).
     const APlayerController* Local=UGameplayStatics::GetPlayerController(this,0);const APawn* Pawn=Local?Local->GetPawn():nullptr;
-    const float Gain=ASEnemyRules::CueDistanceGain(Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f);
+    const float Away=Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f;
+    const float Gain=ASEnemyRules::IsRoarCue(CueId)?ASEnemyRules::RoarGain(Away):ASEnemyRules::CueDistanceGain(Away); // a boss roar carries across the arena
     float Volume=0.f,Pitch=1.f;USoundBase* Sound=ResolveCue(CueId,Volume,Pitch);
     Volume*=Gain;
     if(!Sound||Volume<.02f) return;

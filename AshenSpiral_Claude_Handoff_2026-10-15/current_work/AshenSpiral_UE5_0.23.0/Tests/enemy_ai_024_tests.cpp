@@ -254,7 +254,7 @@ int main(int argc,char** argv) {
             Check(Stem.size()>3&&Stem.compare(0,2,"E_")==0&&Stems.insert(Stem).second,"every cue names its own E_ file, once");
             bool Known=Fallback.empty();for(const char* E:Existing) Known|=Fallback==E;
             Check(Known,"a fallback is one of the twelve existing sounds (or silent until the file is delivered)");
-            Check(C.Volume>0.f&&C.Volume<=.7f&&C.Pitch>=.4f&&C.Pitch<=2.5f,"cue volume and pitch are sane");
+            Check(C.Volume>0.f&&C.Volume<=(IsRoarCue(Id)?1.5f:.7f)&&C.Pitch>=.4f&&C.Pitch<=2.5f,"cue volume and pitch are sane");
             Check(C.Note&&C.Note[0]&&C.Note[1],"every cue says what it should sound like");
             if(!Fallback.empty()&&!Root.empty()) {std::ifstream File(Root+"/SourceArt/Audio/"+Fallback+".wav",std::ios::binary);Check(File.good(),"the fallback sound exists as a source file");}
         }
@@ -267,6 +267,8 @@ int main(int argc,char** argv) {
         float Last=2.f;bool Falls=true;for(float D=0.f;D<4000.f;D+=10.f) {const float G=CueDistanceGain(D);if(G>Last+1e-6f||G<0.f||G>1.f) Falls=false;Last=G;}
         Check(Falls,"cue gain never rises with distance and stays within 0..1");
         Check(CueDistanceGain(1900.f)>.2f&&CueDistanceGain(1900.f)<.3f,"half way out a cue is a quarter as loud");
+        Check(RoarGain(0.f)==1.f&&RoarGain(3200.f)==RoarFloorGain&&RoarGain(99999.f)==RoarFloorGain&&RoarGain(NaN)==0.f&&RoarGain(1900.f)>CueDistanceGain(1900.f),"a boss roar never drops below its floor gain, however far away");
+        Check(IsRoarCue(CueBossRoar)&&IsRoarCue(CueBossPhase)&&!IsRoarCue(CueBossSlam)&&CueFor(CueBossRoar).Volume>CueFor(CueBossSlam).Volume,"the roar cues are the roars, and the roar is louder than the slam");
     }
     // ---- ChooseAbility ----
     {

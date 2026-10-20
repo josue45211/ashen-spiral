@@ -70,10 +70,10 @@ inline const CueSpec& CueFor(int Id) {
         {"E_EggPop",         "S_Hit",        .35f, 1.30f,"an egg popped before it hatches: a quick wet pop"},
         {"E_DiveScreech",    "S_Attack",     .25f, 1.90f,"a flier about to dive: a rising screech, about 0.7 s"},
         {"E_PackCall",       "S_Attack",     .30f, 1.40f,"fliers calling a pack dive: a short chorus of screeches"},
-        {"E_BossRoar",       "S_HammerSmash",.50f, .55f, "a boss winding up: a huge growl and armour clatter, about 1 s"},
+        {"E_BossRoar",       "S_HammerSmash",1.40f,.55f, "a boss winding up: a huge growl and armour clatter, about 1 s"},
         {"E_BossSlam",       "S_HammerSmash",.65f, .70f, "a boss slam: a massive boom"},
         {"E_BossSummon",     "S_Collapse",   .45f, .80f, "a boss calling reinforcements: a dark horn"},
-        {"E_BossPhase",      "S_Collapse",   .60f, .50f, "a boss entering its second phase: a stinger with a roar, about 1.5 s"},
+        {"E_BossPhase",      "S_Collapse",   1.00f,.50f, "a boss entering its second phase: a stinger with a roar, about 1.5 s"},
         {"E_LandingCrash",   "S_HammerSmash",.65f, .60f, "the flying boss crash-landing: a huge impact and falling rubble"},
         {"E_MutationFrost",  "S_Reward",     .25f, 2.20f,"a frostbound elite appearing: icy chimes and a cold exhale"},
         {"E_MutationFire",   "S_Collapse",   .25f, 1.20f,"a burning elite appearing: a gout of flame"},
@@ -89,6 +89,10 @@ inline float CueDistanceGain(float Distance) {
     return (1.f-T)*(1.f-T);
 }
 
+// A boss roar is heard across the whole arena (playtest: the roar was too quiet): never below this share of its volume, wherever the listener stands. TUNABLE.
+constexpr float RoarFloorGain=.7f;
+inline bool IsRoarCue(int Id) {return Id==CueBossRoar||Id==CueBossPhase;}
+inline float RoarGain(float Distance) {return std::isfinite(Distance)?std::max(CueDistanceGain(Distance),RoarFloorGain):0.f;}
 // ---- Abilities (0.24) ----
 // The replicated byte AASEnemy::Ability: which attack is being wound up, struck or recovered from (0 = none), so every machine poses the right body and draws the right
 // warning. Ids are never reused; kits grow by adding rows. One row of timings and warning shape per ability.
