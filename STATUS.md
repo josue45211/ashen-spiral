@@ -1,10 +1,22 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-16 15:36 PDT
-phase: Night report written; waiting for the 5PM playtest. Nothing left to do without answers.
-current_item: idle
+updated: 2026-10-20 08:55 PDT
+phase: 0.24.2 overnight + all-day orders - fix batch, verification, Phase F and AAA passes 1-4 done and pushed; working Edison's 08:30 list
+current_item: boss-roar cue (Edison 08:30 item 1), then more visual polish
 
-## Night report
+## NOW (2026-10-20) - read this first; older history is below, newest sections at the bottom of the file
+Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 724e77e, pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+Done today and pushed:
+- Fix batch F1-F8 (d257312, cf0e428): launches fly and slam, wall slams/pile-ups hurt, element procs scale with hits, no collapsing enemies, ring-attack warning, weapon glint, real lightning bolt.
+- Endless map (f48e00d): walls pushed out beyond the ruin ring, which is now solid ground to explore. Footsteps quieter and natural.
+- Phase F (7ad453e): heroes are the Unreal Mannequin (P1 Manny, P2 Quinn) with Unreal's locomotion, weapon stances and attack animations; the old rig is the fallback.
+- Carry-over verification (9737c88): elite mutations, ward bosses, flying boss, proc chains, metamorphoses, reward ceremony, death screen, co-op on one PC, Endless, hub, collapses - all PASS in-engine.
+- AAA aesthetics passes 1-4 (fcbab93, 7ec661d, 59a2d97, 724e77e): the ruin ring had been drawing as Unreal's grey grid since 0.25 phase C, and every weapon and several enemies had parts drawn as the grid since the first meshes - both fixed; the ruins wear the Dragon Cave pack's own textures; ruined-courtyard floor; weathered-concrete cover blocks; volumetric clouds per sky stage, sun haze, light shafts; effects are real light that fades; lit vaulted chambers; weapon finishes; your chosen colour on the Mannequin.
+Playtest zip: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip (carries all the local content; checked from a fresh folder: Setup 0 errors, game runs). It will be re-exported after the current item.
+Needs Josue: nothing.
+Not blocking (Gate 0 notes): the Fab/vault licences of the Molten hammer, Concrete column, Dragon Cave and Game Animation Sample are still unconfirmed in Docs/CREDITS.md.
+
+## Night report (2026-10-16, historical)
 Final check at HEAD 5c0bcca, run 2026-10-16 15:36 PDT: UBT editor build Succeeded in unity AND -DisableUnity (zero compile errors); Tests/run_tests.py exit 0 (native + gameplay + new suites). No game launch, per Josue.
 Everything below is compile + native-test verified only. Nothing was run in-engine.
 

@@ -29,6 +29,7 @@
 #include "UnrealClient.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Engine/StaticMesh.h"
+#include "AudioMixerBlueprintLibrary.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -335,6 +336,15 @@ void LookAt(const TArray<FString>& Args,UWorld* W) {
     PC->SetViewTarget(PhotoCamera.Get());
     UE_LOG(LogTemp,Display,TEXT("AshenDev: looking at %s at %s (%.0f cm tall)"),*Found,*Target.ToCompactString(),Height);
 }
+// as.dev.record start [seconds] | stop <name>: records what the game plays (the main submix) to Saved/AudioRecordings/Dev/<name>.wav, to measure sounds in the mix (the roars).
+void Record(const TArray<FString>& Args,UWorld* W) {
+    if(!W||!Args.IsValidIndex(0)) return;
+    if(Args[0]==TEXT("start")) {UAudioMixerBlueprintLibrary::StartRecordingOutput(W,ArgFloat(Args,1,30.f));UE_LOG(LogTemp,Display,TEXT("AshenDev: recording the game's audio"));return;}
+    const FString Name=Args.IsValidIndex(1)?Args[1]:TEXT("recording");
+    const FString Folder=FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()/TEXT("AudioRecordings/Dev"));
+    UAudioMixerBlueprintLibrary::StopRecordingOutput(W,EAudioRecordingExportType::WavFile,Name,Folder);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: audio recording written to %s/%s.wav"),*Folder,*Name);
+}
 // as.dev.wave <n>: sets the Endless wave number (the sky, scenery stage and lightning follow it at the next wave's checks).
 void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->EndlessWave=FMath::Clamp(ArgInt(Args,0,1),1,999);S->ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("AshenDev: endless wave set to %d"),S->EndlessWave);}}
 // as.dev.state: one line with the phase, the wave, the hero and every enemy (kind, health, state, launched), for a run's log.
@@ -432,6 +442,7 @@ AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around 
 AS_DEV_COMMAND("as.dev.decortest",DecorTest,"Walks the host hero at the nearest standing ruin from 5 m.");
 AS_DEV_COMMAND("as.dev.decorcheck",DecorCheck,"Logs whether the hero stopped at the ruin's surface.");
 AS_DEV_COMMAND("as.dev.lookat",LookAt,"Photo camera on the nearest ruin piece whose mesh name contains <text> [distance=1400] [height=300].");
+AS_DEV_COMMAND("as.dev.record",Record,"Records the game's audio: start [seconds=30] | stop <name> (Saved/AudioRecordings/Dev/<name>.wav).");
 AS_DEV_COMMAND("as.dev.wave",Wave,"Sets the Endless wave number <n>.");
 AS_DEV_COMMAND("as.dev.state",State,"Logs the phase, wave, hero and every enemy.");
 AS_DEV_COMMAND("as.dev.script",Script,"Plays a script file: one console command per line, plus wait <s> and waitfor ready|combat|hub [timeout].");

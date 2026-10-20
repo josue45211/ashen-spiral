@@ -41,6 +41,8 @@ void AASEnemy::PlayCue(int32 CueId) {
     if(GFrameCounter!=BudgetFrame) {BudgetFrame=GFrameCounter;Budget=0;}
     if(++Budget>4) return; // a crowd winding up on the same frame is heard as a few cues, not a wall of sound
     UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Volume,Pitch);
+    if(ASEnemyRules::IsRoarCue(CueId)||CueId==ASEnemyRules::CueEnrageRoar)
+        UE_LOG(LogTemp,Display,TEXT("AshenCue: %s plays %s at volume %.2f (%.0f cm away)"),UTF8_TO_TCHAR(ASEnemyRules::CueFor(CueId).Stem),*Sound->GetName(),Volume,Away);
 }
 void AASEnemy::UpdateCues(float Now) {
     namespace ER=ASEnemyRules;

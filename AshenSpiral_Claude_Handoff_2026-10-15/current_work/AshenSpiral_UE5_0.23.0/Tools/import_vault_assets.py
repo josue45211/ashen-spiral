@@ -974,6 +974,51 @@ STEP_VARIANTS = 12
 STEP_SETS = (("run", 12, "S_Step"), ("walk", 12, "S_StepWalk"), ("strafe", 8, "S_StepStrafe"), ("runBackwds", 8, "S_StepBack"), ("land", 8, "S_Land"), ("jump", 6, "S_Jump"))
 
 
+ROAR_STAGE = STAGE / "Roar"
+ROAR_CUES = ("E_BossRoar", "E_BossPhase", "E_EnrageRoar")  # cut by Tools/cut_roars.py from the monster sound; the cue table (ASEnemyRules.h) looks for these first
+
+
+def roar_phase():
+    """Phase L (0.24.2, Edison: "resolve the roar so it is loud and clear"): the Horror Template's monster sound (Danik Studios; its listing: "freely modify, expand, and use it in
+    your own projects - commercial or personal") as the boss and elite roars. Run twice: first it exports SW_Monster to Saved/VaultStage/Roar/SW_Monster.wav, Tools/cut_roars.py then
+    measures it and cuts the roars, and the second run (the cuts present) imports them as /Game/Audio/E_BossRoar, E_BossPhase and E_EnrageRoar. Local only, like every vault import."""
+    ROAR_STAGE.mkdir(parents=True, exist_ok=True)
+    cuts = [ROAR_STAGE / (name + ".wav") for name in ROAR_CUES]
+    if all(c.is_file() for c in cuts):
+        for cut in cuts:
+            task = unreal.AssetImportTask()
+            task.set_editor_property("filename", str(cut))
+            task.set_editor_property("destination_path", "/Game/Audio")
+            task.set_editor_property("destination_name", cut.stem)
+            task.set_editor_property("automated", True)
+            task.set_editor_property("replace_existing", True)
+            task.set_editor_property("save", True)
+            tools.import_asset_tasks([task])
+            sound = unreal.load_asset("/Game/Audio/" + cut.stem)
+            require(isinstance(sound, unreal.SoundWave), "Roar import failed: " + cut.name)
+            report["imported"].append(sound.get_path_name())
+        report["notes"].append("phase L: imported %s" % ", ".join(ROAR_CUES))
+        return
+    require(HORROR_ROAR.is_file(), "No Horror Template monster sound at " + str(HORROR_ROAR))
+    staging = ROOT / "Content" / "HorrorTemplate" / "Audio"
+    staging.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(HORROR_ROAR, staging / HORROR_ROAR.name)
+    unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous(["/Game/HorrorTemplate"], True)
+    sound = unreal.load_asset("/Game/HorrorTemplate/Audio/SW_Monster")
+    require(isinstance(sound, unreal.SoundWave), "SW_Monster did not load")
+    task = unreal.AssetExportTask()
+    task.set_editor_property("object", sound)
+    task.set_editor_property("filename", str(ROAR_STAGE / "SW_Monster.wav"))
+    task.set_editor_property("automated", True)
+    task.set_editor_property("prompt", False)
+    task.set_editor_property("replace_identical", True)
+    task.set_editor_property("exporter", unreal.SoundExporterWAV())
+    require(unreal.Exporter.run_asset_export_task(task), "WAV export failed")
+    assets.delete_directory("/Game/HorrorTemplate")
+    shutil.rmtree(ROOT / "Content" / "HorrorTemplate", ignore_errors=True)
+    report["notes"].append("phase L: exported SW_Monster.wav to %s; now run Tools/cut_roars.py, then phase L again" % ROAR_STAGE)
+
+
 def import_audio():
     staged = []
     steps = ROOT / "Content" / "Audio" / "Foley" / "SoundWaves" / "Sneaker" / "Concrete"
@@ -1058,7 +1103,7 @@ try:
     # Each phase stands alone: one failing (a missing pack, say) must not stop the others.
     errors = []
     chosen = os.environ.get("ASHEN_PHASES", "ABCE").upper()
-    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases), ("K", import_block)):
+    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases), ("K", import_block), ("L", roar_phase)):
         if letter not in chosen:
             continue
         try:

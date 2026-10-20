@@ -1,0 +1,31 @@
+# 0.24.2 (Edison 08:30 item 1): the boss and elite roars, recorded from the game's own output (Saved/AudioRecordings/Dev/verify_roar.wav) and measured by Tools/measure_recording.py.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 500
+as.dev.face 0
+wait 1
+as.dev.record start 45
+wait 1.5
+# an elite brute at half health roars into a rage
+as.dev.elite 0 1 700
+wait 2
+as.dev.wound 0.45 3000
+wait 3.5
+as.dev.killall
+wait 1.5
+# a ward boss: the roar before each attack, then the half-health phase roar
+as.dev.boss 0 0 1200
+wait 10
+as.dev.wound 0.45 3000
+wait 6
+as.dev.killall
+wait 1.5
+as.dev.record stop verify_roar
+wait 1
+quit
