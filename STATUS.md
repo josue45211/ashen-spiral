@@ -392,3 +392,4 @@ Needs Josue: nothing.
 UNVERIFIED (playtest): taste. Performance on P2's machine (real-time sky capture, clouds, 2048 textures); please report frame rate.
 P2's machine needs the new local imports (Content/Art/Imported/Ground and /Decor; the dressed SM_DC meshes): the next playtest zip will carry them.
 Needs Josue: nothing.
+- (pass 3) Found and fixed an old bug: every weapon and several enemies had parts drawn as Unreal's grey checker grid (only the first part of each mesh ever got a material). Weapons now show clean steel, wood and bronze. Effects (swing arcs, flashes, afterimages) are now real light that fades out cleanly. The dark vaulted chambers have twice the lanterns and a brighter fill. Setup is sturdier (re-runs no longer fail).

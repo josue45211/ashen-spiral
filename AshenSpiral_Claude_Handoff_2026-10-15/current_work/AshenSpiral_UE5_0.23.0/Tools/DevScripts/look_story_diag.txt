@@ -1,0 +1,21 @@
+# diagnostic: why the roofed story chambers are near black - the same view with one renderer feature changed at a time
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.run 4242
+waitfor combat 40
+wait 2.5
+as.dev.shot sdiag_01_default 0
+r.SkyLight.RealTimeReflectionCapture 0
+wait 1.5
+as.dev.shot sdiag_02_no_realtime_sky 0
+r.SkyLight.RealTimeReflectionCapture 1
+r.AmbientOcclusionLevels 0
+wait 1
+as.dev.shot sdiag_03_no_ssao 0
+r.AmbientOcclusionLevels -1
+r.Lumen.DiffuseIndirect.Allow 0
+wait 1.5
+as.dev.shot sdiag_04_no_lumen_gi 0
+wait 0.5
+quit

@@ -27,6 +27,8 @@
 #include "Misc/Paths.h"
 #include "Containers/Ticker.h"
 #include "UnrealClient.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Engine/StaticMesh.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -178,6 +180,14 @@ void Pick(const TArray<FString>& Args,UWorld* W) {
     if(I<0||I>=ASBuild::Count) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: pick - trait %d out of range"),I);return;}
     int32 Taken=0;for(int32 N=0;N<FMath::Clamp(ArgInt(Args,1,1),1,12);++N) if(H->CanApplyChoice(ASBuild::OfferBase+I)&&H->ApplyChoice(ASBuild::OfferBase+I)) ++Taken;
     UE_LOG(LogTemp,Display,TEXT("AshenDev: picked %s %d time(s) (catalogue max %d)"),UTF8_TO_TCHAR(ASBuild::Catalog[I].Name),Taken,ASBuild::Catalog[I].Max);
+}
+// as.dev.weaponlook <metallic> <roughness>: retunes the host hero's weapon material live (for judging finishes by screenshot; the next look refresh restores ASData::WeaponFinish).
+void WeaponLook(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);if(!H) return;
+    TArray<UStaticMeshComponent*> Meshes;H->CollectTrailMeshes(Meshes);const FString Held=FString::Printf(TEXT("SM_Weapon%d"),H->Build.Weapon);
+    for(UStaticMeshComponent* Mesh:Meshes) if(Mesh&&Mesh->GetStaticMesh()&&Mesh->GetStaticMesh()->GetName()==Held)
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(0))) {M->SetScalarParameterValue(TEXT("Metallic"),ArgFloat(Args,0,.9f));M->SetScalarParameterValue(TEXT("Roughness"),ArgFloat(Args,1,.4f));}
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: weapon look metallic %.2f roughness %.2f"),ArgFloat(Args,0,.9f),ArgFloat(Args,1,.4f));
 }
 void Weapon(const TArray<FString>& Args,UWorld* W) {
     auto* H=HostHero(W);if(!H) return;FASBuild B=H->Build;B.Weapon=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WeaponCount-1);H->ApplyBuild(B,false);H->RefreshLook();
@@ -406,6 +416,7 @@ AS_DEV_COMMAND("as.dev.slamtest",SlamTest,"Launches a grunt at the nearest wall 
 AS_DEV_COMMAND("as.dev.piletest",PileTest,"Launches a grunt into another across open ground: [strength=950]. Watch the log for AshenKnock: pile-up.");
 AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host hero.");
 AS_DEV_COMMAND("as.dev.pick",Pick,"The host hero takes trait <index> through the real reward path, [times=1] (stops at its maximum).");
+AS_DEV_COMMAND("as.dev.weaponlook",WeaponLook,"Retunes the host hero's weapon material: <metallic> <roughness> (until the next look refresh).");
 AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8).");
 AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
 AS_DEV_COMMAND("as.dev.input",Input,"Presses the host's buttons: attack|spiral <hold seconds>, dash, jump, rune, reload.");

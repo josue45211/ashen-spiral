@@ -1,0 +1,30 @@
+# 0.24.2 aesthetics: the story chambers, one per biome (0 archives: rooms 0-7, 2: 8-11, 1: 12-15, 4 cave: 16-23, 3: 24-31), each from the hero's own camera and from above.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.run 4242
+waitfor combat 40
+wait 2
+as.dev.shot story_00_archives 0
+as.dev.cam 0 0 1800 -60 0 80
+wait 1
+as.dev.shot story_00b_archives_above 0
+as.dev.cam off
+as.dev.room 9
+waitfor combat 30
+wait 2.5
+as.dev.shot story_09_biome2 0
+as.dev.room 13
+waitfor combat 30
+wait 2.5
+as.dev.shot story_13_biome1 0
+as.dev.room 17
+waitfor combat 30
+wait 2.5
+as.dev.shot story_17_cave 0
+as.dev.room 25
+waitfor combat 30
+wait 2.5
+as.dev.shot story_25_biome3 0
+wait 0.5
+quit

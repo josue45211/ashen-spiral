@@ -59,9 +59,24 @@ void Armor(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float 
     Style(C,Name,Color,Metal,Glow);
     if(auto* M=Cast<UMaterialInstanceDynamic>(C->GetMaterial(0))) {M->SetScalarParameterValue(TEXT("SurfaceDetail"),0.f);M->SetScalarParameterValue(TEXT("Roughness"),Rough);}
 }
+void Paint(UMeshComponent* C,UMaterialInterface* M) {
+    if(!C) return;
+    for(int32 Slot=0;Slot<FMath::Max(1,C->GetNumMaterials());++Slot) C->SetMaterial(Slot,M);
+}
 void Style(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float Metal,float Glow) {
-    if(!C) return;C->SetStaticMesh(Mesh(Name));C->SetMaterial(0,Material(C,Color,Metal,Glow));
+    if(!C) return;C->SetStaticMesh(Mesh(Name));Paint(C,Material(C,Color,Metal,Glow));
     C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);
+}
+UMaterialInstanceDynamic* Glow(UObject* Outer,FLinearColor C,float Emission) {
+    static bool bMissing=false; // game thread only; a machine whose bootstrap predates M_Glow keeps the old glow until it re-runs Setup
+    UMaterialInterface* Base=bMissing?nullptr:LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Glow.M_Glow"),nullptr,LOAD_NoWarn);
+    if(!Base) {bMissing=true;return Material(Outer,C,0.f,Emission);}
+    auto* M=UMaterialInstanceDynamic::Create(Base,Outer);
+    M->SetVectorParameterValue(TEXT("Tint"),C);M->SetScalarParameterValue(TEXT("Emission"),Emission);return M;
+}
+void StyleGlow(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float Emission) {
+    if(!C) return;C->SetStaticMesh(Mesh(Name));Paint(C,Glow(C,Color,Emission));
+    C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);C->SetCastShadow(false); // light casts no shadow
 }
 }
 AASWorld::AASWorld() {PrimaryActorTick.bCanEverTick=true;bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));RootComponent->SetMobility(EComponentMobility::Static);}
@@ -96,6 +111,7 @@ void AASWorld::BeginPlay() {
         Fill->SetActorRotation(FRotator(-55,145,0));
         D->SetIntensity(.8f);D->SetLightColor(FLinearColor(.65f,.76f,1.f));D->SetCastShadows(false);
     }
+    FillLight=Fill;ApplyRoomLighting(); // 0.24.2: the first build (Rebuild above) came before the fill existed
     GetWorld()->SpawnActor<ASkyAtmosphere>();
     // 0.24.2 aesthetics: real volumetric clouds over every arena. Their cover, density and storm cells follow the Endless stage (SkyLook, applied in Tick); the material is
     // the engine's own simple cloud, given a per-world instance so the stage can drive it.
@@ -285,9 +301,16 @@ void AASWorld::Rebuild() {
     for(auto A:LocalLights) if(IsValid(A)) A->Destroy();LocalLights.Empty();
     CoverFootprints.Reset();ShopLabel=nullptr;ShopShown=-1;Stations.Empty();Water.Empty();Layout=ASRules::Layout();Navigation=ASRules::NavGrid();GuideNavigation=ASRules::NavGrid();bGuideNavigationReady=false;GuideBreakableCount=-1;
     if(Config.Room<0) MakeHub();else {Layout=Config.Room==ASRules::EndlessRoom?ASRules::GenerateEndless():(ASRules::Boss(Config.Room)?ASRules::GenerateBoss(ASRules::Ward(Config.Room)):ASRules::Generate(uint32(Config.Seed)));MakeRoom();if(HasAuthority()) BuildNavigation();}
-    UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d"),
-        Config.Room,Config.Generation,Batches.Num(),Stations.Num());
+    ApplyRoomLighting();
+    UE_LOG(LogTemp,Display,TEXT("AshenVisual: room=%d generation=%d geometryBatches=%d stations=%d lights=%d"),
+        Config.Room,Config.Generation,Batches.Num(),Stations.Num(),LocalLights.Num());
     if(IsEndlessArena()) LogLayoutFingerprint(TEXT("arena built"));
+}
+// 0.24.2 aesthetics: the cool fill is stronger in the vaulted and cave chambers, where the roof shuts out the sun and the sky; elsewhere it stays the gentle top-up it was.
+void AASWorld::ApplyRoomLighting() {
+    if(!FillLight) return;
+    const bool Roofed=Config.Room>=0&&!IsEndlessArena()&&!HasBossArena()&&(Biome()==0||Biome()==1||Biome()==4);
+    if(auto* D=Cast<UDirectionalLightComponent>(FillLight->GetLightComponent())) D->SetIntensity(Roofed?1.7f:.8f); // TUNABLE
 }
 void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P,const FVector& Scale,FLinearColor Color,bool Collision,float Yaw,float Glow,float Metal) {
     const FName Key(*(MeshName+TEXT("_")+Group+(Collision?TEXT("_C"):TEXT("_N"))));
@@ -308,6 +331,12 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
         // 0.25 phase B: the Endless cover blocks wear the arena concrete when it has been imported on this machine (Tools/make_concrete_tile.ps1 + Tools/import_vault_assets.py): a world-aligned
         // material, so the stretched blocks show it at one scale on every face. The block keeps its own mesh, collision and tint (the tint is darkened stone, so it is brightened for a texture
         // that multiplies it); without the import the flat tinted block is used as before.
+        // 0.24.2 aesthetics: the hub's display weapons are made of what the hero's are (ASData::WeaponFinish), not the floor's stone
+        if(Group==TEXT("WeaponDisplay")&&Mat) { // the group holds only the weapon meshes, named SM_Weapon<index>
+            const ASData::FWeaponFinish Coat=ASData::WeaponFinish(FCString::Atoi(*MeshName.RightChop(9)));
+            Mat->SetVectorParameterValue(TEXT("Tint"),Coat.Shade);Mat->SetScalarParameterValue(TEXT("Metallic"),Coat.Metallic);
+            Mat->SetScalarParameterValue(TEXT("Roughness"),Coat.Roughness);Mat->SetScalarParameterValue(TEXT("SurfaceDetail"),0.f);
+        }
         // 0.24.2 aesthetics: the Endless arena's boundary walls wear the concrete too (they showed the stone tile stretched along 112 m), darker than the cover
         const bool EndlessWall=IsEndlessArena()&&(Group==TEXT("SolidDeadEnd")||Group==TEXT("WallCap"));
         if(Group.StartsWith(TEXT("EndlessCover"))||Group.StartsWith(TEXT("EndlessDecor"))||Group.StartsWith(TEXT("EndlessGround"))||EndlessWall) {
@@ -341,7 +370,7 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
                     Floor->SetVectorParameterValue(TEXT("Tint"),Group.StartsWith(TEXT("EndlessGround"))?FLinearColor(.36f,.35f,.34f):FLinearColor(.56f,.54f,.52f));
                     Mat=Floor;
                 }
-        C->SetMaterial(0,Mat);
+        ASAssets::Paint(C,Mat); // every section of the mesh (0.24.2: only the first had a material; the rest drew the engine's grid)
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
         C->SetCollisionObjectType(ECC_WorldStatic);C->SetCollisionResponseToAllChannels(ECR_Block);C->SetGenerateOverlapEvents(false);
@@ -358,7 +387,7 @@ void AASWorld::Text(const FString& Value,const FVector& P,float Yaw,float Size) 
     T->SetRelativeLocation(P);T->SetRelativeRotation(FRotator(0,Yaw,0));T->RegisterComponent();Labels.Add(T);
 }
 void AASWorld::Light(const FVector& P,FLinearColor Color,float Intensity,float Radius) {
-    if(GetNetMode()==NM_DedicatedServer || LocalLights.Num()>=48) return;
+    if(GetNetMode()==NM_DedicatedServer || LocalLights.Num()>=64) return; // 0.24.2: 48 -> 64 (two lanterns per vaulted cell); unshadowed, so each costs little
     auto* A=GetWorld()->SpawnActor<APointLight>();if(!A) return;
     auto* L=Cast<UPointLightComponent>(A->GetLightComponent());L->SetMobility(EComponentMobility::Movable);
     A->SetActorLocation(P);
@@ -629,12 +658,17 @@ void AASWorld::MakeRoom() {
             Add(TEXT("SM_Ring"),TEXT("WaterRim"),W,FVector(3.85f,3.85f,2),Floor*1.3f,false);
         }
         if(Biome()==0||Biome()==1||Biome()==4) {
-            const FVector Lamp=P+FVector(-Half.X*.65f,Half.Y*.63f,190);
-            Add(TEXT("Cylinder"),TEXT("LanternStand"),Lamp-FVector(0,0,95),FVector(.06f,.06f,1.9f),FLinearColor(.16f,.12f,.07f),true);
-            Add(TEXT("SM_Lantern"),TEXT("Lanterns"),Lamp,FVector(.7f),FLinearColor(.22f,.15f,.07f),false);
-            Add(TEXT("Sphere"),TEXT("LanternGlow"),Lamp+FVector(0,0,38),FVector(.13f,.13f,.32f),FLinearColor(1,.58f,.22f),false,0,5);
-            Light(Lamp+FVector(0,0,60),FLinearColor(1,.68f,.38f),2200,1600);
-            if(Biome()==4&&I%3==0) Light(P+FVector(Half.X*.65f,-Half.Y*.6f,90),Glow,450,700);
+            // 0.24.2 aesthetics: the vaulted chambers were near black (one lantern per cell under a roof that shuts out the sun and sky): two lanterns per cell now, at opposite
+            // corners, brighter and reaching further - warm pools of light against the cool fill (ApplyRoomLighting)
+            for(int32 Corner=0;Corner<2;++Corner) {
+                const float Side=Corner==0?1.f:-1.f;
+                const FVector Lamp=P+FVector(-Half.X*.65f*Side,Half.Y*.63f*Side,190);
+                Add(TEXT("Cylinder"),TEXT("LanternStand"),Lamp-FVector(0,0,95),FVector(.06f,.06f,1.9f),FLinearColor(.16f,.12f,.07f),true);
+                Add(TEXT("SM_Lantern"),TEXT("Lanterns"),Lamp,FVector(.7f),FLinearColor(.22f,.15f,.07f),false);
+                Add(TEXT("Sphere"),TEXT("LanternGlow"),Lamp+FVector(0,0,38),FVector(.13f,.13f,.32f),FLinearColor(1,.58f,.22f),false,0,5);
+                Light(Lamp+FVector(0,0,60),FLinearColor(1,.66f,.36f),3400,2300);
+            }
+            if(Biome()==4&&I%3==0) Light(P+FVector(Half.X*.65f,-Half.Y*.1f,90),Glow,450,700);
         } else if(I%3==0) Light(P+FVector(-370,370,190),Glow,650,1200);
         if((I==0 || I==Layout.Exit)&&!IsEndlessArena()) Add(TEXT("SM_Ring"),TEXT("ArrivalGlyph"),P+FVector(0,0,13),FVector(4,4,1),Glow,false,0,3);
         // Floating underside rock spires and distant ruins provide depth without collision or ticking actors.

@@ -122,6 +122,10 @@ namespace ASData {
     extern const TCHAR* CrosshairColorNames[8];
     extern const TCHAR* CrosshairStyles[4];
     FLinearColor BiomeColor(int32 Index);
+    // 0.24.2 aesthetics: what each weapon is made of - polished steel blades and hafts, the Hoarfrost Maul frost-blue steel (its glow is this colour), the bow dark wood, the staff
+    // bronze, the guns gunmetal - on the hero and on the hub's display racks alike. Colour, metallic, roughness; TUNABLE.
+    struct FWeaponFinish {FLinearColor Shade;float Metallic,Roughness;};
+    FWeaponFinish WeaponFinish(int32 Weapon);
     // 0.24 changed replicated state (enemy Ability byte, GameState.bCoverSolid; bReady and SetReady removed), so 0.23 and 0.24 players cannot join each other.
     constexpr int32 Protocol=2402;
     constexpr const TCHAR* Version=TEXT("0.24.2"); // menu label and join-error text; keep equal to ProjectVersion in Config/DefaultGame.ini (run_tests.py checks)

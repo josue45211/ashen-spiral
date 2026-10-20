@@ -33,6 +33,12 @@ namespace ASAssets {
     UMaterialInstanceDynamic* Material(UObject* Outer,FLinearColor Color,float Metal=0.f,float Glow=0.f,float Rough=.75f);
     void Armor(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=.8f,float Glow=0.f,float Rough=.42f);
     void Style(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=0.f,float Glow=0.f);
+    // 0.24.2: puts a material on EVERY section of a mesh. The generated meshes have one section per part (a weapon's grip, blade, guard...; most others a second, empty one), and
+    // setting only the first left the rest drawing the engine's grey grid - on weapons, enemy bodies, chests, rings and more.
+    void Paint(class UMeshComponent* Component,class UMaterialInterface* Material);
+    // 0.24.2 aesthetics: the light of the effects - M_Glow, unlit and additive (an effect that fades its Emission fades out altogether); M_Surface's glow where M_Glow is missing
+    UMaterialInstanceDynamic* Glow(UObject* Outer,FLinearColor Color,float Emission);
+    void StyleGlow(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Emission);
 }
 UCLASS() class ASHENSPIRAL_API AASWorld : public AActor {
     GENERATED_BODY()
@@ -133,6 +139,8 @@ private:
     UPROPERTY() TObjectPtr<AExponentialHeightFog> FogActor;
     UPROPERTY() TObjectPtr<ASkyLight> SkyLightActor;
     UPROPERTY() TObjectPtr<APostProcessVolume> PostVolume;
+    UPROPERTY() TObjectPtr<ADirectionalLight> FillLight;               // 0.24.2: kept, so the roofed chambers can raise it (ApplyRoomLighting)
+    void ApplyRoomLighting();
     UPROPERTY() TObjectPtr<class AVolumetricCloud> CloudActor;          // 0.24.2 aesthetics: volumetric clouds, their look following the Endless stage
     UPROPERTY() TObjectPtr<class UMaterialInstanceDynamic> CloudMaterial;
     float SkyBlendT=1.f;int32 SkyFrom=0,SkyTo=0;

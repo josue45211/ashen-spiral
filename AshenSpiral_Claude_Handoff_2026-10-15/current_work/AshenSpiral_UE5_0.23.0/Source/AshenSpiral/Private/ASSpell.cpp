@@ -43,9 +43,12 @@ AASProjectile* AASProjectile::Fire(UWorld* W,const FVector& P,const FVector& D,A
 void AASProjectile::BeginPlay() {
     Super::BeginPlay();if(auto* S=AS::State(this)) S->Projectiles.AddUnique(this);Expires=AS::Time(this)+(!bEnemy&&Weapon>=6?ASArsenal::Lifetime(Weapon):4.f);
     const FLinearColor C=bEnemy?(Weapon==8?FLinearColor(1,.12f,.55f):FLinearColor(1,.14f,.04f)):(Hero?ASData::HitColor(ASData::WeaponElement(Weapon)):FLinearColor(1,.6f,.2f));
-    ASAssets::Style(Visual,!bEnemy&&Weapon==2?TEXT("SM_Arrow"):(Weapon==3&&!bEnemy?TEXT("SM_Slash"):TEXT("Sphere")),C,0,5.f);
+    // 0.24.2 aesthetics: a hero's bolts and thrown blades are light (M_Glow), and so is every trail; arrows stay solid wood, and enemy shots stay solid glowing orbs (something to
+    // dodge reads best as a body, not a light, against the bright courtyard)
+    if(bEnemy||Weapon==2) ASAssets::Style(Visual,!bEnemy&&Weapon==2?TEXT("SM_Arrow"):TEXT("Sphere"),C,0,5.f);
+    else ASAssets::StyleGlow(Visual,Weapon==3?TEXT("SM_Slash"):TEXT("Sphere"),C,5.f);
     Visual->SetRelativeScale3D(!bEnemy&&Weapon==2?FVector(.95f):(bEnemy?FVector(.29f):FVector(.58f,.24f,.24f)));
-    ASAssets::Style(Trail,TEXT("Cube"),C,0,7.f);Trail->SetRelativeLocation(FVector(-85,0,0));Trail->SetRelativeScale3D(FVector(1.7f,.075f,.075f));
+    ASAssets::StyleGlow(Trail,TEXT("Cube"),C,7.f);Trail->SetRelativeLocation(FVector(-85,0,0));Trail->SetRelativeScale3D(FVector(1.7f,.075f,.075f));
     if(!bEnemy&&Weapon>=6) {
         Visual->SetRelativeScale3D(Weapon==ASArsenal::Launcher?FVector(.60f,.20f,.20f):FVector(.18f,.05f,.05f));
         Trail->SetRelativeLocation(FVector(-35,0,0));Trail->SetRelativeScale3D(Weapon==ASArsenal::Launcher?FVector(.9f,.06f,.06f):FVector(.5f,.025f,.025f));
@@ -165,8 +168,8 @@ bool AASWell::CanAffectGameplay() const {
 void AASWell::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||S->Frozen()) return;
     if(!bStyled && IsValid(Hero)) {
-        auto C=ASData::PlayerColor(Hero->ColorIndex);ASAssets::Style(Ring,TEXT("SM_Ring"),C,0,bPerfect?7:3);
-        ASAssets::Style(Inner,TEXT("SM_Slash"),C,0,6);ASAssets::Style(Core,TEXT("Sphere"),C*.12f,1,.8f);bStyled=true;
+        auto C=ASData::PlayerColor(Hero->ColorIndex);ASAssets::StyleGlow(Ring,TEXT("SM_Ring"),C,bPerfect?7:3); // 0.24.2: the well's rings are light; its core stays a dark sphere
+        ASAssets::StyleGlow(Inner,TEXT("SM_Slash"),C,6);ASAssets::Style(Core,TEXT("Sphere"),C*.12f,1,.8f);bStyled=true;
     }
     Ring->SetRelativeScale3D(FVector(Radius/50,Radius/50,2));Inner->SetRelativeScale3D(FVector(Radius/85,Radius/85,1));
     Inner->SetRelativeRotation(FRotator(10,S->SimTime*(bInverted?-150:150),0));Core->SetRelativeLocation(FVector(0,0,45));
@@ -381,13 +384,13 @@ void AASDashGhost::SetupFromCharacter(const AASCharacter* Source,FLinearColor Co
     TArray<UStaticMeshComponent*> Meshes;Source->CollectTrailMeshes(Meshes);
     USkeletalMeshComponent* Skin=Source->IsSkeletalHero()?Source->GetMesh():nullptr;
     if(Meshes.IsEmpty()&&!Skin) {Destroy();return;}
-    // One material shared by every copy keeps the cost to a single dynamic instance per afterimage.
-    Shared=ASAssets::Material(this,Color,0.f,3.5f);
+    // One material shared by every copy keeps the cost to a single dynamic instance per afterimage. 0.24.2: light (M_Glow, additive), so the afterimage fades out cleanly.
+    Shared=ASAssets::Glow(this,Color,3.5f);
     for(auto* Piece:Meshes) {
         if(!Piece||!Piece->GetStaticMesh()||Copies.Num()>=40) continue;
         auto* Copy=NewObject<UStaticMeshComponent>(this);Copy->SetStaticMesh(Piece->GetStaticMesh());
         Copy->SetCollisionEnabled(ECollisionEnabled::NoCollision);Copy->SetGenerateOverlapEvents(false);Copy->SetCastShadow(false);
-        Copy->SetMaterial(0,Shared);Copy->SetupAttachment(RootComponent);Copy->RegisterComponent();
+        ASAssets::Paint(Copy,Shared);Copy->SetupAttachment(RootComponent);Copy->RegisterComponent();
         Copy->SetWorldTransform(Piece->GetComponentTransform());Copies.Add(Copy);
     }
     // 0.24.2 Phase F: the Mannequin's afterimage is a copy of its skeleton frozen in the pose of the moment, in the same glowing tint as the weapon's copy
@@ -455,7 +458,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         const float Tilt=Step==0?24.f:(Step==1?-24.f:0.f); // alternating diagonals, a flat finisher
         SetActorRotation(FRotator(0.f,D.Rotation().Yaw,Tilt));
         FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.55f); // 0.24.1: a whiter, hotter core
-        ASAssets::Style(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,14.f);
+        ASAssets::StyleGlow(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,14.f); // 0.24.2: light, not a slab
         Duration=bFinisherArc?.34f:.28f; // 0.24.1: a little longer, so the reach reads
         float Volume=.32f,Pitch=1.f;USoundBase* Delivered=Step==3?AASEnemy::ResolveCue(ASEnemyRules::CueSlashSwing,Volume,Pitch):nullptr; // a hostile swing uses E_SlashSwing once it is delivered
         if(Delivered) UGameplayStatics::PlaySoundAtLocation(this,Delivered,At,Volume,Pitch);
@@ -465,7 +468,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
     if(Kind==18) {
         // 0.24 meteor: a fireball that falls from the sky onto its ground warning and lands exactly as the warning fires (Size is the fall time in seconds). Cosmetic only; the
         // blast itself is the field's. The colour is the glow of the fall.
-        ASAssets::Style(Visual,TEXT("Sphere"),FLinearColor(C.R,C.G,C.B,1.f),0,10.f);Visual->SetCastShadow(false);
+        ASAssets::StyleGlow(Visual,TEXT("Sphere"),FLinearColor(C.R,C.G,C.B,1.f),10.f);
         Duration=FMath::Clamp(R,.2f,3.f);Anchor=At;SetActorLocation(At+FVector(0,0,1500.f));Visual->SetRelativeScale3D(FVector(.9f));
         return;
     }
@@ -474,7 +477,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         // flashes at the weapon's tip, faces the camera and is gone - with a faint high "shing". Size is the star's span in cm. Spawned on every machine from replicated state.
         Visual->SetVisibility(false);Duration=.24f;
         for(int32 I=0;I<2;++I) {
-            auto* Bar=NewObject<UStaticMeshComponent>(this);Bar->SetupAttachment(Visual);ASAssets::Style(Bar,TEXT("Cube"),FLinearColor(C.R,C.G,C.B,1.f),0,40.f);
+            auto* Bar=NewObject<UStaticMeshComponent>(this);Bar->SetupAttachment(Visual);ASAssets::StyleGlow(Bar,TEXT("Cube"),FLinearColor(C.R,C.G,C.B,1.f),40.f);
             Bar->SetCollisionEnabled(ECollisionEnabled::NoCollision);Bar->SetCastShadow(false);Bar->SetAbsolute(false,false,true);Bar->RegisterComponent();
             Bar->SetRelativeRotation(FRotator(0.f,0.f,I==0?0.f:90.f));Bar->SetRelativeScale3D(FVector(.01f));GlintBars[I]=Bar;
         }
@@ -494,7 +497,8 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         if(Cue&&Volume>=.02f) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Volume,Pitch);
         return;
     }
-    ASAssets::Style(Visual,Kind==15?TEXT("SM_Chest"):(Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring")))),C,0,Kind==15?3:6);
+    if(Kind==15) ASAssets::Style(Visual,TEXT("SM_Chest"),C,0,3); // the chest popping open is a solid chest
+    else ASAssets::StyleGlow(Visual,Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring"))),C,6); // 0.24.2: flashes, rings and bursts are light
     // 0.24.2: a ring flash lies flat on the floor. Callers pass UpVector meaning "facing up", but D.Rotation() pitched the ring 90 degrees, so every one of them stood up as a
     // vertical arch (seen in-engine over every elite's slam, chain, wildfire and lightning flash). A vertical direction now keeps only its yaw.
     if(Kind!=15&&Kind!=9&&Kind!=10&&Kind!=1&&Kind!=2&&Kind!=5) {
@@ -527,13 +531,12 @@ void AASVisualEffect::Tick(float Delta) {
     float T=Age/Duration;
     if(Kind==17) {
         // The crescent shows the true reach at once (a short ease-out from 90% to 100% of it), holds, then draws in toward the swinger while it dims.
-        // The material is opaque, so it is hidden near the end rather than faded.
+        // 0.24.2: it is light now (M_Glow, additive), so it fades out to nothing instead of being hidden near the end.
         const float Pop=FMath::Min(1.f,T*7.f),Ease=1.f-FMath::Square(1.f-Pop);
         const float Collapse=T<.62f?1.f:1.f-.4f*FMath::Square((T-.62f)/.38f);
         const float Radius=Size/50.f*(.9f+.1f*Ease)*Collapse;
         Visual->SetRelativeScale3D(FVector(Radius,Radius,bFinisherArc?2.6f:1.5f)); // 0.24.1: thicker
         if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(bFinisherArc?20.f:14.f)*FMath::Square(1.f-T));
-        if(T>.9f) Visual->SetVisibility(false);
         return;
     }
     if(Kind==20) { // the star pops open in the first third, then its rays shrink to nothing; it always faces the local camera

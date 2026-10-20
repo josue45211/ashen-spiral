@@ -1,0 +1,35 @@
+# 0.24.2 aesthetics: what puts blocky patches on the maul (a flat finish showed them too): the same close view with shadows, Lumen and the weapon's material changed one at a time.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 500
+as.dev.face 0
+as.dev.weapon 1
+as.dev.follow 240 -75 75 55
+wait 2
+as.dev.shot wl_01_default 0
+as.dev.weaponlook 0 0.6
+wait 0.5
+as.dev.shot wl_02_matte 0
+r.Shadow.Virtual.Enable 0
+wait 1
+as.dev.shot wl_03_matte_noVSM 0
+r.Shadow.Virtual.Enable 1
+r.Lumen.DiffuseIndirect.Allow 0
+wait 1
+as.dev.shot wl_04_matte_noLumenGI 0
+r.Lumen.DiffuseIndirect.Allow 1
+r.ContactShadows 0
+wait 1
+as.dev.shot wl_05_matte_noContact 0
+r.ContactShadows 1
+r.AmbientOcclusionLevels 0
+wait 1
+as.dev.shot wl_06_matte_noSSAO 0
+wait 0.5
+quit

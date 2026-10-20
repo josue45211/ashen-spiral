@@ -46,6 +46,12 @@ def import_asset(path, destination, kind):
     if asset is not None and not replace:
         if kind == "mesh": precise_collision(asset, path.stem)
         return asset
+    if asset is not None and kind == "mesh":
+        # 0.24.2: a mesh is imported clean rather than over the old one. Re-importing the multi-part meshes (weapons, the sniper, the dummy) over an existing asset failed
+        # with "nothing to import" once their extra sections had been given materials, and the importer's errors failed the whole Setup even though the script went on.
+        asset = None
+        if assets.delete_asset(package):
+            replace = False
     task = unreal.AssetImportTask()
     task.set_editor_property("filename", str(path))
     task.set_editor_property("destination_path", destination)
@@ -150,6 +156,40 @@ def create_material():
     return material
 
 
+def create_glow_material():
+    """0.24.2 aesthetics: M_Glow, the light of the effects (swing arcs, slashes, flashes, glints, dash afterimages). Unlit and additive, so an effect fading its Emission fades out
+    altogether (on the lit, opaque M_Surface a fading glow left a solid grey shape, which is why the swing arc used to be hidden instead of faded). Same Tint and Emission
+    parameters as M_Surface, so the effects drive either one; Emission is scaled by .35, since an unlit additive surface needs far less than a glow on top of a lit one."""
+    package = "/Game/Art/Materials/M_Glow"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_Glow", "/Game/Art/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_Glow")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    material.set_editor_property("two_sided", True)
+    tint = edit.create_material_expression(material, unreal.MaterialExpressionVectorParameter, -600, -100)
+    tint.set_editor_property("parameter_name", "Tint")
+    tint.set_editor_property("default_value", unreal.LinearColor(1, 1, 1, 1))
+    emission = edit.create_material_expression(material, unreal.MaterialExpressionScalarParameter, -600, 100)
+    emission.set_editor_property("parameter_name", "Emission")
+    emission.set_editor_property("default_value", 1.0)
+    scale = edit.create_material_expression(material, unreal.MaterialExpressionConstant, -600, 250)
+    scale.set_editor_property("r", 0.35)
+    strength = edit.create_material_expression(material, unreal.MaterialExpressionMultiply, -350, 150)
+    require(edit.connect_material_expressions(emission, "", strength, "A") and edit.connect_material_expressions(scale, "", strength, "B"), "M_Glow strength")
+    glow = edit.create_material_expression(material, unreal.MaterialExpressionMultiply, -150, 0)
+    require(edit.connect_material_expressions(tint, "", glow, "A") and edit.connect_material_expressions(strength, "", glow, "B"), "M_Glow colour")
+    require(edit.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "M_Glow output")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_SKELETAL_MESH, True)  # the Mannequin's dash afterimages
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_Glow")
+    return material
+
+
 def main():
     MARKER.parent.mkdir(parents=True, exist_ok=True)
     MARKER.unlink(missing_ok=True)
@@ -170,11 +210,14 @@ def main():
         assets.save_loaded_asset(texture, False)
         imported.append(texture.get_path_name())
     material = create_material()
+    glow = create_glow_material()
     manifest_path = ART / "mesh_bounds.json"
     expected = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for file in sorted((ART / "Meshes").glob("*.obj")):
         mesh = import_asset(file, "/Game/Art/Meshes", "mesh")
-        mesh.set_material(0, material)
+        # 0.24.2: every slot - a mesh's parts (a weapon's grip, blade, guard...) import as separate sections, and a slot left empty draws the engine's grey grid
+        for slot in range(max(1, len(mesh.get_editor_property("static_materials")))):
+            mesh.set_material(slot, material)
         # Verify centimeters and Z-up instead of silently shipping rotated/scaled content.
         if file.stem in expected:
             bounds = mesh.get_bounding_box()
@@ -201,7 +244,7 @@ def main():
     expected_count = len(list((ART / "Meshes").glob("*.obj"))) + len(list((ART / "Textures").glob("*.png"))) + len(list((ART / "Audio").glob("*.wav")))
     require(len(imported) == expected_count, "Incomplete art import: imported {} of {} source files".format(len(imported), expected_count))
     report = {"success": True, "source_version": "0.24.1", "weapon_art_revision": WEAPON_ART_REVISION, "engine": unreal.SystemLibrary.get_engine_version(),
-              "asset_count": len(imported) + 2, "assets": imported + [material.get_path_name(), map_path],
+              "asset_count": len(imported) + 3, "assets": imported + [material.get_path_name(), glow.get_path_name(), map_path],
               "bootstrap_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     MARKER.write_text(json.dumps(report, indent=2))
     unreal.log("ASHEN BOOTSTRAP COMPLETE: {} assets/map entries. Press Play in the AshenSpiral map.".format(report["asset_count"]))

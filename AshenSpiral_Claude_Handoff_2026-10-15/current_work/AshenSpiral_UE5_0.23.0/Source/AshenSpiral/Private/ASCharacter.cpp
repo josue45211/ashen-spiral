@@ -87,7 +87,7 @@ void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
 }
 void AASCharacter::RefreshLook() {
     if(Parts.Num()!=21) return;
-    const FLinearColor Fire=ColorChoice<0&&IsLocallyControlled()?FLinearColor(.08f,.55f,1.f):ViewColor(),Dark(.07f,.085f,.11f),Metal(.20f,.23f,.28f),Cloth(.012f,.016f,.023f);
+    const FLinearColor Fire=OwnColor(),Dark(.07f,.085f,.11f),Metal(.20f,.23f,.28f),Cloth(.012f,.016f,.023f);
     const TCHAR* Meshes[21]={TEXT("SM_Torso"),TEXT("SM_Helmet"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_CapeLower"),TEXT("SM_ArmorCore")};
     const FVector Positions[21]={FVector(0,0,111),FVector(0,0,165),FVector(0,0,78),FVector(0,-34,115),FVector(0,-38,78),FVector(0,34,115),FVector(0,38,78),FVector(0,-16,59),FVector(0,-16,25),FVector(0,16,59),FVector(0,16,25),FVector(6,-16,10),FVector(6,16,10),FVector(0,-34,135),FVector(0,34,135),FVector(-22,0,141),FVector::ZeroVector,FVector(12,-38,66),FVector(34,52,82),FVector(-3,0,-55),FVector::ZeroVector};
     for(int32 I=0;I<21;++I) {
@@ -101,13 +101,8 @@ void AASCharacter::RefreshLook() {
     Parts[16]->AttachToComponent(Parts[1],FAttachmentTransformRules::KeepRelativeTransform);
     Parts[19]->AttachToComponent(Parts[15],FAttachmentTransformRules::KeepRelativeTransform);
     Parts[20]->AttachToComponent(Parts[0],FAttachmentTransformRules::KeepRelativeTransform);
-    // 0.24.2 aesthetics: each weapon has its own finish (it used to wear the floor's stone texture): polished steel blades and hafts, the Hoarfrost Maul frost-blue steel (its glow
-    // is this colour), the bow dark wood, the staff bronze, the guns gunmetal. Colour, metallic, roughness; TUNABLE.
-    struct FWeaponFinish {FLinearColor Shade;float Metallic,Roughness;};
-    static const FWeaponFinish Finishes[9]={{FLinearColor(.58f,.56f,.55f),.95f,.26f},{FLinearColor(.42f,.56f,.70f),.9f,.3f},{FLinearColor(.16f,.10f,.06f),0.f,.55f},
-        {FLinearColor(.55f,.55f,.58f),.95f,.28f},{FLinearColor(.45f,.29f,.15f),.7f,.38f},{FLinearColor(.30f,.28f,.32f),.9f,.34f},
-        {FLinearColor(.24f,.25f,.27f),.85f,.4f},{FLinearColor(.24f,.25f,.27f),.85f,.36f},{FLinearColor(.28f,.27f,.25f),.8f,.42f}};
-    const FWeaponFinish& Coat=Finishes[FMath::Clamp(Build.Weapon,0,8)];
+    // 0.24.2 aesthetics: the weapon's own finish (ASData::WeaponFinish; it used to wear the floor's stone texture)
+    const ASData::FWeaponFinish Coat=ASData::WeaponFinish(Build.Weapon);
     ASAssets::Armor(WeaponMesh,FString::Printf(TEXT("SM_Weapon%d"),Build.Weapon),Coat.Shade,Coat.Metallic,0.f,Coat.Roughness);
     WeaponMesh->AttachToComponent(Build.Weapon==2?Parts[17].Get():Parts[18].Get(),FAttachmentTransformRules::KeepRelativeTransform);
     WeaponMesh->SetRelativeLocation(FVector::ZeroVector);WeaponMesh->SetRelativeRotation(FRotator::ZeroRotator);

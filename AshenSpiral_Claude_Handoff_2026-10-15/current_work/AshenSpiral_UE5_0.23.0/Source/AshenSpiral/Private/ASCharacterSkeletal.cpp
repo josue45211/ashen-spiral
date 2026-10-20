@@ -95,8 +95,7 @@ void AASCharacter::SetupSkeletalHero() {
     if(Body->GetSkeletalMeshAsset()!=Model) {Body->SetSkeletalMesh(Model);Body->EmptyOverrideMaterials();} // the other body's paint does not carry over
     if(Body->GetAnimClass()!=Anim) Body->SetAnimInstanceClass(Anim);
     // the player's colour (Settings > Character color; the default is the player's own) is the Mannequin's paint, as it was the rig's visor and core; dark red while downed. TUNABLE.
-    const FLinearColor Own=ColorChoice<0&&IsLocallyControlled()?FLinearColor(.08f,.55f,1.f):ViewColor();
-    const FLinearColor Paint=bDowned?FLinearColor(.3f,.02f,.025f):Own*ASHeroLook::PaintStrength;
+    const FLinearColor Paint=bDowned?FLinearColor(.3f,.02f,.025f):OwnColor()*ASHeroLook::PaintStrength;
     for(int32 Slot=0;Slot<Body->GetNumMaterials();++Slot) {
         UMaterialInstanceDynamic* Coat=Cast<UMaterialInstanceDynamic>(Body->GetMaterial(Slot));
         if(!Coat) Coat=Body->CreateDynamicMaterialInstance(Slot);

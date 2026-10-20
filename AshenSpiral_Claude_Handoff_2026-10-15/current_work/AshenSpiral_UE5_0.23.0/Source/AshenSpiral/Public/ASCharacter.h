@@ -77,6 +77,9 @@ public:
     FLinearColor BodyColor() const {return ASData::ArmorColor(ColorChoice,ColorIndex);}
     // 0.23.5: no friend/foe hue tint any more; every player shows their own colour (the HUD triangle marks allies).
     FLinearColor ViewColor() const {return BodyColor();}
+    // The colour this machine draws the character's own light in (the rig's visor and core, the Mannequin's paint, the dash afterimages): the chosen colour, or, with none chosen,
+    // azure for the player's own character on its own screen. 0.24.2: one rule for all three (the afterimages used ViewColor and came out orange beside a blue hero).
+    FLinearColor OwnColor() const {return ColorChoice<0&&IsLocallyControlled()?FLinearColor(.08f,.55f,1.f):ViewColor();}
     UPROPERTY(Replicated) TArray<int32> TraitRanks;
     UPROPERTY(Replicated) uint64 EvolutionMask=0;
     UPROPERTY(Replicated) int32 LastUpgrade=-1;

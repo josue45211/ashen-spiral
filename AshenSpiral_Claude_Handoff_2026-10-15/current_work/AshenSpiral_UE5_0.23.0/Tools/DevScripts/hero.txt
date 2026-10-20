@@ -5,7 +5,7 @@ as.dev.god 1
 as.dev.endless 4242
 waitfor combat 30
 wait 1
-as.dev.clearing 350
+as.dev.clearing 500
 as.dev.face 0
 as.dev.weapon 0
 as.dev.follow 330 10 35 55
@@ -38,7 +38,7 @@ as.dev.shot hero_08_dash_ghosts
 wait 1
 # the maul: front view, the swings, the leap
 as.dev.weapon 1
-as.dev.clearing 350
+as.dev.clearing 500
 as.dev.face 0
 as.dev.follow 330 10 35 55
 wait 0.6

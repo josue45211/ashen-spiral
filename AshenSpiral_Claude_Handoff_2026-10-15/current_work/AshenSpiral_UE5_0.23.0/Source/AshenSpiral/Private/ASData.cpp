@@ -146,6 +146,13 @@ FLinearColor CrosshairColor(int32 Choice) {
     return Colors[FMath::Clamp(Choice,0,7)];
 }
 FLinearColor PlayerColor(int32 I) { return I==0?FLinearColor(1.f,.57f,.15f):FLinearColor(.10f,.85f,.75f); }
+FWeaponFinish WeaponFinish(int32 Weapon) {
+    // brushed rather than polished (seen in-engine: a mirror finish on the maul's flat faces showed the scene's low-resolution reflections as blocks)
+    static const FWeaponFinish Finishes[9]={{FLinearColor(.58f,.56f,.55f),.9f,.4f},{FLinearColor(.30f,.42f,.56f),.85f,.44f},{FLinearColor(.16f,.10f,.06f),0.f,.6f},
+        {FLinearColor(.55f,.55f,.58f),.9f,.4f},{FLinearColor(.45f,.29f,.15f),.7f,.46f},{FLinearColor(.30f,.28f,.32f),.85f,.44f},
+        {FLinearColor(.24f,.25f,.27f),.8f,.5f},{FLinearColor(.24f,.25f,.27f),.8f,.48f},{FLinearColor(.28f,.27f,.25f),.75f,.52f}};
+    return Finishes[FMath::Clamp(Weapon,0,8)];
+}
 FLinearColor BiomeColor(int32 I) {
  const FLinearColor Colors[5]={FLinearColor(.22f,.65f,.57f),FLinearColor(.9f,.20f,.12f),FLinearColor(.48f,.30f,1.f),FLinearColor(.20f,.75f,.26f),FLinearColor(.12f,.8f,.95f)};
  return Colors[FMath::Clamp(I,0,4)];
