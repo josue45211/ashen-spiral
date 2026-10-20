@@ -304,6 +304,27 @@ void DecorCheck(const TArray<FString>&,UWorld* W) {
     UE_LOG(LogTemp,Display,TEXT("AshenDev: decorcheck stopped %.0f cm from the ruin's middle; footprint %.0f + capsule %.0f = %.0f: %s"),D,DecorRadius,Capsule,DecorRadius+Capsule,
         D>=DecorRadius+Capsule-8.f&&D<=DecorRadius+Capsule+60.f?TEXT("PASS (stopped at the surface)"):(D<DecorRadius?TEXT("FAIL (inside the ruin)"):TEXT("FAIL (stopped short or slid past)")));
 }
+// as.dev.lookat <mesh name part> [distance=1400] [height=300]: the photo camera looks, from the arena side, at the nearest ruin piece whose mesh name contains the text (a later stage's
+// pieces show only once the sky reaches their stage: set the wave first).
+void LookAt(const TArray<FString>& Args,UWorld* W) {
+    auto* S=AS::State(W);auto* PC=HostController(W);if(!S||!S->Arena||!PC||!W||!Args.IsValidIndex(0)) return;
+    const FVector Middle=S->Arena->CellPosition(0);float Best=FLT_MAX,Height=0.f;FVector Target=FVector::ZeroVector;FString Found;
+    for(const auto& P:ASDecor::Ring(uint32(S->Arena->Config.Seed))) {
+        if(P.Kit<0||P.Kit>=int(ASDecor::Kits().size())) continue;const auto& K=ASDecor::Kits()[size_t(P.Kit)];
+        const FString Mesh=UTF8_TO_TCHAR(K.Mesh);if(!Mesh.Contains(Args[0])) continue;
+        const FVector At(Middle.X+P.X,Middle.Y+P.Y,Middle.Z);const float D=FVector::Dist2D(At,Middle);
+        if(D<Best) {Best=D;Target=At;Found=Mesh;Height=K.Height*P.Scale;}
+    }
+    if(Best==FLT_MAX) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: lookat - no ruin piece named like %s"),*Args[0]);return;}
+    const FVector Toward=(Target-Middle).GetSafeNormal2D(),From=Target-Toward*ArgFloat(Args,1,1400.f)+FVector(0.f,0.f,ArgFloat(Args,2,300.f)),Aim=Target+FVector(0.f,0.f,Height*.45f);
+    bFollow=false;
+    if(!PhotoCamera.IsValid()) PhotoCamera=W->SpawnActor<ACameraActor>();
+    if(!PhotoCamera.IsValid()) return;
+    PhotoCamera->SetActorLocationAndRotation(From,(Aim-From).Rotation());
+    if(UCameraComponent* C=PhotoCamera->GetCameraComponent()) {C->SetFieldOfView(60.f);C->SetConstraintAspectRatio(false);}
+    PC->SetViewTarget(PhotoCamera.Get());
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: looking at %s at %s (%.0f cm tall)"),*Found,*Target.ToCompactString(),Height);
+}
 // as.dev.wave <n>: sets the Endless wave number (the sky, scenery stage and lightning follow it at the next wave's checks).
 void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->EndlessWave=FMath::Clamp(ArgInt(Args,0,1),1,999);S->ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("AshenDev: endless wave set to %d"),S->EndlessWave);}}
 // as.dev.state: one line with the phase, the wave, the hero and every enemy (kind, health, state, launched), for a run's log.
@@ -399,6 +420,7 @@ AS_DEV_COMMAND("as.dev.shot",Shot,"Screenshot to Saved/Screenshots/Dev/<name>.pn
 AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around the host hero [distance=520].");
 AS_DEV_COMMAND("as.dev.decortest",DecorTest,"Walks the host hero at the nearest standing ruin from 5 m.");
 AS_DEV_COMMAND("as.dev.decorcheck",DecorCheck,"Logs whether the hero stopped at the ruin's surface.");
+AS_DEV_COMMAND("as.dev.lookat",LookAt,"Photo camera on the nearest ruin piece whose mesh name contains <text> [distance=1400] [height=300].");
 AS_DEV_COMMAND("as.dev.wave",Wave,"Sets the Endless wave number <n>.");
 AS_DEV_COMMAND("as.dev.state",State,"Logs the phase, wave, hero and every enemy.");
 AS_DEV_COMMAND("as.dev.script",Script,"Plays a script file: one console command per line, plus wait <s> and waitfor ready|combat|hub [timeout].");

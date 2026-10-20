@@ -308,23 +308,28 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
         // 0.25 phase B: the Endless cover blocks wear the arena concrete when it has been imported on this machine (Tools/make_concrete_tile.ps1 + Tools/import_vault_assets.py): a world-aligned
         // material, so the stretched blocks show it at one scale on every face. The block keeps its own mesh, collision and tint (the tint is darkened stone, so it is brightened for a texture
         // that multiplies it); without the import the flat tinted block is used as before.
-        if(Group.StartsWith(TEXT("EndlessCover"))||Group.StartsWith(TEXT("EndlessDecor"))||Group.StartsWith(TEXT("EndlessGround"))) {
+        // 0.24.2 aesthetics: the Endless arena's boundary walls wear the concrete too (they showed the stone tile stretched along 112 m), darker than the cover
+        const bool EndlessWall=IsEndlessArena()&&(Group==TEXT("SolidDeadEnd")||Group==TEXT("WallCap"));
+        if(Group.StartsWith(TEXT("EndlessCover"))||Group.StartsWith(TEXT("EndlessDecor"))||Group.StartsWith(TEXT("EndlessGround"))||EndlessWall) {
             constexpr float ConcreteBrighten=3.4f; // TUNABLE: the cover tint (.17) times this is the albedo multiplier of the concrete texture
+            const FLinearColor Base=EndlessWall?FLinearColor(.12f,.115f,.11f):Color;
             if(auto* Concrete=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/ArenaConcrete/M_ArenaConcrete.M_ArenaConcrete"),nullptr,LOAD_NoWarn))
                 if(auto* Block=UMaterialInstanceDynamic::Create(Concrete,C)) {
-                    Block->SetVectorParameterValue(TEXT("Tint"),FLinearColor(Color.R*ConcreteBrighten,Color.G*ConcreteBrighten,Color.B*ConcreteBrighten,1.f));
+                    Block->SetVectorParameterValue(TEXT("Tint"),FLinearColor(Base.R*ConcreteBrighten,Base.G*ConcreteBrighten,Base.B*ConcreteBrighten,1.f));
                     Block->SetScalarParameterValue(TEXT("Metallic"),Metal);
                     Mat=Block;
                 }
         }
-        // 0.24.2 aesthetics: a scenery piece wears its own textures (stone, bark, bone, gold) when Tools/import_vault_assets.py phase I has dressed its mesh with them, tinted by the
-        // sky stage (the stage tints were made for the concrete; DecorTintScale brings them to a multiplier about 1 in the clear stage); the loot keeps its gold untinted
-        if(Group.StartsWith(TEXT("EndlessDecor"))&&!Group.StartsWith(TEXT("EndlessDecorSolid")))
+        // 0.24.2 aesthetics: a piece of the Dragon Cave kit wears its own textures (stone, bark, bone, gold) when Tools/import_vault_assets.py phases I and J have dressed its mesh with
+        // them, whichever group draws it: the scenery ring tinted by its sky stage (the stage tints were made for the concrete; DecorTintScale brings them to about 1 in the clear
+        // stage), the loot untinted, the far backdrop darkened
+        if(!Group.StartsWith(TEXT("EndlessDecorSolid")))
             if(UMaterialInterface* Own=C->GetStaticMesh()?C->GetStaticMesh()->GetMaterial(0):nullptr)
                 if(Own->GetPathName().StartsWith(TEXT("/Game/Art/Imported/Decor/")))
                     if(auto* Piece=UMaterialInstanceDynamic::Create(Own,C)) {
                         constexpr float DecorTintScale=5.2f; // TUNABLE
-                        Piece->SetVectorParameterValue(TEXT("Tint"),Group==TEXT("EndlessDecorLoot")?FLinearColor::White:FLinearColor(Color.R*DecorTintScale,Color.G*DecorTintScale,Color.B*DecorTintScale,1.f));
+                        const FLinearColor Stage(Color.R*DecorTintScale,Color.G*DecorTintScale,Color.B*DecorTintScale,1.f);
+                        Piece->SetVectorParameterValue(TEXT("Tint"),Group==TEXT("EndlessDecorLoot")?FLinearColor::White:(Group.StartsWith(TEXT("EndlessDecor"))?Stage:FLinearColor(.5f,.5f,.5f)));
                         Mat=Piece;
                     }
         // 0.24.2 aesthetics: the Endless floor and the plain beyond the ruins wear the Dragon Cave ground - worn stone tiles and paving drifting into each other - when it has been
@@ -690,9 +695,19 @@ void AASWorld::MakeRoom() {
     FVector BackdropCenter;float BackdropSpan;MapBounds(BackdropCenter,BackdropSpan);
     const float BackdropRadius=FMath::Max(8000.f,BackdropSpan*.8f+2400.f);
     // Backdrop silhouettes are geometry, not flat source-game billboards.
+    // 0.24.2 aesthetics: the Endless arena's backdrop is the Dragon Cave kit's own dead trees over its boulders when they are imported here (the low-poly trees clashed with the
+    // textured ruins in front of them); every other room, and a machine without the import, keeps its own silhouettes. Same random draws either way, so the layout does not move.
+    const bool KitBackdrop=IsEndlessArena()&&ASAssets::HasMesh(TEXT("SM_DC_DeadTree01"))&&ASAssets::HasMesh(TEXT("SM_DC_LargeRock01"));
     for(int32 I=0;I<32;++I) {
         float A=I*UE_TWO_PI/32;FVector P=BackdropCenter+FVector(FMath::Cos(A)*BackdropRadius,FMath::Sin(A)*BackdropRadius,-R.FRandRange(300,1500));
-        Add(Biome()==4?TEXT("SM_CaveRock"):(Biome()==3?TEXT("SM_Tree"):(Biome()==2?TEXT("SM_CrystalCluster"):TEXT("SM_Pillar"))),TEXT("SkyRuins"),P,FVector(R.FRandRange(3,5),R.FRandRange(3,5),R.FRandRange(3,8)),Floor*.4f,false);
+        const FVector Size(R.FRandRange(3,5),R.FRandRange(3,5),R.FRandRange(3,8));
+        if(KitBackdrop) {
+            const float Grow=(Size.X+Size.Y)*.5f;const float Turn=float((I*137)%360); // trees keep their own proportions, turned so no two neighbours match
+            Add(FString::Printf(TEXT("SM_DC_DeadTree0%d"),1+I%5),TEXT("SkyRuins"),P+FVector(0,0,350),FVector(Grow),Floor*.4f,false,Turn);
+            Add(FString::Printf(TEXT("SM_DC_LargeRock0%d"),1+(I*3)%7),TEXT("SkyIslands"),P-FVector(0,0,150),FVector(1.6f),Floor*.4f,false,Turn+90.f);
+            continue;
+        }
+        Add(Biome()==4?TEXT("SM_CaveRock"):(Biome()==3?TEXT("SM_Tree"):(Biome()==2?TEXT("SM_CrystalCluster"):TEXT("SM_Pillar"))),TEXT("SkyRuins"),P,Size,Floor*.4f,false);
         Add(TEXT("SM_Rock"),TEXT("SkyIslands"),P-FVector(0,0,350),FVector(7,7,5),Floor*.4f,false);
     }
     if(Biome()==2) Add(TEXT("Sphere"),TEXT("Moon"),FVector(4500,5500,3900),FVector(18),FLinearColor(.50f,.65f,1),false,0,2);

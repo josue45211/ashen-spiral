@@ -1,0 +1,51 @@
+# 0.24.2 aesthetics: each kind of ruin piece up close (the textures the pack gave it), clear stage first, then the later stages' pieces. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.lookat StoneworksPillar 1300 250
+wait 2.5
+as.dev.shot ruin_01_stoneworks_pillar 0
+as.dev.lookat LargePillar 1500 300
+wait 2.5
+as.dev.shot ruin_02_large_pillar 0
+as.dev.lookat BridgeArc 2200 400
+wait 2.5
+as.dev.shot ruin_03_bridge_arc 0
+as.dev.lookat Column 900 200
+wait 2.5
+as.dev.shot ruin_04_column 0
+as.dev.lookat LargeRock 1500 300
+wait 2.5
+as.dev.shot ruin_05_large_rock 0
+as.dev.wave 25
+wait 5
+as.dev.lookat DeadTree 1300 250
+wait 2.5
+as.dev.shot ruin_06_dead_tree 0
+as.dev.lookat StoneWall 1500 300
+wait 2.5
+as.dev.shot ruin_07_stone_wall 0
+as.dev.lookat CaveRock 1300 250
+wait 2.5
+as.dev.shot ruin_08_cave_rock 0
+as.dev.wave 55
+wait 5
+as.dev.lookat Skull 1300 250
+wait 2.5
+as.dev.shot ruin_09_skull 0
+as.dev.lookat InfernoRock 1500 300
+wait 2.5
+as.dev.shot ruin_10_inferno_rock 0
+as.dev.lookat Skeleton 900 200
+wait 2.5
+as.dev.shot ruin_11_skeleton 0
+as.dev.lookat Coffin 900 200
+wait 2.5
+as.dev.shot ruin_12_coffin 0
+wait 0.5
+quit

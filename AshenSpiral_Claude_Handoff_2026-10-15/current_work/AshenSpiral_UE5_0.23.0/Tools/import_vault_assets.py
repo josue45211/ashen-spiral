@@ -19,7 +19,10 @@ Phase H (0.24.2 aesthetics): imports the shrunk textures and builds M_ArenaGroun
 shows no repeat; the game puts it on the Endless floor and the plain beyond the ruins (ASWorld::Add) when it exists here.
 Phase I (0.24.2 aesthetics): the scenery's own textures (phase G exports them with the ground's; the shrink brings them to 2048), M_DecorPBR (the pack's PBR set-up rebuilt with a Tint the
 game drives per sky stage), one MI_DC_<set> per texture set, and every SM_DC mesh's slots set to its own set (DECOR_SET_OF, read from the pack's meshes) instead of the concrete.
-Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHI to run only those phases (ABCE by default; G, then the shrink, then H and I on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
+Phase J (0.24.2 aesthetics): the UDIM sets those pieces had in the pack (several tiles each), stitched into one atlas per set by Tools/stitch_udim_atlases.ps1, and M_DecorAtlas, which
+finds each UDIM tile's cell per pixel (taking the mip from the original UV, so no seams): the pillars, walls, bridge pieces and inferno rocks get their own textures without virtual texturing.
+Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHIJ to run only those phases (ABCE by default; G, then the shrink and the stitch, then H, I
+and J on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
 import json
@@ -312,7 +315,7 @@ GROUND_TEXTURES = (("T_StoneDebris01_BC", "colour"), ("T_StoneDebris01_N", "norm
 # every one of them is the pack's PBR master with three textures, colour + normal + ORM, on UV 0, nothing else set), by mesh-name prefix; the longest matching prefix wins.
 DECOR_FOLDER = "/Game/Art/Imported/Decor"
 # The pillars, walls, bridge pieces and inferno rocks are NOT here: their sets (T_Stoneworks, T_LargePillars, T_StoneWall, T_BridgeSet, T_InfernoRocks01) are UDIM virtual textures
-# (several tiles, the meshes' UVs spanning them), which need virtual texturing switched on for the project (Config/DefaultEngine.ini, which is not committed); they keep the concrete.
+# (several tiles, the meshes' UVs spanning them); virtual texturing would need Config/DefaultEngine.ini (never committed), so phase J draws them through stitched atlases instead.
 DECOR_SET_OF = (("LargeRock01", "LargeRock01"), ("LargeRock02", "LargeRock02"), ("LargeRock03", "LargeRock02"), ("LargeRock04", "LargeRock02"),
                 ("LargeRock05", "LargeRock03"), ("LargeRock06", "LargeRock03"), ("LargeRock07", "LargeRock03"),
                 ("CaveRock01", "CaveRocks01"), ("CaveRock02", "CaveRocks01"), ("CaveRock03", "CaveRocks02"), ("CaveRock04", "CaveRocks03"),
@@ -324,6 +327,11 @@ DECOR_TEXTURE_STEM = {"LargeRock01": "T_LargeRock01", "LargeRock02": "T_LargeRoc
                       "CaveRocks02": "T_CaveRocks02", "CaveRocks03": "T_CaveRocks03", "Concrete02": "T_Concrete02", "DeadTree": "T_DeadTree",
                       "CoffinStone01": "T_CoffinStone01", "Treasures01": "T_Treasures01"}
 DECOR_TEXTURES = tuple((DECOR_TEXTURE_STEM[s] + suffix, kind) for s in sorted(set(DECOR_TEXTURE_STEM)) for suffix, kind in (("_BC", "colour"), ("_N", "normal"), ("_ORM", "masks")))
+# Phase J (0.24.2 aesthetics): the UDIM sets, stitched into one atlas each by Tools/stitch_udim_atlases.ps1 (grid columns, rows; keep in step with that script), and the meshes that wear them.
+DECOR_ATLASES = {"BridgeSet": ("T_BridgeSet", 4, 2), "InfernoRocks01": ("T_InfernoRocks01", 2, 2), "LargePillars": ("T_LargePillars", 2, 1),
+                 "StoneWall": ("T_StoneWall", 2, 2), "Stoneworks": ("T_Stoneworks", 4, 2)}
+DECOR_ATLAS_OF = (("InfernoRock", "InfernoRocks01"), ("Stoneworks", "Stoneworks"), ("LargePillar", "LargePillars"), ("BridgePillar", "LargePillars"),
+                  ("StoneWall", "StoneWall"), ("BridgeArc", "BridgeSet"))
 CONCRETE_TILE = STAGE / "T_ArenaConcrete.png"
 
 
@@ -740,6 +748,139 @@ def import_decor():
     report["notes"].append("phase I: %d meshes wear their own textures; left on the concrete: %s" % (len(dressed), bare))
 
 
+def create_atlas_material(default_colour, default_normal, default_masks):
+    """M_DecorAtlas: M_DecorPBR for a UDIM set stitched into an atlas. Per pixel, UDIM tile t = floor(u) + Stride * floor(v) is found in cell (t mod Cols, t div Cols) of the
+    atlas; the samples take their mip from the derivatives of the original UV (scaled to the cell), so the jump between cells leaves no seam."""
+    package = DECOR_FOLDER + "/M_DecorAtlas"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_DecorAtlas", DECOR_FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_DecorAtlas")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+
+    def node(cls, x, y, **properties):
+        obj = edit.create_material_expression(material, cls, x, y)
+        require(obj is not None, "Could not create material expression " + cls.__name__)
+        for key, value in properties.items():
+            obj.set_editor_property(key, value)
+        return obj
+
+    def wire(a, output, b, input_name):
+        require(edit.connect_material_expressions(a, output, b, input_name), "Material connection failed: " + input_name)
+
+    uv = node(unreal.MaterialExpressionTextureCoordinate, -1600, 0)
+    cols = node(unreal.MaterialExpressionScalarParameter, -1600, 200, parameter_name="Cols", default_value=4.0)
+    rows = node(unreal.MaterialExpressionScalarParameter, -1600, 300, parameter_name="Rows", default_value=2.0)
+    stride = node(unreal.MaterialExpressionScalarParameter, -1600, 400, parameter_name="Stride", default_value=4.0)
+    inputs = []
+    for name in ("UV", "Cols", "Rows", "Stride"):
+        item = unreal.CustomInput()
+        item.set_editor_property("input_name", name)
+        inputs.append(item)
+    remap = node(unreal.MaterialExpressionCustom, -1300, 100, output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT2, description="UDIM to atlas",
+                 code="float2 Tile=floor(UV);float T=Tile.x+Stride*Tile.y;float2 Cell=float2(fmod(T,Cols),floor(T/Cols));return (Cell+frac(UV))/float2(Cols,Rows);")
+    remap.set_editor_property("inputs", inputs)
+    wire(uv, "", remap, "UV")
+    wire(cols, "", remap, "Cols")
+    wire(rows, "", remap, "Rows")
+    wire(stride, "", remap, "Stride")
+    grid = node(unreal.MaterialExpressionAppendVector, -1300, 350)
+    wire(cols, "", grid, "A")
+    wire(rows, "", grid, "B")
+    ddx = node(unreal.MaterialExpressionDDX, -1300, 450)
+    ddy = node(unreal.MaterialExpressionDDY, -1300, 550)
+    wire(uv, "", ddx, "Value")
+    wire(uv, "", ddy, "Value")
+    ddx_cell = node(unreal.MaterialExpressionDivide, -1100, 450)
+    ddy_cell = node(unreal.MaterialExpressionDivide, -1100, 550)
+    wire(ddx, "", ddx_cell, "A")
+    wire(grid, "", ddx_cell, "B")
+    wire(ddy, "", ddy_cell, "A")
+    wire(grid, "", ddy_cell, "B")
+    samplers = {"BaseColor": (default_colour, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR), "Normal": (default_normal, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL),
+                "ORM": (default_masks, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)}
+    samples = {}
+    for row, (name, (texture, sampler)) in enumerate(samplers.items()):
+        sample = node(unreal.MaterialExpressionTextureSampleParameter2D, -800, -300 + row * 300, parameter_name=name, texture=texture, sampler_type=sampler,
+                      mip_value_mode=unreal.TextureMipValueMode.TMVM_DERIVATIVE)
+        wire(remap, "", sample, "UVs")
+        wire(ddx_cell, "", sample, "DDX(UVs)")
+        wire(ddy_cell, "", sample, "DDY(UVs)")
+        samples[name] = sample
+    tint = node(unreal.MaterialExpressionVectorParameter, -800, -550, parameter_name="Tint", default_value=unreal.LinearColor(1, 1, 1, 1))
+    tinted = node(unreal.MaterialExpressionMultiply, -500, -400)
+    wire(samples["BaseColor"], "RGB", tinted, "A")
+    wire(tint, "", tinted, "B")
+    require(edit.connect_material_property(tinted, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
+    require(edit.connect_material_property(samples["Normal"], "RGB", unreal.MaterialProperty.MP_NORMAL), "normal")
+    require(edit.connect_material_property(samples["ORM"], "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION), "occlusion")
+    require(edit.connect_material_property(samples["ORM"], "G", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
+    require(edit.connect_material_property(samples["ORM"], "B", unreal.MaterialProperty.MP_METALLIC), "metallic")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_NANITE, True)
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_DecorAtlas")
+    report["imported"].append(material.get_path_name())
+    return material
+
+
+def import_decor_atlases():
+    """Phase J: the stitched UDIM atlases, M_DecorAtlas, one MI_DC_<set> per atlas set (its grid as parameters), and the pillars, walls, bridge pieces and inferno rocks dressed."""
+    assets.make_directory(DECOR_FOLDER)
+    textures = {}
+    for set_name, (stem, cols, rows) in DECOR_ATLASES.items():
+        for suffix, kind in (("_BC", "colour"), ("_N", "normal"), ("_ORM", "masks")):
+            name = stem + suffix + "_Atlas"
+            textures[name] = import_ground_texture(name, kind, DECOR_FOLDER)
+    first = DECOR_ATLASES["LargePillars"][0]
+    parent = create_atlas_material(textures[first + "_BC_Atlas"], textures[first + "_N_Atlas"], textures[first + "_ORM_Atlas"])
+    edit = unreal.MaterialEditingLibrary
+    instances = {}
+    for set_name, (stem, cols, rows) in DECOR_ATLASES.items():
+        package = DECOR_FOLDER + "/MI_DC_" + set_name
+        if assets.does_asset_exist(package):
+            assets.delete_asset(package)
+        mi = tools.create_asset("MI_DC_" + set_name, DECOR_FOLDER, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        require(mi is not None, "Could not create MI_DC_" + set_name)
+        edit.set_material_instance_parent(mi, parent)
+        texture_values = []
+        for parameter, suffix in (("BaseColor", "_BC"), ("Normal", "_N"), ("ORM", "_ORM")):
+            info = unreal.MaterialParameterInfo()
+            info.set_editor_property("name", parameter)
+            value = unreal.TextureParameterValue()
+            value.set_editor_property("parameter_info", info)
+            value.set_editor_property("parameter_value", textures[stem + suffix + "_Atlas"])
+            texture_values.append(value)
+        mi.set_editor_property("texture_parameter_values", texture_values)
+        scalar_values = []
+        for parameter, number in (("Cols", float(cols)), ("Rows", float(rows)), ("Stride", 4.0)):
+            info = unreal.MaterialParameterInfo()
+            info.set_editor_property("name", parameter)
+            value = unreal.ScalarParameterValue()
+            value.set_editor_property("parameter_info", info)
+            value.set_editor_property("parameter_value", number)
+            scalar_values.append(value)
+        mi.set_editor_property("scalar_parameter_values", scalar_values)
+        edit.update_material_instance(mi)
+        assets.save_loaded_asset(mi, False)
+        instances[set_name] = mi
+        report["imported"].append(mi.get_path_name())
+    dressed = []
+    for name in DC_MESHES:
+        set_name = next((s for prefix, s in DECOR_ATLAS_OF if name.startswith(prefix)), None)
+        path = "/Game/Art/Meshes/SM_DC_" + name
+        if set_name is None or not assets.does_asset_exist(path):
+            continue
+        mesh = unreal.load_asset(path)
+        for slot in range(len(mesh.get_editor_property("static_materials"))):
+            mesh.set_material(slot, instances[set_name])
+        assets.save_loaded_asset(mesh, False)
+        dressed.append(name)
+    report["notes"].append("phase J: %d meshes wear their UDIM sets through atlases: %s" % (len(dressed), dressed))
+
+
 GASP_STEPS = VAULT.parent / "GameAnimationSample_5.8" / "data" / "Content" / "Audio" / "Foley" / "SoundWaves" / "Sneaker" / "Concrete"
 HORROR_ROAR = VAULT.parent / "FREEComp8a724140adb8V1" / "data" / "Content" / "HorrorTemplate" / "Audio" / "SW_Monster.uasset"
 STEP_VARIANTS = 12
@@ -831,7 +972,7 @@ try:
     # Each phase stands alone: one failing (a missing pack, say) must not stop the others.
     errors = []
     chosen = os.environ.get("ASHEN_PHASES", "ABCE").upper()
-    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor)):
+    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases)):
         if letter not in chosen:
             continue
         try:
