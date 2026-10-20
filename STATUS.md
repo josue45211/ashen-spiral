@@ -1,8 +1,8 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-20 16:20 PDT
+updated: 2026-10-20 17:05 PDT
 phase: 0.24.2 PLAYTEST ZIP READY (Edison 09:01 order done); continuing Edison's 08:30 list (visual polish, 0.25 plan)
-current_item: visual polish - the hub's portals (flat spheres today)
+current_item: visual polish - the story chambers' return portal and look
 
 ## 0.24.2 PLAYTEST ZIP (Edison 09:01 order) - for Josue and P2; both PCs must run this exact file
 - Path: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip
@@ -12,7 +12,8 @@ current_item: visual polish - the hub's portals (flat spheres today)
 - On each PC: extract to a new folder, run Setup_and_Open.bat (or Tools\Setup.ps1), then play as usual. Test_Two_Players.bat for a local two-player check.
 
 ## NOW (2026-10-20) - read this first; older history is below, newest sections at the bottom of the file
-Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD b194363 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 3408fa0 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+- Hub (3408fa0, after the zip): the portals are turning spiral vortices in their colours (sealed ones a dark slow smoke) and the station flames burn instead of glowing white eggs. Checked in-engine.
 - Reward chest (60a34d7, after the zip): it is a wooden chest with a domed lid and gold bands; it had drawn as a stepped octagonal block since the first meshes (its lid was modelled standing upright). Checked in-engine.
 - Effects (2035790, after the zip): swing arcs, slashes, shockwaves and ring flashes are streaked bands of light with soft edges and a white-hot line instead of flat cream shapes; burning/frozen/poisoned/enraged enemies glow over their armour instead of turning orange. Warnings stay solid. Checked in-engine.
 - Enemy armour (c03bb40, after the zip): the armoured enemies' plates, weapons and shields are worn painted metal - mottled paint, bare steel along scratches, fine hammered relief (Paragon's surface layers from the Game Animation Sample) - instead of flat paint. Checked in-engine (close-ups).
