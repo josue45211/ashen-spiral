@@ -1,0 +1,24 @@
+# 0.24.2 carry-over verification: the reward ceremony (C-5: opening the chest gives a short hit-stop and a camera push-in, then the choices; no slow-mo). Story run, test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.run 4242
+waitfor combat 40
+wait 1
+as.dev.slay 40
+waitfor reward 45
+as.dev.slay 0
+wait 2.5
+as.dev.station 9
+wait 0.8
+as.dev.shot ver_c01_before
+as.dev.input interact
+wait 0.1
+as.dev.shot ver_c02_hitstop
+wait 0.35
+as.dev.shot ver_c03_push
+wait 0.7
+as.dev.shot ver_c04_choices
+as.dev.state
+wait 0.5
+quit

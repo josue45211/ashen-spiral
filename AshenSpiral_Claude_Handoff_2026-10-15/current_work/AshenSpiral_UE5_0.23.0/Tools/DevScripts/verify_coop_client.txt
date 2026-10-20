@@ -1,0 +1,24 @@
+# 0.24.2 carry-over verification: co-op on one PC (the guest, test profile 91): what the second player sees of itself (Quinn), the host (Manny), the arena and the enemies.
+waitfor combat 240
+wait 3
+as.dev.shot coop_c01_view
+as.dev.follow 380 30 70 55
+wait 1
+as.dev.shot coop_c02_quinn
+as.dev.input attack 1.5
+wait 0.3
+as.dev.shot coop_c03_attack
+wait 1.5
+as.dev.input dash
+wait 0.1
+as.dev.shot coop_c04_dash
+wait 2
+as.dev.follow 900 450 160 70 0
+wait 2
+as.dev.shot coop_c05_both
+wait 4
+as.dev.shot coop_c06_elite
+wait 6
+as.dev.shot coop_c07_after
+wait 0.5
+quit

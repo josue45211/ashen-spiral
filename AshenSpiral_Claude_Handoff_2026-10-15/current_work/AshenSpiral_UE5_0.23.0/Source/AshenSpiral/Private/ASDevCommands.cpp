@@ -44,6 +44,7 @@ float ArgFloat(const TArray<FString>& Args,int32 I,float Default) {return Args.I
 int32 ArgInt(const TArray<FString>& Args,int32 I,int32 Default) {return Args.IsValidIndex(I)?FCString::Atoi(*Args[I]):Default;}
 bool bGod=false;
 float WalkYaw=0.f;double WalkUntil=0.0;double AttackUntil=0.0,SpiralUntil=0.0; // as.dev.input: buttons held until then
+double SlayUntil=0.0,NextSlay=0.0; // as.dev.slay: every enemy that appears is struck down until then (clears a story room's waves)
 bool Tick(float);extern FTSTicker::FDelegateHandle Handle; // as.dev.walk: the host hero walks this way until then
 void Cam(const TArray<FString>& Args,UWorld* W);
 
@@ -78,6 +79,62 @@ void Spawn(const TArray<FString>& Args,UWorld* W) {
     const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D(),Right(-Forward.Y,Forward.X,0.f);int32 Made=0;
     for(int32 I=0;I<Count;++I) if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()+Forward*Distance+Right*(float(I)-(Count-1)*.5f)*160.f,nullptr,Kind,Health,false)) {++Made;E->RefreshLook();}
     UE_LOG(LogTemp,Display,TEXT("AshenDev: spawned %d of %d kind %d at %.0f cm"),Made,Count,Kind,Distance);
+}
+// as.dev.elite <mutation> [count] [distance] [side]: elite brutes in a row in front of the hero with that mutation (1 frostbound, 2 burning, 3 shocking, 4 venomous, 0 none).
+void Elite(const TArray<FString>& Args,UWorld* W) {
+    auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
+    const int32 Mutation=FMath::Clamp(ArgInt(Args,0,1),0,4),Count=FMath::Clamp(ArgInt(Args,1,1),1,8);const float Distance=ArgFloat(Args,2,900.f),Side=ArgFloat(Args,3,0.f);
+    const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D(),Right(-Forward.Y,Forward.X,0.f);int32 Made=0;
+    for(int32 I=0;I<Count;++I) if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()+Forward*Distance+Right*((float(I)-(Count-1)*.5f)*280.f+Side),nullptr,3,1.f,false)) {
+        E->Mutation=uint8(Mutation);E->MaxHealth=FMath::Max(E->MaxHealth,300.f);E->Health=E->MaxHealth;E->RefreshLook();E->ForceNetUpdate();++Made;
+    }
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: %d elite brutes with mutation %d at %.0f cm"),Made,Mutation,Distance);
+}
+// as.dev.boss <ward 0-3> [airborne] [distance]: a ward boss in front of the hero with its ward's kit (airborne 1: the Endless flying boss's dive loop instead), at its real health.
+void Boss(const TArray<FString>& Args,UWorld* W) {
+    auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
+    const int32 Ward=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WardCount-1);const bool Air=ArgInt(Args,1,0)!=0;
+    AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()+H->GetActorForwardVector().GetSafeNormal2D()*ArgFloat(Args,2,1000.f),nullptr,4,1.f,false);
+    if(!E) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: boss - spawn failed (combat phase only)"));return;}
+    E->Ward=Ward;E->Theme=Ward;E->bAirborne=Air;E->MaxHealth=1100.f+450.f*Ward;E->Health=E->MaxHealth;E->RefreshLook();E->ForceNetUpdate();
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: boss of ward %d%s, %.0f hp"),Ward,Air?TEXT(" (flying)"):TEXT(""),E->MaxHealth);
+}
+// as.dev.wound <fraction> [radius]: every enemy near the hero is hit (credited to the hero, through its own damage path) down to that share of its health; killall: to nothing.
+int32 HitAll(UWorld* W,float Leave,float Radius) {
+    auto* H=HostHero(W);auto* S=AS::State(W);if(!H||!S) return 0;int32 Count=0;
+    for(auto Weak:TArray<TWeakObjectPtr<AASEnemy>>(S->Enemies)) if(AASEnemy* E=Weak.Get()) if(E->Health>0&&E->CustomTimeDilation>0.f&&FVector::Dist2D(E->GetActorLocation(),H->GetActorLocation())<Radius) {
+        const float Blow=E->Health-E->MaxHealth*Leave;if(Blow<=0.f) continue;
+        E->Hit(Leave<=0.f?E->Health+E->MaxHealth:Blow,H,true);++Count;
+    }
+    return Count;
+}
+void Wound(const TArray<FString>& Args,UWorld* W) {const int32 N=HitAll(W,FMath::Clamp(ArgFloat(Args,0,.5f),.01f,1.f),ArgFloat(Args,1,3000.f));UE_LOG(LogTemp,Display,TEXT("AshenDev: wounded %d enemies to %.0f%%"),N,ArgFloat(Args,0,.5f)*100.f);}
+void KillAll(const TArray<FString>& Args,UWorld* W) {const int32 N=HitAll(W,0.f,ArgFloat(Args,0,6000.f));UE_LOG(LogTemp,Display,TEXT("AshenDev: struck down %d enemies"),N);}
+void Slay(const TArray<FString>& Args,UWorld*) {
+    SlayUntil=FPlatformTime::Seconds()+ArgFloat(Args,0,20.f);NextSlay=0.0;
+    if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: slaying every enemy for %.0f s"),ArgFloat(Args,0,20.f));
+}
+// as.dev.keeper: a grunt frozen in time 25 m behind the hero (it never moves, attacks or dies to killall), so a wave stays in combat while scenes are staged and cleared.
+void Keeper(const TArray<FString>&,UWorld* W) {
+    auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
+    if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()-H->GetActorForwardVector().GetSafeNormal2D()*2500.f,nullptr,0,1.f,false)) {E->CustomTimeDilation=0.f;UE_LOG(LogTemp,Display,TEXT("AshenDev: keeper frozen at %s"),*E->GetActorLocation().ToCompactString());}
+}
+// as.dev.status <burn|poison|frost|bleed|shock> [radius]: the element applied by the hero (a full proc with its pool) to every enemy near it.
+void Status(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);auto* S=AS::State(W);if(!H||!S||!Args.IsValidIndex(0)) return;
+    const FString N=Args[0];const EASHitKind Kind=N==TEXT("burn")?EASHitKind::Burn:N==TEXT("poison")?EASHitKind::Poison:N==TEXT("frost")?EASHitKind::Frost:N==TEXT("bleed")?EASHitKind::Bleed:EASHitKind::Shock;
+    int32 Count=0;
+    for(auto Weak:TArray<TWeakObjectPtr<AASEnemy>>(S->Enemies)) if(AASEnemy* E=Weak.Get()) if(E->Health>0&&FVector::Dist2D(E->GetActorLocation(),H->GetActorLocation())<ArgFloat(Args,1,3000.f)) {E->ApplyElement(Kind,H,1.f,3.f,40.f);++Count;}
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: %s applied to %d enemies"),*N,Count);
+}
+// as.dev.station <id>: the hero is put beside an interaction point (9 = the reward chest), facing it.
+void Station(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);auto* S=AS::State(W);if(!H||!S||!S->Arena) return;
+    const FVector Point=S->Arena->InteractionPoint(ArgInt(Args,0,9));FVector Away=H->GetActorLocation()-Point;Away.Z=0.f;Away=Away.IsNearlyZero()?FVector(-1.f,0.f,0.f):Away.GetSafeNormal();
+    const FVector At=FVector(Point.X,Point.Y,H->GetActorLocation().Z)+Away*120.f;
+    H->SetActorLocation(At,false,nullptr,ETeleportType::TeleportPhysics);if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(-15.f,(-Away).Rotation().Yaw,0.f));
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: by station %d at %s (station page here: %d)"),ArgInt(Args,0,9),*At.ToCompactString(),S->Arena->StationAt(At));
 }
 // as.dev.knock <strength> [radius]: every enemy near the hero is launched away from it, credited to the hero (the same call the maul's slam makes).
 void Knock(const TArray<FString>& Args,UWorld* W) {
@@ -114,6 +171,13 @@ void Trait(const TArray<FString>& Args,UWorld* W) {
     if(I<0||I>=ASBuild::Count) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: trait index %d out of range"),I);return;}
     H->TraitRanks.SetNumZeroed(ASBuild::Count);H->TraitRanks[I]=FMath::Clamp(Rank,0,9);H->ForceNetUpdate();
     UE_LOG(LogTemp,Display,TEXT("AshenDev: trait %d (%s) set to rank %d"),I,UTF8_TO_TCHAR(ASBuild::Catalog[I].Name),H->TraitRanks[I]);
+}
+// as.dev.pick <trait> [times]: the host hero takes that trait from a reward, through the real pick path (ranks, evolutions, the metamorphosis notice), up to <times> or its maximum.
+void Pick(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);if(!H) return;const int32 I=ArgInt(Args,0,-1);
+    if(I<0||I>=ASBuild::Count) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: pick - trait %d out of range"),I);return;}
+    int32 Taken=0;for(int32 N=0;N<FMath::Clamp(ArgInt(Args,1,1),1,12);++N) if(H->CanApplyChoice(ASBuild::OfferBase+I)&&H->ApplyChoice(ASBuild::OfferBase+I)) ++Taken;
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: picked %s %d time(s) (catalogue max %d)"),UTF8_TO_TCHAR(ASBuild::Catalog[I].Name),Taken,ASBuild::Catalog[I].Max);
 }
 void Weapon(const TArray<FString>& Args,UWorld* W) {
     auto* H=HostHero(W);if(!H) return;FASBuild B=H->Build;B.Weapon=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WeaponCount-1);H->ApplyBuild(B,false);H->RefreshLook();
@@ -160,16 +224,16 @@ void Cam(const TArray<FString>& Args,UWorld* W) {
 void Face(const TArray<FString>& Args,UWorld* W) {if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(ArgFloat(Args,1,-15.f),ArgFloat(Args,0,0.f),0.f));}
 // as.dev.follow <distance> <height> <angle> [fov] | off: the photo camera rides with the hero, <angle> degrees round from its facing (0 in front, 90 its right side, 180 behind),
 // <height> cm above its middle, looking at its chest; for photographing the hero's own animation wherever it goes.
-bool bFollow=false;float FollowDistance=360.f,FollowHeight=30.f,FollowAngle=90.f;
+bool bFollow=false;float FollowDistance=360.f,FollowHeight=30.f,FollowAngle=90.f,FollowAhead=0.f;
 void FollowTick(UWorld* W) {
     auto* H=HostHero(W);if(!bFollow||!H||!PhotoCamera.IsValid()) return;
-    const FVector Chest=H->GetActorLocation()+FVector(0.f,0.f,25.f);
+    const FVector Chest=H->GetActorLocation()+FVector(0.f,0.f,25.f),Target=Chest+FRotator(0.f,H->GetActorRotation().Yaw,0.f).Vector()*FollowAhead; // looked at: the chest, or a point ahead of the hero
     const FVector From=Chest+FRotator(0.f,H->GetActorRotation().Yaw+FollowAngle,0.f).Vector()*FollowDistance+FVector(0.f,0.f,FollowHeight);
-    PhotoCamera->SetActorLocationAndRotation(From,(Chest-From).Rotation());
+    PhotoCamera->SetActorLocationAndRotation(From,(Target-From).Rotation());
 }
 void Follow(const TArray<FString>& Args,UWorld* W) {
     if(Args.IsValidIndex(0)&&Args[0]==TEXT("off")) {bFollow=false;Cam({TEXT("off")},W);return;}
-    FollowDistance=ArgFloat(Args,0,360.f);FollowHeight=ArgFloat(Args,1,30.f);FollowAngle=ArgFloat(Args,2,90.f);
+    FollowDistance=ArgFloat(Args,0,360.f);FollowHeight=ArgFloat(Args,1,30.f);FollowAngle=ArgFloat(Args,2,90.f);FollowAhead=ArgFloat(Args,4,0.f);
     // the camera is placed beside the hero at once (re-aiming a camera that is already the view never sends it through the origin)
     if(!PhotoCamera.IsValid()) Cam({TEXT("0"),TEXT("0"),TEXT("0"),TEXT("0"),TEXT("0"),TEXT("55")},W);
     else if(auto* PC=HostController(W)) if(PC->GetViewTarget()!=PhotoCamera.Get()) PC->SetViewTarget(PhotoCamera.Get());
@@ -246,6 +310,7 @@ void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->E
 void State(const TArray<FString>&,UWorld* W) {
     auto* S=AS::State(W);auto* H=HostHero(W);if(!S) return;
     UE_LOG(LogTemp,Display,TEXT("AshenDev: phase %d room %d wave %d endless %d enemies %d hero %s hp %.0f"),int32(S->Phase),S->Room,S->Wave,S->bEndless?S->EndlessWave:-1,S->Enemies.Num(),H?*H->GetActorLocation().ToCompactString():TEXT("-"),H?H->Health:0.f);
+    if(H) if(const auto* PS=H->GetPlayerState<AASPlayerState>()) UE_LOG(LogTemp,Display,TEXT("AshenDev:   run facts: kills %d, perfect dashes %d, impacts %d, echoes %d, metamorphosed %d"),PS->RunKills,PS->RunPerfectDashes,PS->RunImpacts,PS->RunEchoes,PS->bRunMetamorphosed?1:0);
     if(H) { // which way the hero faces: the actor, its controller, and (the Mannequin) its pelvis, whose forward is the bone's +Y... logged raw for comparison
         const USkeletalMeshComponent* Body=H->GetMesh();const bool Bones=Body&&Body->DoesSocketExist(TEXT("pelvis"));
         UE_LOG(LogTemp,Display,TEXT("AshenDev:   hero yaw %.0f control %.0f mesh %.0f pelvis %s velocity %s"),H->GetActorRotation().Yaw,H->GetControlRotation().Yaw,Body?Body->GetComponentRotation().Yaw:0.f,
@@ -254,21 +319,24 @@ void State(const TArray<FString>&,UWorld* W) {
     for(auto Weak:S->Enemies) if(const AASEnemy* E=Weak.Get()) UE_LOG(LogTemp,Display,TEXT("AshenDev:   enemy kind %d hp %.0f/%.0f state %d at %s launched %d"),E->Kind,E->Health,E->MaxHealth,int32(E->AIState),*E->GetActorLocation().ToCompactString(),(E->Flags&ASEnemyRules::FlagLaunched)?1:0);
 }
 
-// ---- the script player: one command per line; "wait <seconds>", "waitfor ready|combat|hub [timeout]", "#" comments; anything else is a console command ----
+// ---- the script player: one command per line; "wait <seconds>", "waitfor ready|players|combat|hub|reward [timeout]", "#" comments; anything else is a console command ----
 TArray<FString> Lines;int32 Next=0;double ResumeAt=0.0,WaitDeadline=0.0;FString WaitingFor;FTSTicker::FDelegateHandle Handle;
 bool Ready(const FString& What,UWorld* W) {
-    auto* S=AS::State(W);auto* GM=Mode(W);if(!S||!GM) return false;
-    if(What==TEXT("ready")) return GM->AllReady()&&HostHero(W)!=nullptr;
+    auto* S=AS::State(W);auto* GM=Mode(W);if(!S) return false; // the phases replicate, so a client's script can wait on them too
+    if(What==TEXT("ready")) return GM&&GM->AllReady()&&HostHero(W)!=nullptr;
+    if(What==TEXT("players")) return GM&&S->PlayerArray.Num()>=2&&GM->AllReady()&&S->Heroes.Num()>=2; // the host waits for its guest
     if(What==TEXT("combat")) return S->Phase==EASPhase::Combat;
     if(What==TEXT("hub")) return S->Phase==EASPhase::Hub;
+    if(What==TEXT("reward")) return S->Phase==EASPhase::Reward;
     return true;
 }
 bool Tick(float) {
     UWorld* W=GameWorld();
-    if(bGod) if(auto* H=HostHero(W)) {H->InvulnerableUntil=AS::Time(W)+1.f;if(H->Health<H->MaxHealth*.5f) H->Health=H->MaxHealth;}
+    if(bGod) if(auto* S=AS::State(W)) if(Mode(W)) for(auto Weak:S->Heroes) if(AASCharacter* H=Weak.Get()) {H->InvulnerableUntil=AS::Time(W)+1.f;if(H->Health<H->MaxHealth*.5f) H->Health=H->MaxHealth;} // every hero, on the host
     const double Now=FPlatformTime::Seconds();
     if(Now<WalkUntil) if(auto* H=HostHero(W)) H->AddMovementInput(FRotator(0.f,WalkYaw,0.f).Vector(),1.f,true);
     FollowTick(W);
+    if(Now<SlayUntil&&Now>=NextSlay) {NextSlay=Now+.3;HitAll(W,0.f,1.e6f);}
     if(AttackUntil>0.0&&Now>=AttackUntil) {AttackUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("attack"),false);}
     if(SpiralUntil>0.0&&Now>=SpiralUntil) {SpiralUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("spiral"),false);}
     if(Next>=Lines.Num()) return true; // keep ticking for god mode; a new script restarts the list
@@ -303,10 +371,19 @@ AS_DEV_COMMAND("as.dev.endless",Endless,"Starts an Endless run as the host (unlo
 AS_DEV_COMMAND("as.dev.run",Run,"Starts a story run as the host. Optional seed.");
 AS_DEV_COMMAND("as.dev.room",Room,"Enters story room N.");
 AS_DEV_COMMAND("as.dev.spawn",Spawn,"Spawns <kind> [count] [distance] [health scale] enemies in front of the hero (combat only).");
+AS_DEV_COMMAND("as.dev.elite",Elite,"Elite brutes in front of the hero: <mutation 0-4> [count=1] [distance=900] [side offset=0].");
+AS_DEV_COMMAND("as.dev.boss",Boss,"A ward boss in front of the hero: <ward 0-3> [airborne=0] [distance=1000].");
+AS_DEV_COMMAND("as.dev.wound",Wound,"Hits every enemy near the hero down to <fraction> of its health [radius=3000].");
+AS_DEV_COMMAND("as.dev.killall",KillAll,"Strikes down every enemy near the hero, credited to it [radius=6000].");
+AS_DEV_COMMAND("as.dev.slay",Slay,"Strikes down every enemy as it appears for [seconds=20] (clears a story room's waves).");
+AS_DEV_COMMAND("as.dev.keeper",Keeper,"A grunt frozen 25 m behind the hero that keeps the wave in combat (killall spares it).");
+AS_DEV_COMMAND("as.dev.status",Status,"Applies <burn|poison|frost|bleed|shock> from the hero to every enemy near it [radius=3000].");
+AS_DEV_COMMAND("as.dev.station",Station,"Puts the hero beside interaction point <id> (9 = the reward chest).");
 AS_DEV_COMMAND("as.dev.knock",Knock,"Launches every enemy near the hero away from it: [strength=950] [radius=700].");
 AS_DEV_COMMAND("as.dev.slamtest",SlamTest,"Launches a grunt at the nearest wall from 4.5 m: [strength=950]. Watch the log for AshenKnock: wall slam.");
 AS_DEV_COMMAND("as.dev.piletest",PileTest,"Launches a grunt into another across open ground: [strength=950]. Watch the log for AshenKnock: pile-up.");
 AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host hero.");
+AS_DEV_COMMAND("as.dev.pick",Pick,"The host hero takes trait <index> through the real reward path, [times=1] (stops at its maximum).");
 AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8).");
 AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
 AS_DEV_COMMAND("as.dev.input",Input,"Presses the host's buttons: attack|spiral <hold seconds>, dash, jump, rune, reload.");
@@ -315,7 +392,7 @@ AS_DEV_COMMAND("as.dev.hurt",HurtHero,"A blow of <amount> to the host hero from 
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
 AS_DEV_COMMAND("as.dev.cam",Cam,"A fixed photo camera: <x> <y> <z> <pitch> <yaw> [fov=80], or off.");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
-AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55], or off.");
+AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55] [look-ahead cm=0], or off.");
 AS_DEV_COMMAND("as.dev.clearing",Clearing,"Moves the hero to open ground near the arena's middle: [radius=600] clear all round.");
 AS_DEV_COMMAND("as.dev.shot",Shot,"Screenshot to Saved/Screenshots/Dev/<name>.png [ui=1].");
 AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around the host hero [distance=520].");

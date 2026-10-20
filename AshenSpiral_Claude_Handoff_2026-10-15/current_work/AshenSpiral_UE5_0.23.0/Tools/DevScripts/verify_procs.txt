@@ -1,0 +1,58 @@
+# 0.24.2 carry-over verification: proc chains (C-1, element procs echo to neighbours) and metamorphoses (C-6, max-rank traits change what they do). Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 500
+as.dev.face 0
+as.dev.keeper
+# Chain Lightning (a conductor) and Burn to its maximum (WILDFIRE), taken the way a reward gives them
+as.dev.pick 42 3
+as.dev.pick 5 12
+wait 0.3
+as.dev.cam off
+as.dev.shot ver_p00_banner
+as.dev.follow 600 300 180 70 350
+as.dev.spawn 0 6 320
+wait 0.8
+as.dev.input attack 3
+wait 0.5
+as.dev.shot ver_p01_chain_a
+wait 0.6
+as.dev.shot ver_p02_chain_b
+wait 1.2
+as.dev.state
+as.dev.status burn
+wait 0.3
+as.dev.killall
+wait 0.12
+as.dev.shot ver_p03_wildfire_a
+wait 0.3
+as.dev.shot ver_p04_wildfire_b
+wait 1
+as.dev.state
+# Frost to its maximum (SHATTER)
+as.dev.pick 9 12
+as.dev.spawn 0 6 320
+wait 0.8
+as.dev.status frost
+as.dev.status frost
+as.dev.status frost
+wait 0.4
+as.dev.shot ver_p05_frozen
+as.dev.killall
+wait 0.12
+as.dev.shot ver_p06_shatter_a
+wait 0.3
+as.dev.shot ver_p07_shatter_b
+wait 1
+# Knockback to its maximum (PINBALL): an impact hits 2.5x as hard
+as.dev.pick 31 12
+as.dev.slamtest
+wait 1.5
+as.dev.state
+wait 0.5
+quit

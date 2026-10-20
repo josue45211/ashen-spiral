@@ -82,6 +82,9 @@ def validate():
     launcher_protocol=re.search(r'Protocol=(\d+)',(ROOT/'Tools/TestTwoPlayers.ps1').read_text())
     check(protocol is not None and launcher_protocol is not None and protocol[1]==launcher_protocol[1],
           'Local two-player launcher uses the runtime network protocol')
+    coop_check_protocol=re.search(r'Protocol=(\d+)',(ROOT/'Tools/RunCoopCheck.ps1').read_text())
+    check(protocol is not None and coop_check_protocol is not None and protocol[1]==coop_check_protocol[1],
+          'The in-engine co-op check (Tools/RunCoopCheck.ps1) dials the runtime network protocol')
     version=re.search(r'constexpr const TCHAR\* Version=TEXT\("([^"]+)"\)',(ROOT/'Source/AshenSpiral/Public/ASData.h').read_text())
     project_version=re.search(r'^ProjectVersion=(\S+)',(ROOT/'Config/DefaultGame.ini').read_text(),re.M)
     check(version is not None and project_version is not None and version[1]==project_version[1],

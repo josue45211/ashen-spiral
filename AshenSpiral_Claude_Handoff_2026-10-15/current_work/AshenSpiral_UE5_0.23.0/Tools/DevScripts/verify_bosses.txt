@@ -1,0 +1,102 @@
+# 0.24.2 carry-over verification: the four ward bosses (three attacks each, the half-health roar into phase two) and the Endless flying boss. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.abilitylog 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 500
+as.dev.face 0
+as.dev.keeper
+as.dev.follow 750 420 180 80 700
+# ward 0: the Indexer
+as.dev.boss 0 0 1100
+wait 2.5
+as.dev.shot ver_b01_w0_a
+wait 2
+as.dev.shot ver_b02_w0_b
+wait 2
+as.dev.shot ver_b03_w0_c
+as.dev.wound 0.45
+wait 0.7
+as.dev.shot ver_b04_w0_roar
+wait 2.5
+as.dev.shot ver_b05_w0_two_a
+wait 2.5
+as.dev.shot ver_b06_w0_two_b
+as.dev.state
+as.dev.killall
+wait 2
+# ward 1: the Bellwether
+as.dev.killall
+as.dev.boss 1 0 1100
+wait 2.5
+as.dev.shot ver_b07_w1_a
+wait 2
+as.dev.shot ver_b08_w1_b
+wait 2
+as.dev.shot ver_b09_w1_c
+as.dev.wound 0.45
+wait 0.7
+as.dev.shot ver_b10_w1_roar
+wait 2.5
+as.dev.shot ver_b11_w1_two_a
+wait 2.5
+as.dev.shot ver_b12_w1_two_b
+as.dev.state
+as.dev.killall
+wait 2
+# ward 2: the Horticulturist
+as.dev.killall
+as.dev.boss 2 0 1100
+wait 2.5
+as.dev.shot ver_b13_w2_a
+wait 2
+as.dev.shot ver_b14_w2_b
+wait 2
+as.dev.shot ver_b15_w2_c
+as.dev.wound 0.45
+wait 0.7
+as.dev.shot ver_b16_w2_roar
+wait 2.5
+as.dev.shot ver_b17_w2_two_a
+wait 2.5
+as.dev.shot ver_b18_w2_two_b
+as.dev.state
+as.dev.killall
+wait 2
+# ward 3: the Rootbound Sovereign
+as.dev.killall
+as.dev.boss 3 0 1100
+wait 2.5
+as.dev.shot ver_b19_w3_a
+wait 2
+as.dev.shot ver_b20_w3_b
+wait 2
+as.dev.shot ver_b21_w3_c
+as.dev.wound 0.45
+wait 0.7
+as.dev.shot ver_b22_w3_roar
+wait 2.5
+as.dev.shot ver_b23_w3_two_a
+wait 2.5
+as.dev.shot ver_b24_w3_two_b
+as.dev.state
+as.dev.killall
+wait 2
+# the Endless flying boss
+as.dev.killall
+as.dev.boss 0 1 900
+wait 2.5
+as.dev.shot ver_b25_fly_a
+wait 2
+as.dev.shot ver_b26_fly_b
+wait 2
+as.dev.shot ver_b27_fly_c
+wait 2
+as.dev.shot ver_b28_fly_d
+as.dev.state
+wait 0.5
+quit

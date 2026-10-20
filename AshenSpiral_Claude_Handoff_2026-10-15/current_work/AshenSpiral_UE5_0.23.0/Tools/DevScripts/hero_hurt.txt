@@ -48,4 +48,5 @@ as.dev.state
 wait 4
 as.dev.shot hero_h09_later
 as.dev.state
+wait 0.5
 quit

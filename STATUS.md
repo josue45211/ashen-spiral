@@ -366,3 +366,19 @@ Needs Josue: nothing.
 UNVERIFIED (playtest): P2 as Quinn over the network; how each attack animation's timing feels against its hit; reload and cast animations; the downed pose held in co-op (solo ends the run at once).
 P2's machine needs the local content: run Tools/import_mannequin.ps1 there, or use the next playtest zip (it will carry Content/Characters). Without it P2 sees the old armour rig, which still works.
 Needs Josue: nothing.
+
+## 0.24.2 carry-over verification (2026-10-20, Opus session) - every item checked IN-ENGINE
+Scripted runs of the real game (standalone, test profiles 90/91/95; scripts in Tools/DevScripts/verify_*.txt; screenshots Saved/Screenshots/Dev/ver_*, coop_*). What a script cannot judge is listed under UNVERIFIED.
+- Elite mutations: PASS. Four elites, one per mutation, each in its own colour; each used its signature move (log "AshenAbility:"): frostbound glacial slam (cyan disc + ring), burning cinder burst (fire pools in a line), shocking storm call (sky column), venomous seed bombs (pools).
+- Ward boss redesign: PASS. All four wards ran their own kits (Indexer: marks, page-storm ring; Bellwether: marks, toll; Horticulturist: blooms, ring, seeds; Sovereign: roots, crown slam), roared at half health and fought on in phase two with the hot-red pulse (phase-two slam, charge, seeds+bloom, roots). The Sovereign's GRASP did not come up in the 5 s window (phase two only, random pick).
+- Flying boss: PASS. Wings, flight, and the dive onto the hero.
+- Proc chains: PASS. With Chain Lightning, element procs echoed to neighbours (run facts: 2 echoes in one 3 s fight).
+- Metamorphoses: PASS. Taking Kindling Touch, Chain Lightning, Winter Touch and Heavy Impact to their maximum showed the WILDFIRE, STORM WEB, SHATTER notices; frozen enemies shattered with frost rings when killed; a launched grunt slammed a wall.
+- Reward ceremony: PASS. Opening the chest pushes the camera in through the hit-stop.
+- Death-screen lines: PASS. "The ember dims, but what you recovered remains." plus a WHAT YOU LEARNED line drawn from the run (the perfect dash).
+- Co-op (P2): PASS on one PC (listen host + guest). The guest is Quinn and the host Manny on both screens, with the P1/P2 markers; the guest's attacks and dash ghost (cyan) show; enemies, hazards and the arena match on both screens.
+- Endless, no regression: PASS. Waves, the checkpoint chest ("WAVE 1 CLEARED"), cover, the ruin ring and the walls; the same cover on host and guest.
+- Hub: PASS. Loads, the Expedition panel opens.
+- Armoured walkers' collapse: PASS. Five grunts struck down together fold in different falls, then shrink away.
+UNVERIFIED (playtest): balance and feel of all the above; two real PCs over the internet; the Sovereign's grasp; the Wildfire explosion itself (the burning enemies died between frames).
+Needs Josue: nothing.

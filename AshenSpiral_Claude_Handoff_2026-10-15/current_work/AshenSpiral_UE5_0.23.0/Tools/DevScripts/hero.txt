@@ -91,4 +91,5 @@ wait 0.6
 as.dev.shot hero_22_mortar_side
 wait 0.4
 as.dev.state
+wait 0.5
 quit

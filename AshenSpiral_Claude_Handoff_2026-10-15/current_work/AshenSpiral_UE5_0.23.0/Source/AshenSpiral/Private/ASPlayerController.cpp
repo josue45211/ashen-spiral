@@ -172,6 +172,7 @@ void AASPlayerController::DevButton(const FString& B,bool bDown) {
     else if(B==TEXT("jump")) {if(bDown) JumpDown();else JumpUp();}
     else if(B==TEXT("rune")) {if(bDown) Rune();}
     else if(B==TEXT("reload")) {if(bDown) Reload();}
+    else if(B==TEXT("interact")) {if(bDown) Interact();}
 }
 void AASPlayerController::Dash() {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->Movement()->bWantsDash=true;}
 void AASPlayerController::JumpDown() {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->Jump();}

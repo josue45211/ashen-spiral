@@ -1,0 +1,28 @@
+# 0.24.2 carry-over verification: co-op on one PC (host, test profile 90). Pairs with verify_coop_client.txt; Saved/Scratch/run_coop.ps1 starts both.
+waitfor players 150
+wait 3
+as.dev.god 1
+as.dev.abilitylog 1
+as.dev.shot coop_h01_hub
+wait 0.5
+as.dev.endless 4242
+waitfor combat 40
+wait 4
+as.dev.shot coop_h02_start
+as.dev.weapon 1
+as.dev.follow 900 450 200 70 0
+wait 1
+as.dev.shot coop_h03_both
+as.dev.elite 2 1 900
+wait 5
+as.dev.shot coop_h04_elite
+as.dev.state
+wait 8
+as.dev.killall
+wait 2
+as.dev.shot coop_h05_cleared
+as.dev.state
+wait 12
+as.dev.state
+wait 0.5
+quit

@@ -1,0 +1,55 @@
+# 0.24.2 carry-over verification (Edison 22:28): the four elite mutations (tint pulse + signature ability) and the armoured walkers' collapse, in Endless. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.abilitylog 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 500
+as.dev.face 0
+as.dev.follow 650 330 180 80 900
+as.dev.elite 1 1 1100 -600
+as.dev.elite 2 1 1100 -200
+as.dev.elite 3 1 1100 200
+as.dev.elite 4 1 1100 600
+wait 1.5
+as.dev.shot ver_e01_elites
+wait 1.2
+as.dev.shot ver_e02
+wait 1.2
+as.dev.shot ver_e03
+wait 1.2
+as.dev.shot ver_e04
+wait 1.2
+as.dev.shot ver_e05
+wait 1.2
+as.dev.shot ver_e06
+wait 1.2
+as.dev.shot ver_e07
+wait 1.2
+as.dev.shot ver_e08
+wait 1.5
+as.dev.shot ver_e09
+wait 1.5
+as.dev.shot ver_e10
+as.dev.state
+# the armoured walkers' collapse: five grunts struck down together (each picks its fall from the blow's direction)
+as.dev.killall
+as.dev.spawn 0 5 450
+wait 1.2
+as.dev.follow 560 160 150 60 250
+wait 0.3
+as.dev.killall
+wait 0.15
+as.dev.shot ver_e11_collapse_a
+wait 0.35
+as.dev.shot ver_e12_collapse_b
+wait 0.5
+as.dev.shot ver_e13_collapse_c
+wait 1
+as.dev.shot ver_e14_collapse_d
+as.dev.state
+wait 0.5
+quit

@@ -274,11 +274,24 @@ void AASEnemy::SetAIState(int32 NewState) {
     if(int32(AIState)!=Clamped) {AIState=uint8(Clamped);ForceNetUpdate();}
     if(bWinding!=Telegraphing) {bWinding=Telegraphing;ForceNetUpdate();}
 }
+#if !UE_BUILD_SHIPPING
+// 0.24.2: as.dev.abilitylog 1 logs every ability an enemy starts (in-engine verification of the elite mutations and the ward bosses); off by default, never in shipping.
+static TAutoConsoleVariable<int32> CVarASAbilityLog(TEXT("as.dev.abilitylog"),0,TEXT("1: log every enemy ability as it starts (AshenAbility: lines)."),ECVF_Default);
+#endif
 void AASEnemy::BeginAbility(int32 AbilityId,const FVector& ToTarget) {
     namespace ER=ASEnemyRules;
     auto* S=AS::State(this);if(!S) return;
     Aim=FVector(ToTarget.X,ToTarget.Y,0.f).GetSafeNormal();if(Aim.IsNearlyZero()) Aim=GetActorForwardVector();
     const int32 Id=FMath::Clamp(AbilityId,0,ER::AbilityCount-1);const ER::AbilitySpec& Spec=ER::SpecFor(Id);
+#if !UE_BUILD_SHIPPING
+    if(CVarASAbilityLog.GetValueOnGameThread()!=0) {
+        static const TCHAR* Names[ER::AbilityCount]={TEXT("none"),TEXT("dive"),TEXT("molt"),TEXT("slash"),TEXT("shot"),TEXT("pounce"),TEXT("charge"),TEXT("blast"),TEXT("snipe"),TEXT("summon"),
+            TEXT("boss attack"),TEXT("shove"),TEXT("back hop"),TEXT("parry"),TEXT("riposte"),TEXT("pound"),TEXT("enrage"),TEXT("blink"),TEXT("blink strike"),TEXT("meteors"),
+            TEXT("glacial slam"),TEXT("cinder burst"),TEXT("storm call"),TEXT("seed bombs"),TEXT("boss slam"),TEXT("boss marks"),TEXT("boss ring"),TEXT("boss charge"),TEXT("boss toll"),
+            TEXT("boss seeds"),TEXT("boss bloom"),TEXT("boss roots"),TEXT("boss grasp"),TEXT("boss roar")};
+        UE_LOG(LogTemp,Display,TEXT("AshenAbility: kind %d ward %d mutation %d%s%s begins %s (%d)"),Kind,Ward,int32(Mutation),bAirborne?TEXT(" flying"):TEXT(""),(Flags&ER::FlagPhaseTwo)?TEXT(" phase-two"):TEXT(""),Names[Id],Id);
+    }
+#endif
     Ability=uint8(Id);LastAbility=Id;
     if(Id==ER::AbilityParry) {RiposteAt=-1.f;bParryBlocked=false;}
     const float Anger=((Flags&ER::FlagEnraged)&&!(Spec.Flags&ER::StanceFlag))?ER::EnrageWindupScale:1.f; // an enraged enemy winds up faster

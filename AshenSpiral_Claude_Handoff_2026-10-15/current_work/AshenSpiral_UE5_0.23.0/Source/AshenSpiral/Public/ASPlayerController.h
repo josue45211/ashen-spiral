@@ -87,7 +87,7 @@ public:
     UFUNCTION(Client,Unreliable) void DamageNumber(FVector_NetQuantize Position,float Value,bool Critical,EASHitKind Kind);
     UFUNCTION(Exec) void ASPerformance();
     UFUNCTION(Exec) void ASInputStatus();
-    // 0.24.2: the dev harness (ASDevCommands.cpp) presses this player's buttons the way the key bindings do: attack, spiral, dash, jump, rune, reload.
+    // 0.24.2: the dev harness (ASDevCommands.cpp) presses this player's buttons the way the key bindings do: attack, spiral, dash, jump, rune, reload, interact.
     void DevButton(const FString& Button,bool bDown);
 private:
     TSharedPtr<SASMenu> Menu;
