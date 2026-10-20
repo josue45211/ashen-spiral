@@ -520,25 +520,52 @@ FString ShortEffect(const FString& Detail) {
     return First;
 }
 }
+// 0.24.1 (playtest: the reward screen needed colour on its trait emblems): the emblem of a trait wears the colour of what the trait does, so a row of offers reads at a glance.
+// Elements take their own colour, everything else its tag or category. The tile's rim keeps the rarity. Alpha 0 = not a trait (the caller falls back to the rarity colour).
+static FLinearColor EmblemColor(int32 Offer) {
+    if(!ASBuild::IsTrait(Offer)) return FLinearColor(0.f,0.f,0.f,0.f);
+    using ASBuild::Trait;const int32 Id=Offer-ASBuild::OfferBase;
+    if(Id<0||Id>=ASBuild::Count) return FLinearColor(0.f,0.f,0.f,0.f);
+    switch(Trait(Id)) {
+    case Trait::Burn:return FLinearColor(1.f,.48f,.14f);
+    case Trait::Poison:return FLinearColor(.40f,1.f,.40f);
+    case Trait::Bleed:return FLinearColor(.95f,.22f,.28f);
+    case Trait::Shock:case Trait::Chain:return FLinearColor(.86f,.74f,1.f);
+    case Trait::Frost:case Trait::ChillAura:return FLinearColor(.30f,.95f,1.f);
+    default:break;
+    }
+    const auto& D=ASBuild::Catalog[Id];
+    if(D.Tags&ASBuild::Loot) return FLinearColor(1.f,.84f,.30f);
+    if(D.Tags&ASBuild::Dash) return FLinearColor(.92f,.90f,1.f);
+    switch(D.Category) {
+    case 0:return FLinearColor(1.f,.56f,.22f);   // damage
+    case 1:return FLinearColor(.45f,.95f,.55f);  // survival
+    default:return FLinearColor(.78f,.62f,1.f);  // modifier
+    }
+}
 TSharedRef<SWidget> SASMenu::DetailStrip() {
     return SNew(SBox).MinDesiredHeight(66)
-        [SNew(STextBlock).Font(Font(15)).ColorAndOpacity(FLinearColor(.89f,.94f,.95f)).WrapTextAt(Page==9?1100.f:740.f)
+        [SNew(STextBlock).Font(Font(15)).ColorAndOpacity(FLinearColor(.89f,.94f,.95f)).WrapTextAt(Page==9?1100.f:740.f).Justification(Page==9?ETextJustify::Center:ETextJustify::Left)
             .Text_Lambda([this](){return Txt(!HoverDetails.IsEmpty()?HoverDetails:TEXT("Hover a card for exact values and conditions."));})];
 }
-TSharedRef<SWidget> SASMenu::ChoiceTile(const FString& Title,const FString& Brief,const FString& Detail,const FString& Type,int32 Icon,int32 Rarity,const FString& Label,int32 Code,int32 Index,bool Enabled,float TileWidth) {
+TSharedRef<SWidget> SASMenu::ChoiceTile(const FString& Title,const FString& Brief,const FString& Detail,const FString& Type,int32 Icon,int32 Rarity,const FString& Label,int32 Code,int32 Index,bool Enabled,float TileWidth,FLinearColor Emblem) {
     const auto Weak=PC;
     const FLinearColor Rim=Rarity==2?FLinearColor(1.f,.67f,.24f):(Rarity==1?FLinearColor(.63f,.48f,1.f):FLinearColor(.46f,.73f,.77f));
     const bool Skill=Type.Contains(TEXT("SKILL"))||Type.Contains(TEXT("STYLE"));
     const FString Grade=Rarity==2?TEXT("LEGENDARY"):(Rarity==1?TEXT("RARE"):TEXT("COMMON"));
     const FString Full=Title+TEXT(" / ")+Type+TEXT(" / ")+Grade+TEXT("\n")+Detail;
     const FLinearColor Base=Skill?FLinearColor(.025f,.065f,.085f,.98f):FLinearColor(.018f,.027f,.043f,.98f);
+    const FLinearColor Glyph=Emblem.A>0.f?Emblem:Rim; // 0.24.1: the emblem wears the colour of what the offer does; the rim keeps the rarity
+    // Everything on the tile is centred on its axis: grade, emblem, name, one-line brief, and a "SELECT" pill at the foot.
     const auto Surface=SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(Base).Padding(12)
         [SNew(SVerticalBox)
-            +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Type+TEXT(" / ")+Grade)).Font(Font(12,true)).ColorAndOpacity(Rim).WrapTextAt(TileWidth-30)]
-            +SVerticalBox::Slot().AutoHeight().Padding(0,8,0,4)[SNew(SBox).HeightOverride(82)[SNew(SASEffectIcon).Kind(Icon).Color(Rim).Size(82)]]
-            +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(Title)).Font(Font(18,true)).ColorAndOpacity(FLinearColor::White).WrapTextAt(TileWidth-32)]
-            +SVerticalBox::Slot().AutoHeight().Padding(0,7,0,10)[SNew(STextBlock).Text(Txt(Brief)).Font(Font(14)).ColorAndOpacity(ASMenuMuted).WrapTextAt(TileWidth-28)]
-            +SVerticalBox::Slot().FillHeight(1).VAlign(VAlign_Bottom)[SNew(STextBlock).Text(Txt(Label)).Font(Font(13,true)).ColorAndOpacity(Rim).Justification(ETextJustify::Right)]];
+            +SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)[SNew(STextBlock).Text(Txt(Type+TEXT(" / ")+Grade)).Font(Font(12,true)).ColorAndOpacity(Rim).Justification(ETextJustify::Center).WrapTextAt(TileWidth-30)]
+            +SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0,10,0,8)[SNew(SBox).WidthOverride(92).HeightOverride(92)[SNew(SASEffectIcon).Kind(Icon).Color(Glyph).Size(92)]]
+            +SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)[SNew(STextBlock).Text(Txt(Title)).Font(Font(19,true)).ColorAndOpacity(FLinearColor::White).Justification(ETextJustify::Center).WrapTextAt(TileWidth-32)]
+            +SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0,8,0,10)[SNew(STextBlock).Text(Txt(Brief)).Font(Font(14)).ColorAndOpacity(ASMenuMuted).Justification(ETextJustify::Center).WrapTextAt(TileWidth-28)]
+            +SVerticalBox::Slot().FillHeight(1).VAlign(VAlign_Bottom).HAlign(HAlign_Center)
+                [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(Rim.R,Rim.G,Rim.B,.22f)).Padding(FMargin(16.f,5.f))
+                    [SNew(STextBlock).Text(Txt(Label)).Font(Font(13,true)).ColorAndOpacity(Rim).Justification(ETextJustify::Center)]]];
     return SNew(SBox).WidthOverride(TileWidth).MinDesiredHeight(368)
         [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(Rim).Padding(Skill?3.f:1.f)
             [SNew(SButton).ButtonStyle(&FCoreStyle::Get().GetWidgetStyle<FButtonStyle>("NoBorder"))
@@ -554,6 +581,9 @@ void SASMenu::RewardScreen() {
     auto* Hero=Controller?Cast<AASCharacter>(Controller->GetPawn()):nullptr;
     const auto Weak=PC;
     TSharedPtr<SWrapBox> Choices;
+    // The offers sit in one centred row: 200 wide tiles with 12 between them (a claimed reward shows one line of text instead, which gets the full width).
+    const int32 OfferCount=FMath::Clamp(Me?Me->Offers.Num():3,1,5);
+    const float ChoicesWidth=(Me&&Me->bRewardClaimed)?1100.f:float(OfferCount)*212.f-12.f+1.f;
     ChildSlot
     [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(0,0,0,.32f)).Padding(22)
         [SNew(SScaleBox).Stretch(EStretch::ScaleToFit).StretchDirection(EStretchDirection::DownOnly).HAlign(HAlign_Center).VAlign(VAlign_Center)
@@ -561,11 +591,13 @@ void SASMenu::RewardScreen() {
                 [SNew(SVerticalBox)
                     +SVerticalBox::Slot().AutoHeight().Padding(0,0,0,18)
                         [SNew(SHorizontalBox)
-                            +SHorizontalBox::Slot().FillWidth(1)[SNew(SVerticalBox)
-                                +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TEXT("CLAIM YOUR REWARD"))).Font(Font(29,true)).ColorAndOpacity(FLinearColor::White)]
-                                +SVerticalBox::Slot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(Txt(TEXT("Choose one. Shape the next fight."))).Font(Font(15)).ColorAndOpacity(ASMenuGold)]]
-                            +SHorizontalBox::Slot().AutoWidth()[Button(TEXT("CLOSE / ESC"),0)]]
-                    +SVerticalBox::Slot().AutoHeight()[SAssignNew(Choices,SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(12,12))]
+                            +SHorizontalBox::Slot().FillWidth(1)[SNew(SBox)]
+                            +SHorizontalBox::Slot().AutoWidth().HAlign(HAlign_Center)[SNew(SVerticalBox)
+                                +SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)[SNew(STextBlock).Text(Txt(TEXT("CLAIM YOUR REWARD"))).Font(Font(34,true)).ColorAndOpacity(FLinearColor::White).Justification(ETextJustify::Center)]
+                                +SVerticalBox::Slot().AutoHeight().Padding(0,5,0,0).HAlign(HAlign_Center)[SNew(STextBlock).Text(Txt(TEXT("Choose one. Shape the next fight."))).Font(Font(16)).ColorAndOpacity(ASMenuGold).Justification(ETextJustify::Center)]
+                                +SVerticalBox::Slot().AutoHeight().Padding(0,10,0,0).HAlign(HAlign_Center)[SNew(SBox).WidthOverride(280).HeightOverride(2)[SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(ASMenuGold.R,ASMenuGold.G,ASMenuGold.B,.8f))]]]
+                            +SHorizontalBox::Slot().FillWidth(1).HAlign(HAlign_Right).VAlign(VAlign_Top)[Button(TEXT("CLOSE / ESC"),0)]]
+                    +SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)[SNew(SBox).WidthOverride(ChoicesWidth)[SAssignNew(Choices,SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(12,12))]]
                     +SVerticalBox::Slot().AutoHeight().Padding(0,12,0,0)[DetailStrip()]
                     +SVerticalBox::Slot().FillHeight(1)
                         [SNew(SHorizontalBox)
@@ -587,7 +619,7 @@ void SASMenu::RewardScreen() {
                             const int32 Tier=ASBuild::ChallengeTier(S->Challenge,S->PlayerArray.Num(),Votes);
                             return Txt(FString::Printf(TEXT("%d/%d STAKES VOTES   /   NEXT CHAMBER: %s\nPer tier: +20%% enemy HP, +12%% damage, +3 Ash, +15 Cinders. After clearing: rare weight +12%%, legendary +20%%. Both players must opt in."),Votes,S->PlayerArray.Num(),Tier>0?*FString::Printf(TEXT("TIER %d"),Tier):TEXT("NORMAL")));})]]]]];
     if(!State||!Me||!Hero||State->Phase!=EASPhase::Reward) return;
-    if(Me->bRewardClaimed) {Choices->AddSlot()[SNew(STextBlock).Text(Txt(TEXT("REWARD CLAIMED / Close and use E at the chest when both players are ready."))).Font(Font(22)).ColorAndOpacity(ASMenuGold)];return;}
+    if(Me->bRewardClaimed) {Choices->AddSlot()[SNew(STextBlock).Text(Txt(TEXT("REWARD CLAIMED / Close and use E at the chest when both players are ready."))).Font(Font(22)).ColorAndOpacity(ASMenuGold).Justification(ETextJustify::Center).WrapTextAt(1080)];return;}
     for(int32 Slot=0;Slot<Me->Offers.Num();++Slot) {
         const int32 Offer=Me->Offers[Slot];const bool Style=State->ChestKind==2;
         FString Name,Brief,Detail,Type=TEXT("TRAIT");int32 Icon=ASEffectArt::Star,Rarity=0;
@@ -612,6 +644,6 @@ void SASMenu::RewardScreen() {
             Name=Style?ASData::Styles[Offer].Name:ASData::Relics[Offer].Name;Detail=Style?ASData::Styles[Offer].Desc:ASData::Relics[Offer].Desc;
             Brief=ShortEffect(Detail);Type=Style?TEXT("SPIRAL STYLE"):TEXT("RELIC");Icon=Style?ASEffectArt::Vortex:ASEffectArt::Star;Rarity=1;
         } else continue;
-        Choices->AddSlot()[ChoiceTile(Name,Brief,Detail,Type,Icon,Rarity,State->ChestKind==4&&Slot>0?TEXT("25 CINDERS"):TEXT("SELECT"),32,Slot,Enabled)];
+        Choices->AddSlot()[ChoiceTile(Name,Brief,Detail,Type,Icon,Rarity,State->ChestKind==4&&Slot>0?TEXT("25 CINDERS"):TEXT("SELECT"),32,Slot,Enabled,200.f,EmblemColor(Offer))];
     }
 }

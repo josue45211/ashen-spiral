@@ -19,7 +19,7 @@ private:
     TSharedRef<SWidget> Button(const FString& Title,int32 Code,int32 Index=0);
     FString HoverDetails;
     void RewardScreen();
-    TSharedRef<SWidget> ChoiceTile(const FString& Title,const FString& Brief,const FString& Detail,const FString& Type,int32 Icon,int32 Rarity,const FString& Label,int32 Code,int32 Index,bool Enabled=true,float TileWidth=200.f);
+    TSharedRef<SWidget> ChoiceTile(const FString& Title,const FString& Brief,const FString& Detail,const FString& Type,int32 Icon,int32 Rarity,const FString& Label,int32 Code,int32 Index,bool Enabled=true,float TileWidth=200.f,FLinearColor Emblem=FLinearColor(0.f,0.f,0.f,0.f)); // Emblem: the colour of the icon (alpha 0 = the rarity colour)
     TSharedRef<SWidget> DetailStrip();
     void Input(const FString& Label,int32 Field);
     void KeyRow(const FString& Label,FName Binding);
