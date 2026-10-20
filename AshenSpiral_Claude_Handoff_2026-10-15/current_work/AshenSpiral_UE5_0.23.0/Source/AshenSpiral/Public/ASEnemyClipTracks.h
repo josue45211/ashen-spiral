@@ -6,9 +6,9 @@
 #pragma once
 #include "ASEnemyPose.h"
 namespace ASEnemyPose {
-// OFF by default, on purpose: nothing here can be played, and the offline previews are no proof the clips read better than the hand-made poses. Every ability plays its hand-made track
-// (TrackFor) until this is set to true for a playtest, where Josue and P2 judge them by eye. To keep the hand-made pose for ONE ability even then, delete its line from the two switches below.
-constexpr bool BakedClipsOn=false;
+// ON since 2026-10-19 (Josue's order) for the playtest, where he and P2 judge the clips by eye. The offline previews are no proof they read better than the hand-made poses, and nothing here has been
+// played. Set false and every ability plays its hand-made track (TrackFor) again; to go back for ONE ability only, delete its case line from BakedClipIndexFor below.
+constexpr bool BakedClipsOn=true;
 constexpr int ClipCount=13;
 inline const Track& ClipTrack(int Index) {
     static constexpr Track Table[ClipCount]={

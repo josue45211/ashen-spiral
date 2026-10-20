@@ -325,7 +325,7 @@ def validate():
             partc_024=native_suite('partc_024_tests','0.24 Part C rules (perfect dash, proc chains, impact knockback, metamorphoses, ceremony, death-screen lines) passed')
             maul_025=native_suite('maul_025_tests','0.25 maul slam (lands at the head of the maul, matches the ground-pound pose at its strike) passed')
             decor_025=native_suite('decor_025_tests','0.25 Endless decor ring (deterministic, beyond the walls, spaced, three stages with the sky) passed')
-            clip_025=native_suite('clip_025_tests','0.25 baked Paragon attack tracks (off by default, equal to the hand-made tracks, structure and limits held) passed')
+            clip_025=native_suite('clip_025_tests','0.25 baked Paragon attack tracks (the switch is honoured, every ability resolves to a clip or its hand-made track, structure and limits held) passed')
             foley_025=native_suite('foley_025_tests','0.25 hero footsteps (one per half stride, audibility, variant rotation, distance gain) passed')
             trig=subprocess.run([sys.executable,str(ROOT/'Tests/check_trig_overloads.py')],check=True,text=True,capture_output=True).stdout.strip()
             check(trig.startswith('PASS:'),'Actual fern expressions compile against the float/double overloads from the reported C2668 diagnostic')
