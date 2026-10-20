@@ -1,8 +1,8 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-20 12:15 PDT
+updated: 2026-10-20 13:10 PDT
 phase: 0.24.2 PLAYTEST ZIP READY (Edison 09:01 order done); continuing Edison's 08:30 list (visual polish, 0.25 plan)
-current_item: 0.25 plan leftovers - a real creature model for the bosses (Warrior Titan / Inferno Dragon, rig check), behind a fallback like Phase F
+current_item: visual polish - the regular enemies' look up close (the flying boss's dragon stays off: Tier 1 creature rigs wait for P2's art direction)
 
 ## 0.24.2 PLAYTEST ZIP (Edison 09:01 order) - for Josue and P2; both PCs must run this exact file
 - Path: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip
@@ -12,7 +12,8 @@ current_item: 0.25 plan leftovers - a real creature model for the bosses (Warrio
 - On each PC: extract to a new folder, run Setup_and_Open.bat (or Tools\Setup.ps1), then play as usual. Test_Two_Players.bat for a local two-player check.
 
 ## NOW (2026-10-20) - read this first; older history is below, newest sections at the bottom of the file
-Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 6b57967 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 86d078d (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+- Ward bosses are the Warrior Titan (86d078d, Edison 08:30 items 2-3; after the zip, so NOT in it): the four ground bosses are now a textured armoured warrior from Fab (bronze plate, gold trim, cream cape) instead of the 21-part armour rig, about 2.4x a hero's height. It walks with Unreal's locomotion and plays a fitting animation for every boss attack (overhead smash, ground punch, summoning cast, the volley throw, a pulling sweep, the half-health fury flex, the charge's blow), glows with the same rage and status pulses, and falls with the Mannequin's death before the usual flare. Each ward's boss has its own colour cast. Checked in-engine (look_boss.txt: arrival, walk, five attacks, fury, phase two, death, a second ward). UNVERIFIED for human eyes: whether it fits the art direction (P2's call; the asset plan held it for that) - `as.boss.skeletal 0` brings the armour rig back. The flying boss keeps its rig.
 - Boss roar (6b57967, Edison 08:30 item 1): the roars were a pitched-down hammer thud (no roar file had ever been delivered); now real roars cut from the Horror Template's monster sound - boss wind-up, the half-health roar, the elite's rage. Verified in a game run by recording the game's own audio: each roar is among the loudest sounds in the mix (10-13 dB above the game's usual level, 3-6 dB above hits).
 Done today and pushed:
 - Fix batch F1-F8 (d257312, cf0e428): launches fly and slam, wall slams/pile-ups hurt, element procs scale with hits, no collapsing enemies, ring-attack warning, weapon glint, real lightning bolt.
@@ -20,9 +21,9 @@ Done today and pushed:
 - Phase F (7ad453e): heroes are the Unreal Mannequin (P1 Manny, P2 Quinn) with Unreal's locomotion, weapon stances and attack animations; the old rig is the fallback.
 - Carry-over verification (9737c88): elite mutations, ward bosses, flying boss, proc chains, metamorphoses, reward ceremony, death screen, co-op on one PC, Endless, hub, collapses - all PASS in-engine.
 - AAA aesthetics passes 1-4 (fcbab93, 7ec661d, 59a2d97, 724e77e): the ruin ring had been drawing as Unreal's grey grid since 0.25 phase C, and every weapon and several enemies had parts drawn as the grid since the first meshes - both fixed; the ruins wear the Dragon Cave pack's own textures; ruined-courtyard floor; weathered-concrete cover blocks; volumetric clouds per sky stage, sun haze, light shafts; effects are real light that fades; lit vaulted chambers; weapon finishes; your chosen colour on the Mannequin.
-Playtest zip: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip (carries all the local content; checked from a fresh folder: Setup 0 errors, game runs). It will be re-exported after the current item.
+Playtest zip: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip (carries all the local content; checked from a fresh folder: Setup 0 errors, game runs). Commits after 6b57967 (the Titan) are not in it; it is re-exported only on Edison's order.
 Needs Josue: nothing.
-Not blocking (Gate 0 notes): the Fab/vault licences of the Molten hammer, Concrete column, Dragon Cave and Game Animation Sample are still unconfirmed in Docs/CREDITS.md.
+Not blocking (Gate 0 notes): the Fab/vault licences of the Molten hammer, Concrete column, Dragon Cave, Game Animation Sample and Warrior Titan are still unconfirmed in Docs/CREDITS.md.
 
 ## Night report (2026-10-16, historical)
 Final check at HEAD 5c0bcca, run 2026-10-16 15:36 PDT: UBT editor build Succeeded in unity AND -DisableUnity (zero compile errors); Tests/run_tests.py exit 0 (native + gameplay + new suites). No game launch, per Josue.
