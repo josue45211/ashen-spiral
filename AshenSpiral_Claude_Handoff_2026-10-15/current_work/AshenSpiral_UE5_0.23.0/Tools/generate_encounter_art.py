@@ -47,7 +47,7 @@ def generate():
         m.box((-32,side*20,94),(23,28,40))
     m.save('SM_Broodcaller')
     m=Mesh();m.box((0,0,0),(7,13,38));m.box((0,0,0),(7,38,13));m.save('SM_HealthPickup')
-    m=Mesh();outline=[(-18,17),(18,17),(17,-4),(0,-24),(-17,-4)]
+    m=Mesh();outline=[(-17,-4),(0,-24),(17,-4),(18,17),(-18,17)] # 0.24.2: traced the other way round, so the pickup is no longer inside out
     for i,(y,z) in enumerate(outline):
         yy,zz=outline[(i+1)%len(outline)]
         m.tri((4,0,0),(4,y,z),(4,yy,zz));m.tri((-4,0,0),(-4,yy,zz),(-4,y,z));m.quad((-4,y,z),(-4,yy,zz),(4,yy,zz),(4,y,z))

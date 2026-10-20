@@ -1,0 +1,12 @@
+# 0.24.2 aesthetics: the hub from look.txt's first view, and a closer one over its inlaid rings.
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.cam -900 0 450 -18 0 70
+wait 1.5
+as.dev.shot look_01_hub 0
+as.dev.cam -500 0 700 -50 0 70
+wait 1
+as.dev.shot hub_02_inlays 0
+wait 0.3
+quit

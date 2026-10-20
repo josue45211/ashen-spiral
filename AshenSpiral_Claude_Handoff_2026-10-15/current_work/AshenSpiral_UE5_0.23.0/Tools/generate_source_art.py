@@ -33,7 +33,7 @@ def ring(r=50,th=3,height=3,n=64,arc=2*math.pi):
  for i in range(n):
   for k in range(4):
    a=i*4+k;b=i*4+(k+1)%4;c=(i+1)*4+(k+1)%4;d=(i+1)*4+k
-   faces.extend([[a,b,c],[a,c,d]])
+   faces.extend([[a,c,b],[a,d,c]]) # 0.24.2: wound outward (it was inside out: SM_Ring and SM_Slash drew their inner faces)
  return tm.Trimesh(vs,faces,process=False)
 
 def beveled(size,bevel=8):
