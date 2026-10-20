@@ -5,6 +5,8 @@ Imports the assets of the 0.25 plan (Docs/0.25_ASSET_PLAN.md) from the Epic laun
 generated .uasset files stay local like the rest of Content/ (they are not tracked), and the game falls back to its built-in meshes when they are absent (ASAssets::HasMesh).
 
 Phase A: the Molten Face Hammer for the elite hammer enemies. Its textures are embedded in the FBX, so they are extracted first; they are 2048 and are capped at 1024 in the editor.
+Phase B: the arena concrete. Tools/make_concrete_tile.ps1 cuts a seamless 2048 tile out of the "Concrete column" pack first (Saved/VaultStage/T_ArenaConcrete.png); this script imports it and builds
+M_ArenaConcrete, a world-aligned (triplanar) material, so the stretched, scaled cover blocks show the concrete at one scale on every face. No mesh changes: the blocks keep their own geometry and collision.
 Set ASHEN_VAULT to override the vault folder. The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
@@ -272,6 +274,112 @@ def create_material(textures):
     return material
 
 
+CONCRETE_FOLDER = "/Game/Art/Imported/ArenaConcrete"
+CONCRETE_TILE = STAGE / "T_ArenaConcrete.png"
+
+
+def create_concrete_material(tile):
+    """A triplanar concrete: three planar projections of the tile (XY for floors and tops, XZ and YZ for walls) blended by the surface normal, tinted by the game per block."""
+    package = CONCRETE_FOLDER + "/M_ArenaConcrete"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_ArenaConcrete", CONCRETE_FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_ArenaConcrete")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+
+    def node(cls, x, y, **properties):
+        obj = edit.create_material_expression(material, cls, x, y)
+        require(obj is not None, "Could not create material expression " + cls.__name__)
+        for key, value in properties.items():
+            obj.set_editor_property(key, value)
+        return obj
+
+    def wire(a, output, b, input_name):
+        require(edit.connect_material_expressions(a, output, b, input_name), "Material connection failed: " + input_name)
+
+    tint = node(unreal.MaterialExpressionVectorParameter, -1400, -300, parameter_name="Tint", default_value=unreal.LinearColor(0.6, 0.58, 0.6, 1))
+    rough = node(unreal.MaterialExpressionScalarParameter, -1400, 1000, parameter_name="Roughness", default_value=0.88)
+    metal = node(unreal.MaterialExpressionScalarParameter, -1400, 1100, parameter_name="Metallic", default_value=0.0)
+    tiling = node(unreal.MaterialExpressionScalarParameter, -1400, 0, parameter_name="TileScale", default_value=0.0025)  # one tile per 4 m
+    position = node(unreal.MaterialExpressionWorldPosition, -1400, 150)
+    scaled = node(unreal.MaterialExpressionMultiply, -1150, 100)
+    wire(position, "", scaled, "A")
+    wire(tiling, "", scaled, "B")
+
+    def projection(name, x, y, channels):
+        mask = node(unreal.MaterialExpressionComponentMask, x, y, r=channels[0], g=channels[1], b=channels[2], a=False)
+        wire(scaled, "", mask, "")
+        sample = node(unreal.MaterialExpressionTextureSample, x + 250, y, texture=tile)
+        wire(mask, "", sample, "UVs")
+        return sample
+
+    top = projection("XY", -900, -100, (True, True, False))     # faces whose normal points along Z
+    front = projection("XZ", -900, 250, (True, False, True))    # normal along Y
+    side = projection("YZ", -900, 600, (False, True, True))     # normal along X
+    normal = node(unreal.MaterialExpressionVertexNormalWS, -1400, 450)
+    magnitude = node(unreal.MaterialExpressionAbs, -1150, 450)
+    sharp = node(unreal.MaterialExpressionPower, -950, 900)
+    exponent = node(unreal.MaterialExpressionConstant, -1150, 950, r=4.0)
+    ones = node(unreal.MaterialExpressionConstant3Vector, -1150, 1150, constant=unreal.LinearColor(1, 1, 1, 1))
+    total = node(unreal.MaterialExpressionDotProduct, -700, 950)
+    weights = node(unreal.MaterialExpressionDivide, -500, 900)
+    wire(normal, "", magnitude, "")
+    wire(magnitude, "", sharp, "Base")
+    wire(exponent, "", sharp, "Exp")
+    wire(sharp, "", total, "A")
+    wire(ones, "", total, "B")
+    wire(sharp, "", weights, "A")
+    wire(total, "", weights, "B")
+    blend = None
+    for sample, channel in ((side, (True, False, False)), (front, (False, True, False)), (top, (False, False, True))):
+        weight = node(unreal.MaterialExpressionComponentMask, -300, 900, r=channel[0], g=channel[1], b=channel[2], a=False)
+        wire(weights, "", weight, "")
+        term = node(unreal.MaterialExpressionMultiply, -100, 300)
+        wire(sample, "RGB", term, "A")
+        wire(weight, "", term, "B")
+        if blend is None:
+            blend = term
+        else:
+            added = node(unreal.MaterialExpressionAdd, 100, 300)
+            wire(blend, "", added, "A")
+            wire(term, "", added, "B")
+            blend = added
+    colour = node(unreal.MaterialExpressionMultiply, 300, 100)
+    wire(blend, "", colour, "A")
+    wire(tint, "", colour, "B")
+    require(edit.connect_material_property(colour, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
+    require(edit.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
+    require(edit.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC), "metallic")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the cover blocks are instanced
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_ArenaConcrete")
+    report["imported"].append(material.get_path_name())
+    return material
+
+
+def import_concrete():
+    if not CONCRETE_TILE.is_file():
+        report["notes"].append("phase B skipped: run Tools/make_concrete_tile.ps1 first (no " + str(CONCRETE_TILE) + ")")
+        return
+    assets.make_directory(CONCRETE_FOLDER)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", str(CONCRETE_TILE))
+    task.set_editor_property("destination_path", CONCRETE_FOLDER)
+    task.set_editor_property("destination_name", "T_ArenaConcrete")
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", True)
+    tools.import_asset_tasks([task])
+    tile = unreal.load_asset(CONCRETE_FOLDER + "/T_ArenaConcrete")
+    require(tile is not None, "Concrete tile import failed")
+    tile.set_editor_property("max_texture_size", 2048)
+    assets.save_loaded_asset(tile, False)
+    report["imported"].append(tile.get_path_name())
+    create_concrete_material(tile)
+
+
 def main():
     require(HAMMER_FBX.is_file(), "The Molten Face Hammer FBX is not in the vault: " + str(HAMMER_FBX))
     for folder in (FOLDER, MESH_FOLDER):
@@ -295,6 +403,7 @@ def main():
 
 try:
     main()
+    import_concrete()
     report["ok"] = True
 except Exception:
     report["ok"] = False

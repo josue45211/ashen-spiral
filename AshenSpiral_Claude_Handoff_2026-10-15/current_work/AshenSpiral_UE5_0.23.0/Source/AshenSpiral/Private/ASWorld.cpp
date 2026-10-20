@@ -269,6 +269,18 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
             }
             if(Group.StartsWith(TEXT("ArchiveBooks"))||Group.StartsWith(TEXT("ArchiveFolio"))||Group.StartsWith(TEXT("ArchiveDebris"))) Mat->SetScalarParameterValue(TEXT("SurfaceDetail"),.25f);
         }
+        // 0.25 phase B: the Endless cover blocks wear the arena concrete when it has been imported on this machine (Tools/make_concrete_tile.ps1 + Tools/import_vault_assets.py): a world-aligned
+        // material, so the stretched blocks show it at one scale on every face. The block keeps its own mesh, collision and tint (the tint is darkened stone, so it is brightened for a texture
+        // that multiplies it); without the import the flat tinted block is used as before.
+        if(Group.StartsWith(TEXT("EndlessCover"))) {
+            constexpr float ConcreteBrighten=3.4f; // TUNABLE: the cover tint (.17) times this is the albedo multiplier of the concrete texture
+            if(auto* Concrete=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/ArenaConcrete/M_ArenaConcrete.M_ArenaConcrete"),nullptr,LOAD_NoWarn))
+                if(auto* Block=UMaterialInstanceDynamic::Create(Concrete,C)) {
+                    Block->SetVectorParameterValue(TEXT("Tint"),FLinearColor(Color.R*ConcreteBrighten,Color.G*ConcreteBrighten,Color.B*ConcreteBrighten,1.f));
+                    Block->SetScalarParameterValue(TEXT("Metallic"),Metal);
+                    Mat=Block;
+                }
+        }
         C->SetMaterial(0,Mat);
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);

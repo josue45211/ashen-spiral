@@ -325,3 +325,9 @@ Unity and non-unity editor builds clean (0 errors, none of the warnings from our
 - Molten Face Hammer imported through the editor commandlet (Tools/import_vault_assets.py) and used by elite maul wielders. Local only: not committed; the game falls back to the built-in maul without it.
 - Needs Josue: the Molten Face Hammer licence is still unconfirmed (Gate 0); Docs/CREDITS.md says so. P2's machine shows the built-in maul unless the imported assets are copied to it.
 - Playtest: the slam ring and disc sit where the maul head lands; the molten hammer's size, grip and facing; whether it reads as molten (emission 5x, tunable in M_MoltenHammer).
+
+### 0.25 phase B done (2026-10-19) - UNVERIFIED in-engine
+Unity and non-unity editor builds clean (0 errors, none of the warnings from our sources), run_tests exit 0. Visual change only: the Endless cover blocks show a world-aligned concrete (M_ArenaConcrete, one 2048 tile cut from the Concrete column pack and made seamless). Their mesh, collision and shift code are untouched, so the P2 wall bugs (Gate 1) are not made harder to read.
+- New: Tools/make_concrete_tile.ps1 (makes the tile with Windows' own imaging), and Tools/import_vault_assets.py now also imports it and builds the material. Local only, like phase A: without the import the blocks keep the flat tint.
+- Needs Josue: the Concrete column licence is unconfirmed (Gate 0); Docs/CREDITS.md says so. P2's machine shows the flat blocks unless the imported Content/Art/Imported is copied to it.
+- Playtest: blocks read as concrete (not a grey checker or a flat colour); tiling is not distracting; tall walls are slightly lighter than low blocks; sinking and rising blocks still look right. If the checker shows, open M_ArenaConcrete (the graph was built blind, no shader was compiled in the NullRHI import).
