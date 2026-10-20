@@ -46,7 +46,8 @@ void AASProjectile::BeginPlay() {
     // 0.24.2 aesthetics: a hero's bolts and thrown blades are light (M_Glow), and so is every trail; arrows stay solid wood, and enemy shots stay solid glowing orbs (something to
     // dodge reads best as a body, not a light, against the bright courtyard)
     if(bEnemy||Weapon==2) ASAssets::Style(Visual,!bEnemy&&Weapon==2?TEXT("SM_Arrow"):TEXT("Sphere"),C,0,5.f);
-    else ASAssets::StyleGlow(Visual,Weapon==3?TEXT("SM_Slash"):TEXT("Sphere"),C,5.f);
+    else if(Weapon==3) ASAssets::StyleGlowBand(Visual,TEXT("SM_Slash"),C,5.f,.47f,.53f,0.f); // a thrown blade: a band of light
+    else ASAssets::StyleGlow(Visual,TEXT("Sphere"),C,5.f);
     Visual->SetRelativeScale3D(!bEnemy&&Weapon==2?FVector(.95f):(bEnemy?FVector(.29f):FVector(.58f,.24f,.24f)));
     ASAssets::StyleGlow(Trail,TEXT("Cube"),C,7.f);Trail->SetRelativeLocation(FVector(-85,0,0));Trail->SetRelativeScale3D(FVector(1.7f,.075f,.075f));
     if(!bEnemy&&Weapon>=6) {
@@ -168,8 +169,8 @@ bool AASWell::CanAffectGameplay() const {
 void AASWell::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||S->Frozen()) return;
     if(!bStyled && IsValid(Hero)) {
-        auto C=ASData::PlayerColor(Hero->ColorIndex);ASAssets::StyleGlow(Ring,TEXT("SM_Ring"),C,bPerfect?7:3); // 0.24.2: the well's rings are light; its core stays a dark sphere
-        ASAssets::StyleGlow(Inner,TEXT("SM_Slash"),C,6);ASAssets::Style(Core,TEXT("Sphere"),C*.12f,1,.8f);bStyled=true;
+        auto C=ASData::PlayerColor(Hero->ColorIndex);ASAssets::StyleGlowBand(Ring,TEXT("SM_Ring"),C,bPerfect?7:3,.47f,.53f,0.f); // 0.24.2: the well's rings are bands of light; its core stays a dark sphere
+        ASAssets::StyleGlowBand(Inner,TEXT("SM_Slash"),C,6,.47f,.53f,0.f);ASAssets::Style(Core,TEXT("Sphere"),C*.12f,1,.8f);bStyled=true;
     }
     Ring->SetRelativeScale3D(FVector(Radius/50,Radius/50,2));Inner->SetRelativeScale3D(FVector(Radius/85,Radius/85,1));
     Inner->SetRelativeRotation(FRotator(10,S->SimTime*(bInverted?-150:150),0));Core->SetRelativeLocation(FVector(0,0,45));
@@ -457,8 +458,10 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         const int32 Step=FMath::Clamp(FMath::RoundToInt(C.A),0,3);bFinisherArc=Step>=2;
         const float Tilt=Step==0?24.f:(Step==1?-24.f:0.f); // alternating diagonals, a flat finisher
         SetActorRotation(FRotator(0.f,D.Rotation().Yaw,Tilt));
-        FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.55f); // 0.24.1: a whiter, hotter core
-        ASAssets::StyleGlow(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,14.f); // 0.24.2: light, not a slab
+        FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.25f); // 0.24.1: a whiter, hotter core (0.24.2: the band's own white-hot line)
+        // 0.24.2: light, not a slab - brightest along the reach (the arc's outer edge), fading in toward the swinger, streaked along the swing
+        const bool Arc=ASAssets::HasMesh(TEXT("SM_SwingArc"));
+        ASAssets::StyleGlowBand(Visual,Arc?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,14.f,Arc?.425f:.47f,Arc?.5f:.53f,1.f);
         Duration=bFinisherArc?.34f:.28f; // 0.24.1: a little longer, so the reach reads
         float Volume=.32f,Pitch=1.f;USoundBase* Delivered=Step==3?AASEnemy::ResolveCue(ASEnemyRules::CueSlashSwing,Volume,Pitch):nullptr; // a hostile swing uses E_SlashSwing once it is delivered
         if(Delivered) UGameplayStatics::PlaySoundAtLocation(this,Delivered,At,Volume,Pitch);
@@ -498,7 +501,8 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         return;
     }
     if(Kind==15) ASAssets::Style(Visual,TEXT("SM_Chest"),C,0,3); // the chest popping open is a solid chest
-    else ASAssets::StyleGlow(Visual,Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring"))),C,6); // 0.24.2: flashes, rings and bursts are light
+    else if(Kind==9||Kind==10||Kind==2||Kind==5) ASAssets::StyleGlow(Visual,Kind==9||Kind==10?TEXT("Cube"):TEXT("Sphere"),C,6); // 0.24.2: flashes, rings and bursts are light
+    else ASAssets::StyleGlowBand(Visual,Kind==1?TEXT("SM_Slash"):TEXT("SM_Ring"),C,6,.47f,.53f,0.f); // ... and a ring or slash is a band of light, soft at both edges
     // 0.24.2: a ring flash lies flat on the floor. Callers pass UpVector meaning "facing up", but D.Rotation() pitched the ring 90 degrees, so every one of them stood up as a
     // vertical arch (seen in-engine over every elite's slam, chain, wildfire and lightning flash). A vertical direction now keeps only its yaw.
     if(Kind!=15&&Kind!=9&&Kind!=10&&Kind!=1&&Kind!=2&&Kind!=5) {

@@ -1003,7 +1003,8 @@ ARMOR_TEXTURES = (("Metal/T_Dark_Metal_D_2", "masks"), ("Painted/T_PaintScratche
 def create_armor_material(grunge_tex, scratch_tex, bump_tex):
     """M_Armor: painted plate armour, worn. The paint (Tint) is mottled by a dark-metal grunge, bare steel shows through where the scratch sheet says the paint is scuffed off (more
     metallic and shinier there), and the plates carry the relief of hammered metal. Every layer is projected along the three axes of the PART ITSELF (local space), so it stays put on a
-    plate as the rig animates. Takes the parameters of M_Surface (Tint, Metallic, Roughness, Emission, SurfaceDetail) so the game drives it the same way, plus Wear and Bump."""
+    plate as the rig animates. Takes the parameters of M_Surface (Tint, Metallic, Roughness, Emission, SurfaceDetail) so the game drives it the same way, plus Wear and Bump,
+    and StatusGlow, the colour a status effect glows in over the paint."""
     package = ARMOR_FOLDER + "/M_Armor"
     material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
     if material is None:
@@ -1077,11 +1078,16 @@ def create_armor_material(grunge_tex, scratch_tex, bump_tex):
     glow = node(unreal.MaterialExpressionMultiply, -600, -650)
     wire(tint, "", glow, "A")
     wire(emission, "", glow, "B")
+    # the status pulses (burning, frozen, poisoned, enraged, a mutation) glow over the paint instead of repainting it; the game sets StatusGlow, black when none
+    status = node(unreal.MaterialExpressionVectorParameter, -900, -800, parameter_name="StatusGlow", default_value=unreal.LinearColor(0, 0, 0, 1))
+    glowing = node(unreal.MaterialExpressionAdd, -400, -700)
+    wire(glow, "", glowing, "A")
+    wire(status, "", glowing, "B")
     require(edit.connect_material_property(colour, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
     require(edit.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC), "metallic")
     require(edit.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
     require(edit.connect_material_property(normal, "", unreal.MaterialProperty.MP_NORMAL), "normal")
-    require(edit.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "emissive")
+    require(edit.connect_material_property(glowing, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "emissive")
     edit.layout_material_expressions(material)
     edit.recompile_material(material)
     require(assets.save_loaded_asset(material, False), "Could not save M_Armor")

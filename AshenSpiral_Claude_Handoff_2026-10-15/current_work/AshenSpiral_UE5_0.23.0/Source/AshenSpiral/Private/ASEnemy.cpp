@@ -170,10 +170,14 @@ void AASEnemy::TickStatusTint() {
         return;
     }
     if(!Active&&!bTintApplied) return;
+    // 0.24.2: worn plate (M_Armor) keeps its paint and glows in the status colour over it, like the Titan; other parts still take the colour into their tint
+    const auto Glows=[](const UMaterialInstanceDynamic* M) {FLinearColor Unused;return M->GetVectorParameterValue(FHashedMaterialParameterInfo(TEXT("StatusGlow")),Unused);};
     TArray<UStaticMeshComponent*> Parts;Parts.Add(Body.Get());for(const auto& Part:ArmorParts) Parts.Add(Part.Get());
     if(bTintApplied&&BaseTints.Num()!=Parts.Num()) {BaseTints.Reset();bTintApplied=false;} // part list changed: forget stale colours
     if(!Active) { // restore the colours we saved
-        for(int32 I=0;I<Parts.Num();++I) if(Parts.IsValidIndex(I)&&Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),BaseTints[I]);
+        for(int32 I=0;I<Parts.Num();++I) if(Parts.IsValidIndex(I)&&Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) {
+            M->SetVectorParameterValue(TEXT("Tint"),BaseTints[I]);if(Glows(M)) M->SetVectorParameterValue(TEXT("StatusGlow"),FLinearColor::Black);
+        }
         BaseTints.Reset();bTintApplied=false;return;
     }
     if(!bTintApplied) {
@@ -188,7 +192,10 @@ void AASEnemy::TickStatusTint() {
         const bool Frozen=(StatusBits&8)!=0;
         Status=ASData::HitColor(Type);Pulse=Frozen?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7)); // frozen: a steady strong tint; others: a pulse
     }
-    for(int32 I=0;I<Parts.Num();++I) if(Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) M->SetVectorParameterValue(TEXT("Tint"),FMath::Lerp(BaseTints[I],Status,FMath::Clamp(Pulse,0.f,.85f)));
+    for(int32 I=0;I<Parts.Num();++I) if(Parts[I]&&BaseTints.IsValidIndex(I)) if(auto* M=Cast<UMaterialInstanceDynamic>(Parts[I]->GetMaterial(0))) {
+        if(Glows(M)) M->SetVectorParameterValue(TEXT("StatusGlow"),Status*(FMath::Clamp(Pulse,0.f,.85f)*.45f)); // a glow over the plate, not a wash: it keeps its detail
+        else M->SetVectorParameterValue(TEXT("Tint"),FMath::Lerp(BaseTints[I],Status,FMath::Clamp(Pulse,0.f,.85f)));
+    }
 }
 void AASEnemy::EndWindup() {
     namespace ER=ASEnemyRules;

@@ -41,6 +41,9 @@ namespace ASAssets {
     // 0.24.2 aesthetics: the light of the effects - M_Glow, unlit and additive (an effect that fades its Emission fades out altogether); M_Surface's glow where M_Glow is missing
     UMaterialInstanceDynamic* Glow(UObject* Outer,FLinearColor Color,float Emission);
     void StyleGlow(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Emission);
+    // 0.24.2 aesthetics: a band of light (M_GlowBand) for the ring, slash and swing-arc meshes - lit across the band between Inner and Outer (the mesh's radii, in UV units), soft
+    // at both edges (Edge 0) or brightest at the outer one (Edge 1), with streaks running round it; StyleGlow's flat light where the bootstrap predates it
+    void StyleGlowBand(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Emission,float Inner,float Outer,float Edge);
 }
 UCLASS() class ASHENSPIRAL_API AASWorld : public AActor {
     GENERATED_BODY()

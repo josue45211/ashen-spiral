@@ -1,0 +1,51 @@
+# 0.24.2 aesthetics: the effects in a fight - swings and their finisher, a burn proc, sky strikes, the spiral ability, a knockback, kills and their drops.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 900
+as.dev.face 0
+wait 0.8
+as.dev.keeper
+as.dev.spawn 0 4 260
+wait 1.0
+as.dev.follow 430 150 155 60 120
+wait 0.3
+as.dev.input attack 0.2
+wait 0.1
+as.dev.shot fx_01_swing 0
+wait 0.35
+as.dev.input attack 0.2
+wait 0.1
+as.dev.shot fx_02_swing2 0
+wait 0.35
+as.dev.input attack 0.2
+wait 0.12
+as.dev.shot fx_03_finisher 0
+wait 0.5
+as.dev.status burn 1500
+wait 0.25
+as.dev.shot fx_04_burn 0
+wait 0.4
+as.dev.lightning 2 420
+wait 0.55
+as.dev.shot fx_05_lightning 0
+wait 0.6
+as.dev.input spiral 0.6
+wait 0.35
+as.dev.shot fx_06_spiral 0
+wait 0.8
+as.dev.knock 950 700
+wait 0.18
+as.dev.shot fx_07_knock 0
+wait 0.8
+as.dev.killall 1500
+wait 0.25
+as.dev.shot fx_08_kills 0
+wait 1.2
+as.dev.shot fx_09_drops 0
+wait 0.5
+quit

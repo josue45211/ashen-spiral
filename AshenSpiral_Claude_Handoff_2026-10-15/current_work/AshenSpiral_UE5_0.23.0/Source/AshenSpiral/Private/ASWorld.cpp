@@ -87,6 +87,16 @@ void StyleGlow(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,fl
     if(!C) return;C->SetStaticMesh(Mesh(Name));Paint(C,Glow(C,Color,Emission));
     C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);C->SetCastShadow(false); // light casts no shadow
 }
+void StyleGlowBand(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float Emission,float Inner,float Outer,float Edge) {
+    static bool bMissing=false; // game thread only; a machine whose bootstrap predates M_GlowBand keeps the flat glow until it re-runs Setup
+    UMaterialInterface* Base=bMissing?nullptr:LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_GlowBand.M_GlowBand"),nullptr,LOAD_NoWarn|LOAD_Quiet);
+    if(!Base) {bMissing=true;StyleGlow(C,Name,Color,Emission);return;}
+    if(!C) return;C->SetStaticMesh(Mesh(Name));
+    auto* M=UMaterialInstanceDynamic::Create(Base,C);
+    M->SetVectorParameterValue(TEXT("Tint"),Color);M->SetScalarParameterValue(TEXT("Emission"),Emission);
+    M->SetScalarParameterValue(TEXT("Inner"),Inner);M->SetScalarParameterValue(TEXT("Outer"),Outer);M->SetScalarParameterValue(TEXT("Edge"),Edge);
+    Paint(C,M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);C->SetCastShadow(false);
+}
 }
 AASWorld::AASWorld() {PrimaryActorTick.bCanEverTick=true;bReplicates=true;bAlwaysRelevant=true;SetReplicateMovement(false);RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));RootComponent->SetMobility(EComponentMobility::Static);}
 void AASWorld::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASWorld,Config);DOREPLIFETIME(AASWorld,CoverList);DOREPLIFETIME(AASWorld,CoverGeneration);}

@@ -190,6 +190,57 @@ def create_glow_material():
     return material
 
 
+def create_glow_band_material():
+    """0.24.2 aesthetics: M_GlowBand, M_Glow for the flat bands of light - the ring flashes and shockwaves (SM_Ring), slashes (SM_Slash) and the swing arc (SM_SwingArc). With
+    M_Glow those drew as solid cream cut-outs (a flat colour at high emission saturates to white); this one lights the band with a profile across it - soft at both edges
+    (Edge 0), or brightest at the outer edge, the reach of a swing (Edge 1) - streaks that run round it, and a white-hot line where it is brightest. The meshes' UVs are their
+    footprint (u, v) = (x, y) / 100, which the importer stores with v flipped, so the material measures the radius and angle from (u, 1 - v). Inner and Outer are the band's
+    radii in those units (SM_Ring and SM_Slash .47-.53, SM_SwingArc .425-.5). Same Tint and Emission (x .35) as M_Glow."""
+    package = "/Game/Art/Materials/M_GlowBand"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_GlowBand", "/Game/Art/Materials", unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_GlowBand")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_ADDITIVE)
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    material.set_editor_property("two_sided", True)
+    sources = {"UV": edit.create_material_expression(material, unreal.MaterialExpressionTextureCoordinate, -700, -300),
+               "T": edit.create_material_expression(material, unreal.MaterialExpressionTime, -700, -200)}
+    for row, (name, value) in enumerate((("Emission", 1.0), ("Inner", .47), ("Outer", .53), ("Edge", 0.0), ("Streaks", .5))):
+        param = edit.create_material_expression(material, unreal.MaterialExpressionScalarParameter, -700, -100 + row * 100)
+        param.set_editor_property("parameter_name", name)
+        param.set_editor_property("default_value", value)
+        sources[name] = param
+    tint = edit.create_material_expression(material, unreal.MaterialExpressionVectorParameter, -700, 450)
+    tint.set_editor_property("parameter_name", "Tint")
+    tint.set_editor_property("default_value", unreal.LinearColor(1, 1, 1, 1))
+    sources["Tint"] = tint
+    code = ("float2 p=float2(UV.x,1-UV.y);float r=length(p);float t=saturate((r-Inner)/max(0.001,Outer-Inner));"
+            "float band=lerp(sin(3.14159*t),pow(t,1.6)*saturate((1-t)*12),Edge);"
+            "float a=atan2(p.y,p.x);float s=(0.5+0.5*sin(a*41+T*7+2.5*sin(a*9+T*2)))*(0.6+0.4*sin(a*17-T*5));"
+            "float k=Emission*0.35;"
+            "return Tint.rgb*k*band*lerp(1,0.35+0.9*s,Streaks)+k*0.45*pow(saturate(band),6);")
+    custom = edit.create_material_expression(material, unreal.MaterialExpressionCustom, -300, 0)
+    custom.set_editor_property("output_type", unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    custom.set_editor_property("description", "Band of light")
+    custom.set_editor_property("code", code)
+    inputs = []
+    for name in sources:
+        item = unreal.CustomInput()
+        item.set_editor_property("input_name", name)
+        inputs.append(item)
+    custom.set_editor_property("inputs", inputs)
+    for name, source in sources.items():
+        require(edit.connect_material_expressions(source, "", custom, name), "M_GlowBand input " + name)
+    require(edit.connect_material_property(custom, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "M_GlowBand output")
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_GlowBand")
+    return material
+
+
 def main():
     MARKER.parent.mkdir(parents=True, exist_ok=True)
     MARKER.unlink(missing_ok=True)
@@ -211,6 +262,7 @@ def main():
         imported.append(texture.get_path_name())
     material = create_material()
     glow = create_glow_material()
+    band = create_glow_band_material()
     manifest_path = ART / "mesh_bounds.json"
     expected = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for file in sorted((ART / "Meshes").glob("*.obj")):
@@ -244,7 +296,7 @@ def main():
     expected_count = len(list((ART / "Meshes").glob("*.obj"))) + len(list((ART / "Textures").glob("*.png"))) + len(list((ART / "Audio").glob("*.wav")))
     require(len(imported) == expected_count, "Incomplete art import: imported {} of {} source files".format(len(imported), expected_count))
     report = {"success": True, "source_version": "0.24.1", "weapon_art_revision": WEAPON_ART_REVISION, "engine": unreal.SystemLibrary.get_engine_version(),
-              "asset_count": len(imported) + 3, "assets": imported + [material.get_path_name(), glow.get_path_name(), map_path],
+              "asset_count": len(imported) + 4, "assets": imported + [material.get_path_name(), glow.get_path_name(), band.get_path_name(), map_path],
               "bootstrap_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
     MARKER.write_text(json.dumps(report, indent=2))
     unreal.log("ASHEN BOOTSTRAP COMPLETE: {} assets/map entries. Press Play in the AshenSpiral map.".format(report["asset_count"]))
