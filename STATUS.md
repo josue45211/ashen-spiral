@@ -1,6 +1,6 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-20 14:55 PDT
+updated: 2026-10-20 15:40 PDT
 phase: 0.24.2 PLAYTEST ZIP READY (Edison 09:01 order done); continuing Edison's 08:30 list (visual polish, 0.25 plan)
 current_item: visual polish - next candidates: pickups, the hub, the story rooms' look
 
@@ -12,7 +12,8 @@ current_item: visual polish - next candidates: pickups, the hub, the story rooms
 - On each PC: extract to a new folder, run Setup_and_Open.bat (or Tools\Setup.ps1), then play as usual. Test_Two_Players.bat for a local two-player check.
 
 ## NOW (2026-10-20) - read this first; older history is below, newest sections at the bottom of the file
-Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 2035790 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 60a34d7 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+- Reward chest (60a34d7, after the zip): it is a wooden chest with a domed lid and gold bands; it had drawn as a stepped octagonal block since the first meshes (its lid was modelled standing upright). Checked in-engine.
 - Effects (2035790, after the zip): swing arcs, slashes, shockwaves and ring flashes are streaked bands of light with soft edges and a white-hot line instead of flat cream shapes; burning/frozen/poisoned/enraged enemies glow over their armour instead of turning orange. Warnings stay solid. Checked in-engine.
 - Enemy armour (c03bb40, after the zip): the armoured enemies' plates, weapons and shields are worn painted metal - mottled paint, bare steel along scratches, fine hammered relief (Paragon's surface layers from the Game Animation Sample) - instead of flat paint. Checked in-engine (close-ups).
 - Ward bosses are the Warrior Titan (86d078d, Edison 08:30 items 2-3; after the zip, so NOT in it): the four ground bosses are now a textured armoured warrior from Fab (bronze plate, gold trim, cream cape) instead of the 21-part armour rig, about 2.4x a hero's height. It walks with Unreal's locomotion and plays a fitting animation for every boss attack (overhead smash, ground punch, summoning cast, the volley throw, a pulling sweep, the half-health fury flex, the charge's blow), glows with the same rage and status pulses, and falls with the Mannequin's death before the usual flare. Each ward's boss has its own colour cast. Checked in-engine (look_boss.txt: arrival, walk, five attacks, fury, phase two, death, a second ward). UNVERIFIED for human eyes: whether it fits the art direction (P2's call; the asset plan held it for that) - `as.boss.skeletal 0` brings the armour rig back. The flying boss keeps its rig.
