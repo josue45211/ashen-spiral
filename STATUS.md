@@ -338,3 +338,7 @@ Unity and non-unity editor builds clean (0 errors, none of the warnings from our
 - 63 Dragon Cave meshes imported locally (SM_DC_*); a machine without them keeps the bare arena. Local only, like phases A and B.
 - Needs Josue: the Dragon Cave licence is unconfirmed (Gate 0); Docs/CREDITS.md says so. P2's machine shows the bare arena unless the imported Content is copied to it.
 - Playtest: the ring is visible over the walls and reads as ruins, not clutter; the stage changes at waves 21 and 50 are noticeable; nothing floats; frame rate in Endless is unchanged; the loot reads as treasure beside the chest and does not block it.
+
+### Movement audit (2026-10-19) - research only, no code changed
+Doc: AshenSpiral_Claude_Handoff_2026-10-15/current_work/AshenSpiral_UE5_0.23.0/Docs/MOVEMENT_AUDIT.md
+The hero is an ACharacter with a custom UCharacterMovementComponent subclass (dash as a custom mode with client prediction; GetMaxSpeed is overridden, so MaxWalkSpeed is unused). Differs from the template: speed 640 (real speed from ASRules::MoveSpeed), acceleration 2600, braking 2100, JumpZ 660, air control .45, gravity 1.6, orient-to-movement off (the character faces the aim). Acceleration, braking and air control are safe feel changes. Gravity 1.0, speed 600 and orient-to-movement each break something (hammer leap tuning and tests, enemy balance, aimed attacks and animation). Recommendation in the doc: decide orient-to-movement and turning together with the player-model swap.

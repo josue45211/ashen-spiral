@@ -36,7 +36,7 @@ inline const std::array<Kit,32>& Kits() {
     }};
     return Table;
 }
-constexpr std::array<int,StageCount> StageCounts={34,28,24}; // placements per stage (90 in all; the whole ring stays well under the 600-instance budget of the plan)
+constexpr std::array<int,StageCount> StageCounts={34,28,24}; // placements per stage (86 in all; the whole ring stays well under the 600-instance budget of the plan)
 
 struct Placement {int Kit=0;float X=0.f,Y=0.f,Yaw=0.f,Scale=1.f;};
 
