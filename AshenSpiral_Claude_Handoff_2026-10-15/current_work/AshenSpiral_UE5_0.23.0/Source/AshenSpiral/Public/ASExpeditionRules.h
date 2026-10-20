@@ -111,18 +111,22 @@ inline const char* PortalModifiers(int D) {
     static const char* Text[3]={"Enemy health x1.0, damage x1.0, reward quality +0%","Enemy health x1.5, damage x1.3, reward quality +25%","Enemy health x2.1, damage x1.6, reward quality +50%"};
     return Text[Difficulty(D)];
 }
-struct SkyLook {float SunIntensity,SunR,SunG,SunB,FogDensity,FogR,FogG,FogB,SkyLight,Vignette,Saturation,GainR,GainG,GainB;};
-// Stage 0 equals the existing lighting rig: clear sky (waves 1-20). Stage 1 gloomier (21-49). Stage 2 red, bloody gloom (50+).
+// 0.24.2 aesthetics: CloudCover, CloudDensity and Storm drive the volumetric clouds (the engine's simple cloud material: cover about -1..1, density per km, storm 0..1 = towering
+// storm cells with lightning inside them).
+struct SkyLook {float SunIntensity,SunR,SunG,SunB,FogDensity,FogR,FogG,FogB,SkyLight,Vignette,Saturation,GainR,GainG,GainB,CloudCover,CloudDensity,Storm;};
+// Stage 0 equals the existing lighting rig: clear sky (waves 1-20) under scattered fair-weather cloud. Stage 1 gloomier (21-49) under an overcast storm deck. Stage 2 red,
+// bloody gloom (50+) under burning storm cells.
 inline SkyLook SkyLookFor(int Stage) {
     static const SkyLook Looks[3]={
-        {4.5f,1.f,.83f,.65f,.018f,.10f,.12f,.18f,.65f,.20f,1.f,1.f,1.f,1.f},
-        {1.7f,.72f,.76f,.85f,.032f,.20f,.21f,.24f,.42f,.32f,.78f,.95f,.97f,1.f},
-        {2.4f,1.f,.16f,.10f,.045f,.50f,.035f,.03f,.50f,.50f,.90f,1.25f,.62f,.58f}};
+        {4.5f,1.f,.83f,.65f,.018f,.10f,.12f,.18f,.65f,.20f,1.f,1.f,1.f,1.f,-.15f,.008f,0.f},
+        {1.7f,.72f,.76f,.85f,.032f,.20f,.21f,.24f,.42f,.32f,.78f,.95f,.97f,1.f,.35f,.012f,.6f},
+        {2.4f,1.f,.16f,.10f,.045f,.50f,.035f,.03f,.50f,.50f,.90f,1.25f,.62f,.58f,.15f,.011f,1.f}};
     return Looks[std::clamp(Stage,0,2)];
 }
 inline SkyLook LerpSky(const SkyLook& A,const SkyLook& B,float T) {
     T=std::clamp(T,0.f,1.f);const float* X=&A.SunIntensity;const float* Y=&B.SunIntensity;SkyLook R{};float* O=&R.SunIntensity;
-    for(int I=0;I<14;++I) O[I]=X[I]+(Y[I]-X[I])*T;
+    constexpr int Fields=int(sizeof(SkyLook)/sizeof(float)); // every member is a float, in order
+    for(int I=0;I<Fields;++I) O[I]=X[I]+(Y[I]-X[I])*T;
     return R;
 }
 // The step into the red stage is fast so wave 50 is unmistakable; the other changes drift in slowly.

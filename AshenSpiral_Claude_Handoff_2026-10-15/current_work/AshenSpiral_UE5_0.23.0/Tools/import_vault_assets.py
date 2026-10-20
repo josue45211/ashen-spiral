@@ -13,7 +13,13 @@ Phase E: audio. Concrete foley from the Game Animation Sample becomes /Game/Audi
 the footsteps more natural, like the default Unreal Engine character") walking steps S_StepWalk01..12, strafing S_StepStrafe01..08, backpedalling S_StepBack01..08, landings S_Land01..08 and jumps
 S_Jump01..06. The Horror Template's monster
 sound can become /Game/Audio/E_BossRoar, the file the boss-roar cue looks for first (Docs/AUDIO_MANIFEST_0.24.md), but only with ASHEN_IMPORT_MONSTER=1 (it is 6.4 s and unheard, so it is off); sounds are copied as sound waves, duplicated under their new names, and the staging copies deleted.
-Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCE to run only those phases (all by default). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
+Phase G (0.24.2 aesthetics): exports the Dragon Cave ground textures (stone tiles, paving, the dirt mask) from the pack to PNG in Saved/VaultStage/DC; Tools/shrink_vault_textures.ps1 then
+brings them to 2048 (the pack's sources are 4096-8192 and 5 GB in all).
+Phase H (0.24.2 aesthetics): imports the shrunk textures and builds M_ArenaGround, a world-aligned ground of worn stone tiles and paving that blend through large drifts of dirt, so the Endless floor
+shows no repeat; the game puts it on the Endless floor and the plain beyond the ruins (ASWorld::Add) when it exists here.
+Phase I (0.24.2 aesthetics): the scenery's own textures (phase G exports them with the ground's; the shrink brings them to 2048), M_DecorPBR (the pack's PBR set-up rebuilt with a Tint the
+game drives per sky stage), one MI_DC_<set> per texture set, and every SM_DC mesh's slots set to its own set (DECOR_SET_OF, read from the pack's meshes) instead of the concrete.
+Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHI to run only those phases (ABCE by default; G, then the shrink, then H and I on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
 import json
@@ -295,6 +301,29 @@ DC_MESHES = [
 ]
 DC_SOURCE = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content" / "DragonCave" / "Meshes"
 CONCRETE_FOLDER = "/Game/Art/Imported/ArenaConcrete"
+DC_TEXTURE_SOURCE = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content" / "DragonCave" / "Textures"
+DC_STAGE = STAGE / "DC"                 # full-size exports (phase G)
+DC_SMALL = DC_STAGE / "small"           # after Tools/shrink_vault_textures.ps1 (phase H reads these)
+GROUND_FOLDER = "/Game/Art/Imported/Ground"
+# (pack texture, kind): colour is sRGB; normal and masks are linear. ORM = ambient occlusion, roughness, metallic.
+GROUND_TEXTURES = (("T_StoneDebris01_BC", "colour"), ("T_StoneDebris01_N", "normal"), ("T_StoneDebris01_ORM", "masks"),
+                   ("T_StoneFloor01_BC", "colour"), ("T_StoneFloor01_N", "normal"), ("T_StoneFloor01_ORM", "masks"), ("T_StoneFloor01_MSK", "masks"))
+# Phase I (0.24.2 aesthetics): the scenery wears its own textures again. Which texture set each SM_DC mesh had in the pack (read from the pack's meshes and material instances:
+# every one of them is the pack's PBR master with three textures, colour + normal + ORM, on UV 0, nothing else set), by mesh-name prefix; the longest matching prefix wins.
+DECOR_FOLDER = "/Game/Art/Imported/Decor"
+# The pillars, walls, bridge pieces and inferno rocks are NOT here: their sets (T_Stoneworks, T_LargePillars, T_StoneWall, T_BridgeSet, T_InfernoRocks01) are UDIM virtual textures
+# (several tiles, the meshes' UVs spanning them), which need virtual texturing switched on for the project (Config/DefaultEngine.ini, which is not committed); they keep the concrete.
+DECOR_SET_OF = (("LargeRock01", "LargeRock01"), ("LargeRock02", "LargeRock02"), ("LargeRock03", "LargeRock02"), ("LargeRock04", "LargeRock02"),
+                ("LargeRock05", "LargeRock03"), ("LargeRock06", "LargeRock03"), ("LargeRock07", "LargeRock03"),
+                ("CaveRock01", "CaveRocks01"), ("CaveRock02", "CaveRocks01"), ("CaveRock03", "CaveRocks02"), ("CaveRock04", "CaveRocks03"),
+                ("Column", "Concrete02"), ("DeadTree", "DeadTree"), ("CoffinStone", "CoffinStone01"),
+                ("Skull", "Treasures01"), ("Skeleton", "Treasures01"), ("TreasurePile", "Treasures01"), ("GoldenCoin", "Treasures01"), ("GoldenCup", "Treasures01"),
+                ("Vase", "Treasures01"))
+# a set's textures are T_<set>_BC / _N / _ORM, except where the pack named them differently
+DECOR_TEXTURE_STEM = {"LargeRock01": "T_LargeRock01", "LargeRock02": "T_LargeRock02", "LargeRock03": "T_LargeRock03", "CaveRocks01": "T_CaveRocks01",
+                      "CaveRocks02": "T_CaveRocks02", "CaveRocks03": "T_CaveRocks03", "Concrete02": "T_Concrete02", "DeadTree": "T_DeadTree",
+                      "CoffinStone01": "T_CoffinStone01", "Treasures01": "T_Treasures01"}
+DECOR_TEXTURES = tuple((DECOR_TEXTURE_STEM[s] + suffix, kind) for s in sorted(set(DECOR_TEXTURE_STEM)) for suffix, kind in (("_BC", "colour"), ("_N", "normal"), ("_ORM", "masks")))
 CONCRETE_TILE = STAGE / "T_ArenaConcrete.png"
 
 
@@ -372,6 +401,7 @@ def create_concrete_material(tile):
     require(edit.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
     require(edit.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC), "metallic")
     edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the cover blocks are instanced
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_NANITE, True)  # 0.24.2: the Dragon Cave meshes are Nanite; without this flag they drew the engine's grey grid
     edit.layout_material_expressions(material)
     edit.recompile_material(material)
     require(assets.save_loaded_asset(material, False), "Could not save M_ArenaConcrete")
@@ -441,6 +471,273 @@ def import_dragon_cave():
     shutil.rmtree(ROOT / "Content" / "DragonCave", ignore_errors=True)
     report["notes"].append("phase C: %d meshes imported, %d failed to load %s, %d missing from the pack %s" % (len(done), len(failed), failed, len(missing), missing))
     require(not failed and not missing, "Some Dragon Cave meshes did not import: failed %s, missing %s" % (failed, missing))
+
+
+def export_dc_textures():
+    """Phase G: the pack's textures are Unreal assets, so they are copied in, written out as PNG at full size, and the copies deleted (nothing of the pack stays in Content)."""
+    if not DC_TEXTURE_SOURCE.is_dir():
+        report["notes"].append("phase G skipped: no Dragon Cave textures at " + str(DC_TEXTURE_SOURCE))
+        return
+    staging = ROOT / "Content" / "DragonCave" / "Textures"
+    staging.mkdir(parents=True, exist_ok=True)
+    DC_STAGE.mkdir(parents=True, exist_ok=True)
+    # ASHEN_DC_EXPORT=T_A,T_B exports other textures of the pack instead (to look at candidates); by default the ground set and the scenery's sets (phase I)
+    names = [n.strip() for n in os.environ.get("ASHEN_DC_EXPORT", "").split(",") if n.strip()] or [name for name, _ in GROUND_TEXTURES + DECOR_TEXTURES]
+    names = [n for n in names if not (DC_STAGE / (n + ".png")).is_file() or os.environ.get("ASHEN_FORCE_IMPORT") == "1"]  # already exported: kept
+    for name in names:
+        shutil.copy2(DC_TEXTURE_SOURCE / (name + ".uasset"), staging / (name + ".uasset"))
+    unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous(["/Game/DragonCave"], True)
+    written = []
+    for name in names:
+        texture = unreal.load_asset("/Game/DragonCave/Textures/" + name)
+        require(isinstance(texture, unreal.Texture2D), "Not a texture: " + name)
+        task = unreal.AssetExportTask()
+        task.set_editor_property("object", texture)
+        task.set_editor_property("filename", str(DC_STAGE / (name + ".png")))
+        task.set_editor_property("automated", True)
+        task.set_editor_property("prompt", False)
+        task.set_editor_property("replace_identical", True)
+        task.set_editor_property("exporter", unreal.TextureExporterPNG())
+        require(unreal.Exporter.run_asset_export_task(task), "PNG export failed: " + name)
+        written.append("%s %dx%d" % (name, texture.blueprint_get_size_x(), texture.blueprint_get_size_y()))
+    assets.delete_directory("/Game/DragonCave")
+    shutil.rmtree(ROOT / "Content" / "DragonCave", ignore_errors=True)
+    report["notes"].append("phase G: exported " + ", ".join(written) + " to " + str(DC_STAGE) + "; now run Tools/shrink_vault_textures.ps1, then phase H")
+
+
+def import_ground_texture(name, kind, folder=GROUND_FOLDER):
+    source = DC_SMALL / (name + ".png")
+    require(source.is_file(), "Missing %s: run phase G and Tools/shrink_vault_textures.ps1 first" % source)
+    task = unreal.AssetImportTask()
+    task.set_editor_property("filename", str(source))
+    task.set_editor_property("destination_path", folder)
+    task.set_editor_property("destination_name", name)
+    task.set_editor_property("automated", True)
+    task.set_editor_property("replace_existing", True)
+    task.set_editor_property("save", True)
+    tools.import_asset_tasks([task])
+    texture = unreal.load_asset(folder + "/" + name)
+    require(texture is not None, "Texture import failed: " + name)
+    if kind == "normal":
+        texture.set_editor_property("srgb", False)
+        texture.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP)
+    elif kind == "masks":
+        texture.set_editor_property("srgb", False)
+        texture.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_MASKS)
+    assets.save_loaded_asset(texture, False)
+    report["imported"].append(texture.get_path_name())
+    return texture
+
+
+def create_ground_material(t):
+    """M_ArenaGround: a ruined courtyard. Rubble-strewn dirt everywhere, and the old stone slabs (the paving's own mask cuts them out) lying on it wherever a slow, large-scale noise
+    says the paving survived; both are projected from above in world space (the floor's own UVs do not matter) at unrelated periods, so nothing shows a repeat. Tint (from the game)
+    colours it per arena."""
+    package = GROUND_FOLDER + "/M_ArenaGround"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_ArenaGround", GROUND_FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_ArenaGround")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+
+    def node(cls, x, y, **properties):
+        obj = edit.create_material_expression(material, cls, x, y)
+        require(obj is not None, "Could not create material expression " + cls.__name__)
+        for key, value in properties.items():
+            obj.set_editor_property(key, value)
+        return obj
+
+    def wire(a, output, b, input_name):
+        require(edit.connect_material_expressions(a, output, b, input_name), "Material connection failed: " + input_name)
+
+    position = node(unreal.MaterialExpressionWorldPosition, -2000, 0)
+    flat = node(unreal.MaterialExpressionComponentMask, -1800, 0, r=True, g=True, b=False, a=False)
+    wire(position, "", flat, "")
+
+    def scaled(name, default, y):
+        scale = node(unreal.MaterialExpressionScalarParameter, -1800, y, parameter_name=name, default_value=default)
+        uv = node(unreal.MaterialExpressionMultiply, -1600, y)
+        wire(flat, "", uv, "A")
+        wire(scale, "", uv, "B")
+        return uv
+
+    dirt_uv = scaled("DirtScale", 1.0 / 350.0, -400)       # rubble-strewn dirt: one sheet per 3.5 m
+    slab_uv = scaled("SlabScale", 1.0 / 520.0, 200)        # the old paving at an unrelated period, so the two never line up
+    # each sampler must match its texture's compression (TC_Masks textures need the Masks sampler), or the material fails to compile and the engine draws its grey grid instead
+    samplers = {"normal": unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL, "masks": unreal.MaterialSamplerType.SAMPLERTYPE_MASKS, "colour": unreal.MaterialSamplerType.SAMPLERTYPE_COLOR}
+
+    def sample(name, uv, x, y, kind):
+        node_ = node(unreal.MaterialExpressionTextureSample, x, y, texture=t[name], sampler_type=samplers[kind])
+        wire(uv, "", node_, "UVs")
+        return node_
+
+    dirt_bc = sample("T_StoneDebris01_BC", dirt_uv, -1300, -700, "colour")
+    dirt_n = sample("T_StoneDebris01_N", dirt_uv, -1300, -450, "normal")
+    dirt_orm = sample("T_StoneDebris01_ORM", dirt_uv, -1300, -200, "masks")
+    slab_bc = sample("T_StoneFloor01_BC", slab_uv, -1300, 100, "colour")
+    slab_n = sample("T_StoneFloor01_N", slab_uv, -1300, 350, "normal")
+    slab_orm = sample("T_StoneFloor01_ORM", slab_uv, -1300, 600, "masks")
+    slab_cut = sample("T_StoneFloor01_MSK", slab_uv, -1300, 850, "masks")   # red: where a slab is, black: the gaps between them
+    # where the paving survived: a slow two-level noise over the floor (about 24 m per feature), shifted by Paving (higher: more courtyard; at -.3 about half the floor is paved,
+    # since a whole slab needs noise + Paving above .2, and its chipped edges fade in just below that)
+    noise = node(unreal.MaterialExpressionNoise, -1300, 1150, scale=0.0004, levels=2, output_min=0.0, output_max=1.0, quality=1)  # unconnected, it samples the world position
+    paving = node(unreal.MaterialExpressionScalarParameter, -1300, 1400, parameter_name="Paving", default_value=-0.3)
+    survived = node(unreal.MaterialExpressionAdd, -1050, 1150)
+    wire(noise, "", survived, "A")
+    wire(paving, "", survived, "B")
+    # a slab shows where its cut is solid and the paving survived there: (cut + survived - 1.2) sharpened, so the slabs break up at the edge of a patch, not fade
+    both = node(unreal.MaterialExpressionAdd, -850, 950)
+    wire(slab_cut, "R", both, "A")
+    wire(survived, "", both, "B")
+    shifted = node(unreal.MaterialExpressionSubtract, -700, 950, const_b=1.2)
+    wire(both, "", shifted, "A")
+    steep = node(unreal.MaterialExpressionMultiply, -550, 950, const_b=5.0)
+    wire(shifted, "", steep, "A")
+    alpha = node(unreal.MaterialExpressionSaturate, -400, 950)
+    wire(steep, "", alpha, "")
+
+    def mix(a, b, x, y):
+        lerp = node(unreal.MaterialExpressionLinearInterpolate, x, y)
+        wire(a, "RGB", lerp, "A")
+        wire(b, "RGB", lerp, "B")
+        wire(alpha, "", lerp, "Alpha")
+        return lerp
+
+    colour = mix(dirt_bc, slab_bc, -300, -400)
+    normal = mix(dirt_n, slab_n, -300, 0)
+    masks = mix(dirt_orm, slab_orm, -300, 400)
+    tint = node(unreal.MaterialExpressionVectorParameter, -300, -650, parameter_name="Tint", default_value=unreal.LinearColor(1, 1, 1, 1))
+    # Ash: how far the pack's warm brown earth is drained toward grey (an ashen land); 0 keeps the pack's colour
+    ash = node(unreal.MaterialExpressionScalarParameter, -300, -800, parameter_name="Ash", default_value=0.4)
+    ashen = node(unreal.MaterialExpressionDesaturation, -150, -550)
+    wire(colour, "", ashen, "")
+    wire(ash, "", ashen, "Fraction")
+    tinted = node(unreal.MaterialExpressionMultiply, -100, -450)
+    wire(ashen, "", tinted, "A")
+    wire(tint, "", tinted, "B")
+    occlusion = node(unreal.MaterialExpressionComponentMask, -100, 350, r=True, g=False, b=False, a=False)
+    roughness = node(unreal.MaterialExpressionComponentMask, -100, 450, r=False, g=True, b=False, a=False)
+    wire(masks, "", occlusion, "")
+    wire(masks, "", roughness, "")
+    require(edit.connect_material_property(tinted, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
+    require(edit.connect_material_property(normal, "", unreal.MaterialProperty.MP_NORMAL), "normal")
+    require(edit.connect_material_property(roughness, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
+    require(edit.connect_material_property(occlusion, "", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION), "occlusion")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the floor is an instanced batch
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_ArenaGround")
+    report["imported"].append(material.get_path_name())
+    return material
+
+
+def import_ground():
+    """Phase H: the shrunk ground textures and M_ArenaGround."""
+    assets.make_directory(GROUND_FOLDER)
+    textures = {name: import_ground_texture(name, kind) for name, kind in GROUND_TEXTURES}
+    create_ground_material(textures)
+
+
+def create_decor_material(default_colour, default_normal, default_masks):
+    """M_DecorPBR: the pack's own PBR set-up rebuilt (colour x Tint, normal, ORM = occlusion, roughness, metallic, all on UV 0). The game drives Tint per sky stage.
+    Each parameter's default texture must match its sampler (a colour texture under the Masks sampler fails the whole material, and the engine then draws its grey grid on every
+    instance), so the defaults are one of the imported sets."""
+    package = DECOR_FOLDER + "/M_DecorPBR"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_DecorPBR", DECOR_FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_DecorPBR")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+
+    def node(cls, x, y, **properties):
+        obj = edit.create_material_expression(material, cls, x, y)
+        require(obj is not None, "Could not create material expression " + cls.__name__)
+        for key, value in properties.items():
+            obj.set_editor_property(key, value)
+        return obj
+
+    def wire(a, output, b, input_name):
+        require(edit.connect_material_expressions(a, output, b, input_name), "Material connection failed: " + input_name)
+
+    colour = node(unreal.MaterialExpressionTextureSampleParameter2D, -900, -300, parameter_name="BaseColor", texture=default_colour,
+                  sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_COLOR)
+    normal = node(unreal.MaterialExpressionTextureSampleParameter2D, -900, 0, parameter_name="Normal", texture=default_normal,
+                  sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL)
+    masks = node(unreal.MaterialExpressionTextureSampleParameter2D, -900, 300, parameter_name="ORM", texture=default_masks,
+                 sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
+    tint = node(unreal.MaterialExpressionVectorParameter, -900, -550, parameter_name="Tint", default_value=unreal.LinearColor(1, 1, 1, 1))
+    tinted = node(unreal.MaterialExpressionMultiply, -500, -400)
+    wire(colour, "RGB", tinted, "A")
+    wire(tint, "", tinted, "B")
+    require(edit.connect_material_property(tinted, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
+    require(edit.connect_material_property(normal, "RGB", unreal.MaterialProperty.MP_NORMAL), "normal")
+    require(edit.connect_material_property(masks, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION), "occlusion")
+    require(edit.connect_material_property(masks, "G", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
+    require(edit.connect_material_property(masks, "B", unreal.MaterialProperty.MP_METALLIC), "metallic")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the scenery is instanced
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_NANITE, True)  # and its meshes are Nanite (a material without the flag draws as the engine's grey grid)
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_DecorPBR")
+    report["imported"].append(material.get_path_name())
+    return material
+
+
+def decor_set(mesh):
+    best = ""
+    for prefix, name in DECOR_SET_OF:
+        if mesh.startswith(prefix) and len(prefix) > len(best):
+            best, found = prefix, name
+    return found if best else None
+
+
+def import_decor():
+    """Phase I: the scenery's own textures (exported by phase G, shrunk to 2048), one material instance per texture set, and every SM_DC mesh's slots set to its own set."""
+    assets.make_directory(DECOR_FOLDER)
+    textures = {name: import_ground_texture(name, kind, DECOR_FOLDER) for name, kind in DECOR_TEXTURES}
+    parent = create_decor_material(textures["T_LargeRock01_BC"], textures["T_LargeRock01_N"], textures["T_LargeRock01_ORM"])
+    errors = unreal.MaterialEditingLibrary.get_statistics(parent) if hasattr(unreal.MaterialEditingLibrary, "get_statistics") else None
+    report["notes"].append("phase I: M_DecorPBR statistics %s" % errors)
+    edit = unreal.MaterialEditingLibrary
+    instances = {}
+    for set_name, stem in DECOR_TEXTURE_STEM.items():
+        package = DECOR_FOLDER + "/MI_DC_" + set_name
+        if assets.does_asset_exist(package):
+            assets.delete_asset(package)  # rebuilt from scratch: an instance made before its parent existed keeps no parameters
+        mi = tools.create_asset("MI_DC_" + set_name, DECOR_FOLDER, unreal.MaterialInstanceConstant, unreal.MaterialInstanceConstantFactoryNew())
+        require(mi is not None, "Could not create MI_DC_" + set_name)
+        edit.set_material_instance_parent(mi, parent)
+        values = []
+        for parameter, suffix in (("BaseColor", "_BC"), ("Normal", "_N"), ("ORM", "_ORM")):
+            if not edit.set_material_instance_texture_parameter_value(mi, parameter, textures[stem + suffix]):
+                info = unreal.MaterialParameterInfo()
+                info.set_editor_property("name", parameter)
+                value = unreal.TextureParameterValue()
+                value.set_editor_property("parameter_info", info)
+                value.set_editor_property("parameter_value", textures[stem + suffix])
+                values.append(value)
+        if values:  # the library refused (its parameter cache was stale): the values are written straight into the instance
+            mi.set_editor_property("texture_parameter_values", values)
+            report["notes"].append("phase I: MI_DC_%s textures written directly (%d)" % (set_name, len(values)))
+        edit.update_material_instance(mi)
+        assets.save_loaded_asset(mi, False)
+        instances[set_name] = mi
+        report["imported"].append(mi.get_path_name())
+    dressed, bare = [], []
+    for name in DC_MESHES:
+        path = "/Game/Art/Meshes/SM_DC_" + name
+        mesh = unreal.load_asset(path) if assets.does_asset_exist(path) else None
+        set_name = decor_set(name)
+        if mesh is None or set_name is None:
+            bare.append(name)
+            continue
+        for slot in range(len(mesh.get_editor_property("static_materials"))):
+            mesh.set_material(slot, instances[set_name])
+        assets.save_loaded_asset(mesh, False)
+        dressed.append(name)
+    report["notes"].append("phase I: %d meshes wear their own textures; left on the concrete: %s" % (len(dressed), bare))
 
 
 GASP_STEPS = VAULT.parent / "GameAnimationSample_5.8" / "data" / "Content" / "Audio" / "Foley" / "SoundWaves" / "Sneaker" / "Concrete"
@@ -534,7 +831,7 @@ try:
     # Each phase stands alone: one failing (a missing pack, say) must not stop the others.
     errors = []
     chosen = os.environ.get("ASHEN_PHASES", "ABCE").upper()
-    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio)):
+    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor)):
         if letter not in chosen:
             continue
         try:

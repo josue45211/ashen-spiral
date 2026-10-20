@@ -354,6 +354,7 @@ bool Tick(float) {
         UE_LOG(LogTemp,Display,TEXT("AshenDev: > %s"),*Line);
         if(GEngine&&W) GEngine->Exec(W,*Line);
         if(Parts[0]==TEXT("quit")||Parts[0]==TEXT("exit")) return false;
+        if(Parts[0]==TEXT("as.dev.shot")) return true; // the picture is taken when this frame draws: the next line waits for the next frame, so it cannot leak into the shot
     }
     return true;
 }

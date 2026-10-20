@@ -65,6 +65,11 @@ int main() {
     Check(SkyLookFor(1).SunIntensity<SkyLookFor(0).SunIntensity&&SkyLookFor(1).Saturation<SkyLookFor(0).Saturation&&SkyLookFor(1).FogDensity>SkyLookFor(0).FogDensity,"gloomy stage is darker, greyer and foggier than clear");
     Check(SkyLookFor(2).SunG<.25f&&SkyLookFor(2).FogR>SkyLookFor(2).FogG*5.f&&SkyLookFor(2).GainR>SkyLookFor(2).GainG*1.5f,"red stage is unmistakably red in sun, fog and grade");
     Check(SkyLookFor(-3).SunIntensity==SkyLookFor(0).SunIntensity&&SkyLookFor(9).SunIntensity==SkyLookFor(2).SunIntensity,"sky stage index is clamped");
+    // 0.24.2 aesthetics: the clouds thicken from clear to gloom, storms only from the gloom on, the red stage burns hardest
+    Check(SkyLookFor(0).Storm==0.f&&SkyLookFor(1).Storm>0.f&&SkyLookFor(2).Storm>=SkyLookFor(1).Storm,"storm clouds only after the clear stage, strongest in the red");
+    Check(SkyLookFor(1).CloudCover>SkyLookFor(0).CloudCover&&SkyLookFor(2).CloudCover>SkyLookFor(0).CloudCover,"the later stages are more overcast than the clear sky");
+    for(int Stage=0;Stage<3;++Stage) Check(SkyLookFor(Stage).CloudDensity>0.f&&SkyLookFor(Stage).CloudDensity<.05f&&SkyLookFor(Stage).CloudCover>-1.f&&SkyLookFor(Stage).CloudCover<1.f,"cloud values stay in the material's range");
+    {const auto Mid=LerpSky(SkyLookFor(0),SkyLookFor(2),.5f);Check(Near(Mid.Storm,.5f)&&Near(Mid.CloudCover,0.f)&&Near(Mid.GainB,(1.f+.58f)*.5f),"the cloud fields (the last members) interpolate like the rest");}
     Check(EndlessSkyStage(true,true,20)==0&&EndlessSkyStage(true,true,21)==1&&EndlessSkyStage(true,true,49)==1&&EndlessSkyStage(true,true,50)==2&&EndlessSkyStage(true,true,90)==2,"stage thresholds 21 and 50");
     Check(EndlessSkyStage(false,true,90)==0&&EndlessSkyStage(true,false,90)==0,"normal runs and the hub always keep the clear sky");
     Check(SkyBlendRate(1,2)>SkyBlendRate(0,1)*3.f&&SkyBlendRate(0,1)==SkyBlendRate(1,0),"the step into red is fast; other changes drift slowly");

@@ -101,7 +101,14 @@ void AASCharacter::RefreshLook() {
     Parts[16]->AttachToComponent(Parts[1],FAttachmentTransformRules::KeepRelativeTransform);
     Parts[19]->AttachToComponent(Parts[15],FAttachmentTransformRules::KeepRelativeTransform);
     Parts[20]->AttachToComponent(Parts[0],FAttachmentTransformRules::KeepRelativeTransform);
-    ASAssets::Style(WeaponMesh,FString::Printf(TEXT("SM_Weapon%d"),Build.Weapon),Metal,.75f);
+    // 0.24.2 aesthetics: each weapon has its own finish (it used to wear the floor's stone texture): polished steel blades and hafts, the Hoarfrost Maul frost-blue steel (its glow
+    // is this colour), the bow dark wood, the staff bronze, the guns gunmetal. Colour, metallic, roughness; TUNABLE.
+    struct FWeaponFinish {FLinearColor Shade;float Metallic,Roughness;};
+    static const FWeaponFinish Finishes[9]={{FLinearColor(.58f,.56f,.55f),.95f,.26f},{FLinearColor(.42f,.56f,.70f),.9f,.3f},{FLinearColor(.16f,.10f,.06f),0.f,.55f},
+        {FLinearColor(.55f,.55f,.58f),.95f,.28f},{FLinearColor(.45f,.29f,.15f),.7f,.38f},{FLinearColor(.30f,.28f,.32f),.9f,.34f},
+        {FLinearColor(.24f,.25f,.27f),.85f,.4f},{FLinearColor(.24f,.25f,.27f),.85f,.36f},{FLinearColor(.28f,.27f,.25f),.8f,.42f}};
+    const FWeaponFinish& Coat=Finishes[FMath::Clamp(Build.Weapon,0,8)];
+    ASAssets::Armor(WeaponMesh,FString::Printf(TEXT("SM_Weapon%d"),Build.Weapon),Coat.Shade,Coat.Metallic,0.f,Coat.Roughness);
     WeaponMesh->AttachToComponent(Build.Weapon==2?Parts[17].Get():Parts[18].Get(),FAttachmentTransformRules::KeepRelativeTransform);
     WeaponMesh->SetRelativeLocation(FVector::ZeroVector);WeaponMesh->SetRelativeRotation(FRotator::ZeroRotator);
     if(Build.Weapon==2) Parts[17]->SetRelativeLocation(FVector(82,-5,123));

@@ -382,3 +382,13 @@ Scripted runs of the real game (standalone, test profiles 90/91/95; scripts in T
 - Armoured walkers' collapse: PASS. Five grunts struck down together fold in different falls, then shrink away.
 UNVERIFIED (playtest): balance and feel of all the above; two real PCs over the internet; the Sovereign's grasp; the Wildfire explosion itself (the burning enemies died between frames).
 Needs Josue: nothing.
+
+## AAA aesthetics pass 1 (2026-10-20, Opus session) - checked in-engine (screenshots Saved/Screenshots/Dev/look_*.png)
+- Found and fixed: the Endless ruin ring has drawn as Unreal's grey checker grid in game since 0.25 phase C (a material flag missing for its Nanite meshes). It now shows real stone.
+- The ruins wear the Dragon Cave pack's own textures: mossy boulders, weathered concrete columns, bark, bone and gold (35 pieces). Pillars, walls and bridge arches stay plain concrete (their textures need a renderer setting that lives in a file we never commit).
+- The arena floor is a ruined courtyard: rubble and earth with old paving slabs surviving in patches, ash-toned.
+- Real volumetric clouds that follow the stages (fair weather, storm deck, burning storm cells), warmer haze toward the sun, soft light shafts, ambient occlusion and gentler contrast.
+- Weapons have proper metal/wood finishes; the hero wears your chosen character colour again.
+UNVERIFIED (playtest): taste. Performance on P2's machine (real-time sky capture, clouds, 2048 textures); please report frame rate.
+P2's machine needs the new local imports (Content/Art/Imported/Ground and /Decor; the dressed SM_DC meshes): the next playtest zip will carry them.
+Needs Josue: nothing.

@@ -18,6 +18,7 @@
 #include "Animation/AnimSequenceBase.h"
 #include "Animation/AnimMontage.h"
 #include "Engine/SkeletalMesh.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "AnimationRuntime.h"
 #include "HAL/IConsoleManager.h"
 
@@ -25,6 +26,7 @@ static TAutoConsoleVariable<int32> CVarASSkeletalHero(TEXT("as.hero.skeletal"),1
 
 namespace ASHeroLook {
 const FName UpperBody(TEXT("UpperBody")),FullBody(TEXT("DefaultSlot"));
+constexpr float PaintStrength=.42f; // the player's colour as the Mannequin's "Paint Tint" (M_Mannequin): a deep coat of paint, not a glow (.6 read as bright plastic in-engine)
 UAnimSequenceBase* Clip(const TCHAR* Name) {
     static TMap<FString,TWeakObjectPtr<UAnimSequenceBase>> Cache;
     if(const TWeakObjectPtr<UAnimSequenceBase>* Hit=Cache.Find(Name)) if(Hit->IsValid()) return Hit->Get();
@@ -90,15 +92,23 @@ void AASCharacter::SetupSkeletalHero() {
         if(Was) {for(auto& Part:Parts) if(Part) Part->SetVisibility(true);} // back to the rig (RefreshLook has just restyled it)
         return;
     }
-    if(Body->GetSkeletalMeshAsset()!=Model) Body->SetSkeletalMesh(Model);
+    if(Body->GetSkeletalMeshAsset()!=Model) {Body->SetSkeletalMesh(Model);Body->EmptyOverrideMaterials();} // the other body's paint does not carry over
     if(Body->GetAnimClass()!=Anim) Body->SetAnimInstanceClass(Anim);
+    // the player's colour (Settings > Character color; the default is the player's own) is the Mannequin's paint, as it was the rig's visor and core; dark red while downed. TUNABLE.
+    const FLinearColor Own=ColorChoice<0&&IsLocallyControlled()?FLinearColor(.08f,.55f,1.f):ViewColor();
+    const FLinearColor Paint=bDowned?FLinearColor(.3f,.02f,.025f):Own*ASHeroLook::PaintStrength;
+    for(int32 Slot=0;Slot<Body->GetNumMaterials();++Slot) {
+        UMaterialInstanceDynamic* Coat=Cast<UMaterialInstanceDynamic>(Body->GetMaterial(Slot));
+        if(!Coat) Coat=Body->CreateDynamicMaterialInstance(Slot);
+        if(Coat) Coat->SetVectorParameterValue(TEXT("Paint Tint"),Paint);
+    }
     if(SkelStanceWeapon!=Build.Weapon) { // a new weapon: its own stance takes over at the next frame
         if(UAnimInstance* Current=Body->GetAnimInstance()) if(SkelStance.IsValid()) Current->Montage_Stop(.2f,SkelStance.Get());
         SkelStance.Reset();SkelStanceWeapon=-1;
     }
     Body->SetHiddenInGame(false);Body->SetVisibility(true);Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Body->SetRelativeLocationAndRotation(FVector(0.f,0.f,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()),FRotator(0.f,-90.f,0.f)); // the Mannequin faces +Y: turned to face the actor's +X
-    Body->VisibilityBasedAnimTickOption=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones; // the cape and the weapon read its bones every frame
+    Body->VisibilityBasedAnimTickOption=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones; // the weapon and the dash afterimages read its bones every frame
     for(auto& Part:Parts) if(Part) Part->SetVisibility(false);
     // the weapon in the fist (the bow in the left), the spiral charge in the left hand; the part rig's bow string and nocked arrow are not drawn on the Mannequin
     FName Hand;FTransform Grip;

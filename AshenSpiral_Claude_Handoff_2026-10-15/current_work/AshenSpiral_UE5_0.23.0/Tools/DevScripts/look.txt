@@ -1,0 +1,53 @@
+# 0.24.2 aesthetics pass: one fixed set of views to compare looks before and after (hub, the Endless arena wide, close and toward the horizon, hazards, each sky stage). Test profile 95.
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.cam -900 0 450 -18 0 70
+wait 1.5
+as.dev.shot look_01_hub 0
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 500
+as.dev.face 30
+as.dev.keeper
+as.dev.follow 520 140 210 60 0
+wait 1
+as.dev.shot look_02_hero 0
+as.dev.follow 1500 900 200 75 600
+wait 0.5
+as.dev.shot look_03_arena 0
+as.dev.follow 700 60 180 75 2500
+wait 0.5
+as.dev.shot look_03b_horizon 0
+# the ruin ring up close (the arena's middle is the world origin): south, then east
+as.dev.follow off
+as.dev.cam 0 -2900 380 -6 -90 70
+wait 2.5
+as.dev.shot look_03c_ring_south 0
+as.dev.cam 2900 0 380 -6 0 70
+wait 2.5
+as.dev.shot look_03d_ring_east 0
+as.dev.follow 1500 900 200 75 600
+as.dev.elite 2 1 900 -200
+as.dev.elite 1 1 900 300
+wait 4.5
+as.dev.shot look_04_hazards 0
+as.dev.killall
+wait 1
+as.dev.wave 25
+wait 6
+as.dev.shot look_05_gloom 0
+as.dev.follow 700 60 180 75 2500
+wait 0.5
+as.dev.shot look_05b_gloom_horizon 0
+as.dev.follow 1500 900 200 75 600
+as.dev.wave 55
+wait 6
+as.dev.shot look_06_red 0
+as.dev.follow 700 60 180 75 2500
+wait 0.5
+as.dev.shot look_06b_red_horizon 0
+wait 0.5
+quit

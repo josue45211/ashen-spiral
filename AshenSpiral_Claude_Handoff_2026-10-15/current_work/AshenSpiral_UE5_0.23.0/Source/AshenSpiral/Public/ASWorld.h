@@ -133,6 +133,8 @@ private:
     UPROPERTY() TObjectPtr<AExponentialHeightFog> FogActor;
     UPROPERTY() TObjectPtr<ASkyLight> SkyLightActor;
     UPROPERTY() TObjectPtr<APostProcessVolume> PostVolume;
+    UPROPERTY() TObjectPtr<class AVolumetricCloud> CloudActor;          // 0.24.2 aesthetics: volumetric clouds, their look following the Endless stage
+    UPROPERTY() TObjectPtr<class UMaterialInstanceDynamic> CloudMaterial;
     float SkyBlendT=1.f;int32 SkyFrom=0,SkyTo=0;
     bool bVaultDimmed=false;
     UPROPERTY() TObjectPtr<UActorComponent> ShopLabel;

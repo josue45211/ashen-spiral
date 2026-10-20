@@ -20,6 +20,7 @@
 #include "Engine/PointLight.h"
 #include "Engine/SkyLight.h"
 #include "Components/SkyAtmosphereComponent.h"
+#include "Components/VolumetricCloudComponent.h"
 #include "Engine/ExponentialHeightFog.h"
 #include "Engine/PostProcessVolume.h"
 #include "Engine/StaticMesh.h"
@@ -96,6 +97,15 @@ void AASWorld::BeginPlay() {
         D->SetIntensity(.8f);D->SetLightColor(FLinearColor(.65f,.76f,1.f));D->SetCastShadows(false);
     }
     GetWorld()->SpawnActor<ASkyAtmosphere>();
+    // 0.24.2 aesthetics: real volumetric clouds over every arena. Their cover, density and storm cells follow the Endless stage (SkyLook, applied in Tick); the material is
+    // the engine's own simple cloud, given a per-world instance so the stage can drive it.
+    if(auto* Clouds=GetWorld()->SpawnActor<AVolumetricCloud>()) {
+        CloudActor=Clouds;
+        if(UVolumetricCloudComponent* C=Clouds->FindComponentByClass<UVolumetricCloudComponent>()) {
+            C->SetLayerBottomAltitude(3.f);C->SetLayerHeight(6.f); // km: low enough to read from the arena's high camera
+            if(UMaterialInterface* Base=C->GetMaterial()) {CloudMaterial=UMaterialInstanceDynamic::Create(Base,this);C->SetMaterial(CloudMaterial);}
+        }
+    }
     auto* Fog=GetWorld()->SpawnActor<AExponentialHeightFog>();
     SunLight=Sun;FogActor=Fog;
     if(Fog) {
@@ -103,14 +113,18 @@ void AASWorld::BeginPlay() {
         Fog->SetActorLocation(FVector(0,0,-450));
         Fog->GetComponent()->SetFogDensity(.018f);Fog->GetComponent()->SetFogHeightFalloff(.25f);
         Fog->GetComponent()->SetFogInscatteringColor(FLinearColor(.10f,.12f,.18f));Fog->GetComponent()->bEnableVolumetricFog=true;
+        // 0.24.2 aesthetics: a warm haze toward the sun and light that scatters forward through the volumetric fog (soft shafts between the ruins)
+        Fog->GetComponent()->SetDirectionalInscatteringExponent(6.f);Fog->GetComponent()->SetDirectionalInscatteringColor(FLinearColor(.42f,.30f,.18f));
+        Fog->GetComponent()->SetVolumetricFogScatteringDistribution(.55f);
     }
+    if(Sun) if(auto* D=Cast<UDirectionalLightComponent>(Sun->GetLightComponent())) D->SetVolumetricScatteringIntensity(1.6f);
     auto* Sky=GetWorld()->SpawnActor<ASkyLight>();SkyLightActor=Sky;
     if(Sky) {
         auto* L=Sky->GetLightComponent();L->SetMobility(EComponentMobility::Movable);
         L->SetIntensity(.65f);
-        // The sky/sun do not animate. Queue a capture after their components exist;
-        // direct assignment of bRealTimeCapture after registration did not notify the renderer.
-        L->SetRealTimeCaptureEnabled(false);L->RecaptureSky();
+        // 0.24.2 aesthetics: the sky now changes (clouds, the stages), so the ambient follows it in real time. It is set before the component's first render
+        // state (SpawnActor registers it; MarkRenderStateDirty pushes the flag) instead of after it, which is what did not notify the renderer before.
+        L->SetRealTimeCaptureEnabled(true);L->MarkRenderStateDirty();L->RecaptureSky();
     }
     auto* Post=GetWorld()->SpawnActor<APostProcessVolume>();PostVolume=Post;
     if(Post) {
@@ -123,6 +137,14 @@ void AASWorld::BeginPlay() {
         Post->Settings.bOverride_AutoExposureApplyPhysicalCameraExposure=true;
         Post->Settings.AutoExposureApplyPhysicalCameraExposure=false;
         Post->Settings.bOverride_AutoExposureBias=true;Post->Settings.AutoExposureBias=1.f;
+        // 0.24.2 aesthetics: a touch more glow on emissives, contact shadows that ground every piece, a gently lifted contrast, and local exposure so bright hazards
+        // and deep shade both keep their detail
+        Post->Settings.BloomIntensity=.6f;
+        Post->Settings.bOverride_AmbientOcclusionIntensity=true;Post->Settings.AmbientOcclusionIntensity=.65f;
+        Post->Settings.bOverride_AmbientOcclusionRadius=true;Post->Settings.AmbientOcclusionRadius=140.f;
+        Post->Settings.bOverride_ColorContrast=true;Post->Settings.ColorContrast=FVector4(1.06f,1.06f,1.06f,1.f);
+        Post->Settings.bOverride_LocalExposureHighlightContrastScale=true;Post->Settings.LocalExposureHighlightContrastScale=.85f;
+        Post->Settings.bOverride_LocalExposureShadowContrastScale=true;Post->Settings.LocalExposureShadowContrastScale=.9f;
     }
     UE_LOG(LogTemp,Display,TEXT("AshenVisual 0.23.2: sun=%s rotation=%s fill=%s sky=%s exposureVolume=%s"),
         *GetNameSafe(Sun),Sun?*Sun->GetActorRotation().ToString():TEXT("MISSING"),
@@ -155,7 +177,7 @@ void AASWorld::Tick(float Delta) {
     const auto* S=AS::State(this);if(!S) return;
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
     const int32 Stage=ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave);
-    if(Stage!=SkyTo) {SkyFrom=SkyTo;SkyTo=Stage;SkyBlendT=0.f;}
+    if(Stage!=SkyTo) {SkyFrom=SkyTo;SkyTo=Stage;SkyBlendT=0.f;UE_LOG(LogTemp,Display,TEXT("AshenVisual: sky stage %d -> %d (wave %d)"),SkyFrom,SkyTo,S->EndlessWave);}
     if(IsEndlessArena()) ShowDecorStage(Stage);
     if(SkyBlendT>=1.f&&SkyTo==SkyFrom&&SkyTo==0&&!SunLight) return;
     SkyBlendT=FMath::Min(1.f,SkyBlendT+Delta*ASExpedition::SkyBlendRate(SkyFrom,SkyTo));
@@ -163,6 +185,11 @@ void AASWorld::Tick(float Delta) {
     if(SunLight) if(auto* D=Cast<UDirectionalLightComponent>(SunLight->GetLightComponent())) {D->SetIntensity(Look.SunIntensity);D->SetLightColor(FLinearColor(Look.SunR,Look.SunG,Look.SunB));}
     if(FogActor) {FogActor->GetComponent()->SetFogDensity(Look.FogDensity);FogActor->GetComponent()->SetFogInscatteringColor(FLinearColor(Look.FogR,Look.FogG,Look.FogB));}
     if(SkyLightActor) if(auto* L=SkyLightActor->GetLightComponent()) L->SetIntensity(Look.SkyLight);
+    if(CloudMaterial) { // 0.24.2 aesthetics: fair-weather cloud, then an overcast storm deck, then burning storm cells with red lightning
+        CloudMaterial->SetScalarParameterValue(TEXT("Cloud_GlobalCoverage"),Look.CloudCover);CloudMaterial->SetScalarParameterValue(TEXT("Cloud_GlobalDensity"),Look.CloudDensity);
+        CloudMaterial->SetScalarParameterValue(TEXT("StormClouds"),Look.Storm);
+        CloudMaterial->SetVectorParameterValue(TEXT("Storm_LightningColor"),FLinearColor(1.f,FMath::Lerp(.85f,.25f,FMath::Clamp(Look.GainR-1.f,0.f,.25f)*4.f),FMath::Lerp(1.f,.2f,FMath::Clamp(Look.GainR-1.f,0.f,.25f)*4.f)));
+    }
     if(PostVolume) {
         PostVolume->Settings.bOverride_VignetteIntensity=true;PostVolume->Settings.VignetteIntensity=Look.Vignette;
         PostVolume->Settings.bOverride_ColorSaturation=true;PostVolume->Settings.ColorSaturation=FVector4(Look.Saturation,Look.Saturation,Look.Saturation,1.f);
@@ -290,6 +317,25 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
                     Mat=Block;
                 }
         }
+        // 0.24.2 aesthetics: a scenery piece wears its own textures (stone, bark, bone, gold) when Tools/import_vault_assets.py phase I has dressed its mesh with them, tinted by the
+        // sky stage (the stage tints were made for the concrete; DecorTintScale brings them to a multiplier about 1 in the clear stage); the loot keeps its gold untinted
+        if(Group.StartsWith(TEXT("EndlessDecor"))&&!Group.StartsWith(TEXT("EndlessDecorSolid")))
+            if(UMaterialInterface* Own=C->GetStaticMesh()?C->GetStaticMesh()->GetMaterial(0):nullptr)
+                if(Own->GetPathName().StartsWith(TEXT("/Game/Art/Imported/Decor/")))
+                    if(auto* Piece=UMaterialInstanceDynamic::Create(Own,C)) {
+                        constexpr float DecorTintScale=5.2f; // TUNABLE
+                        Piece->SetVectorParameterValue(TEXT("Tint"),Group==TEXT("EndlessDecorLoot")?FLinearColor::White:FLinearColor(Color.R*DecorTintScale,Color.G*DecorTintScale,Color.B*DecorTintScale,1.f));
+                        Mat=Piece;
+                    }
+        // 0.24.2 aesthetics: the Endless floor and the plain beyond the ruins wear the Dragon Cave ground - worn stone tiles and paving drifting into each other - when it has been
+        // imported on this machine (M_ArenaGround, Tools/import_vault_assets.py phases G and H); without it they keep the flat tinted surface. Floors only: no mesh or collision change.
+        if((Group==TEXT("NaturalFloor")&&IsEndlessArena())||Group.StartsWith(TEXT("EndlessGround")))
+            if(auto* Earth=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/Ground/M_ArenaGround.M_ArenaGround"),nullptr,LOAD_NoWarn))
+                if(auto* Floor=UMaterialInstanceDynamic::Create(Earth,C)) {
+                    // TUNABLE: the pack's sandstone is pale, and under the arena's strong sun it bleached; ash-grey and darker, the plain beyond the ruins darker still
+                    Floor->SetVectorParameterValue(TEXT("Tint"),Group.StartsWith(TEXT("EndlessGround"))?FLinearColor(.36f,.35f,.34f):FLinearColor(.56f,.54f,.52f));
+                    Mat=Floor;
+                }
         C->SetMaterial(0,Mat);
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);
