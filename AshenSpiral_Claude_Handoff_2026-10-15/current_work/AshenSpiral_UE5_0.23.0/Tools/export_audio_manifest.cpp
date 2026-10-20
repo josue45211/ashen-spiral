@@ -21,7 +21,8 @@ static std::string When(int Cue) {
         if(SpecFor(Id).CueRelease==Cue) Out+=std::string(Out.empty()?"":"; ")+"release of "+AbilityName(Id);
     }
     for(int M=MutationFrost;M<=MutationVenom;++M) if(Cue==MutationCue(M)) Out+=std::string(Out.empty()?"":"; ")+"an elite brute with this mutation appearing (played once when it first comes into view)";
-    for(int Style=0;Style<HazardStyles;++Style) if(Cue==HazardArmCue(Style)) Out+=std::string(Out.empty()?"":"; ")+"a ground hazard arming (its warning is over)";
+    bool Arms=false;for(int Style=0;Style<HazardStyles;++Style) Arms|=Cue==HazardArmCue(Style); // several styles may share a cue: say it once
+    if(Arms) Out+=std::string(Out.empty()?"":"; ")+"a ground hazard arming (its warning is over)";
     if(Cue==CueGuardBreak) Out+=std::string(Out.empty()?"":"; ")+"a bulwark's guard being ripped open (played when the replicated guard-broken bit turns on)";
     if(Cue==CueSnipeLock) Out+=std::string(Out.empty()?"":"; ")+"the sniper's beam locking (played when it turns white-amber, 70% through the wind-up)";
     if(Cue==CueEggHatch) Out+=std::string(Out.empty()?"":"; ")+"a broodcaller's egg hatching into a minion (effect 19, size 1)";
