@@ -331,3 +331,10 @@ Unity and non-unity editor builds clean (0 errors, none of the warnings from our
 - New: Tools/make_concrete_tile.ps1 (makes the tile with Windows' own imaging), and Tools/import_vault_assets.py now also imports it and builds the material. Local only, like phase A: without the import the blocks keep the flat tint.
 - Needs Josue: the Concrete column licence is unconfirmed (Gate 0); Docs/CREDITS.md says so. P2's machine shows the flat blocks unless the imported Content/Art/Imported is copied to it.
 - Playtest: blocks read as concrete (not a grey checker or a flat colour); tiling is not distracting; tall walls are slightly lighter than low blocks; sinking and rising blocks still look right. If the checker shows, open M_ArenaConcrete (the graph was built blind, no shader was compiled in the NullRHI import).
+
+### 0.25 phase C done (2026-10-19) - UNVERIFIED in-engine
+Unity and non-unity editor builds clean (0 errors, none of the warnings from our sources), run_tests exit 0, new native suite decor_025 (1.7M checks over 400 seeds).
+- The Endless arena has a scenery ring beyond its walls in three stages that follow the sky (waves 1-20, 21-49, 50+), a ground plate under it, and treasure props round the chest. Visual only: no collision, nothing inside the playable square.
+- 63 Dragon Cave meshes imported locally (SM_DC_*); a machine without them keeps the bare arena. Local only, like phases A and B.
+- Needs Josue: the Dragon Cave licence is unconfirmed (Gate 0); Docs/CREDITS.md says so. P2's machine shows the bare arena unless the imported Content is copied to it.
+- Playtest: the ring is visible over the walls and reads as ruins, not clutter; the stage changes at waves 21 and 50 are noticeable; nothing floats; frame rate in Endless is unchanged; the loot reads as treasure beside the chest and does not block it.

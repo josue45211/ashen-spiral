@@ -1,6 +1,6 @@
 {
-  "source_checks_passed": 471102,
-  "source_files_checked": 68,
+  "source_checks_passed": 471316,
+  "source_files_checked": 69,
   "mesh_count": 82,
   "mesh_vertex_count": 82902,
   "mesh_triangle_count": 27634,
@@ -22,6 +22,7 @@
   "enemy_ability_024_tests": "PASS: 41027 enemy ability checks (shove, back-hop, parry, shockwave swept against heroes at six frame rates, enrage, hazards, guard break, meteor volleys, blink, sniper tracking and relocation, egg sacs, pack dives).\nShared rules only; Unreal combat and gameplay are not executed.",
   "partc_024_tests": "PASS: 7924 Part C checks; perfect dash window, proc-chain depth and falloff, impact damage and chains, metamorphoses, ceremony curve, death-screen lines.\nShared rules only; Unreal actors, replication and feel were not run.",
   "maul_025_tests": "PASS: 177 maul slam checks; reach per ability and body scale, bad inputs, and the head of the maul against the ground-pound pose at its strike.\nShared rules only; the slam, its warning disc and the imported mesh are Unreal gameplay: UNVERIFIED.",
+  "decor_025_tests": "PASS: 1739407 decor checks; kit table, deterministic ring (400 seeds), ring bounds, spacing, stage counts and order, stage visibility.\nShared rules only; the imported meshes, their scale, and how the ring looks are Unreal gameplay: UNVERIFIED.",
   "melee_021_tests": "PASS: 11548180 melee/0.21 checks; 1687 full-cycle pose samples; 450 Archives rooms; 3000 melee reward drafts.\nShared rules and source geometry only. Unreal movement, collision, RPC timing and rendering are not executed.",
   "bugfix_020_tests": "PASS: 11362 0.20 regression checks; migrations, one-time milestone rewards, shield grants, traps, joint lengths, 400 multi-endpoint route oracles and seed 6767 chamber 23 floor model.\nUnreal save serialization, mesh collision, Slate, animation rendering and networking are not executed.",
   "reload_navigation_tests": "PASS: 109236 reload/navigation checks; 1200 route-oracle comparisons; 40000 reward drafts.\nStakes tier 0 -> 3: rare cards 8765 -> 11446, legendary cards 805 -> 1150 across 60000 choices per tier.\nShared rules only; Unreal actors, audio, physics, Slate and replication not executed.",

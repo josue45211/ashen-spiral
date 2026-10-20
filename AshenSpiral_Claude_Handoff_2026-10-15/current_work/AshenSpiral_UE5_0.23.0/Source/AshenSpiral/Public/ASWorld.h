@@ -102,6 +102,9 @@ private:
     void SetCoverCollision(bool On);
     void BuildNavigationGrids();
     void BuildEndlessCover(const FVector& Center);
+    void BuildEndlessDecor(const FVector& Center);   // 0.25 phase C: the scenery ring beyond the walls and the loot beside the chest (visual only)
+    void ShowDecorStage(int32 SkyStage);             // shows the decor stages the sky has reached
+    int32 DecorStageShown=-1;
     void RebuildEndlessCover();
     void AnimateShift(AASGameState* State); // authority decides collision and publishes it in State->bCoverSolid; everyone else applies it
     bool AnyHeroNearCover(const AASGameState* State) const; // any hero within ASExpedition::ShiftHoldOffRadius of a current wall footprint

@@ -25,6 +25,7 @@
 #include "Net/UnrealNetwork.h"
 #include "ASGameInstance.h"
 #include "ASExpeditionRules.h"
+#include "ASDecorRules.h"
 #include "Misc/Crc.h"
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
@@ -148,6 +149,7 @@ void AASWorld::Tick(float Delta) {
     // Sun/fog/sky colours follow the Endless stage: clear (1-20), gloomy (21-49), red (50+). Hub and normal runs stay clear.
     const int32 Stage=ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave);
     if(Stage!=SkyTo) {SkyFrom=SkyTo;SkyTo=Stage;SkyBlendT=0.f;}
+    if(IsEndlessArena()) ShowDecorStage(Stage);
     if(SkyBlendT>=1.f&&SkyTo==SkyFrom&&SkyTo==0&&!SunLight) return;
     SkyBlendT=FMath::Min(1.f,SkyBlendT+Delta*ASExpedition::SkyBlendRate(SkyFrom,SkyTo));
     const auto Look=ASExpedition::LerpSky(ASExpedition::SkyLookFor(SkyFrom),ASExpedition::SkyLookFor(SkyTo),SkyBlendT);
@@ -272,7 +274,7 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
         // 0.25 phase B: the Endless cover blocks wear the arena concrete when it has been imported on this machine (Tools/make_concrete_tile.ps1 + Tools/import_vault_assets.py): a world-aligned
         // material, so the stretched blocks show it at one scale on every face. The block keeps its own mesh, collision and tint (the tint is darkened stone, so it is brightened for a texture
         // that multiplies it); without the import the flat tinted block is used as before.
-        if(Group.StartsWith(TEXT("EndlessCover"))) {
+        if(Group.StartsWith(TEXT("EndlessCover"))||Group.StartsWith(TEXT("EndlessDecor"))||Group.StartsWith(TEXT("EndlessGround"))) {
             constexpr float ConcreteBrighten=3.4f; // TUNABLE: the cover tint (.17) times this is the albedo multiplier of the concrete texture
             if(auto* Concrete=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/ArenaConcrete/M_ArenaConcrete.M_ArenaConcrete"),nullptr,LOAD_NoWarn))
                 if(auto* Block=UMaterialInstanceDynamic::Create(Concrete,C)) {
@@ -370,9 +372,58 @@ void AASWorld::BuildEndlessCover(const FVector& Center) {
         Add(TEXT("Cube"),TEXT("EndlessSolid"),At,Scale,Tint,true,O.Yaw,0,.05f);                                                                  // collision proxy, fixed
     }
 }
+// 0.25 phase C: the Endless arena's skin (Docs/0.25_ASSET_PLAN.md). A ring of ruins, rocks, dead trees and bones stands beyond the walls in three stages that follow the sky: clear, gloomy (wave 21),
+// red (wave 50). It is scenery only: no collision, no navigation, nothing inside the playable square, and the placements come from the arena seed (ASDecorRules.h), so every player sees the same
+// ring. The meshes are the Dragon Cave kit imported locally as SM_DC_*; a machine without the import builds nothing here and keeps the bare arena. Each piece is scaled from its own measured
+// bounds to its target height and set on the ground, whatever the mesh's pivot.
+void AASWorld::BuildEndlessDecor(const FVector& Center) {
+    if(GetNetMode()==NM_DedicatedServer) return;                       // no screen, nothing to collide: the host and the clients build it
+    if(!ASAssets::HasMesh(TEXT("SM_DC_LargeRock01"))) return;         // the stone kit has not been imported on this machine
+    const FLinearColor StageTint[ASDecor::StageCount]={FLinearColor(.19f,.19f,.20f),FLinearColor(.14f,.13f,.12f),FLinearColor(.17f,.07f,.06f)};
+    // Without ground the scenery would float in the sky: a flat plate far wider than the ring, just under the arena floor (the arena's own floor hides it inside the walls).
+    Add(TEXT("Cube"),TEXT("EndlessGround"),Center+FVector(0,0,-40),FVector(170.f,170.f,.2f),FLinearColor(.055f,.05f,.05f),false);
+    for(const auto& P:ASDecor::Ring(uint32(Config.Seed))) {
+        if(!ASDecor::Kits().size()||P.Kit<0||P.Kit>=int(ASDecor::Kits().size())) continue;
+        const auto& Kit=ASDecor::Kits()[size_t(P.Kit)];
+        const FString Name=UTF8_TO_TCHAR(Kit.Mesh);
+        if(!ASAssets::HasMesh(Name)) continue;
+        const UStaticMesh* Mesh=ASAssets::Mesh(Name);
+        if(!Mesh) continue;
+        const FBoxSphereBounds Box=Mesh->GetBounds();
+        const float Height=Box.BoxExtent.Z*2.f;
+        if(!(Height>1.f)) continue;
+        const float Scale=FMath::Clamp(Kit.Height*P.Scale/Height,.05f,60.f);
+        const float Z=Center.Z-(Box.Origin.Z-Box.BoxExtent.Z)*Scale-10.f; // the lowest point of the mesh sits 10 cm into the ground
+        Add(Name,FString::Printf(TEXT("EndlessDecor%d"),Kit.Stage),FVector(Center.X+P.X,Center.Y+P.Y,Z),FVector(Scale),StageTint[Kit.Stage],false,P.Yaw,0,0.f);
+    }
+    // The chest's loot: a few treasure piles round it, at their own size (the arena's own chest and lucky shop stall are untouched, and nothing here collides).
+    struct Loot {const TCHAR* Mesh;float X,Y,Yaw,Scale;};
+    const Loot Piles[]={{TEXT("SM_DC_TreasurePile02"),-300.f,-150.f,20.f,1.6f},{TEXT("SM_DC_TreasurePile04"),260.f,-260.f,130.f,1.5f},{TEXT("SM_DC_TreasurePile03"),-210.f,270.f,250.f,1.4f},
+        {TEXT("SM_DC_GoldenCoin02"),330.f,150.f,70.f,1.8f},{TEXT("SM_DC_GoldenCup01"),-120.f,-330.f,0.f,3.f},{TEXT("SM_DC_Vase01"),360.f,-60.f,10.f,2.f}};
+    for(const auto& L:Piles) {
+        if(!ASAssets::HasMesh(L.Mesh)) continue;
+        const UStaticMesh* Mesh=ASAssets::Mesh(L.Mesh);
+        if(!Mesh) continue;
+        const FBoxSphereBounds Box=Mesh->GetBounds();
+        const FVector At=ExitPoint()+FVector(L.X,L.Y,0.f);
+        Add(L.Mesh,TEXT("EndlessDecorLoot"),FVector(At.X,At.Y,Center.Z-(Box.Origin.Z-Box.BoxExtent.Z)*L.Scale),FVector(L.Scale),FLinearColor(.26f,.18f,.04f),false,L.Yaw,0,.6f);
+    }
+    DecorStageShown=-1;ShowDecorStage(0); // a rebuild starts with every stage visible: hide the later ones until the sky reaches them
+}
+// Stage 0 is always standing; a later stage appears when the sky reaches it and goes again when a new run resets the sky.
+void AASWorld::ShowDecorStage(int32 SkyStage) {
+    if(DecorStageShown==SkyStage) return;
+    DecorStageShown=SkyStage;
+    for(auto& Pair:Batches) {
+        if(!Pair.Value) continue;
+        const FString Key=Pair.Key.ToString();
+        for(int32 Stage=1;Stage<ASDecor::StageCount;++Stage)
+            if(Key.Contains(FString::Printf(TEXT("_EndlessDecor%d_"),Stage))) Pair.Value->SetVisibility(ASDecor::StageVisible(Stage,SkyStage));
+    }
+}
 void AASWorld::EndlessArena(const FVector& Center) {
     // Placeholder identity: dark ruin stone with a faint red-gold chest sigil. P2 art-directs in 0.23.1.
-    EndlessCenter=Center;BuildEndlessCover(Center);
+    EndlessCenter=Center;BuildEndlessCover(Center);BuildEndlessDecor(Center);
     Add(TEXT("Cube"),TEXT("EndlessShopStall"),ExitPoint()+FVector(0,380,60),FVector(1.6f,.8f,1.2f),FLinearColor(.25f,.15f,.07f),true);
     Text(TEXT("LUCKY SHOP / spend Scrap and Ash"),ExitPoint()+FVector(0,380,260),90,22);ShopLabel=Labels.IsEmpty()?nullptr:Labels.Last();ShopShown=-1;
     // The three glowing rings that used to sit under the chest (outer sigil, inner sigil, arrival glyph) are gone: they read as stray lights once the sky darkens after waves 20 and 50.

@@ -7,11 +7,14 @@ generated .uasset files stay local like the rest of Content/ (they are not track
 Phase A: the Molten Face Hammer for the elite hammer enemies. Its textures are embedded in the FBX, so they are extracted first; they are 2048 and are capped at 1024 in the editor.
 Phase B: the arena concrete. Tools/make_concrete_tile.ps1 cuts a seamless 2048 tile out of the "Concrete column" pack first (Saved/VaultStage/T_ArenaConcrete.png); this script imports it and builds
 M_ArenaConcrete, a world-aligned (triplanar) material, so the stretched, scaled cover blocks show the concrete at one scale on every face. No mesh changes: the blocks keep their own geometry and collision.
+Phase C: the Dragon Cave stone kit for the Endless arena skin. The pack is an Unreal project, so its static meshes (not its 5 GB of textures or its materials) are copied into the project, duplicated as
+SM_DC_<name> under /Game/Art/Meshes with every material slot set to the arena concrete, and the copies are deleted again. The decor uses the meshes' own measured bounds (written to the report).
 Set ASHEN_VAULT to override the vault folder. The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
 import json
 import os
+import shutil
 import struct
 import traceback
 import zlib
@@ -274,6 +277,19 @@ def create_material(textures):
     return material
 
 
+# The meshes of the 0.25 plan, phase C (ASDecorRules.h names the same ones; Tests/run_tests.py checks that every mesh it names is in this list).
+DC_MESHES = [
+    "LargeRock01", "LargeRock02", "LargeRock03", "LargeRock04", "LargeRock05", "LargeRock06", "LargeRock07",
+    "CaveRock01", "CaveRock02", "CaveRock03", "CaveRock04",
+    "InfernoRock01", "InfernoRock02", "InfernoRock03", "InfernoRock04", "InfernoRock05", "InfernoRock06", "InfernoRock07",
+    "StoneworksPillar01", "StoneworksPillar02", "StoneworksPillar03", "StoneworksPillar04", "LargePillar01", "LargePillar02", "Column01", "Column02",
+    "StoneworksStone01", "StoneworksStone02", "StoneworksStone03", "StoneWall01", "StoneWall02", "StoneWall03", "StoneWall04",
+    "BridgeArc01", "BridgeArc02", "BridgeArc03", "BridgePillar01", "BridgePillar02",
+    "DeadTree01", "DeadTree02", "DeadTree03", "DeadTree04", "DeadTree05", "StoneDebris01_",
+    "Skull01", "Skull02", "Skeleton01", "Skeleton02", "Skeleton03", "Skeleton04", "Skeleton05", "Skeleton06", "CoffinStone01",
+    "TreasurePile01", "TreasurePile02", "TreasurePile03", "TreasurePile04", "GoldenCoin01", "GoldenCoin02", "GoldenCup01", "Jewel01", "Jewel02", "Vase01",
+]
+DC_SOURCE = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content" / "DragonCave" / "Meshes"
 CONCRETE_FOLDER = "/Game/Art/Imported/ArenaConcrete"
 CONCRETE_TILE = STAGE / "T_ArenaConcrete.png"
 
@@ -380,6 +396,46 @@ def import_concrete():
     create_concrete_material(tile)
 
 
+def import_dragon_cave():
+    if not DC_SOURCE.is_dir():
+        report["notes"].append("phase C skipped: no Dragon Cave pack at " + str(DC_SOURCE))
+        return
+    concrete = unreal.load_asset(CONCRETE_FOLDER + "/M_ArenaConcrete")
+    require(concrete is not None, "Phase C needs M_ArenaConcrete (phase B) first")
+    staging = ROOT / "Content" / "DragonCave" / "Meshes"
+    staging.mkdir(parents=True, exist_ok=True)
+    missing = []
+    for name in DC_MESHES:
+        source = DC_SOURCE / ("SM_" + name + ".uasset")
+        if source.is_file():
+            shutil.copy2(source, staging / source.name)
+        else:
+            missing.append(name)
+    unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous(["/Game/DragonCave"], True)
+    done, failed = [], []
+    bounds = report.setdefault("dragon_cave_bounds", {})
+    for name in DC_MESHES:
+        original = unreal.load_asset("/Game/DragonCave/Meshes/SM_" + name)
+        if not isinstance(original, unreal.StaticMesh):
+            failed.append(name)
+            continue
+        copy = tools.duplicate_asset("SM_DC_" + name, "/Game/Art/Meshes", original)
+        if copy is None:
+            failed.append(name)
+            continue
+        for slot in range(len(copy.get_editor_property("static_materials"))):
+            copy.set_material(slot, concrete)  # the pack's own materials and textures stay behind
+        assets.save_loaded_asset(copy, False)
+        box = copy.get_bounding_box()
+        bounds[name] = {"min": [box.min.x, box.min.y, box.min.z], "max": [box.max.x, box.max.y, box.max.z], "tris": copy.get_num_triangles(0) if hasattr(copy, "get_num_triangles") else -1}
+        done.append(name)
+        report["imported"].append(copy.get_path_name())
+    assets.delete_directory("/Game/DragonCave")
+    shutil.rmtree(ROOT / "Content" / "DragonCave", ignore_errors=True)
+    report["notes"].append("phase C: %d meshes imported, %d failed to load %s, %d missing from the pack %s" % (len(done), len(failed), failed, len(missing), missing))
+    require(not failed and not missing, "Some Dragon Cave meshes did not import: failed %s, missing %s" % (failed, missing))
+
+
 def main():
     require(HAMMER_FBX.is_file(), "The Molten Face Hammer FBX is not in the vault: " + str(HAMMER_FBX))
     for folder in (FOLDER, MESH_FOLDER):
@@ -404,6 +460,7 @@ def main():
 try:
     main()
     import_concrete()
+    import_dragon_cave()
     report["ok"] = True
 except Exception:
     report["ok"] = False
