@@ -2,6 +2,7 @@
 #include "ASEnemyRules.h"
 #include "ASEnemyPose.h"
 #include "ASEnemyDeathTracks.h"
+#include "ASEnemyClipTracks.h"
 #include "ASExpeditionRules.h"
 #include "ASPresentationRules.h"
 #include "ASCharacter.h"
@@ -56,7 +57,7 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     In.Seconds=Now;In.Speed=Weight;In.Turn=0.f;In.Flare=FMath::Clamp(Windup*.5f+Release*.6f,0.f,1.f); // the cape billows with speed and flares as an attack winds up and lands
     float D[EP::ChannelCount];EP::ClearChannels(D);
     const float U=PoseTime(Now);
-    if(U>=0.f) EP::Evaluate(EP::TrackFor(PoseAbility),U,D);
+    if(U>=0.f) EP::Evaluate(EP::PlayedTrack(PoseAbility),U,D);
     EP::RigOut Out;EP::Solve(In,D,Out);
     ApplyRig(Out,HalfHeight,1.f);
 }
@@ -85,7 +86,7 @@ void AASEnemy::AnimateBlob() {
     if(bTrainingDummy||!Body) return;
     float D[EP::ChannelCount];EP::ClearChannels(D);
     const float U=PoseTime(AS::Time(this));
-    if(U>=0.f) EP::Evaluate(EP::TrackFor(PoseAbility),U,D);
+    if(U>=0.f) EP::Evaluate(EP::PlayedTrack(PoseAbility),U,D);
     EP::BlobOut Out;EP::SolveBlob(D,Out);
     const float HalfHeight=GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f;
     Body->SetRelativeLocationAndRotation(FVector(Out.Offset.X,Out.Offset.Y,-HalfHeight+Out.Offset.Z),FQuat(Out.Rot.X,Out.Rot.Y,Out.Rot.Z,Out.Rot.W));

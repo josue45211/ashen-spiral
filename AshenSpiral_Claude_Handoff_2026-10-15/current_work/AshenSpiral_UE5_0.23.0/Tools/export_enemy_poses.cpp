@@ -3,7 +3,9 @@
 // Build and run through preview_enemy_poses.py, or by hand:  cl /std:c++17 /EHsc Tools\export_enemy_poses.cpp && export_enemy_poses.exe > poses.json
 #include "../Source/AshenSpiral/Public/ASEnemyPose.h"
 #include "../Source/AshenSpiral/Public/ASEnemyDeathTracks.h"
+#include "../Source/AshenSpiral/Public/ASEnemyClipTracks.h"
 #include <cstdio>
+#include <string>
 #include <vector>
 using namespace ASEnemyPose;
 namespace ER=ASEnemyRules;
@@ -22,14 +24,15 @@ static const std::vector<Preview>& Previews() {
 }
 static int WeaponFor(int Kind) {const bool Elite=Kind==3||Kind==4;return Kind==8?7:(Kind==1||Kind==7?4:(Elite||Kind==6?1:0));}
 static void Print(const Xf& X) {std::printf("[%.4f,%.4f,%.4f,%.5f,%.5f,%.5f,%.5f,%.4f,%.4f,%.4f]",X.Loc.X,X.Loc.Y,X.Loc.Z,X.Rot.X,X.Rot.Y,X.Rot.Z,X.Rot.W,X.Scale.X,X.Scale.Y,X.Scale.Z);}
-int main() {
+int main(int argc,char** argv) {
+    const bool Baked=argc>1&&std::string(argv[1])=="baked"; // "baked" previews the Paragon clips (BakedTrack) whatever BakedClipsOn says; otherwise what the game plays (PlayedTrack)
     const float Times[]={0.f,.4f,.85f,1.f,1.12f,1.25f,1.45f,1.8f,2.2f,2.6f,3.f};
     std::printf("{\"samples\":[");bool First=true;
     // The neutral reference first (walking pose, no ability).
     std::vector<Preview> All={{0,ER::AbilityNone,false,.9f}};for(const auto& P:Previews()) All.push_back(P);
     for(const Preview& P:All) {
         const bool Death=P.Ability>=100;
-        const Track& T=Death?DeathTrack(P.Ability-100):TrackFor(P.Ability);
+        const Track& T=Death?DeathTrack(P.Ability-100):(Baked?BakedTrack(P.Ability):PlayedTrack(P.Ability));
         static const float DeathTimes[]={0.f,.12f,.25f,.4f,.55f,.7f,.85f,1.f};
         for(float U:(P.Ability==ER::AbilityNone?std::vector<float>{0.f}:(Death?std::vector<float>(DeathTimes,DeathTimes+8):std::vector<float>(Times,Times+sizeof(Times)/sizeof(Times[0]))))) {
             float D[ChannelCount];Evaluate(T,U,D);

@@ -1,0 +1,3 @@
+PASS: 715881 baked-clip checks; off by default and equal to the hand-made tracks, plus structure, limits, endpoints and solver sanity of every baked track.
+Envelope breaches over 7800 samples (the hand-made tracks have none; the clips must reach zero before they are switched on): 1306.
+Shared rules only; whether the clips read well in game is unverified, which is why they are off.
