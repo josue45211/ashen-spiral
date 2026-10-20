@@ -110,7 +110,7 @@ public:
     void OnCinderPickup();
     void SecondaryDamage(AASEnemy* Enemy,float Damage,EASHitKind Kind);
     // 0.24 Part C (server only): C-3 perfect dash, C-1 proc chains, C-6 metamorphoses.
-    float DashInvulEnd=0,LastPerfectDashAt=-100.f,NextProcChain=0;
+    float DashInvulEnd=0,LastPerfectDashAt=-100.f,NextProcChain=0,PerfectBoostUntil=0; // PerfectBoostUntil: the perfect-dash damage boost lasts until then
     void OnPerfectDash();
     void ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited); // an element proc jumps to a neighbour (ASPartC::ChainMaxDepth hops, weaker each time)
     bool Metamorphosed(ASPartC::Metamorphosis M) const; // the trait behind M is at its catalogue maximum

@@ -9,6 +9,9 @@ namespace ASPartC {
 
 // ---- C-3 perfect dash: a blow that lands inside the dash's invulnerability, or within PerfectDashWindow seconds after it ends, is "perfect" ----
 constexpr float PerfectDashWindow=.15f,PerfectDashCooldown=.6f,PerfectDashBonusProtection=.15f;
+// 0.24.1 (playtest: the dash cooldown is already short, so a refund meant little): a perfect dash boosts the damage you deal for a few seconds instead.
+constexpr float PerfectDashBoost=.30f,PerfectDashBoostSeconds=4.f;
+inline bool PerfectBoostActive(float Now,float BoostUntil) {return std::isfinite(Now)&&std::isfinite(BoostUntil)&&Now<BoostUntil;}
 inline bool PerfectDash(float Now,float DashInvulEnd,float LastPerfectAt) {
     if(!std::isfinite(Now)||!std::isfinite(DashInvulEnd)||!std::isfinite(LastPerfectAt)||DashInvulEnd<=0.f) return false;
     return Now<DashInvulEnd+PerfectDashWindow&&Now>=LastPerfectAt+PerfectDashCooldown;
@@ -60,7 +63,7 @@ inline const char* MetamorphosisText(Metamorphosis M) {
 }
 
 // ---- C-5 reward ceremony without slow-mo: a camera push-in and a short hit-stop, then the choices ----
-constexpr float CeremonyPushSeconds=.9f,CeremonyPushFov=-9.f,CeremonyHitStopSeconds=.07f;
+constexpr float CeremonyPushSeconds=.9f,CeremonyPushFov=-24.f,CeremonyHitStopSeconds=.07f; // 0.24.1: -9 was too subtle in the playtest (the push-in could zoom further)
 inline float CeremonyPush(float Elapsed) { // 0..1 smooth in, then it holds; the caller adds CeremonyPushFov x this to the field of view
     if(!std::isfinite(Elapsed)||Elapsed<=0.f) return 0.f;
     const float T=std::min(1.f,Elapsed/CeremonyPushSeconds);return T*T*(3.f-2.f*T);
@@ -80,8 +83,8 @@ inline Lines Learned(const RunFacts& F) {
     if(F.Metamorphosed) Add("Your build transformed - a trait at full rank changes what it does. Aim to get there sooner.");
     if(F.Echoes>=3) Add("Element procs echoed from enemy to enemy. Chain Lightning, Storm Touch or Impact Bloom carry them further.");
     if(F.Impacts>=3) Add("Launched enemies hurt whatever they hit. Heavy Impact turns walls and crowds into weapons.");
-    if(F.PerfectDashes>=2) Add("You dashed through blows in the last instant. A perfect dash refunds your dash and shields you a moment longer.");
-    else if(F.PerfectDashes==0&&F.DamageTaken>F.DamageDealt*.5f&&F.Kills>0) Add("Dash just as a blow lands: a perfect dash costs nothing and refunds your dash.");
+    if(F.PerfectDashes>=2) Add("You dashed through blows in the last instant. A perfect dash shields you a moment longer and boosts your damage by 30% for four seconds.");
+    else if(F.PerfectDashes==0&&F.DamageTaken>F.DamageDealt*.5f&&F.Kills>0) Add("Dash just as a blow lands: a perfect dash costs nothing and boosts your damage by 30% for four seconds.");
     if(F.Traits<=2&&F.Seconds>240.f) Add("Few traits taken - chests and shops are where a build comes from; stack one theme.");
     if(F.Coop&&F.Kills>0) Add("Co-op synergy attacks hit harder than elements. Fight close to your partner.");
     if(F.Endless&&F.Wave>=50) Add("Past wave 50 the sky turns red and lightning falls. Spread out and watch the floor.");

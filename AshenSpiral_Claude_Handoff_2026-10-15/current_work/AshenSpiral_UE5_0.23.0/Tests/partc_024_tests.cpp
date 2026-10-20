@@ -43,10 +43,15 @@ int main() {
     Check(Near(ShatterDamage(100.f),60.f,.001f)&&ShatterDamage(5.f)==12.f&&ShatterDamage(1e9f)==400.f&&ShatterDamage(Inf)==12.f,"Shatter damage is a fraction of the victim's health with floor and cap");
     for(int M=1;M<int(Metamorphosis::Count);++M) Check(std::strlen(MetamorphosisName(Metamorphosis(M)))>0&&std::strlen(MetamorphosisText(Metamorphosis(M)))>20,"every metamorphosis has a name and a description");
     Check(std::strlen(MetamorphosisName(Metamorphosis::None))==0,"no metamorphosis has no name");
+    // ---- C-3 perfect dash reward (0.24.1): a damage boost, not a refund ----
+    Check(PerfectDashBoost>=.15f&&PerfectDashBoost<=.5f&&PerfectDashBoostSeconds>=2.f&&PerfectDashBoostSeconds<=8.f,"the boost is worth having and does not last forever");
+    Check(PerfectBoostActive(10.f,10.5f)&&!PerfectBoostActive(10.5f,10.5f)&&!PerfectBoostActive(11.f,10.5f)&&!PerfectBoostActive(NaN,10.5f)&&!PerfectBoostActive(10.f,NaN)&&!PerfectBoostActive(10.f,Inf),"the boost runs until its end time and never on a broken clock");
+    Check(PerfectDashBonusProtection>0.f&&PerfectDashBonusProtection<=.3f,"the extra protection stays short");
     // ---- C-5 ceremony ----
     Check(CeremonyPush(0.f)==0.f&&CeremonyPush(-1.f)==0.f&&CeremonyPush(NaN)==0.f&&Near(CeremonyPush(CeremonyPushSeconds),1.f,.0001f)&&Near(CeremonyPush(99.f),1.f,.0001f),"the push-in runs from 0 to 1 and holds");
     {float Last=0.f;bool Mono=true;for(int I=0;I<200;++I) {const float P=CeremonyPush(float(I)*.01f);if(P<Last-1e-6f) Mono=false;Last=P;}Check(Mono,"the push-in never reverses");}
     Check(CeremonyHitStopSeconds>=.03f&&CeremonyHitStopSeconds<=.12f&&CeremonyPushFov<0.f,"hit-stop is short and the push-in narrows the view");
+    Check(CeremonyPushFov<=-20.f&&CeremonyPushFov>=-40.f,"the push-in is plainly visible (about a quarter of the view) without losing the arena");
     // ---- C-7 death-screen lines ----
     {RunFacts F;const Lines L=Learned(F);Check(L.Count==1&&L.Text[0]&&std::strlen(L.Text[0])>10,"an empty run still gets one line");}
     {RunFacts F;F.Metamorphosed=true;F.Echoes=9;F.Impacts=9;F.PerfectDashes=9;F.Traits=1;F.Seconds=999.f;F.Coop=true;F.Kills=50;F.Endless=true;F.Wave=60;const Lines L=Learned(F);

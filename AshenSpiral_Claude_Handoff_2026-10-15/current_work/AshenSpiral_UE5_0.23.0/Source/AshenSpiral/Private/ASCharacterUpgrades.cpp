@@ -93,7 +93,7 @@ void AASCharacter::ResetTraits() {
     TraitRanks.Init(0,ASBuild::Count);EvolutionMask=0;LastUpgrade=-1;Rerolls=1;CurseStacks=0;Focus=60;NextRune=0;
     ConduitHits=0;bPhoenixUsed=false;WarCryUntil=0;LastDamageAt=-100;RoomBuffUntil=KillBuffUntil=StillSince=GoldRemainder=0;
     NextSplashFx=NextChainFx=NextAura=NextOrbit=NextThorns=0;
-    DashInvulEnd=0;LastPerfectDashAt=-100.f;NextProcChain=0;MetamorphosisAnnounced=0;WildfireDepth=0;
+    DashInvulEnd=0;LastPerfectDashAt=-100.f;NextProcChain=0;PerfectBoostUntil=0;MetamorphosisAnnounced=0;WildfireDepth=0;
     DashVictims.Empty();bDashTraceActive=false;Movement()->DashCharges=1;Movement()->KnownDashCapacity=1;Movement()->DashRecharge=0;
 }
 void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
@@ -109,6 +109,7 @@ float AASCharacter::DamageScale(bool WeaponHit) const {
     if(CombatBenefits()) {
         if(Now<RoomBuffUntil) Bonus+=ASBuild::VanguardBonus(TraitValue(Trait::RoomBlessing));
         if(Now<KillBuffUntil) Bonus+=.05f*TraitValue(Trait::KillFlow);
+        if(ASPartC::PerfectBoostActive(Now,PerfectBoostUntil)) Bonus+=ASPartC::PerfectDashBoost; // 0.24.1: a perfect dash
         if(Now-StillSince>=1.2f) Bonus+=.12f*TraitValue(Trait::Stillness);
         if(GetVelocity().Size2D()>200.f) Bonus+=.08f*TraitValue(Trait::Momentum);
         if(Health<MaxHealth*.4f) Bonus+=.15f*TraitValue(Trait::Berserk);

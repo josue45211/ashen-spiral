@@ -291,10 +291,10 @@ void AASCharacter::OnDash() {
 void AASCharacter::OnPerfectDash() {
     auto* S=AS::State(this);if(!HasAuthority()||!S) return;
     LastPerfectDashAt=S->SimTime;InvulnerableUntil=FMath::Max(InvulnerableUntil,S->SimTime+ASPartC::PerfectDashBonusProtection);
-    if(auto* Move=Movement()) {Move->DashCooldown=0;if(Move->DashCharges<MaxDashCharges()) ++Move->DashCharges;}
+    PerfectBoostUntil=S->SimTime+ASPartC::PerfectDashBoostSeconds; // the reward is a damage boost (the old dash refund meant little: the cooldown is short)
     if(auto* Player=GetPlayerState<AASPlayerState>()) Player->RunPerfectDashes=FMath::Min(Player->RunPerfectDashes+1,100000);
     S->Effect(8,GetActorLocation()+FVector(0,0,40),FVector::UpVector,FLinearColor(1.f,.90f,.45f),130.f); // a gold ring: the blow found nothing
-    if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(TEXT("PERFECT DASH"));
+    if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(FString::Printf(TEXT("PERFECT DASH / +%d%% DAMAGE"),FMath::RoundToInt(ASPartC::PerfectDashBoost*100.f)));
     ForceNetUpdate();
 }
 void AASCharacter::HitEnemy(AASEnemy* E,float Amount,bool Critical,EASHitKind Kind,bool ApplyElement,bool AllowProcs) {
@@ -324,7 +324,7 @@ void AASCharacter::Area(const FVector& At,float Radius,float Damage,bool Critica
 void AASCharacter::Heal(float Amount) {if(HasAuthority()&&!bDowned) Health=FMath::Clamp(Health+Amount,0.f,MaxHealth);}
 void AASCharacter::Hurt(float Amount,AASEnemy* Source,bool EnemyAttack) {
     auto* S=AS::State(this);if(!HasAuthority()||!FMath::IsFinite(Amount)||Amount<=0||!S||!S->Fighting()||S->Frozen()||bDowned) return;
-    // 0.24 C-3 perfect dash: a blow that lands inside the dash's protection, or within ASPartC::PerfectDashWindow after it ends, is dodged outright and pays out (dash refunded, a moment more protection).
+    // 0.24 C-3 perfect dash: a blow that lands inside the dash's protection, or within ASPartC::PerfectDashWindow after it ends, is dodged outright and pays out (a damage boost, a moment more protection).
     if(ASPartC::PerfectDash(S->SimTime,DashInvulEnd,LastPerfectDashAt)) {OnPerfectDash();return;}
     if(S->SimTime<InvulnerableUntil||HammerInvulnerable()) return;
     for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&W->Hero.Get()==this&&Relic(18)&&!W->bGuardUsed&&FVector::DistSquared2D(GetActorLocation(),W->GetActorLocation())<FMath::Square(W->Radius)) {W->bGuardUsed=true;InvulnerableUntil=S->SimTime+.3f;return;}
