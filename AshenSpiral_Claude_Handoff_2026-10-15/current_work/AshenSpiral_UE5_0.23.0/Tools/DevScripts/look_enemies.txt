@@ -6,29 +6,50 @@ as.dev.endless 4242
 waitfor combat 30
 wait 1
 as.dev.killall
-as.dev.clearing 700
+as.dev.clearing 900
 as.dev.face 0
+wait 0.8
 as.dev.keeper
-as.dev.lineup 520 230
-wait 1.2
+as.dev.lineup 620 250
+wait 0.3
 as.dev.freeze 1
-as.dev.follow 160 -40 0 60 520
+wait 0.9
+as.dev.follow 520 170 180 80 620
 wait 0.5
-as.dev.shot enemy_01_lineup_wide 0
-as.dev.follow 140 -60 0 30 520
-wait 0.5
-as.dev.shot enemy_02_lineup_close 0
+as.dev.shot enemy_00_lineup 0
+as.dev.frame 0
+wait 0.4
+as.dev.shot enemy_k0 0
+as.dev.frame 1
+wait 0.4
+as.dev.shot enemy_k1 0
+as.dev.frame 2
+wait 0.4
+as.dev.shot enemy_k2 0
+as.dev.frame 3
+wait 0.4
+as.dev.shot enemy_k3 0
+as.dev.frame 4
+wait 0.4
+as.dev.shot enemy_k4 0
+as.dev.frame 5
+wait 0.4
+as.dev.shot enemy_k5 0
+as.dev.frame 6
+wait 0.4
+as.dev.shot enemy_k6 0
+as.dev.frame 7
+wait 0.4
+as.dev.shot enemy_k7 0
 as.dev.freeze 0
 as.dev.killall
+as.dev.face 0
+wait 0.5
 as.dev.elite 2 1 450
-as.dev.boss 1 0 1100
 wait 1.5
 as.dev.freeze 1
 as.dev.follow 250 -20 0 55 450
 wait 0.5
-as.dev.shot enemy_03_elite 0
-as.dev.follow 120 40 0 70 1100
-wait 0.5
-as.dev.shot enemy_04_boss 0
+as.dev.shot enemy_08_elite 0
 wait 0.5
 quit

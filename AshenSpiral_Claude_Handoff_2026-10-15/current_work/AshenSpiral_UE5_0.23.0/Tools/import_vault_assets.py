@@ -22,8 +22,11 @@ game drives per sky stage), one MI_DC_<set> per texture set, and every SM_DC mes
 Phase J (0.24.2 aesthetics): the UDIM sets those pieces had in the pack (several tiles each), stitched into one atlas per set by Tools/stitch_udim_atlases.ps1, and M_DecorAtlas, which
 finds each UDIM tile's cell per pixel (taking the mip from the original UV, so no seams): the pillars, walls, bridge pieces and inferno rocks get their own textures without virtual texturing.
 Phase K (0.24.2 aesthetics): M_ArenaBlock, the pack's weathered concrete (colour, normal, ORM) projected from the three world axes, for the Endless cover blocks and walls.
-Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHIJK to run only those phases (ABCE by default; G, then the shrink and the stitch, then H,
-I, J and K on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
+Phase L (0.24.2): the boss roars (see roar_phase).
+Phase M (0.24.2 aesthetics): M_Armor, worn plate armour for the enemies, from Paragon's surface layers that ship with the Game Animation Sample (a dark-metal grunge, paint scratches,
+hammered relief), each projected along the axes of the armour part itself so it stays put as the rig animates; ASAssets::Plate uses it when it exists here.
+Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHIJKLM to run only those phases (ABCE by default; G, then the shrink and the stitch, then H,
+I, J, K, L and M on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
 import json
@@ -305,7 +308,8 @@ DC_MESHES = [
 ]
 DC_SOURCE = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content" / "DragonCave" / "Meshes"
 CONCRETE_FOLDER = "/Game/Art/Imported/ArenaConcrete"
-DC_TEXTURE_SOURCE = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content" / "DragonCave" / "Textures"
+DC_CONTENT = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content"
+DC_TEXTURE_SOURCE = DC_CONTENT / "DragonCave" / "Textures"
 DC_STAGE = STAGE / "DC"                 # full-size exports (phase G)
 DC_SMALL = DC_STAGE / "small"           # after Tools/shrink_vault_textures.ps1 (phase H reads these)
 GROUND_FOLDER = "/Game/Art/Imported/Ground"
@@ -483,40 +487,59 @@ def import_dragon_cave():
     require(not failed and not missing, "Some Dragon Cave meshes did not import: failed %s, missing %s" % (failed, missing))
 
 
+def export_pack_textures(content, rels, stage):
+    """Copies textures of an Unreal project in the vault (paths relative to its Content, without .uasset) into this project at the same paths, writes each out as PNG at full size
+    into stage, and deletes the copies again (nothing of the pack stays in Content). Each copy goes under the first folder of its path that this project does not have, and only
+    those folders are deleted afterwards: the Game Animation Sample keeps its textures under Characters/, which is also a folder of ours. Textures already exported are kept."""
+    stage.mkdir(parents=True, exist_ok=True)
+    rels = [rel for rel in rels if not (stage / (Path(rel).name + ".png")).is_file() or os.environ.get("ASHEN_FORCE_IMPORT") == "1"]
+    roots = set()
+    for rel in rels:
+        parts = rel.split("/")
+        depth = next((i for i in range(1, len(parts)) if not (ROOT / "Content" / "/".join(parts[:i])).exists()), None)
+        require(depth is not None, "Content/%s already exists: the export stages the pack's textures in a folder of their own" % "/".join(parts[:-1]))
+        roots.add("/".join(parts[:depth]))
+    for rel in rels:
+        target = ROOT / "Content" / (rel + ".uasset")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(content / (rel + ".uasset"), target)
+    written = []
+    try:
+        unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous(["/Game/" + root for root in sorted(roots)], True)
+        for rel in rels:
+            name = Path(rel).name
+            texture = unreal.load_asset("/Game/" + rel)
+            require(isinstance(texture, unreal.Texture2D), "Not a texture: " + rel)
+            task = unreal.AssetExportTask()
+            task.set_editor_property("object", texture)
+            task.set_editor_property("filename", str(stage / (name + ".png")))
+            task.set_editor_property("automated", True)
+            task.set_editor_property("prompt", False)
+            task.set_editor_property("replace_identical", True)
+            task.set_editor_property("exporter", unreal.TextureExporterPNG())
+            require(unreal.Exporter.run_asset_export_task(task), "PNG export failed: " + name)
+            written.append("%s %dx%d" % (name, texture.blueprint_get_size_x(), texture.blueprint_get_size_y()))
+    finally:
+        for root in sorted(roots):
+            assets.delete_directory("/Game/" + root)
+            shutil.rmtree(ROOT / "Content" / root, ignore_errors=True)
+    return written
+
+
 def export_dc_textures():
     """Phase G: the pack's textures are Unreal assets, so they are copied in, written out as PNG at full size, and the copies deleted (nothing of the pack stays in Content)."""
     if not DC_TEXTURE_SOURCE.is_dir():
         report["notes"].append("phase G skipped: no Dragon Cave textures at " + str(DC_TEXTURE_SOURCE))
         return
-    staging = ROOT / "Content" / "DragonCave" / "Textures"
-    staging.mkdir(parents=True, exist_ok=True)
-    DC_STAGE.mkdir(parents=True, exist_ok=True)
-    # ASHEN_DC_EXPORT=T_A,T_B exports other textures of the pack instead (to look at candidates); by default the ground set and the scenery's sets (phase I)
+    # ASHEN_DC_EXPORT=T_A,T_B exports other textures of the pack instead (to look at candidates); by default the ground set, the scenery's sets (phase I) and the block's.
+    # A bare name is in DragonCave/Textures; a name with a folder (Mannequin/Character/Materials/MaterialLayers/T_ML_Aluminum01) is at that path in the pack
     names = [n.strip() for n in os.environ.get("ASHEN_DC_EXPORT", "").split(",") if n.strip()] or [name for name, _ in GROUND_TEXTURES + DECOR_TEXTURES + BLOCK_TEXTURES]
-    names = [n for n in names if not (DC_STAGE / (n + ".png")).is_file() or os.environ.get("ASHEN_FORCE_IMPORT") == "1"]  # already exported: kept
-    for name in names:
-        shutil.copy2(DC_TEXTURE_SOURCE / (name + ".uasset"), staging / (name + ".uasset"))
-    unreal.AssetRegistryHelpers.get_asset_registry().scan_paths_synchronous(["/Game/DragonCave"], True)
-    written = []
-    for name in names:
-        texture = unreal.load_asset("/Game/DragonCave/Textures/" + name)
-        require(isinstance(texture, unreal.Texture2D), "Not a texture: " + name)
-        task = unreal.AssetExportTask()
-        task.set_editor_property("object", texture)
-        task.set_editor_property("filename", str(DC_STAGE / (name + ".png")))
-        task.set_editor_property("automated", True)
-        task.set_editor_property("prompt", False)
-        task.set_editor_property("replace_identical", True)
-        task.set_editor_property("exporter", unreal.TextureExporterPNG())
-        require(unreal.Exporter.run_asset_export_task(task), "PNG export failed: " + name)
-        written.append("%s %dx%d" % (name, texture.blueprint_get_size_x(), texture.blueprint_get_size_y()))
-    assets.delete_directory("/Game/DragonCave")
-    shutil.rmtree(ROOT / "Content" / "DragonCave", ignore_errors=True)
+    written = export_pack_textures(DC_CONTENT, [n if "/" in n else "DragonCave/Textures/" + n for n in names], DC_STAGE)
     report["notes"].append("phase G: exported " + ", ".join(written) + " to " + str(DC_STAGE) + "; now run Tools/shrink_vault_textures.ps1, then phase H")
 
 
-def import_ground_texture(name, kind, folder=GROUND_FOLDER):
-    source = DC_SMALL / (name + ".png")
+def import_ground_texture(name, kind, folder=GROUND_FOLDER, source=None):
+    source = source or DC_SMALL / (name + ".png")
     require(source.is_file(), "Missing %s: run phase G and Tools/shrink_vault_textures.ps1 first" % source)
     task = unreal.AssetImportTask()
     task.set_editor_property("filename", str(source))
@@ -967,6 +990,121 @@ def import_block():
     create_block_material(textures["T_ConcreteWall03_BC"], textures["T_ConcreteWall03_N"], textures["T_ConcreteWall03_ORM"])
 
 
+GASP_CONTENT = VAULT.parent / "GameAnimationSample_5.8" / "data" / "Content"
+PARAGON_LAYERS = "Characters/Paragon/Global/MaterialLayers/"  # Paragon's tileable surface layers, shipped with the Game Animation Sample
+ARMOR_STAGE = STAGE / "Armor"
+ARMOR_FOLDER = "/Game/Art/Imported/Armor"
+
+
+# Paragon's layers used by the armour: a mottled dark-metal grunge, a sheet of paint scratches and scuffs, and the relief of hammered, cast metal
+ARMOR_TEXTURES = (("Metal/T_Dark_Metal_D_2", "masks"), ("Painted/T_PaintScratches", "masks"), ("Metal/T_Composite_Bumps_N", "normal"))
+
+
+def create_armor_material(grunge_tex, scratch_tex, bump_tex):
+    """M_Armor: painted plate armour, worn. The paint (Tint) is mottled by a dark-metal grunge, bare steel shows through where the scratch sheet says the paint is scuffed off (more
+    metallic and shinier there), and the plates carry the relief of hammered metal. Every layer is projected along the three axes of the PART ITSELF (local space), so it stays put on a
+    plate as the rig animates. Takes the parameters of M_Surface (Tint, Metallic, Roughness, Emission, SurfaceDetail) so the game drives it the same way, plus Wear and Bump."""
+    package = ARMOR_FOLDER + "/M_Armor"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_Armor", ARMOR_FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_Armor")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+    material.set_editor_property("tangent_space_normal", False)
+
+    def node(cls, x, y, **properties):
+        obj = edit.create_material_expression(material, cls, x, y)
+        require(obj is not None, "Could not create material expression " + cls.__name__)
+        for key, value in properties.items():
+            obj.set_editor_property(key, value)
+        return obj
+
+    def wire(a, output, b, input_name):
+        require(edit.connect_material_expressions(a, output, b, input_name), "Material connection failed: " + input_name)
+
+    def custom(x, y, description, code, output_type, **sources):
+        inputs = []
+        for pin in sources:
+            item = unreal.CustomInput()
+            item.set_editor_property("input_name", pin)
+            inputs.append(item)
+        obj = node(unreal.MaterialExpressionCustom, x, y, output_type=output_type, description=description, code=code)
+        obj.set_editor_property("inputs", inputs)
+        for pin, source in sources.items():
+            wire(source, "", obj, pin)
+        return obj
+
+    def scalar(name, value, y):
+        return node(unreal.MaterialExpressionScalarParameter, -1900, y, parameter_name=name, default_value=value)
+
+    position = node(unreal.MaterialExpressionLocalPosition, -1600, -100)
+    normal_ws = node(unreal.MaterialExpressionVertexNormalWS, -1900, 100)
+    normal_local = node(unreal.MaterialExpressionTransform, -1600, 100, transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_WORLD,
+                        transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_LOCAL)
+    wire(normal_ws, "", normal_local, "")
+    scale = scalar("TileScale", 1.0 / 45.0, 250)  # one sheet per 45 cm of a part's own size (the rig scales a part with its body)
+    tint = node(unreal.MaterialExpressionVectorParameter, -1900, -500, parameter_name="Tint", default_value=unreal.LinearColor(.1, .12, .15, 1))
+    metallic, roughness, emission = scalar("Metallic", .78, -350), scalar("Roughness", .45, -250), scalar("Emission", 0.0, -650)
+    detail, wear, bump = scalar("SurfaceDetail", 1.0, 400), scalar("Wear", .6, 500), scalar("Bump", .35, 600)
+    objects = {}
+    for row, (name, tex, sampler) in enumerate((("Grunge", grunge_tex, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS), ("Scratches", scratch_tex, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS),
+                                                ("Bumps", bump_tex, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL))):
+        objects[name] = node(unreal.MaterialExpressionTextureObjectParameter, -1900, 750 + row * 150, parameter_name=name, texture=tex, sampler_type=sampler)
+    weights = "float3 W=pow(abs(N),4);W/=dot(W,1);"
+
+    def mask_code(k):  # one channel, projected along the part's three axes at k sheets per TileScale
+        return weights + ("float a=Texture2DSample(Tex,TexSampler,P.yz*S*%s).r,b=Texture2DSample(Tex,TexSampler,P.xz*S*%s).r,c=Texture2DSample(Tex,TexSampler,P.xy*S*%s).r;"
+                          "return a*W.x+b*W.y+c*W.z;") % (k, k, k)
+    normal_code = weights + ("float2 a=Texture2DSample(Tex,TexSampler,P.yz*S*2.6).xy*2-1,b=Texture2DSample(Tex,TexSampler,P.xz*S*2.6).xy*2-1,c=Texture2DSample(Tex,TexSampler,P.xy*S*2.6).xy*2-1;"
+                             "float3 ta=float3(a,sqrt(saturate(1-dot(a,a)))),tb=float3(b,sqrt(saturate(1-dot(b,b)))),tc=float3(c,sqrt(saturate(1-dot(c,c))));"
+                             "float3 X=float3(ta.z*sign(N.x),ta.x,ta.y),Y=float3(tb.x,tb.z*sign(N.y),tb.y),Z=float3(tc.x,tc.y,tc.z*sign(N.z));"
+                             "return normalize(X*W.x+Y*W.y+Z*W.z);")
+    float1, float3 = unreal.CustomMaterialOutputType.CMOT_FLOAT1, unreal.CustomMaterialOutputType.CMOT_FLOAT3
+    grunge = custom(-1200, 600, "Grunge (part space)", mask_code("0.8"), float1, Tex=objects["Grunge"], P=position, N=normal_local, S=scale)
+    scratch = custom(-1200, 800, "Scratches (part space)", mask_code("0.9"), float1, Tex=objects["Scratches"], P=position, N=normal_local, S=scale)
+    relief = custom(-1200, 1000, "Hammered relief (part space)", normal_code, float3, Tex=objects["Bumps"], P=position, N=normal_local, S=scale)
+    relief_ws = node(unreal.MaterialExpressionTransform, -900, 1000, transform_source_type=unreal.MaterialVectorCoordTransformSource.TRANSFORMSOURCE_LOCAL,
+                     transform_type=unreal.MaterialVectorCoordTransform.TRANSFORM_WORLD)
+    wire(relief, "", relief_ws, "")
+    worn = "float w=saturate((Sc-0.55)*4.0)*Wear*Detail;"  # where the paint is scuffed through to the steel: the scratch sheet's brightest lines only
+    colour = custom(-600, -400, "Painted, mottled, scuffed", worn + "float3 painted=Tint.rgb*lerp(1.0,lerp(0.70,1.10,G),Detail);return lerp(painted,float3(0.56,0.55,0.52),w);", float3,
+                    Tint=tint, G=grunge, Sc=scratch, Wear=wear, Detail=detail)
+    metal = custom(-600, -200, "Bare steel is metal", worn + "return lerp(M,1.0,w);", float1, M=metallic, Sc=scratch, Wear=wear, Detail=detail)
+    rough = custom(-600, 0, "Mottled roughness, polished scuffs", worn + "return saturate(lerp(R*lerp(1.0,lerp(0.8,1.25,G),Detail),0.26,w));", float1,
+                   R=roughness, G=grunge, Sc=scratch, Wear=wear, Detail=detail)
+    normal = custom(-600, 300, "Relief on the plate", "return normalize(lerp(VN,NW,saturate(Bump*Detail)));", float3, VN=normal_ws, NW=relief_ws, Bump=bump, Detail=detail)
+    glow = node(unreal.MaterialExpressionMultiply, -600, -650)
+    wire(tint, "", glow, "A")
+    wire(emission, "", glow, "B")
+    require(edit.connect_material_property(colour, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
+    require(edit.connect_material_property(metal, "", unreal.MaterialProperty.MP_METALLIC), "metallic")
+    require(edit.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
+    require(edit.connect_material_property(normal, "", unreal.MaterialProperty.MP_NORMAL), "normal")
+    require(edit.connect_material_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "emissive")
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_Armor")
+    report["imported"].append(material.get_path_name())
+    return material
+
+
+def import_armor():
+    """Phase M (0.24.2 aesthetics): the enemies' armour, M_Armor, from Paragon's surface layers in the Game Animation Sample (copied in, written out as PNG, the copies deleted; the
+    PNGs imported into /Game/Art/Imported/Armor). ASHEN_ARMOR_EXPORT=<path>,<path> (relative to the sample's Content) only writes those textures out, to look at candidates."""
+    if not GASP_CONTENT.is_dir():
+        report["notes"].append("phase M skipped: no Game Animation Sample at " + str(GASP_CONTENT))
+        return
+    candidates = [n.strip() for n in os.environ.get("ASHEN_ARMOR_EXPORT", "").split(",") if n.strip()]
+    if candidates:
+        report["notes"].append("phase M: exported " + ", ".join(export_pack_textures(GASP_CONTENT, candidates, ARMOR_STAGE)) + " to " + str(ARMOR_STAGE))
+        return
+    export_pack_textures(GASP_CONTENT, [PARAGON_LAYERS + rel for rel, _ in ARMOR_TEXTURES], ARMOR_STAGE)
+    assets.make_directory(ARMOR_FOLDER)
+    textures = [import_ground_texture(Path(rel).name, kind, ARMOR_FOLDER, ARMOR_STAGE / (Path(rel).name + ".png")) for rel, kind in ARMOR_TEXTURES]
+    create_armor_material(*textures)
+
+
 GASP_STEPS = VAULT.parent / "GameAnimationSample_5.8" / "data" / "Content" / "Audio" / "Foley" / "SoundWaves" / "Sneaker" / "Concrete"
 HORROR_ROAR = VAULT.parent / "FREEComp8a724140adb8V1" / "data" / "Content" / "HorrorTemplate" / "Audio" / "SW_Monster.uasset"
 STEP_VARIANTS = 12
@@ -1103,7 +1241,7 @@ try:
     # Each phase stands alone: one failing (a missing pack, say) must not stop the others.
     errors = []
     chosen = os.environ.get("ASHEN_PHASES", "ABCE").upper()
-    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases), ("K", import_block), ("L", roar_phase)):
+    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases), ("K", import_block), ("L", roar_phase), ("M", import_armor)):
         if letter not in chosen:
             continue
         try:

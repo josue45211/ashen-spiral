@@ -59,6 +59,15 @@ void Armor(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float 
     Style(C,Name,Color,Metal,Glow);
     if(auto* M=Cast<UMaterialInstanceDynamic>(C->GetMaterial(0))) {M->SetScalarParameterValue(TEXT("SurfaceDetail"),0.f);M->SetScalarParameterValue(TEXT("Roughness"),Rough);}
 }
+void Plate(UStaticMeshComponent* C,const FString& Name,FLinearColor Color,float Metal,float Rough) {
+    static bool bMissing=false; // game thread only; M_Armor comes from Tools/import_vault_assets.py phase M (Paragon's surface layers in the Game Animation Sample), local like every vault import
+    UMaterialInterface* Base=bMissing?nullptr:LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/Armor/M_Armor.M_Armor"),nullptr,LOAD_NoWarn|LOAD_Quiet);
+    if(!Base) {bMissing=true;Armor(C,Name,Color,Metal,0.f,Rough);return;}
+    if(!C) return;C->SetStaticMesh(Mesh(Name));
+    auto* M=UMaterialInstanceDynamic::Create(Base,C);
+    M->SetVectorParameterValue(TEXT("Tint"),Color);M->SetScalarParameterValue(TEXT("Metallic"),Metal);M->SetScalarParameterValue(TEXT("Roughness"),Rough);
+    Paint(C,M);C->SetCollisionEnabled(ECollisionEnabled::NoCollision);C->SetGenerateOverlapEvents(false);
+}
 void Paint(UMeshComponent* C,UMaterialInterface* M) {
     if(!C) return;
     for(int32 Slot=0;Slot<FMath::Max(1,C->GetNumMaterials());++Slot) C->SetMaterial(Slot,M);

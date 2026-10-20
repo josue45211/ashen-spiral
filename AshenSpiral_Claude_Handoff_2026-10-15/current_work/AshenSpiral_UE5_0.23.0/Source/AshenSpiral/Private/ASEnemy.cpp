@@ -114,7 +114,11 @@ void AASEnemy::RefreshLook() {
     if(Humanoid) {
         const TCHAR* Meshes[]={TEXT("SM_Torso"),TEXT("SM_EnemyHelm"),TEXT("SM_Pelvis"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Arm"),TEXT("SM_Forearm"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Thigh"),TEXT("SM_Greave"),TEXT("SM_Boot"),TEXT("SM_Boot"),TEXT("SM_Pauldron"),TEXT("SM_Pauldron"),TEXT("SM_Cape"),TEXT("SM_Visor"),TEXT("SM_Hand"),TEXT("SM_Hand"),TEXT("SM_EnemyCape"),TEXT("SM_ArmorCore")};
         const FLinearColor Metal=FMath::Lerp(FLinearColor(.10f,.12f,.15f),Colors[FMath::Clamp(Kind,0,9)],.18f),Fire(1.f,.065f,.025f);
-        for(int32 I=0;I<21;++I) {const bool Glow=I==16||I==20,Fabric=I==15||I==19;ASAssets::Armor(ArmorParts[I],Meshes[I],Glow?Fire:(Fabric?FLinearColor(.018f,.008f,.012f):Metal),Fabric?0.f:.78f,Glow?4.f:0.f,Fabric?.96f:.45f);}
+        for(int32 I=0;I<21;++I) {
+            const bool Glow=I==16||I==20,Fabric=I==15||I==19;
+            if(Glow||Fabric) ASAssets::Armor(ArmorParts[I],Meshes[I],Glow?Fire:FLinearColor(.018f,.008f,.012f),Fabric?0.f:.78f,Glow?4.f:0.f,Fabric?.96f:.45f);
+            else ASAssets::Plate(ArmorParts[I],Meshes[I],Metal,.78f,.45f); // 0.24.2: worn plate where M_Armor is imported
+        }
         ArmorFigure->SetRelativeLocation(FVector(0,0,-HalfHeight));ArmorFigure->SetRelativeScale3D(FVector(.82f,.70f,1.f)*(Elite()?S:.90f));
         ArmorParts[0]->SetRelativeLocation(FVector(0,0,111));ArmorParts[1]->SetRelativeLocation(FVector(0,0,165));ArmorParts[2]->SetRelativeLocation(FVector(0,0,78));
         ArmorParts[13]->SetRelativeLocation(FVector(0,-34,135));ArmorParts[14]->SetRelativeLocation(FVector(0,34,135));ArmorParts[15]->SetRelativeLocation(FVector(-22,0,141));
@@ -123,13 +127,13 @@ void AASEnemy::RefreshLook() {
         ArmorParts[19]->AttachToComponent(ArmorParts[15],FAttachmentTransformRules::KeepRelativeTransform);ArmorParts[19]->SetRelativeLocation(FVector(-3,0,-55));
         ArmorParts[20]->AttachToComponent(ArmorParts[0],FAttachmentTransformRules::KeepRelativeTransform);ArmorParts[20]->SetRelativeLocation(FVector::ZeroVector);
         const int32 WeaponIndex=Kind==8?7:(Kind==1||Kind==7?4:(Elite()||Kind==6?1:0));
-        ASAssets::Armor(ArmorWeapon,FString::Printf(TEXT("SM_Weapon%d"),WeaponIndex),Metal,.8f);
+        ASAssets::Plate(ArmorWeapon,FString::Printf(TEXT("SM_Weapon%d"),WeaponIndex),Metal,.8f);
         // 0.25 phase A: an elite swinging the maul carries the Molten Face Hammer when it has been imported on this machine (Tools/import_vault_assets.py, Docs/0.25_ASSET_PLAN.md); the built-in maul stands in otherwise.
         if(WeaponIndex==1&&Elite()&&ASAssets::HasMesh(TEXT("SM_MoltenHammer"))) {
             ASAssets::Style(ArmorWeapon,TEXT("SM_MoltenHammer"),Metal,.8f);
             if(auto* Molten=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/MoltenHammer/M_MoltenHammer.M_MoltenHammer"),nullptr,LOAD_NoWarn)) ASAssets::Paint(ArmorWeapon,Molten);
         }
-        ASAssets::Armor(ArmorShield,TEXT("SM_EnemyShield"),Metal,.8f);ArmorShield->SetRelativeLocation(FVector(14,0,15));
+        ASAssets::Plate(ArmorShield,TEXT("SM_EnemyShield"),Metal,.8f);ArmorShield->SetRelativeLocation(FVector(14,0,15));
         Eye->SetVisibility(false);
     }
     GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));

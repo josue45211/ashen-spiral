@@ -1,0 +1,27 @@
+# 0.24.2 aesthetics: the enemies' worn plate armour (M_Armor) up close - three kinds, frozen, from the front.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 900
+as.dev.face 0
+wait 0.8
+as.dev.keeper
+as.dev.lineup 620 250
+wait 0.3
+as.dev.freeze 1
+wait 0.9
+as.dev.frame 0 400 20 46
+wait 0.4
+as.dev.shot armor_grunt 0
+as.dev.frame 1 400 20 46
+wait 0.4
+as.dev.shot armor_archer 0
+as.dev.frame 5 400 20 46
+wait 0.4
+as.dev.shot armor_shaman 0
+wait 0.3
+quit

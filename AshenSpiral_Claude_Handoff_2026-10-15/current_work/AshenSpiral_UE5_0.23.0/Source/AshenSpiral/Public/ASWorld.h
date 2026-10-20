@@ -32,6 +32,8 @@ namespace ASAssets {
     bool HasMesh(const FString& Name); // false when a custom mesh has not been imported on this machine yet (Mesh() would silently substitute a cube); cached
     UMaterialInstanceDynamic* Material(UObject* Outer,FLinearColor Color,float Metal=0.f,float Glow=0.f,float Rough=.75f);
     void Armor(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=.8f,float Glow=0.f,float Rough=.42f);
+    // 0.24.2 aesthetics: worn plate armour (M_Armor: the paint mottled, scuffed through to bare steel, hammered relief, all fixed to the part as it moves); Armor() where it is not imported
+    void Plate(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=.8f,float Rough=.42f);
     void Style(UStaticMeshComponent* Component,const FString& MeshName,FLinearColor Color,float Metal=0.f,float Glow=0.f);
     // 0.24.2: puts a material on EVERY section of a mesh. The generated meshes have one section per part (a weapon's grip, blade, guard...; most others a second, empty one), and
     // setting only the first left the rest drawing the engine's grey grid - on weapons, enemy bodies, chests, rings and more.

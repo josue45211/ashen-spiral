@@ -132,12 +132,14 @@ void Freeze(const TArray<FString>& Args,UWorld* W) {
     UE_LOG(LogTemp,Display,TEXT("AshenDev: %d enemies %s"),Count,Stop?TEXT("frozen"):TEXT("running"));
 }
 // as.dev.lineup [distance=500] [spacing=260]: one enemy of every ground kind (0-9, the boss and the elite left out) in a row in front of the hero, at full health, turned to face it.
+TArray<TWeakObjectPtr<AASEnemy>> LineupEnemies; // the last lineup, from the hero's left (as.dev.frame)
 void Lineup(const TArray<FString>& Args,UWorld* W) {
     auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
+    LineupEnemies.Reset();
     const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D(),Right(-Forward.Y,Forward.X,0.f);const float Distance=ArgFloat(Args,0,500.f),Spacing=ArgFloat(Args,1,260.f);
     const int32 Kinds[]={0,1,2,5,6,7,8,9};int32 Made=0;
     for(int32 I=0;I<UE_ARRAY_COUNT(Kinds);++I) if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()+Forward*Distance+Right*(float(I)-(UE_ARRAY_COUNT(Kinds)-1)*.5f)*Spacing,nullptr,Kinds[I],1.f,true)) {
-        E->SetActorRotation((-Forward).Rotation());E->RefreshLook();++Made;
+        E->SetActorRotation((-Forward).Rotation());E->RefreshLook();LineupEnemies.Add(E);++Made;
     }
     UE_LOG(LogTemp,Display,TEXT("AshenDev: lineup of %d enemy kinds"),Made);
 }
@@ -354,6 +356,19 @@ void LookAt(const TArray<FString>& Args,UWorld* W) {
     PC->SetViewTarget(PhotoCamera.Get());
     UE_LOG(LogTemp,Display,TEXT("AshenDev: looking at %s at %s (%.0f cm tall)"),*Found,*Target.ToCompactString(),Height);
 }
+// as.dev.frame <n> [distance=420] [height=10] [fov=50]: the photo camera stands in front of the n-th enemy of the last lineup (0 = the hero's left), <height> cm above its middle, looking at it.
+void Frame(const TArray<FString>& Args,UWorld* W) {
+    auto* PC=HostController(W);const int32 N=ArgInt(Args,0,0);const AASEnemy* E=LineupEnemies.IsValidIndex(N)?LineupEnemies[N].Get():nullptr;
+    if(!PC||!W||!E) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: frame - no lineup enemy %d"),N);return;}
+    const FVector Middle=E->GetActorLocation(),From=Middle+E->GetActorForwardVector().GetSafeNormal2D()*ArgFloat(Args,1,420.f)+FVector(0.f,0.f,ArgFloat(Args,2,10.f));
+    bFollow=false;
+    if(!PhotoCamera.IsValid()) PhotoCamera=W->SpawnActor<ACameraActor>();
+    if(!PhotoCamera.IsValid()) return;
+    PhotoCamera->SetActorLocationAndRotation(From,(Middle-From).Rotation());
+    if(UCameraComponent* C=PhotoCamera->GetCameraComponent()) {C->SetFieldOfView(ArgFloat(Args,3,50.f));C->SetConstraintAspectRatio(false);}
+    PC->SetViewTarget(PhotoCamera.Get());
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: framing lineup enemy %d (kind %d) at %s"),N,E->Kind,*Middle.ToCompactString());
+}
 // as.dev.record start [seconds] | stop <name>: records what the game plays (the main submix) to Saved/AudioRecordings/Dev/<name>.wav, to measure sounds in the mix (the roars).
 void Record(const TArray<FString>& Args,UWorld* W) {
     if(!W||!Args.IsValidIndex(0)) return;
@@ -447,6 +462,7 @@ AS_DEV_COMMAND("as.dev.slay",Slay,"Strikes down every enemy as it appears for [s
 AS_DEV_COMMAND("as.dev.keeper",Keeper,"A grunt frozen 25 m behind the hero that keeps the wave in combat (killall spares it).");
 AS_DEV_COMMAND("as.dev.freeze",Freeze,"Stops every enemy in time [1] or lets them run again [0].");
 AS_DEV_COMMAND("as.dev.lineup",Lineup,"One enemy of every ground kind in a row in front of the hero: [distance=500] [spacing=260].");
+AS_DEV_COMMAND("as.dev.frame",Frame,"The photo camera in front of lineup enemy <n>: [distance=420] [height=10] [fov=50].");
 AS_DEV_COMMAND("as.dev.status",Status,"Applies <burn|poison|frost|bleed|shock> from the hero to every enemy near it [radius=3000].");
 AS_DEV_COMMAND("as.dev.station",Station,"Puts the hero beside interaction point <id> (9 = the reward chest).");
 AS_DEV_COMMAND("as.dev.knock",Knock,"Launches every enemy near the hero away from it: [strength=950] [radius=700].");
