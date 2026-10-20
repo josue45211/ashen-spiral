@@ -306,3 +306,10 @@ Needs Josue: nothing. Answered 2026-10-19 16:42-16:46: Mannequin licence is a no
 11. Part C (above): perfect dash feel and window; echoes visible and not overwhelming; wall slams and pile-ups hurt and chain; chest opening pushes the camera in with no slow-mo; metamorphosis banner at max rank and its effect; death screen "WHAT YOU LEARNED".
 12. Balance to watch: Hammer knockback/pull now ~2.2x per hit; Rotary ~0.3x; elite fire trail littering small rooms; echo chains with many procs.
 Judgment calls and confidence per item: MERGE_LOG.md.
+
+## 0.25 asset research (2026-10-19) - research only, nothing imported
+Doc: AshenSpiral_Claude_Handoff_2026-10-15/current_work/AshenSpiral_UE5_0.23.0/Docs/0.25_ASSET_RESEARCH.md
+11 assets in the vault (8 FBX packs, 3 Unreal projects). Usable with selection: 3. Need work: 6. Skip for now: 2.
+Top 5: Dragon Cave stone kit (endless arena skin and decay), Paragon animations retargeted to Manny, Molten Face Hammer (elite hammer enemy and slam socket), Concrete column texture (arena blocks), Game Animation Sample (foley, player model option).
+Needs Josue: (1) licences are NOT in the vault files; confirm each listing's licence on its Fab library page. (2) Four listings are AI-generated (Inferno Dragon, Warrior Titan, Harpy, Stonereaver): decide if acceptable. (3) Replacing the player model is HIGH-COST: only on your say-so.
+Bugs from the 0.24 playtest are separate and should land before art touches those systems: P2 invisible walls, endless cover desync, flying enemies leaving the map, unlit sigils/vault (looks like a regression, cause not investigated).
