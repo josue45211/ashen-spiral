@@ -1,11 +1,19 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-20 08:55 PDT
-phase: 0.24.2 overnight + all-day orders - fix batch, verification, Phase F and AAA passes 1-4 done and pushed; working Edison's 08:30 list
-current_item: boss-roar cue (Edison 08:30 item 1), then more visual polish
+updated: 2026-10-20 12:15 PDT
+phase: 0.24.2 PLAYTEST ZIP READY (Edison 09:01 order done); continuing Edison's 08:30 list (visual polish, 0.25 plan)
+current_item: 0.25 plan leftovers - a real creature model for the bosses (Warrior Titan / Inferno Dragon, rig check), behind a fallback like Phase F
+
+## 0.24.2 PLAYTEST ZIP (Edison 09:01 order) - for Josue and P2; both PCs must run this exact file
+- Path: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip
+- Size: 733,522,091 bytes (699.5 MB), 824 entries. SHA-256 9CD2CDF9B19ACEA9D658151FB9CE63E4C2903DA8173F184D6BF7EFAC1B6CB631
+- Built from HEAD 6b57967 (the boss-roar commit) by Tools/export_playtest_zip.py: git archive of the committed project plus all 376 local, gitignored assets the build uses - the Mannequin hero and its 45 clips, the Dragon Cave ruins with their own textures, the courtyard floor, the weathered-concrete blocks, the Molten hammer, the footsteps, the three roars. Version 0.24.2, protocol 2402.
+- Checked from a fresh folder: extracted, its own Setup (Tools\Setup.ps1, or Setup_and_Open.bat) built and imported with 0 errors in 3m38s, and the game ran - every roar played its delivered file, the arena looked as on this machine, no missing-material fallbacks.
+- On each PC: extract to a new folder, run Setup_and_Open.bat (or Tools\Setup.ps1), then play as usual. Test_Two_Players.bat for a local two-player check.
 
 ## NOW (2026-10-20) - read this first; older history is below, newest sections at the bottom of the file
-Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 724e77e, pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 6b57967 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
+- Boss roar (6b57967, Edison 08:30 item 1): the roars were a pitched-down hammer thud (no roar file had ever been delivered); now real roars cut from the Horror Template's monster sound - boss wind-up, the half-health roar, the elite's rage. Verified in a game run by recording the game's own audio: each roar is among the loudest sounds in the mix (10-13 dB above the game's usual level, 3-6 dB above hits).
 Done today and pushed:
 - Fix batch F1-F8 (d257312, cf0e428): launches fly and slam, wall slams/pile-ups hurt, element procs scale with hits, no collapsing enemies, ring-attack warning, weapon glint, real lightning bolt.
 - Endless map (f48e00d): walls pushed out beyond the ruin ring, which is now solid ground to explore. Footsteps quieter and natural.
