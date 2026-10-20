@@ -439,9 +439,9 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         const int32 Step=FMath::Clamp(FMath::RoundToInt(C.A),0,3);bFinisherArc=Step>=2;
         const float Tilt=Step==0?24.f:(Step==1?-24.f:0.f); // alternating diagonals, a flat finisher
         SetActorRotation(FRotator(0.f,D.Rotation().Yaw,Tilt));
-        FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.4f);
-        ASAssets::Style(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,9.f);
-        Duration=bFinisherArc?.28f:.22f;
+        FLinearColor Tint=Step==3?FLinearColor(C.R,C.G,C.B,1.f):FMath::Lerp(FLinearColor(C.R,C.G,C.B,1.f),FLinearColor::White,.55f); // 0.24.1: a whiter, hotter core
+        ASAssets::Style(Visual,ASAssets::HasMesh(TEXT("SM_SwingArc"))?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,0,14.f);
+        Duration=bFinisherArc?.34f:.28f; // 0.24.1: a little longer, so the reach reads
         float Volume=.32f,Pitch=1.f;USoundBase* Delivered=Step==3?AASEnemy::ResolveCue(ASEnemyRules::CueSlashSwing,Volume,Pitch):nullptr; // a hostile swing uses E_SlashSwing once it is delivered
         if(Delivered) UGameplayStatics::PlaySoundAtLocation(this,Delivered,At,Volume,Pitch);
         else if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
@@ -492,11 +492,11 @@ void AASVisualEffect::Tick(float Delta) {
         // The crescent shows the true reach at once (a short ease-out from 90% to 100% of it), holds, then draws in toward the swinger while it dims.
         // The material is opaque, so it is hidden near the end rather than faded.
         const float Pop=FMath::Min(1.f,T*7.f),Ease=1.f-FMath::Square(1.f-Pop);
-        const float Collapse=T<.55f?1.f:1.f-.4f*FMath::Square((T-.55f)/.45f);
+        const float Collapse=T<.62f?1.f:1.f-.4f*FMath::Square((T-.62f)/.38f);
         const float Radius=Size/50.f*(.9f+.1f*Ease)*Collapse;
-        Visual->SetRelativeScale3D(FVector(Radius,Radius,bFinisherArc?2.f:1.f));
-        if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(bFinisherArc?13.f:9.f)*FMath::Square(1.f-T));
-        if(T>.86f) Visual->SetVisibility(false);
+        Visual->SetRelativeScale3D(FVector(Radius,Radius,bFinisherArc?2.6f:1.5f)); // 0.24.1: thicker
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(bFinisherArc?20.f:14.f)*FMath::Square(1.f-T));
+        if(T>.9f) Visual->SetVisibility(false);
         return;
     }
     if(Kind==18) {
