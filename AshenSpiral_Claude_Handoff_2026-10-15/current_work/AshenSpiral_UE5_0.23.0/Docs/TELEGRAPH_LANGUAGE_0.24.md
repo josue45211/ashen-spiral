@@ -102,3 +102,15 @@ set piece happens, and from then on its body pulses hot red and its attacks wide
 
 Void zones are deep violet, venom is green, fire is orange-red, and nothing about a boss is ever blue.
 
+
+## 9. 0.24.2 additions (playtest of 0.24.1)
+
+* **Ring attacks have their own warning** (`ASEnemyRules::TellRing`: the brute's ground pound, the Indexer's and Sovereign's slam, the Bellwether's toll, the Sovereign's grasp).
+  A filled disc means "leave this area"; a ring attack is drawn as a **thick outline where the wave ends, with two bright hot-yellow ripples racing out to it** and quickening as
+  the wind-up completes. The wave itself is a **short glowing wall (about 40 cm)**, so it reads as "jump this": jump it or dash through it.
+* **Weapon glint**: every telegraphed blow (anything with a ground warning) flashes a white-gold four-pointed star at the weapon's tip **0.28 s before it lands**, with a faint
+  high "shing". The leaper (no weapon) glints at its brow. Every machine draws it from the replicated wind-up.
+* **Strips show**: the boss stampede's red strip (`TellLine`) was drawn by the code but never made visible; it is now.
+* **Lightning** is a jagged, forked bolt that flickers through three shapes in a third of a second, with a flash of violet-white light, white-violet sparks and a scorch mark that
+  cools and shrinks over two seconds. The floor warning is unchanged (violet disc, spinning spokes, pale ring filling), plus a thin flickering column reaching down while it charges.
+* **Ring flashes lie flat**: every ring-shaped flash (slams, chains, wildfire, lightning, spawns) spreads on the floor; the ones aimed "up" used to stand as vertical arches.

@@ -105,7 +105,11 @@ constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilitySh
 // The replicated byte AASEnemy::Flags (PhaseTwo: a boss that has passed half health and made its roar): bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
 constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u,FlagPhaseTwo=16u,FlagLaunched=32u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
 // FlagLaunched (0.24.2): the body is flying or skidding from a launch (ASPartC::LaunchFor); every machine poses it thrown (no walking gait, arms flung, leaning away from the blow).
-constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
+constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3,TellRing=4;  // ground warning shapes: a half disc, a full disc, a strip, a travelling ring
+// TellRing (0.24.2, playtest: "ring attacks need a different type of indicator"): a shockwave that sweeps OUT from the enemy and must be jumped or dashed through. It is drawn as an
+// outline at the radius where the wave ends with bright ripples racing out to it, never as a filled disc (a filled disc means "leave this area").
+constexpr float GlintLead=.28f; // 0.24.2 (F7): a weapon glint flashes this long before a telegraphed blow lands (once per wind-up, every machine)
+constexpr float WaveWallScale=13.f; // the travelling wave is drawn as a wall this many times SM_Ring's 3 cm height (39 cm: under the 45 cm a jump clears)
 constexpr unsigned NeedsClearPath=1u;                        // may only start when a straight walk to the target is clear (leaps and charges)
 constexpr unsigned StanceFlag=2u;                            // a long stance or roar: the Special state, with no strike of its own (a parry, an enrage)
 constexpr unsigned OneShotFlag=4u;                           // happens once per enemy, triggered by the enemy itself, never chosen by the chooser
@@ -141,7 +145,7 @@ inline const AbilitySpec& SpecFor(int Id) {
         { .50f,.28f, .40f,5.0f,0.f,520.f,3.f,TellNone,  0.f,0.f,NoKitCooldownFlag,CueBackHop,CueNone},                           // 12 back-hop (archer: away from a hero that has closed in)
         { .95f, 0.f, .40f,6.5f,0.f,460.f,1.f,TellNone,  0.f,0.f,StanceFlag|NoKitCooldownFlag,CueParryRaise,CueNone},          // 13 parry (duelist: a guard stance; the block's clang plays from the replicated Flags toggle, not at the stance's end)
         { .28f, 0.f, .50f,0.f, 0.f, 0.f, 0.f,TellSector,260.f,0.f,0u,CueRiposteSlash,CueNone},                    // 14 riposte (the counter after a block; never chosen)
-        {1.0f,  0.f, .90f,7.0f,0.f,650.f,1.3f,TellDisc,720.f,0.f,0u,CuePoundWind,CuePoundSlam},                   // 15 ground pound (brute: a shockwave ring)
+        {1.0f,  0.f, .90f,7.0f,0.f,650.f,1.3f,TellRing,720.f,0.f,0u,CuePoundWind,CuePoundSlam},                   // 15 ground pound (brute: a shockwave ring)
         {1.2f,  0.f, .50f,1.e9f,0.f,0.f, 0.f,TellNone,  0.f,0.f,StanceFlag|OneShotFlag|NoKitCooldownFlag,CueEnrageRoar,CueNone},   // 16 enrage (brute at half health: a roar)
         { .55f, 0.f, .40f,8.0f,350.f,1100.f,1.2f,TellNone,0.f,0.f,NoKitCooldownFlag,CueBlinkCharge,CueBlinkAppear},             // 17 rift blink (leaper: reappear behind you)
         { .40f, 0.f, .60f,0.f, 0.f, 0.f, 0.f,TellSector,260.f,0.f,0u,CueSlashWind,CueSlashSwing},                 // 18 blink strike (the slash after a blink; never chosen)
@@ -150,15 +154,15 @@ inline const AbilitySpec& SpecFor(int Id) {
         { .90f, 0.f, .60f,7.0f,200.f,950.f,1.4f,TellNone,  0.f,0.f,0u,CueBlastWind,CueBlastBurst},                // 21 cinder burst (burning elite: fire pools in a line toward you, each with its own warning)
         {1.0f,  0.f, .60f,8.5f,0.f,1300.f,1.4f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueNone},                      // 22 storm call (shocking elite: lightning on each hero and around, each with its own warning and thunder)
         { .80f, 0.f, .60f,7.0f,250.f,1100.f,1.4f,TellNone, 0.f,0.f,0u,CueSummonWind,CueEggLay},                    // 23 seed bombs (venomous elite: pods that land as venom pools)
-        {1.2f,  0.f, .90f,7.0f,0.f, 800.f,1.2f,TellDisc,900.f,0.f,0u,CueBossRoar,CueBossSlam},                    // 24 boss slam (Indexer, Sovereign: a huge shockwave ring)
+        {1.2f,  0.f, .90f,7.0f,0.f, 800.f,1.2f,TellRing,900.f,0.f,0u,CueBossRoar,CueBossSlam},                    // 24 boss slam (Indexer, Sovereign: a huge shockwave ring)
         {1.1f,  0.f, .70f,6.0f,0.f,1300.f,1.3f,TellNone,  0.f,0.f,0u,CueBossRoar,CueNone},                         // 25 boss marks (blasts on every hero, each with its own warning)
         {1.0f,  0.f, .70f,5.0f,0.f,1300.f,1.0f,TellNone,  0.f,0.f,0u,CueBossRoar,CueBlastBurst},                   // 26 boss ring (a ring of shots)
         {1.0f, .70f, .90f,8.0f,300.f,1300.f,1.4f,TellLine,950.f,220.f,NeedsClearPath,CueChargeWind,CueChargeRun},   // 27 boss charge (Bellwether: along a red strip)
-        {1.2f,  0.f, .90f,7.0f,0.f, 900.f,1.2f,TellDisc,800.f,0.f,0u,CueBossRoar,CueBossSlam},                    // 28 boss toll (Bellwether: two rings one after the other)
+        {1.2f,  0.f, .90f,7.0f,0.f, 900.f,1.2f,TellRing,800.f,0.f,0u,CueBossRoar,CueBossSlam},                    // 28 boss toll (Bellwether: two rings one after the other)
         {1.0f,  0.f, .70f,6.5f,250.f,1300.f,1.3f,TellNone, 0.f,0.f,0u,CueSummonWind,CueEggLay},                    // 29 boss seeds (Horticulturist: venom pods)
         {1.1f,  0.f, .70f,8.0f,0.f,1300.f,1.2f,TellNone,  0.f,0.f,0u,CueMeteorCall,CueNone},                       // 30 boss bloom (Horticulturist: void blooms)
         {1.0f,  0.f, .70f,6.0f,0.f,1300.f,1.4f,TellNone,  0.f,0.f,0u,CueBossRoar,CueNone},                         // 31 boss roots (Sovereign: roots erupt under every hero)
-        {1.3f,  0.f,1.00f,9.0f,0.f,1000.f,1.6f,TellDisc,900.f,0.f,PhaseTwoOnlyFlag,CueBossRoar,CueBossSlam},        // 32 boss grasp (Sovereign, second phase: pulls every hero in, then a ring)
+        {1.3f,  0.f,1.00f,9.0f,0.f,1000.f,1.6f,TellRing,900.f,0.f,PhaseTwoOnlyFlag,CueBossRoar,CueBossSlam},        // 32 boss grasp (Sovereign, second phase: pulls every hero in, then a ring)
         {1.5f,  0.f, .60f,1.e9f,0.f,0.f,  0.f,TellNone,  0.f,0.f,StanceFlag|OneShotFlag|NoKitCooldownFlag,CueBossPhase,CueBossSummon}, // 33 boss phase (the roar at half health: set piece of its ward)
     };
     return Table[std::clamp(Id,0,AbilityCount-1)];

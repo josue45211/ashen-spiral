@@ -121,6 +121,7 @@ private:
     uint8 Kind=0;
     bool bFinisherArc=false; // Kind 17 (0.24 swing arc): the combo's third swing is drawn brighter and holds a little longer
     FVector Anchor=FVector::ZeroVector; // Kind 18 (0.24 meteor): the ground point it falls onto
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> GlintBars[2]; // Kind 20 (0.24.2 weapon glint): the star's two crossed rays
 };
 
 // Cosmetic-only kill burst: a handful of glowing shards thrown outward with gravity. Spawned locally by the GameState effect multicast.

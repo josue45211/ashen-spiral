@@ -114,6 +114,8 @@ private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WingBoneR;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Tell;     // the melee ground warning: a dim half disc at the true strike radius
     UPROPERTY() TObjectPtr<UStaticMeshComponent> TellFill; // ... and a bright half disc that grows over it as the wind-up completes
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> TellRipple; // 0.24.2: a ring attack's second ripple (TellFill is the first): two bright rings racing out to the outline
+    float RipplePhase=0.f;float GlintedFor=-100.f; // cosmetic: the ripples' phase; the wind-up that already flashed its weapon glint (F7)
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Crown;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Beam;
     ASRules::ElementState Elements;
@@ -150,6 +152,7 @@ private:
     int32 ReleaseOwnAbility(int32 AbilityId,const FVector& ToTarget);   // ReleaseAbility calls it first; FlowNotMine means CommitAttack handles the ability as before
     FVector SlamPointFor(int32 AbilityId,const FVector& Feet) const; // where a maul slam lands (the head of the maul), on the floor; the feet for any other ability
     void ShowTell(float Progress);                               // the ground warning of the ability being wound up: its shape, its radius, its fill
+    void Glint();                                                // 0.24.2 (F7): a star flash at the weapon's tip a beat before the blow lands (cosmetic, every machine)
     TWeakObjectPtr<AASCharacter> CurrentTarget;                  // authority: the hero TickGround is working against this tick
     float HopUntil=0,RiposteAt=-1.f;                             // the archer's back-hop in flight; when the duelist's counter starts after a block
     FVector HopDirection=FVector::ZeroVector;

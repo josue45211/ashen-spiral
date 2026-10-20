@@ -35,9 +35,11 @@ void AASShockwave::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 }
 void AASShockwave::BeginPlay() {
     Super::BeginPlay();
-    ASAssets::Style(Ring,TEXT("SM_Ring"),FLinearColor(1.f,.22f,.03f),0,8.f); // SM_Ring has an outer radius of 50 cm: the scale is radius / 50
-    Ring->SetCastShadow(false);Ring->SetRelativeLocation(FVector(0,0,4));
-    Ring->SetRelativeScale3D(FVector(ASEnemyRules::PoundStartRadius/50.f,ASEnemyRules::PoundStartRadius/50.f,1.f));
+    // 0.24.2 (F6): the wave is a short glowing wall (about 40 cm, just under the 45 cm a jump clears) in the ripples' hot yellow, not a flat line on the floor, so it reads as
+    // "jump this". SM_Ring has an outer radius of 50 cm and a height of 3 cm: the scale is radius / 50 across and WaveWall up.
+    ASAssets::Style(Ring,TEXT("SM_Ring"),FLinearColor(1.f,.62f,.16f),0,10.f);
+    Ring->SetCastShadow(false);Ring->SetRelativeLocation(FVector(0,0,2));
+    Ring->SetRelativeScale3D(FVector(ASEnemyRules::PoundStartRadius/50.f,ASEnemyRules::PoundStartRadius/50.f,ASEnemyRules::WaveWallScale));
 }
 void AASShockwave::Tick(float Delta) {
     Super::Tick(Delta);
@@ -49,8 +51,8 @@ void AASShockwave::Tick(float Delta) {
     const float Life=(MaxRadius-ER::PoundStartRadius)/ER::PoundSpeed+.25f; // the ring lingers for a quarter of a second at its full size, fading
     if(GetNetMode()!=NM_DedicatedServer&&Ring) {
         const float Fade=FMath::Clamp((Life-Age)/.25f,0.f,1.f);
-        Ring->SetRelativeScale3D(FVector(Radius/50.f,Radius/50.f,1.f));
-        if(auto* M=Cast<UMaterialInstanceDynamic>(Ring->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),8.f*Fade);
+        Ring->SetRelativeScale3D(FVector(Radius/50.f,Radius/50.f,ASEnemyRules::WaveWallScale*FMath::Max(.15f,Fade)));
+        if(auto* M=Cast<UMaterialInstanceDynamic>(Ring->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),10.f*Fade);
         Ring->SetVisibility(Fade>.02f);
     }
     if(!HasAuthority()) return;

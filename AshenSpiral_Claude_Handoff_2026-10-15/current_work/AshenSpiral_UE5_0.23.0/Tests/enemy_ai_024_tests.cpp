@@ -228,7 +228,7 @@ int main(int argc,char** argv) {
             const AbilitySpec& A=SpecFor(Id);
             Check(A.Windup>=0.f&&A.Attack>=0.f&&A.Recover>=0.f&&A.Cooldown>=0.f&&A.MinRange>=0.f&&A.MaxRange>=0.f&&A.Weight>=0.f,"no negative timings, ranges or weights");
             if(A.MaxRange>0.f) Check(A.MaxRange>A.MinRange,"a distance window is ordered");
-            Check(A.Tell>=TellNone&&A.Tell<=TellLine,"a warning shape is a known shape");
+            Check(A.Tell>=TellNone&&A.Tell<=TellRing,"a warning shape is a known shape");
             if(A.Tell!=TellNone) Check(A.TellA>0.f,"a warning has a size");
             if(Id!=AbilityNone) Check(A.Weight>0.f||Id==AbilityRiposte||Id==AbilityBlinkStrike||(A.Flags&OneShotFlag),"every real ability can be chosen, except the follow-ups chained after another (riposte, blink strike) and the one-shot triggers (enrage)");
         }

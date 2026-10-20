@@ -142,7 +142,7 @@ int main() {
         Check(TellRadiusFor(AbilitySlash,false)==StrikeRadius(false)&&TellRadiusFor(AbilitySlash,true)==StrikeRadius(true),"the slash's warning is the strike radius, wider for an elite");
         Check(TellRadiusFor(AbilityShove,false)==ShoveRadius&&TellRadiusFor(AbilityShove,true)==ShoveRadius,"the shove's warning is its own size");
         Check(TellRadiusFor(AbilityRiposte,false)==RiposteRadius&&TellRadiusFor(AbilityBlinkStrike,false)==BlinkStrikeRadius,"the counter strikes warn at the radius they damage");
-        Check(TellRadiusFor(AbilityPound,true)==PoundMaxRadius&&SpecFor(AbilityPound).Tell==TellDisc,"the pound warns with a full disc as wide as its ring ends up");
+        Check(TellRadiusFor(AbilityPound,true)==PoundMaxRadius&&SpecFor(AbilityPound).Tell==TellRing,"the pound warns with a ring outline as wide as its wave ends up (0.24.2: rings have their own warning)");
         for(int Id=1;Id<AbilityCount;++Id) {
             const AbilitySpec& A=SpecFor(Id);
             if(A.Tell==TellSector&&Id!=AbilitySlash) Check(Near(A.TellA,Id==AbilityShove?ShoveRadius:(Id==AbilityRiposte?RiposteRadius:BlinkStrikeRadius)),"a sector warning is drawn at the radius its strike damages");

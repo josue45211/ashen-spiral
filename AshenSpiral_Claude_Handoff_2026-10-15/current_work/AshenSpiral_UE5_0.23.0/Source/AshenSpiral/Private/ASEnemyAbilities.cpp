@@ -32,13 +32,29 @@ void AASEnemy::ShowTell(float Progress) {
     namespace ER=ASEnemyRules;
     if(!Tell||!TellFill||!GetCapsuleComponent()) return;
     const ER::AbilitySpec& Spec=ER::SpecFor(Ability);
-    const int32 Shape=Spec.Tell;const bool Disc=Shape==ER::TellDisc,Line=Shape==ER::TellLine,HasSector=ASAssets::HasMesh(TEXT("SM_StrikeSector"));
+    const int32 Shape=Spec.Tell;const bool Disc=Shape==ER::TellDisc,Line=Shape==ER::TellLine,Ring=Shape==ER::TellRing,HasSector=ASAssets::HasMesh(TEXT("SM_StrikeSector"));
     if(Shape!=TellShape) { // a different shape than the one last drawn: swap both meshes (this happens only when an enemy with two kinds of warning switches)
-        const FString TellMesh=Disc?FString(TEXT("Cylinder")):(Line?FString(TEXT("Cube")):(HasSector?FString(TEXT("SM_StrikeSector")):FString(TEXT("SM_Ring"))));
-        ASAssets::Style(Tell,TellMesh,FLinearColor(.55f,.05f,.02f),0,1.5f);ASAssets::Style(TellFill,TellMesh,FLinearColor(1.f,.16f,.03f),0,6.f);
+        if(Ring) { // a travelling shockwave: an outline where the wave ends, two hot ripples racing out to it (never a filled disc, which means "leave this area")
+            ASAssets::Style(Tell,TEXT("SM_Ring"),FLinearColor(1.f,.20f,.03f),0,3.f);ASAssets::Style(TellFill,TEXT("SM_Ring"),FLinearColor(1.f,.78f,.30f),0,8.f);
+            if(TellRipple) {ASAssets::Style(TellRipple,TEXT("SM_Ring"),FLinearColor(1.f,.78f,.30f),0,8.f);TellRipple->SetCastShadow(false);}
+        } else {
+            const FString TellMesh=Disc?FString(TEXT("Cylinder")):(Line?FString(TEXT("Cube")):(HasSector?FString(TEXT("SM_StrikeSector")):FString(TEXT("SM_Ring"))));
+            ASAssets::Style(Tell,TellMesh,FLinearColor(.55f,.05f,.02f),0,1.5f);ASAssets::Style(TellFill,TellMesh,FLinearColor(1.f,.16f,.03f),0,6.f);
+        }
         Tell->SetCastShadow(false);TellFill->SetCastShadow(false);TellShape=Shape;
     }
     const float Floor=-GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    if(Ring) { // 0.24.2 (F6): the ripples quicken as the wind-up completes, like a heartbeat; each eases out as it nears the outline, the way a wave slows
+        const float Radius=ER::TellRadiusFor(Ability,Elite()),Reach=ER::SlamReach(Ability,BodyScale),Step=GetWorld()?GetWorld()->GetDeltaSeconds():.016f;
+        Tell->SetRelativeLocation(FVector(Reach,0.f,Floor+3.f));Tell->SetRelativeScale3D(FVector(Radius/50.f,Radius/50.f,4.f));
+        RipplePhase=FMath::Fmod(RipplePhase+Step*FMath::Lerp(1.3f,3.2f,Progress),1.f);
+        for(int32 I=0;I<2;++I) if(UStaticMeshComponent* Ripple=I==0?TellFill.Get():TellRipple.Get()) {
+            const float Phase=FMath::Fmod(RipplePhase+float(I)*.5f,1.f),Out=FMath::Max(25.f,Radius*(1.f-FMath::Square(1.f-Phase)));
+            Ripple->SetRelativeLocation(FVector(Reach,0.f,Floor+5.f));Ripple->SetRelativeScale3D(FVector(Out/50.f*1.f,Out/50.f*1.f,3.f+5.f*Progress)); // a band 9-24 cm tall: a wave, not a line
+            if(auto* M=Cast<UMaterialInstanceDynamic>(Ripple->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(4.f+8.f*Progress)*(1.f-.6f*Phase));
+        }
+        return;
+    }
     if(Line) { // a strip from the enemy along its aim: the dim strip is the whole path, the bright one grows along it (the basic cube is 100 cm each way)
         const float Length=Spec.TellA,Width=Spec.TellB>0.f?Spec.TellB:200.f,Grown=Length*FMath::Max(.04f,Progress);
         Tell->SetRelativeLocation(FVector(Length*.5f,0.f,Floor+3.f));Tell->SetRelativeScale3D(FVector(Length/100.f,Width/100.f,.02f));

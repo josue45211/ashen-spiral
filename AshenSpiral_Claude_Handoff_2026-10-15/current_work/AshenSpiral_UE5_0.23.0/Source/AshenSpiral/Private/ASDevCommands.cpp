@@ -13,6 +13,8 @@
 #include "ASWorld.h"
 #include "ASBuildRules.h"
 #include "ASExpeditionRules.h"
+#include "ASLightning.h"
+#include "Kismet/GameplayStatics.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Components/CapsuleComponent.h"
@@ -123,6 +125,23 @@ void Shot(const TArray<FString>& Args,UWorld*) {
     FScreenshotRequest::RequestScreenshot(File,ArgInt(Args,1,1)!=0,false);
     UE_LOG(LogTemp,Display,TEXT("AshenDev: screenshot requested %s"),*File);
 }
+// as.dev.lightning [count] [distance]: Endless sky strikes around the hero (the same actor the wave 50+ timer spawns), the first right in front of the camera.
+void Lightning(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);auto* S=AS::State(W);if(!H||!S) return;
+    const int32 Count=FMath::Clamp(ArgInt(Args,0,1),1,12);const float Distance=ArgFloat(Args,1,520.f);
+    const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D();
+    for(int32 I=0;I<Count;++I) {
+        FVector Aim=H->GetActorLocation()+FRotator(0.f,I*137.5f,0.f).RotateVector(Forward)*(Distance+I*140.f);
+        FHitResult Floor;Aim=W->LineTraceSingleByObjectType(Floor,Aim+FVector(0,0,300),Aim-FVector(0,0,1500),FCollisionObjectQueryParams(ECC_WorldStatic))?Floor.ImpactPoint+FVector(0,0,4):Aim-FVector(0,0,85);
+        const FTransform Where(Aim);
+        if(auto* Strike=W->SpawnActorDeferred<AASLightningStrike>(AASLightningStrike::StaticClass(),Where,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn)) {
+            Strike->StrikeAt=S->SimTime+ASExpedition::LightningTelegraph+I*.12f;Strike->Radius=ASExpedition::LightningRadius;UGameplayStatics::FinishSpawningActor(Strike,Where);
+        }
+    }
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: %d lightning strikes called"),Count);
+}
+// as.dev.wave <n>: sets the Endless wave number (the sky, scenery stage and lightning follow it at the next wave's checks).
+void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->EndlessWave=FMath::Clamp(ArgInt(Args,0,1),1,999);S->ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("AshenDev: endless wave set to %d"),S->EndlessWave);}}
 // as.dev.state: one line with the phase, the wave, the hero and every enemy (kind, health, state, launched), for a run's log.
 void State(const TArray<FString>&,UWorld* W) {
     auto* S=AS::State(W);auto* H=HostHero(W);if(!S) return;
@@ -184,6 +203,8 @@ AS_DEV_COMMAND("as.dev.god",God,"1: the host hero cannot be hurt (and is healed 
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
 AS_DEV_COMMAND("as.dev.shot",Shot,"Screenshot to Saved/Screenshots/Dev/<name>.png [ui=1].");
+AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around the host hero [distance=520].");
+AS_DEV_COMMAND("as.dev.wave",Wave,"Sets the Endless wave number <n>.");
 AS_DEV_COMMAND("as.dev.state",State,"Logs the phase, wave, hero and every enemy.");
 AS_DEV_COMMAND("as.dev.script",Script,"Plays a script file: one console command per line, plus wait <s> and waitfor ready|combat|hub [timeout].");
 #undef AS_DEV_COMMAND

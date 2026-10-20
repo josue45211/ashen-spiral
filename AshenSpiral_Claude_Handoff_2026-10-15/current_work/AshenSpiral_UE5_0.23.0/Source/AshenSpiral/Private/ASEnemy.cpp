@@ -48,7 +48,8 @@ AASEnemy::AASEnemy() {
     Crown=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Crown"));Crown->SetupAttachment(RootComponent);
     Beam=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SniperSight"));Beam->SetupAttachment(RootComponent);
     TellFill=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AnticipationFill"));TellFill->SetupAttachment(RootComponent);
-    Tell->SetVisibility(false);TellFill->SetVisibility(false);Beam->SetVisibility(false); // warnings start hidden; Tick shows them only while an attack is being wound up
+    TellRipple=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("AnticipationRipple"));TellRipple->SetupAttachment(RootComponent);TellRipple->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Tell->SetVisibility(false);TellFill->SetVisibility(false);TellRipple->SetVisibility(false);Beam->SetVisibility(false); // warnings start hidden; Tick shows them only while an attack is being wound up
 }
 void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnProtectedUntil=AS::Time(this)+2.f;
     if(HasAuthority()&&Kind==ASEnemyRules::Brute&&!bTrainingDummy&&Mutation==ASEnemyRules::MutationNone) Mutation=uint8(ASEnemyRules::MutationFromRoll(FMath::RandRange(0,3))); // every elite brute spawns mutated
@@ -134,11 +135,17 @@ void AASEnemy::RefreshLook() {
     GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));
 }
 
+void AASEnemy::Glint() {
+    FVector At=GetActorLocation()+GetActorForwardVector()*40.f*BodyScale+FVector(0.f,0.f,55.f*BodyScale); // a body without a weapon (the leaper) glints at its brow
+    if(ArmorWeapon&&ArmorWeapon->IsVisible()&&ArmorWeapon->GetStaticMesh()) At=ArmorWeapon->GetComponentTransform().TransformPosition(FVector(0.f,0.f,ArmorWeapon->GetStaticMesh()->GetBoundingBox().Max.Z*.92f)); // the tip: weapons stand along +Z
+    if(UWorld* W=GetWorld()) if(auto* FX=W->SpawnActor<AASVisualEffect>()) FX->Setup(20,At,FVector::ForwardVector,FLinearColor(1.f,.93f,.72f),Boss()?140.f:(Elite()?100.f:72.f));
+}
 bool AASEnemy::ShowsStrikeCircle() const {
     // A shape on the ground means "damage lands here when it fills". The ability being wound up says whether it has one: the melee swings' half disc, the ground pound's full
     // disc. Shots, leaps, charges, blasts and meteors (their own field telegraph), dives and the sniper beam draw none.
     const int32 Shape=ASEnemyRules::SpecFor(Ability).Tell;
-    return !bTrainingDummy&&AIState==ASEnemyRules::StateWindup&&(Shape==ASEnemyRules::TellSector||Shape==ASEnemyRules::TellDisc);
+    // 0.24.2: strips (the boss stampede) and travelling rings are drawn too - the strip's drawing existed but this test left it out, so it never showed.
+    return !bTrainingDummy&&AIState==ASEnemyRules::StateWindup&&(Shape==ASEnemyRules::TellSector||Shape==ASEnemyRules::TellDisc||Shape==ASEnemyRules::TellLine||Shape==ASEnemyRules::TellRing);
 }
 void AASEnemy::TickStatusTint() {
     // 0.23.5: status effects pulse the body tint instead of drawing a ring at the feet. Cosmetic, runs where there is a screen.
@@ -211,7 +218,7 @@ void AASEnemy::Tick(float Delta) {
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
     if(HasAuthority()) TickKnock(S->SimTime,Delta);
     const bool ShowWarning=bWinding&&!bTrainingDummy&&!SpawnProtected()&&ShowsStrikeCircle(); // a ground warning means "damage lands in exactly this shape when it fills"
-    Tell->SetVisibility(ShowWarning);TellFill->SetVisibility(ShowWarning);
+    Tell->SetVisibility(ShowWarning);TellFill->SetVisibility(ShowWarning);if(TellRipple) TellRipple->SetVisibility(ShowWarning&&ASEnemyRules::SpecFor(Ability).Tell==ASEnemyRules::TellRing);
     Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside a comment, so the sniper's aiming beam never showed
     if(!bTrainingDummy) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
@@ -226,6 +233,7 @@ void AASEnemy::Tick(float Delta) {
             Body->SetRelativeRotation(FRotator(bWinding?-7.f*T:0,0,0));
         }
         if(ShowWarning) ShowTell(T); // the bright shape grows over the dim full-size one; both stay flat on the floor and face the attack
+        if(ShowWarning&&GetNetMode()!=NM_DedicatedServer&&GlintedFor!=WindupStart&&WindupEnd-S->SimTime<=ASEnemyRules::GlintLead) {GlintedFor=WindupStart;Glint();} // once per wind-up
     }
     if(!HasAuthority()||Health<=0) return;
     if((Flags&ASEnemyRules::FlagGuardBroken)&&S->SimTime>=GuardBrokenUntil) {Flags&=uint8(0xFFu&~ASEnemyRules::FlagGuardBroken);ForceNetUpdate();}

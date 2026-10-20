@@ -1,0 +1,46 @@
+# 0.24.2 F6-F8 in-engine look: ring-attack warnings (brute ground pound), the weapon glint, the new lightning bolt. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 7
+waitfor combat 30
+wait 1
+# brutes (kind 3) wind up ground pounds: catch the ring warning mid wind-up and the wave
+as.dev.spawn 3 2 650 6
+wait 2.2
+as.dev.shot tele_01_brutes
+wait 0.4
+as.dev.shot tele_02_brutes
+wait 0.4
+as.dev.shot tele_03_brutes
+wait 0.4
+as.dev.shot tele_04_brutes
+wait 0.5
+as.dev.shot tele_05_brutes
+wait 0.5
+as.dev.shot tele_06_brutes
+# grunts wind up slashes: the glint
+as.dev.spawn 0 4 300 6
+wait 1.6
+as.dev.shot tele_07_grunts
+wait 0.25
+as.dev.shot tele_08_grunts
+wait 0.25
+as.dev.shot tele_09_grunts
+wait 0.25
+as.dev.shot tele_10_grunts
+# lightning: the warning, then the bolt and its flash, then the scorch
+as.dev.lightning 3 600
+wait 0.4
+as.dev.shot tele_11_lightning_warn
+wait 0.37
+as.dev.shot tele_12_lightning_bolt
+wait 0.06
+as.dev.shot tele_13_lightning_bolt
+wait 0.1
+as.dev.shot tele_14_lightning_bolt
+wait 1.0
+as.dev.shot tele_15_lightning_scorch
+as.dev.state
+wait 1
+quit

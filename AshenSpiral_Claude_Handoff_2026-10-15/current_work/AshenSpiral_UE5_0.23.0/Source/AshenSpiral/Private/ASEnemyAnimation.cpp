@@ -126,7 +126,7 @@ void AASEnemy::AnimateDeath() {
         DeathSeenAt=Now;
         const FVector Push=GetActorTransform().InverseTransformVectorNoScale(HitReactionDirection); // which way the killing blow pushed it, in its own frame
         DeathVariant=EP::DeathVariantFor(Push.X,Push.Y,GetUniqueID());
-        for(auto* Piece:{Tell.Get(),TellFill.Get(),Beam.Get(),Eye.Get(),Crown.Get(),WingL.Get(),WingR.Get(),WingBoneL.Get(),WingBoneR.Get()}) if(Piece) Piece->SetVisibility(false);
+        for(auto* Piece:{Tell.Get(),TellFill.Get(),TellRipple.Get(),Beam.Get(),Eye.Get(),Crown.Get(),WingL.Get(),WingR.Get(),WingBoneL.Get(),WingBoneR.Get()}) if(Piece) Piece->SetVisibility(false);
     }
     const auto Look=ASPresentation::EnemyDeathAt(Now-DeathSeenAt);
     // 0.24: an armoured walker plays a collapse retargeted from the Mannequin's own death animations (ASEnemyDeathTracks.h) over EnemyDeathSeconds, then shrinks away as before.

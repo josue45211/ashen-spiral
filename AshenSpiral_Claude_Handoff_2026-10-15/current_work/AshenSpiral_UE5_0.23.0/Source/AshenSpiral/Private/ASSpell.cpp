@@ -18,6 +18,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Sound/SoundBase.h"
 #include "ASPresentationRules.h"
+#include "GameFramework/PlayerController.h"
+#include "Camera/PlayerCameraManager.h"
 AASProjectile::AASProjectile() {
     bReplicates=true;SetReplicateMovement(true);SetNetUpdateFrequency(25.f);PrimaryActorTick.bCanEverTick=true;
     RootComponent=CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
@@ -454,6 +456,21 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         Duration=FMath::Clamp(R,.2f,3.f);Anchor=At;SetActorLocation(At+FVector(0,0,1500.f));Visual->SetRelativeScale3D(FVector(.9f));
         return;
     }
+    if(Kind==20) {
+        // 0.24.2 (F7; playtest: the melee warning passed, "add one extra indicator that feels natural"): a weapon GLINT a beat before a blow lands - a four-pointed star that
+        // flashes at the weapon's tip, faces the camera and is gone - with a faint high "shing". Size is the star's span in cm. Spawned on every machine from replicated state.
+        Visual->SetVisibility(false);Duration=.24f;
+        for(int32 I=0;I<2;++I) {
+            auto* Bar=NewObject<UStaticMeshComponent>(this);Bar->SetupAttachment(Visual);ASAssets::Style(Bar,TEXT("Cube"),FLinearColor(C.R,C.G,C.B,1.f),0,40.f);
+            Bar->SetCollisionEnabled(ECollisionEnabled::NoCollision);Bar->SetCastShadow(false);Bar->SetAbsolute(false,false,true);Bar->RegisterComponent();
+            Bar->SetRelativeRotation(FRotator(0.f,0.f,I==0?0.f:90.f));Bar->SetRelativeScale3D(FVector(.01f));GlintBars[I]=Bar;
+        }
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) {
+            const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);const float Gain=ASEnemyRules::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),At)):0.f);
+            if(Gain>.05f) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.10f*Gain,2.4f);
+        }
+        return;
+    }
     if(Kind==19) {
         // 0.24 brood egg sound (Size above 0.5: it hatched, otherwise a hero popped it): the egg's own burst is effect 11, this one only plays the cue, at a volume that follows
         // the distance to the local player like every enemy cue.
@@ -465,6 +482,13 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         return;
     }
     ASAssets::Style(Visual,Kind==15?TEXT("SM_Chest"):(Kind==9||Kind==10?TEXT("Cube"):(Kind==1?TEXT("SM_Slash"):(Kind==2||Kind==5?TEXT("Sphere"):TEXT("SM_Ring")))),C,0,Kind==15?3:6);
+    // 0.24.2: a ring flash lies flat on the floor. Callers pass UpVector meaning "facing up", but D.Rotation() pitched the ring 90 degrees, so every one of them stood up as a
+    // vertical arch (seen in-engine over every elite's slam, chain, wildfire and lightning flash). A vertical direction now keeps only its yaw.
+    if(Kind!=15&&Kind!=9&&Kind!=10&&Kind!=1&&Kind!=2&&Kind!=5) {
+        if(FMath::Abs(D.GetSafeNormal().Z)>.7f) SetActorRotation(FRotator(0.f,GetActorRotation().Yaw,0.f));
+        FHitResult Floor; // and every ring spreads on the floor under its point, a shockwave ring, instead of hovering at chest height (also seen in-engine)
+        if(GetWorld()&&GetWorld()->LineTraceSingleByObjectType(Floor,At+FVector(0,0,20),At-FVector(0,0,320),FCollisionObjectQueryParams(ECC_WorldStatic))) SetActorLocation(Floor.ImpactPoint+FVector(0,0,3));
+    }
     Duration=Kind==15?ASPresentation::ChestPopLife:(Kind==8?.32f:(Kind==6?.48f:(Kind>=12?.34f:.24f)));
     const TCHAR* Sound=Kind==1||Kind==2?TEXT("S_Attack"):(Kind==3?TEXT("S_Spiral"):(Kind==4?TEXT("S_Dash"):(Kind==5?TEXT("S_Hit"):(Kind==7?TEXT("S_Reward"):TEXT("S_Collapse")))));
     if(Kind==9||Kind==10) {SetActorLocation(At+D*R*.5f);Duration=.18f;return;}
@@ -497,6 +521,12 @@ void AASVisualEffect::Tick(float Delta) {
         Visual->SetRelativeScale3D(FVector(Radius,Radius,bFinisherArc?2.6f:1.5f)); // 0.24.1: thicker
         if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),(bFinisherArc?20.f:14.f)*FMath::Square(1.f-T));
         if(T>.9f) Visual->SetVisibility(false);
+        return;
+    }
+    if(Kind==20) { // the star pops open in the first third, then its rays shrink to nothing; it always faces the local camera
+        if(const APlayerController* PC=UGameplayStatics::GetPlayerController(this,0)) if(PC->PlayerCameraManager) SetActorRotation((PC->PlayerCameraManager->GetCameraLocation()-GetActorLocation()).Rotation());
+        const float Open=T<.3f?T/.3f:1.f-(T-.3f)/.7f,Span=Size/100.f*FMath::Max(.02f,Open),Thin=.035f*FMath::Max(.2f,Open);
+        for(const TObjectPtr<UStaticMeshComponent>& Bar:GlintBars) if(Bar) Bar->SetRelativeScale3D(FVector(Thin,Span,Thin));
         return;
     }
     if(Kind==18) {
