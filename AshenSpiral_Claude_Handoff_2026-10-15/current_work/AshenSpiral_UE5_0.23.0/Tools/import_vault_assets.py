@@ -21,8 +21,9 @@ Phase I (0.24.2 aesthetics): the scenery's own textures (phase G exports them wi
 game drives per sky stage), one MI_DC_<set> per texture set, and every SM_DC mesh's slots set to its own set (DECOR_SET_OF, read from the pack's meshes) instead of the concrete.
 Phase J (0.24.2 aesthetics): the UDIM sets those pieces had in the pack (several tiles each), stitched into one atlas per set by Tools/stitch_udim_atlases.ps1, and M_DecorAtlas, which
 finds each UDIM tile's cell per pixel (taking the mip from the original UV, so no seams): the pillars, walls, bridge pieces and inferno rocks get their own textures without virtual texturing.
-Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHIJ to run only those phases (ABCE by default; G, then the shrink and the stitch, then H, I
-and J on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
+Phase K (0.24.2 aesthetics): M_ArenaBlock, the pack's weathered concrete (colour, normal, ORM) projected from the three world axes, for the Endless cover blocks and walls.
+Set ASHEN_VAULT to override the vault folder; set ASHEN_PHASES to a subset of the letters ABCEGHIJK to run only those phases (ABCE by default; G, then the shrink and the stitch, then H,
+I, J and K on request). The report of what was imported, and every measured bound, is written to Saved/AshenVaultImport.json.
 """
 from pathlib import Path
 import json
@@ -308,6 +309,7 @@ DC_TEXTURE_SOURCE = VAULT.parent / "DragonCaf79c64d07c70V1" / "data" / "Content"
 DC_STAGE = STAGE / "DC"                 # full-size exports (phase G)
 DC_SMALL = DC_STAGE / "small"           # after Tools/shrink_vault_textures.ps1 (phase H reads these)
 GROUND_FOLDER = "/Game/Art/Imported/Ground"
+BLOCK_FOLDER = "/Game/Art/Imported/Block"
 # (pack texture, kind): colour is sRGB; normal and masks are linear. ORM = ambient occlusion, roughness, metallic.
 GROUND_TEXTURES = (("T_StoneDebris01_BC", "colour"), ("T_StoneDebris01_N", "normal"), ("T_StoneDebris01_ORM", "masks"),
                    ("T_StoneFloor01_BC", "colour"), ("T_StoneFloor01_N", "normal"), ("T_StoneFloor01_ORM", "masks"), ("T_StoneFloor01_MSK", "masks"))
@@ -490,7 +492,7 @@ def export_dc_textures():
     staging.mkdir(parents=True, exist_ok=True)
     DC_STAGE.mkdir(parents=True, exist_ok=True)
     # ASHEN_DC_EXPORT=T_A,T_B exports other textures of the pack instead (to look at candidates); by default the ground set and the scenery's sets (phase I)
-    names = [n.strip() for n in os.environ.get("ASHEN_DC_EXPORT", "").split(",") if n.strip()] or [name for name, _ in GROUND_TEXTURES + DECOR_TEXTURES]
+    names = [n.strip() for n in os.environ.get("ASHEN_DC_EXPORT", "").split(",") if n.strip()] or [name for name, _ in GROUND_TEXTURES + DECOR_TEXTURES + BLOCK_TEXTURES]
     names = [n for n in names if not (DC_STAGE / (n + ".png")).is_file() or os.environ.get("ASHEN_FORCE_IMPORT") == "1"]  # already exported: kept
     for name in names:
         shutil.copy2(DC_TEXTURE_SOURCE / (name + ".uasset"), staging / (name + ".uasset"))
@@ -881,6 +883,90 @@ def import_decor_atlases():
     report["notes"].append("phase J: %d meshes wear their UDIM sets through atlases: %s" % (len(dressed), dressed))
 
 
+BLOCK_TEXTURES = (("T_ConcreteWall03_BC", "colour"), ("T_ConcreteWall03_N", "normal"), ("T_ConcreteWall03_ORM", "masks"))
+
+
+def create_block_material(colour_tex, normal_tex, masks_tex):
+    """M_ArenaBlock: weathered concrete for the Endless cover blocks and walls, projected from the three world axes (triplanar) so a block of any size and stretch shows it at one
+    scale on every face - colour, ambient occlusion, roughness and the relief of its normal map (blended per axis in world space; the material takes a world-space normal)."""
+    package = BLOCK_FOLDER + "/M_ArenaBlock"
+    material = unreal.load_asset(package) if assets.does_asset_exist(package) else None
+    if material is None:
+        material = tools.create_asset("M_ArenaBlock", BLOCK_FOLDER, unreal.Material, unreal.MaterialFactoryNew())
+    require(material is not None, "Could not create M_ArenaBlock")
+    edit = unreal.MaterialEditingLibrary
+    edit.delete_all_material_expressions(material)
+    material.set_editor_property("tangent_space_normal", False)
+
+    def node(cls, x, y, **properties):
+        obj = edit.create_material_expression(material, cls, x, y)
+        require(obj is not None, "Could not create material expression " + cls.__name__)
+        for key, value in properties.items():
+            obj.set_editor_property(key, value)
+        return obj
+
+    def wire(a, output, b, input_name):
+        require(edit.connect_material_expressions(a, output, b, input_name), "Material connection failed: " + input_name)
+
+    position = node(unreal.MaterialExpressionWorldPosition, -1400, 0)
+    normal_ws = node(unreal.MaterialExpressionVertexNormalWS, -1400, 150)
+    scale = node(unreal.MaterialExpressionScalarParameter, -1400, 300, parameter_name="TileScale", default_value=1.0 / 380.0)  # one sheet per 3.8 m
+    textures = {"Colour": (colour_tex, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR), "Normal": (normal_tex, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL),
+                "ORM": (masks_tex, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)}
+    objects = {}
+    for row, (name, (tex, sampler)) in enumerate(textures.items()):
+        objects[name] = node(unreal.MaterialExpressionTextureObjectParameter, -1400, 450 + row * 150, parameter_name=name, texture=tex, sampler_type=sampler)
+    weights = "float3 W=pow(abs(N),4);W/=dot(W,1);"
+    colour_code = weights + ("float3 A=Texture2DSample(Tex,TexSampler,P.yz*S).rgb,B=Texture2DSample(Tex,TexSampler,P.xz*S).rgb,C=Texture2DSample(Tex,TexSampler,P.xy*S).rgb;"
+                             "return A*W.x+B*W.y+C*W.z;")
+    normal_code = weights + ("float2 a=Texture2DSample(Tex,TexSampler,P.yz*S).xy*2-1,b=Texture2DSample(Tex,TexSampler,P.xz*S).xy*2-1,c=Texture2DSample(Tex,TexSampler,P.xy*S).xy*2-1;"
+                             "float3 ta=float3(a,sqrt(saturate(1-dot(a,a)))),tb=float3(b,sqrt(saturate(1-dot(b,b)))),tc=float3(c,sqrt(saturate(1-dot(c,c))));"
+                             "float3 X=float3(ta.z*sign(N.x),ta.x,ta.y),Y=float3(tb.x,tb.z*sign(N.y),tb.y),Z=float3(tc.x,tc.y,tc.z*sign(N.z));"
+                             "return normalize(X*W.x+Y*W.y+Z*W.z);")
+    customs = {}
+    for row, (name, code) in enumerate((("Colour", colour_code), ("ORM", colour_code), ("Normal", normal_code))):
+        inputs = []
+        for pin in ("Tex", "P", "N", "S"):
+            item = unreal.CustomInput()
+            item.set_editor_property("input_name", pin)
+            inputs.append(item)
+        custom = node(unreal.MaterialExpressionCustom, -900, -200 + row * 300, output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3, description="Triplanar " + name, code=code)
+        custom.set_editor_property("inputs", inputs)
+        wire(objects[name], "", custom, "Tex")
+        wire(position, "", custom, "P")
+        wire(normal_ws, "", custom, "N")
+        wire(scale, "", custom, "S")
+        customs[name] = custom
+    tint = node(unreal.MaterialExpressionVectorParameter, -900, -450, parameter_name="Tint", default_value=unreal.LinearColor(1, 1, 1, 1))
+    tinted = node(unreal.MaterialExpressionMultiply, -600, -300)
+    wire(customs["Colour"], "", tinted, "A")
+    wire(tint, "", tinted, "B")
+    occlusion = node(unreal.MaterialExpressionComponentMask, -600, 0, r=True, g=False, b=False, a=False)
+    roughness = node(unreal.MaterialExpressionComponentMask, -600, 100, r=False, g=True, b=False, a=False)
+    wire(customs["ORM"], "", occlusion, "")
+    wire(customs["ORM"], "", roughness, "")
+    metallic = node(unreal.MaterialExpressionScalarParameter, -600, 200, parameter_name="Metallic", default_value=0.0)
+    require(edit.connect_material_property(tinted, "", unreal.MaterialProperty.MP_BASE_COLOR), "base colour")
+    require(edit.connect_material_property(customs["Normal"], "", unreal.MaterialProperty.MP_NORMAL), "normal")
+    require(edit.connect_material_property(occlusion, "", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION), "occlusion")
+    require(edit.connect_material_property(roughness, "", unreal.MaterialProperty.MP_ROUGHNESS), "roughness")
+    require(edit.connect_material_property(metallic, "", unreal.MaterialProperty.MP_METALLIC), "metallic")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_NANITE, True)
+    edit.layout_material_expressions(material)
+    edit.recompile_material(material)
+    require(assets.save_loaded_asset(material, False), "Could not save M_ArenaBlock")
+    report["imported"].append(material.get_path_name())
+    return material
+
+
+def import_block():
+    """Phase K: the weathered-concrete set (exported by phase G, shrunk to 2048) and M_ArenaBlock."""
+    assets.make_directory(BLOCK_FOLDER)
+    textures = {name: import_ground_texture(name, kind, BLOCK_FOLDER) for name, kind in BLOCK_TEXTURES}
+    create_block_material(textures["T_ConcreteWall03_BC"], textures["T_ConcreteWall03_N"], textures["T_ConcreteWall03_ORM"])
+
+
 GASP_STEPS = VAULT.parent / "GameAnimationSample_5.8" / "data" / "Content" / "Audio" / "Foley" / "SoundWaves" / "Sneaker" / "Concrete"
 HORROR_ROAR = VAULT.parent / "FREEComp8a724140adb8V1" / "data" / "Content" / "HorrorTemplate" / "Audio" / "SW_Monster.uasset"
 STEP_VARIANTS = 12
@@ -972,7 +1058,7 @@ try:
     # Each phase stands alone: one failing (a missing pack, say) must not stop the others.
     errors = []
     chosen = os.environ.get("ASHEN_PHASES", "ABCE").upper()
-    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases)):
+    for letter, phase in (("A", main), ("B", import_concrete), ("C", import_dragon_cave), ("E", import_audio), ("G", export_dc_textures), ("H", import_ground), ("I", import_decor), ("J", import_decor_atlases), ("K", import_block)):
         if letter not in chosen:
             continue
         try:

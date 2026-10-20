@@ -342,7 +342,12 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
         if(Group.StartsWith(TEXT("EndlessCover"))||Group.StartsWith(TEXT("EndlessDecor"))||Group.StartsWith(TEXT("EndlessGround"))||EndlessWall) {
             constexpr float ConcreteBrighten=3.4f; // TUNABLE: the cover tint (.17) times this is the albedo multiplier of the concrete texture
             const FLinearColor Base=EndlessWall?FLinearColor(.12f,.115f,.11f):Color;
-            if(auto* Concrete=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/ArenaConcrete/M_ArenaConcrete.M_ArenaConcrete"),nullptr,LOAD_NoWarn))
+            // 0.24.2 aesthetics: the cover blocks and walls are weathered concrete with real relief (M_ArenaBlock, Tools/import_vault_assets.py phase K) where it is imported;
+            // the plain concrete tile otherwise
+            UMaterialInterface* Weathered=(Group.StartsWith(TEXT("EndlessCover"))||EndlessWall)?LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/Block/M_ArenaBlock.M_ArenaBlock"),nullptr,LOAD_NoWarn):nullptr;
+            constexpr float BlockBrighten=5.2f; // TUNABLE: the same tints against the weathered set, which is darker than the tile
+            if(Weathered) {if(auto* Block=UMaterialInstanceDynamic::Create(Weathered,C)) {Block->SetVectorParameterValue(TEXT("Tint"),FLinearColor(Base.R*BlockBrighten,Base.G*BlockBrighten,Base.B*BlockBrighten,1.f));Mat=Block;}}
+            else if(auto* Concrete=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/ArenaConcrete/M_ArenaConcrete.M_ArenaConcrete"),nullptr,LOAD_NoWarn))
                 if(auto* Block=UMaterialInstanceDynamic::Create(Concrete,C)) {
                     Block->SetVectorParameterValue(TEXT("Tint"),FLinearColor(Base.R*ConcreteBrighten,Base.G*ConcreteBrighten,Base.B*ConcreteBrighten,1.f));
                     Block->SetScalarParameterValue(TEXT("Metallic"),Metal);
