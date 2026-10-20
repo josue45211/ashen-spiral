@@ -27,20 +27,52 @@ inline float ChainMagnitude(int Depth) {return std::pow(ChainFalloff,float(std::
 inline bool ChainConducts(int ChainRank,int ShockRank,int SplashRank) {return ChainRank>0||ShockRank>0||SplashRank>0;}
 
 // ---- C-2 knockback as joy: a launched enemy that slams a wall or another enemy takes impact damage, and a body hit is thrown on ----
-constexpr float ImpactMinStrength=250.f,ImpactWindow=.7f,ImpactEnemyRadius=120.f,ImpactSpeedLossFraction=.45f,ImpactCooldown=.15f;
+// 0.24.2 (F1-F3; playtest: launches "don't go far enough", wall slams and pile-ups "don't work"): a launch used to be a flat shove along the floor. Ground friction, braking and
+// the enemy's own AI (which stops dead while it winds up or recovers) killed it in about 0.1 s and 20 cm, so a launched body almost never reached a wall or another enemy and the
+// contact code never ran. Now a launch is a short hop (off the floor nothing brakes it) followed by a low-friction skid; the AI is suspended until the body comes to rest; and
+// contacts are found by sweeping ahead along the flight every tick, with the engine's NotifyHit as a second opinion. The STRENGTH callers pass is unchanged (950 for the maul's
+// slam, 700 for its leap landing, 600 for Repulse, 120 x rank x the weapon's on-hit scale for Heavy Impact); these rules turn it into speeds, times and distances.
+constexpr float ImpactMinStrength=250.f,ImpactCooldown=.15f;
 constexpr int ImpactMaxGeneration=2; // a launched body can launch another (generation 1), which can launch one more (2); then it stops
 inline bool ImpactWorthy(float Strength) {return std::isfinite(Strength)&&Strength>=ImpactMinStrength;}
 inline float ImpactDamage(float Strength,int Generation,float Multiplier=1.f) {
     if(!std::isfinite(Strength)||!std::isfinite(Multiplier)||Strength<=0.f) return 0.f;
-    const float Base=6.f+Strength*.045f; // 250 -> 17, 420 -> 25, 800 -> 42
-    return std::min(160.f,Base*std::pow(.7f,float(std::clamp(Generation,0,ImpactMaxGeneration)))*std::max(0.f,Multiplier));
-}
-// The engine reports the contact (AActor::NotifyHit); how hard it was is the launch strength that is left, which fades linearly over the window down to a floor.
-inline float RemainingStrength(float Strength,float Elapsed) {
-    if(!std::isfinite(Strength)||!std::isfinite(Elapsed)||Strength<=0.f||Elapsed<0.f||Elapsed>=ImpactWindow) return 0.f;
-    return Strength*std::max(ImpactSpeedLossFraction,1.f-Elapsed/ImpactWindow);
+    const float Base=10.f+Strength*.055f; // 250 -> 24, 600 -> 43, 950 -> 62 (0.24.2: was 6 + 4.5%); the game also multiplies by the hero's damage scale
+    return std::min(220.f,Base*std::pow(.7f,float(std::clamp(Generation,0,ImpactMaxGeneration)))*std::max(0.f,Multiplier));
 }
 inline float ThrownOnStrength(float Strength) {return std::isfinite(Strength)?Strength*.65f:0.f;} // the body that was hit flies off at 65% of the strength
+// The flight. Horizontal speed and lift grow with strength; airtime is the hop's (gravity 980 cm/s^2, the enemies' gravity scale is 1); the skid that follows brakes with
+// SkidFriction (per second, proportional) and SkidBraking (cm/s^2, constant), the way CharacterMovement brakes a walker. Elites fly a little over half as far as they used to.
+constexpr float LaunchSpeedPerStrength=1.f,LaunchSpeedMax=1500.f,LaunchLiftPerStrength=.30f,LaunchLiftMin=130.f,LaunchLiftMax=360.f,LaunchGravity=980.f;
+constexpr float SkidFriction=3.f,SkidBraking=1000.f,EliteLaunchScale=.55f,LaunchMaxSeconds=1.6f;
+struct Flight {float Horizontal=0.f,Vertical=0.f,Airtime=0.f,Skid=0.f,Seconds=0.f,Distance=0.f;};
+inline float SkidSeconds(float Speed) { // time for the skid's braking (friction plus constant braking) to bring Speed to rest
+    if(!std::isfinite(Speed)||Speed<=0.f) return 0.f;
+    const float Floor=SkidBraking/SkidFriction;return std::log((Speed+Floor)/Floor)/SkidFriction;
+}
+inline float SkidDistance(float Speed) {
+    const float T=SkidSeconds(Speed);if(T<=0.f) return 0.f;
+    const float Floor=SkidBraking/SkidFriction;return (Speed+Floor)/SkidFriction*(1.f-std::exp(-SkidFriction*T))-Floor*T;
+}
+inline Flight LaunchFor(float Strength) {
+    Flight F;if(!std::isfinite(Strength)||Strength<=0.f) return F;
+    F.Horizontal=std::min(LaunchSpeedMax,Strength*LaunchSpeedPerStrength);
+    F.Vertical=std::clamp(Strength*LaunchLiftPerStrength,LaunchLiftMin,LaunchLiftMax);
+    F.Airtime=2.f*F.Vertical/LaunchGravity;F.Skid=SkidSeconds(F.Horizontal);
+    F.Seconds=std::min(LaunchMaxSeconds,F.Airtime+F.Skid);F.Distance=F.Horizontal*F.Airtime+SkidDistance(F.Horizontal);
+    return F;
+}
+// A contact counts while the body still moves at ImpactMinSpeed or more; how hard it hits is the launch strength scaled by how much of the launch speed is left.
+constexpr float ImpactMinSpeed=260.f,ImpactContactSlack=30.f; // slack: added to the two capsule radii to call two bodies touching
+inline float ContactStrength(float Strength,float LaunchSpeed,float SpeedNow) {
+    if(!std::isfinite(Strength)||!std::isfinite(LaunchSpeed)||!std::isfinite(SpeedNow)||Strength<=0.f||LaunchSpeed<=0.f||SpeedNow<ImpactMinSpeed) return 0.f;
+    return Strength*std::min(1.f,SpeedNow/LaunchSpeed);
+}
+// After a wall slam the body rebounds off the wall at a fraction of its speed with a small lift, and is dazed for a moment (a window to punish it).
+constexpr float SlamBounce=.35f,SlamBounceLift=170.f,SlamDaze=.5f,PileCarry=.3f; // PileCarry: the share of its speed a projectile keeps after striking another body
+// Two bodies only collide if one is closing on the other: a crowd flung together by one slam flies side by side and must not count as a pile-up (the in-engine check found that).
+constexpr float PileClosingSpeed=160.f;
+inline bool Closing(float RelativeSpeedAlongContact) {return std::isfinite(RelativeSpeedAlongContact)&&RelativeSpeedAlongContact>=PileClosingSpeed;}
 
 // ---- C-6 metamorphoses: at MAX rank four traits change what they do (rank equal to the catalogue maximum) ----
 enum class Metamorphosis : int {None=0,Wildfire,Shatter,Pinball,StormWeb,Count};

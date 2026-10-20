@@ -52,7 +52,8 @@ AASEnemy::AASEnemy() {
 }
 void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnProtectedUntil=AS::Time(this)+2.f;
     if(HasAuthority()&&Kind==ASEnemyRules::Brute&&!bTrainingDummy&&Mutation==ASEnemyRules::MutationNone) Mutation=uint8(ASEnemyRules::MutationFromRoll(FMath::RandRange(0,3))); // every elite brute spawns mutated
-   if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();}
+   if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();
+   BaseFriction=GetCharacterMovement()->GroundFriction;} // a launch's skid lowers the friction for a moment (TickKnock restores this)
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
@@ -173,17 +174,17 @@ void AASEnemy::EndWindup() {
     Ability=uint8(ER::AbilityNone);LeapUntil=ChargeUntil=DiveUntil=HopUntil=0;bTraversalLeap=false;RiposteAt=-1.f;bParryBlocked=false;Flags&=uint8(0xFFu&~ASEnemyRules::FlagPackCall); // a stunned or interrupted charge, leap, dive, hop or stance does not resume afterwards
     SetAIState(ER::StateApproach);ForceNetUpdate(); // the replicated flags are what every machine draws the ground warning and the pose from
 }
-void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup) {
+void AASEnemy::ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup,float Pool) {
     if(!HasAuthority()||!IsValid(Source)||!Source->CanDamage(this)) return;
     RegisterCoopElement(Type,Source,Power);
     // A synergy can kill this very target; do not keep applying status to a dead actor.
     if(!IsValid(this)||Health<=0) return;
     if(Type==EASHitKind::Frost&&Power<=0) Elements.Frost=FMath::Max(Elements.Frost,12.f);
-    else Elements.Apply(int(Type),Power,Boss(),ASBuild::StatusDuration(Source->TraitValue(ASBuild::Trait::Duration)),Buildup);
-    if(Type==EASHitKind::Burn) BurnSource=Source;if(Type==EASHitKind::Poison) PoisonSource=Source;if(Type==EASHitKind::Bleed) BleedSource=Source;
+    else Elements.Apply(int(Type),Power,Boss(),ASBuild::StatusDuration(Source->TraitValue(ASBuild::Trait::Duration)),Buildup,Pool);
+    if(Type==EASHitKind::Burn) BurnSource=Source;if(Type==EASHitKind::Poison) PoisonSource=Source;if(Type==EASHitKind::Bleed) BleedSource=Source;if(Type==EASHitKind::Frost&&Pool>0.f) FrostSource=Source;
 }
 bool AASEnemy::TickElements(float Delta) {
-    const auto Damage=Elements.Tick(Delta);BurnPending+=Damage.first;PoisonPending+=Damage.second;BleedPending+=Elements.BleedDamage;
+    const auto Damage=Elements.Tick(Delta);BurnPending+=Damage.first;PoisonPending+=Damage.second;BleedPending+=Elements.BleedDamage;FrostPending+=Elements.FrostDamage;
     const uint8 Bits=(Elements.Burn>0?1:0)|(Elements.Poison>0?2:0)|(Elements.Frost>0?4:0)|(Elements.Frozen>0?8:0)|(Elements.Bleed>0?16:0);
     if(StatusBits!=Bits) {StatusBits=Bits;ForceNetUpdate();}
     const float Now=AS::Time(this);
@@ -191,13 +192,15 @@ bool AASEnemy::TickElements(float Delta) {
         NextStatusDamage=Now+.5f;
         auto Apply=[this](float& Pending,TWeakObjectPtr<AASCharacter> Source,EASHitKind Type) {
             const float Amount=Pending;Pending=0;if(Amount<=0||!Source.IsValid()||!Source->CanDamage(this)) return false;
-            const FVector P=GetActorLocation()+FVector(0,0,80);
-            if(auto* PC=Cast<AASPlayerController>(Source->GetController())) PC->DamageNumber(P,Amount*Source->ElementalDamageMultiplier(),false,Type);
-            return Hit(Amount*Source->ElementalDamageMultiplier(),Source.Get(),false); // Attunement scales status damage; DOT does not crit or trigger on-hit effects (and no guard holds against it).
+            const FVector P=GetActorLocation()+FVector(0,0,80);const float Before=Health;
+            const bool Killed=Hit(Amount*Source->ElementalDamageMultiplier(),Source.Get(),false); // Attunement scales status damage; DOT does not crit or trigger on-hit effects (and no guard holds against it).
+            if(auto* PC=Cast<AASPlayerController>(Source->GetController())) PC->DamageNumber(P,Killed?Before:Before-Health,false,Type); // the number shows what was dealt (frost brittleness included)
+            return Killed;
         };
         if(Apply(BurnPending,BurnSource,EASHitKind::Burn)) return false;
         if(Apply(PoisonPending,PoisonSource,EASHitKind::Poison)) return false;
         if(Apply(BleedPending,BleedSource,EASHitKind::Bleed)) return false;
+        if(Apply(FrostPending,FrostSource,EASHitKind::Frost)) return false; // 0.24.2: frostbite
     }
     return true;
 }
@@ -206,7 +209,7 @@ void AASEnemy::Tick(float Delta) {
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
-    if(HasAuthority()) TickKnock(S->SimTime);
+    if(HasAuthority()) TickKnock(S->SimTime,Delta);
     const bool ShowWarning=bWinding&&!bTrainingDummy&&!SpawnProtected()&&ShowsStrikeCircle(); // a ground warning means "damage lands in exactly this shape when it fills"
     Tell->SetVisibility(ShowWarning);TellFill->SetVisibility(ShowWarning);
     Beam->SetVisibility(Kind==8&&bWinding&&!bTrainingDummy); // 0.24: this call used to sit inside a comment, so the sniper's aiming beam never showed
@@ -238,6 +241,10 @@ void AASEnemy::Tick(float Delta) {
         GetCharacterMovement()->StopMovementImmediately();
         if(S->SimTime-LastDamageTime>5.f) {Health=MaxHealth;Elements=ASRules::ElementState();}
         return;
+    }
+    if(Launched(S->SimTime)&&!Flies()) { // 0.24.2: a launched walker flies and skids on its own - nothing steers it or stops it dead until it comes to rest (fliers: TickFlier)
+        if(GetActorLocation().Z<-500&&S->Arena) {SetActorLocation(S->Arena->SafeEnemyPoint(GetActorLocation()),false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();KnockUntil=0.f;bKnocked=false;}
+        StuckFor=0;LastRoutePosition=GetActorLocation();return;
     }
     if(Elements.Frozen>0||StunUntil>S->SimTime) {GetCharacterMovement()->StopMovementImmediately();EndWindup();NextAttack=FMath::Max(NextAttack,S->SimTime+.25f);StuckFor=0;return;}
     AASCharacter* Target=nullptr;float Best=FLT_MAX;
@@ -540,6 +547,7 @@ bool AASEnemy::Hit(float Damage,AASCharacter* Source,bool bDirect) {
             }
         }
     }
+    Damage*=ASRules::FrostVulnerability(Elements.Frost,Elements.Frozen); // 0.24.2: a chilled body is brittle, a frozen one more so
     if(FirstEngagedAt<0) FirstEngagedAt=AS::Time(this);
     if(IsValid(Source)&&!bTrainingDummy) if(auto* Player=Source->GetPlayerState<AASPlayerState>()) Player->RunDamage=FMath::Min(1.e12f,Player->RunDamage+FMath::Min(Damage,Health));
     if(!Blocked) BeginHitReaction(IsValid(Source)?Source->GetActorLocation():GetActorLocation()-GetActorForwardVector(),Damage>=MaxHealth*.12f); // a blocked blow does not stagger it
@@ -556,18 +564,33 @@ bool AASEnemy::Hit(float Damage,AASCharacter* Source,bool bDirect) {
     return false;
 }
 
-void AASEnemy::Control(int32 Type,const FVector& Direction,float Strength,int32 Generation) {
+void AASEnemy::Control(int32 Type,const FVector& Direction,float Strength,int32 Generation,AASCharacter* Source) {
     if(!HasAuthority()||SpawnProtected()||bTrainingDummy||Health<=0) return;
     const float Now=AS::Time(this);
     if(Type==0&&Strength>=700.f) BeginHitReaction(GetActorLocation()-Direction,true);
     if(Boss()) return;
     if(Type==0) {
-        const float Launch=Strength*(Elite()?.5f:1.f);
-        LaunchCharacter(Direction.GetSafeNormal2D()*Launch,true,false);
-        // 0.24 C-2: remember who launched it (the last hero to hit it, if that was recent) so a wall slam or a pile-up is credited and can chain.
-        if(Generation>=0&&ASPartC::ImpactWorthy(Launch)) {
-            bKnocked=true;KnockStart=Now;KnockStrength=Launch;KnockGeneration=FMath::Clamp(Generation,0,ASPartC::ImpactMaxGeneration);NextImpactAt=Now;
-            if(Generation==0) KnockSource=(LastHitter.IsValid()&&Now-LastHitTime<1.5f)?LastHitter:TWeakObjectPtr<AASCharacter>();
+        const FVector Dir=Direction.GetSafeNormal2D();if(Dir.IsNearlyZero()||!FMath::IsFinite(Strength)||Strength<=0.f) return;
+        const float Launch=Strength*(Elite()?ASPartC::EliteLaunchScale:1.f);
+        auto* Move=GetCharacterMovement();
+        if(Generation<0) {LaunchCharacter(Dir*Launch,true,false);return;} // a gravity pull drags along the floor as it always did: not a launch, no hop, no impacts
+        // 0.24.2 (F1-F3): a launch is a hop and a skid (ASPartC::LaunchFor) with the AI suspended until the body comes to rest. A light knock (below ImpactMinStrength) does not
+        // move an enemy that is committed to an attack (it would only be stopped dead again); a hard launch knocks it out of whatever it was doing.
+        namespace ER=ASEnemyRules;
+        const bool Hard=ASPartC::ImpactWorthy(Launch),Committed=AIState==ER::StateWindup||AIState==ER::StateSpecial||AIState==ER::StateAttack;
+        if(!Hard&&Committed) return;
+        if(Hard) EndWindup();
+        const ASPartC::Flight F=ASPartC::LaunchFor(Launch);
+        Flags|=uint8(ER::FlagLaunched); // every machine poses it thrown until it comes to rest
+        if(Flies()) {Move->Velocity=Dir*F.Horizontal;KnockUntil=Now+FMath::Min(.5f,F.Seconds);ForceNetUpdate();return;} // fliers drift back through the air (TickFlier slows them, keeps them in the arena; no world collision, so no slams)
+        LaunchCharacter(Dir*F.Horizontal+FVector(0.f,0.f,F.Vertical),true,true);
+        Move->GroundFriction=ASPartC::SkidFriction;Move->BrakingDecelerationWalking=ASPartC::SkidBraking;bSkidFriction=true;
+        KnockUntil=Now+F.Seconds;ForceNetUpdate();
+        if(Hard) { // remember who launched it so a wall slam or a pile-up is credited and can chain
+            bKnocked=true;KnockStart=Now;KnockStrength=Launch;KnockSpeed=F.Horizontal;KnockVelocity=Dir*F.Horizontal;
+            KnockGeneration=FMath::Clamp(Generation,0,ASPartC::ImpactMaxGeneration);NextImpactAt=Now;
+            if(Generation==0) KnockSource=IsValid(Source)?TWeakObjectPtr<AASCharacter>(Source):((LastHitter.IsValid()&&Now-LastHitTime<1.5f)?LastHitter:TWeakObjectPtr<AASCharacter>());
+            UE_LOG(LogTemp,Display,TEXT("AshenKnock: launch kind %d strength %.0f generation %d: %.0f cm/s out, %.0f up, ~%.0f cm over %.2f s%s"),Kind,Launch,KnockGeneration,F.Horizontal,F.Vertical,F.Distance,F.Seconds,KnockSource.IsValid()?TEXT(""):TEXT(" (no hero to credit)"));
         }
     }
     if(Type==1&&Now>=StunImmuneUntil) {StunUntil=Now+.4f;StunImmuneUntil=Now+2.f;EndWindup();}
@@ -578,42 +601,92 @@ void AASEnemy::ImpactHurt(AASEnemy* Victim,float Strength,int32 Generation) {
     AASCharacter* Hero=KnockSource.Get();
     if(!HasAuthority()||!IsValid(Victim)||Victim->Health<=0||!IsValid(Hero)) return;
     const float Multiplier=Hero->Metamorphosed(ASPartC::Metamorphosis::Pinball)?ASPartC::PinballImpactMultiplier:1.f; // C-6 Pinball
-    const float Damage=ASPartC::ImpactDamage(Strength,Generation,Multiplier);
+    const float Damage=ASPartC::ImpactDamage(Strength,Generation,Multiplier)*Hero->DamageScale(false); // 0.24.2: impacts grow with the hero's damage like every other source
     if(Damage<=0.f) return;
-    if(auto* S=AS::State(this)) S->Effect(5,Victim->GetActorLocation()+FVector(0,0,50),FVector::UpVector,FLinearColor(1.f,.95f,.8f),90.f);
     if(auto* Player=Hero->GetPlayerState<AASPlayerState>()) Player->RunImpacts=FMath::Min(Player->RunImpacts+1,100000);
     Hero->SecondaryDamage(Victim,Damage,EASHitKind::Physical);
 }
-void AASEnemy::TickKnock(float Now) {
+void AASEnemy::TickKnock(float Now,float Delta) {
+    auto* Move=GetCharacterMovement();
+    if(bSkidFriction&&!Launched(Now)) {bSkidFriction=false;if(Move) Move->GroundFriction=BaseFriction;} // the skid is over: the walker's own friction (TickGround sets its braking every tick)
+    if((Flags&ASEnemyRules::FlagLaunched)&&!Launched(Now)) {Flags&=uint8(0xFFu&~ASEnemyRules::FlagLaunched);ForceNetUpdate();}
     if(!bKnocked) return;
-    auto* S=AS::State(this);const float Elapsed=Now-KnockStart;
-    if(!S||Health<=0||Elapsed>=ASPartC::ImpactWindow) {bKnocked=false;return;}
+    auto* S=AS::State(this);
+    if(!S||!Move||Health<=0||!Launched(Now)) {bKnocked=false;return;}
+    const FVector V=GetVelocity(),Flat(V.X,V.Y,0.f),Previous=KnockVelocity;
+    const float Speed=Flat.Size(),PreviousSpeed=Previous.Size();
+    KnockVelocity=Flat;
     if(Now<NextImpactAt) return;
-    const float Strength=ASPartC::RemainingStrength(KnockStrength,Elapsed);
-    if(Strength<ASPartC::ImpactMinStrength*.5f) return;
-    const FVector Here=GetActorLocation();const FVector Heading=GetVelocity().GetSafeNormal2D();
+    const FVector Heading=PreviousSpeed>1.f?Previous/PreviousSpeed:Flat.GetSafeNormal();
+    const float Strength=ASPartC::ContactStrength(KnockStrength,KnockSpeed,FMath::Max(Speed,PreviousSpeed));
+    if(Heading.IsNearlyZero()||Strength<=0.f) {if(FMath::Max(Speed,PreviousSpeed)<ASPartC::ImpactMinSpeed) bKnocked=false;return;} // too slow to hurt anything any more
+    const FVector Here=GetActorLocation();
+    const float Radius=GetCapsuleComponent()->GetScaledCapsuleRadius(),Half=GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    // 1. Another enemy in the way (capsules block each other, so the contact is at about the sum of the radii; only bodies ahead of the flight count).
     const auto Enemies=S->Enemies;
-    for(auto W:Enemies) if(auto* N=W.Get()) if(N!=this&&N->Health>0&&!N->bTrainingDummy&&!N->SpawnProtected()&&FVector::DistSquared2D(Here,N->GetActorLocation())<FMath::Square(ASPartC::ImpactEnemyRadius)) {
-        // enemy into enemy: both are hurt (the one that was struck less than the projectile), and the struck one is thrown on in the direction of travel
-        NextImpactAt=Now+ASPartC::ImpactCooldown;bKnocked=false;
-        ImpactHurt(N,Strength,KnockGeneration);ImpactHurt(this,Strength*.5f,KnockGeneration);
-        if(IsValid(N)&&N->Health>0&&KnockGeneration<ASPartC::ImpactMaxGeneration) {
-            N->KnockSource=KnockSource;
-            const FVector Away=Heading.IsNearlyZero()?(N->GetActorLocation()-Here).GetSafeNormal2D():Heading;
-            N->Control(0,Away,ASPartC::ThrownOnStrength(Strength),KnockGeneration+1);
-        }
-        return;
+    for(auto W:Enemies) if(auto* N=W.Get()) if(N!=this&&N->Health>0&&!N->bTrainingDummy&&!N->SpawnProtected()) {
+        const FVector To=N->GetActorLocation()-Here;const float Reach=Radius+N->GetCapsuleComponent()->GetScaledCapsuleRadius()+ASPartC::ImpactContactSlack;
+        if(To.SizeSquared2D()<Reach*Reach&&FMath::Abs(To.Z)<Half+N->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()&&FVector::DotProduct(To.GetSafeNormal2D(),Heading)>.2f
+            &&ASPartC::Closing(FVector::DotProduct(FVector(V.X,V.Y,0.f)-FVector(N->GetVelocity().X,N->GetVelocity().Y,0.f),To.GetSafeNormal2D()))) {PileInto(N,Strength,Heading);return;} // bodies flung side by side do not collide
     }
+    // 2. A wall ahead: sweep a slightly shrunk capsule (it cannot touch the floor) along the flight, one tick and a bit ahead. World geometry, cover proxies and props count.
+    FCollisionObjectQueryParams Objects;Objects.AddObjectTypesToQuery(ECC_WorldStatic);Objects.AddObjectTypesToQuery(ECC_WorldDynamic);
+    const FCollisionQueryParams Params(SCENE_QUERY_STAT(ASKnockSweep),false,this);
+    const float Ahead=FMath::Max(Speed,PreviousSpeed)*FMath::Clamp(Delta,0.f,.1f)*1.5f+14.f;
+    FHitResult Hit;
+    if(GetWorld()->SweepSingleByObjectType(Hit,Here,Here+Heading*Ahead,FQuat::Identity,Objects,FCollisionShape::MakeCapsule(Radius*.92f,Half*.6f),Params)&&Hit.bBlockingHit&&!Hit.bStartPenetrating
+        &&FMath::Abs(Hit.ImpactNormal.Z)<.5f&&FVector::DotProduct(-Hit.ImpactNormal.GetSafeNormal2D(),Heading)>.3f) {WallSlam(Hit.ImpactNormal,Hit.ImpactPoint,Strength,Hit.GetActor());return;}
+    // 3. Stopped short between two ticks (the engine resolved the contact before the sweep saw it): if a wall is right there along the old heading, that was a slam.
+    if(PreviousSpeed>=ASPartC::ImpactMinSpeed&&Speed<PreviousSpeed*.4f) {
+        FHitResult Near;
+        if(GetWorld()->LineTraceSingleByObjectType(Near,Here,Here+Heading*(Radius+40.f),Objects,Params)&&FMath::Abs(Near.ImpactNormal.Z)<.5f) WallSlam(Near.ImpactNormal,Near.ImpactPoint,ASPartC::ContactStrength(KnockStrength,KnockSpeed,PreviousSpeed),Near.GetActor());
+    }
+}
+void AASEnemy::WallSlam(const FVector& Normal,const FVector& At,float Strength,AActor* Struck) {
+    auto* S=AS::State(this);const float Now=AS::Time(this);
+    if(!HasAuthority()||!S||Health<=0||Strength<=0.f) return;
+    NextImpactAt=Now+ASPartC::ImpactCooldown;bKnocked=false;
+    const FVector Wall=FVector(Normal.X,Normal.Y,0.f).GetSafeNormal();
+    // Dust and grit burst off the wall where the body struck, with the thud of a heavy blow.
+    UE_LOG(LogTemp,Display,TEXT("AshenKnock: wall slam kind %d strength %.0f generation %d at %s against %s"),Kind,Strength,KnockGeneration,*At.ToCompactString(),Struck?*Struck->GetName():TEXT("?"));
+    S->Effect(11,At+Wall*12.f,Wall,FLinearColor(.62f,.56f,.50f),1.7f);
+    S->Effect(5,At+Wall*18.f,Wall,FLinearColor(1.f,.92f,.78f),110.f);
+    if(auto* Prop=Cast<AASBreakable>(Struck)) if(AASCharacter* Hero=KnockSource.Get()) Prop->Strike(Hero,ASPartC::ImpactDamage(Strength,KnockGeneration)); // a launched body smashes crates and crystals too
+    ImpactHurt(this,Strength,KnockGeneration);
+    if(!IsValid(this)||Health<=0) return;
+    // It rebounds off the wall a little, then is dazed for a moment (a window to punish it).
+    const FVector V=KnockVelocity.IsNearlyZero()?GetVelocity():KnockVelocity;const FVector Flat(V.X,V.Y,0.f);
+    const FVector Bounce=Wall.IsNearlyZero()?-Flat*ASPartC::SlamBounce:(Flat-2.f*FVector::DotProduct(Flat,Wall)*Wall)*ASPartC::SlamBounce;
+    LaunchCharacter(Bounce+FVector(0.f,0.f,ASPartC::SlamBounceLift),true,true);
+    KnockUntil=FMath::Max(KnockUntil,Now+2.f*ASPartC::SlamBounceLift/ASPartC::LaunchGravity+.15f);StunUntil=FMath::Max(StunUntil,Now+ASPartC::SlamDaze);
+    BeginHitReaction(At,true);ForceNetUpdate();
+}
+void AASEnemy::PileInto(AASEnemy* Other,float Strength,const FVector& Heading) {
+    auto* S=AS::State(this);const float Now=AS::Time(this);
+    if(!HasAuthority()||!S||!IsValid(Other)) return;
+    NextImpactAt=Now+ASPartC::ImpactCooldown;bKnocked=false;
+    const FVector Between=(GetActorLocation()+Other->GetActorLocation())*.5f;
+    UE_LOG(LogTemp,Display,TEXT("AshenKnock: pile-up kind %d into kind %d strength %.0f generation %d at %s"),Kind,Other->Kind,Strength,KnockGeneration,*Between.ToCompactString());
+    S->Effect(11,Between,Heading,FLinearColor(.75f,.70f,.62f),1.2f);S->Effect(5,Between+FVector(0,0,40),FVector::UpVector,FLinearColor(1.f,.95f,.8f),100.f);
+    // enemy into enemy: both are hurt (the one that was struck more than the projectile), the struck one is thrown on along the flight, and the projectile keeps little of its speed
+    ImpactHurt(Other,Strength,KnockGeneration);ImpactHurt(this,Strength*.5f,KnockGeneration);
+    if(IsValid(Other)&&Other->Health>0&&KnockGeneration<ASPartC::ImpactMaxGeneration) {Other->KnockSource=KnockSource;Other->Control(0,Heading,ASPartC::ThrownOnStrength(Strength),KnockGeneration+1);}
+    if(IsValid(this)&&Health>0) if(auto* Move=GetCharacterMovement()) {const FVector V=Move->Velocity;Move->Velocity=FVector(V.X*ASPartC::PileCarry,V.Y*ASPartC::PileCarry,V.Z);KnockVelocity*=ASPartC::PileCarry;}
 }
 void AASEnemy::NotifyHit(UPrimitiveComponent* MyComp,AActor* Other,UPrimitiveComponent* OtherComp,bool bSelfMoved,FVector HitLocation,FVector HitNormal,FVector NormalImpulse,const FHitResult& Hit) {
     Super::NotifyHit(MyComp,Other,OtherComp,bSelfMoved,HitLocation,HitNormal,NormalImpulse,Hit);
-    // 0.24 C-2: a launched enemy meeting the world (not a character) side-on is a wall slam.
-    if(!HasAuthority()||!bKnocked||Health<=0||!IsValid(Other)||Other->IsA<ACharacter>()||FMath::Abs(HitNormal.Z)>.5f) return;
+    // A second opinion on the sweep in TickKnock: the engine reports a contact while a launched body moves. Side-on only (not the floor it lands on); heroes do not count.
+    if(!HasAuthority()||!bKnocked||Health<=0||!IsValid(Other)||FMath::Abs(HitNormal.Z)>.5f) return;
     const float Now=AS::Time(this);if(Now<NextImpactAt) return;
-    const float Strength=ASPartC::RemainingStrength(KnockStrength,Now-KnockStart);
-    if(Strength<ASPartC::ImpactMinStrength*.5f) return;
-    NextImpactAt=Now+ASPartC::ImpactCooldown;bKnocked=false;
-    ImpactHurt(this,Strength,KnockGeneration);
+    const FVector Heading=KnockVelocity.GetSafeNormal2D();if(Heading.IsNearlyZero()||FVector::DotProduct(-FVector(HitNormal.X,HitNormal.Y,0.f).GetSafeNormal(),Heading)<.3f) return;
+    const float Strength=ASPartC::ContactStrength(KnockStrength,KnockSpeed,KnockVelocity.Size());if(Strength<=0.f) return;
+    if(auto* Struck=Cast<AASEnemy>(Other)) {
+        const FVector Toward=(Struck->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
+        if(Struck->Health>0&&!Struck->bTrainingDummy&&!Struck->SpawnProtected()&&ASPartC::Closing(FVector::DotProduct(KnockVelocity-FVector(Struck->GetVelocity().X,Struck->GetVelocity().Y,0.f),Toward))) PileInto(Struck,Strength,Heading);
+        return;
+    }
+    if(Other->IsA<ACharacter>()) return;
+    WallSlam(HitNormal,HitLocation,Strength,Other);
 }
 
 bool AASEnemy::SpawnProtected() const {return Boss()&&AS::Time(this)<SpawnProtectedUntil;}
@@ -689,6 +762,7 @@ void AASEnemy::TickFlier(float Delta,AASCharacter* Target,float DistanceSquared)
     const float Half=GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f;
     ConfineFlight(Half); // first thing every tick: whatever happened last frame, the flier is back inside the arena before it decides anything
     const float Now=S->SimTime;const FVector Here=GetActorLocation(),There=Target->GetActorLocation();
+    if(Launched(Now)) {Move->Velocity*=FMath::Exp(-4.f*Delta);return;} // 0.24.2: knocked back through the air, slowing; it steers again once the knock is over
     const float FloorZ=There.Z-88.f; // the target's feet: fliers hover relative to the fight, not to the terrain under them
     const float LowestZ=ASEnemyRules::ClampFlightHeight(-1.e9f,0.f,Half); // the lowest the flier's centre may ever be: its capsule stays off the floor
     Move->MaxFlySpeed=(Big?ASExpedition::FlyingBossFlySpeed:330.f)*ASArsenal::EnemySpeedScale(Big)*(S->bEndless?ASExpedition::AngerSpeed(S->EndlessWave):1.f);

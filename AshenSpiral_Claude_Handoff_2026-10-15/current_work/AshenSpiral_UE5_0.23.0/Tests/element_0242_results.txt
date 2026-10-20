@@ -1,0 +1,2 @@
+PASS: 393 element checks; pools delivered exactly through refreshes and frame rates, flat parts unchanged, frost brittleness, element parity with Chain Lightning and Impact Bloom on all nine weapons, a simulated minute.
+Shared rules only; Unreal actors, replication and feel were not run.

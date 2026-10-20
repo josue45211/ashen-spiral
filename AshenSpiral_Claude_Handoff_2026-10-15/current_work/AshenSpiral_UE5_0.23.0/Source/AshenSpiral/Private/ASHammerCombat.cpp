@@ -104,7 +104,7 @@ void AASCharacter::ResolveHammerLanding(const FVector& At) {
         &&FVector::DistSquared2D(At,E->GetActorLocation())<FMath::Square(ASHammer::LandingRadius+E->GetCapsuleComponent()->GetScaledCapsuleRadius())
         &&AS::ClearSight(GetWorld(),At+FVector(0,0,55),E->GetActorLocation())) {
         Contact=true;HitEnemy(E,ASHammer::LandingDamage,false,EASHitKind::Physical,true);
-        if(IsValid(E)&&E->Health>0) E->Control(0,E->GetActorLocation()-At,700.f);
+        if(IsValid(E)&&E->Health>0) E->Control(0,E->GetActorLocation()-At,700.f,0,this);
     }
     const auto Props=S->Breakables;
     for(auto W:Props) if(auto* B=W.Get()) if(FVector::DistSquared2D(At,B->GetActorLocation())<FMath::Square(ASHammer::LandingRadius)

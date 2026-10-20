@@ -103,7 +103,8 @@ constexpr int AbilityNone=0,AbilityDive=1,AbilityMolt=2,AbilitySlash=3,AbilitySh
     AbilityBossSlam=24,AbilityBossMarks=25,AbilityBossRing=26,AbilityBossCharge=27,AbilityBossToll=28,AbilityBossSeeds=29,AbilityBossBloom=30,AbilityBossRoots=31,AbilityBossGrasp=32,AbilityBossPhase=33,
     AbilityCount=34; // 24-33: the ward bosses' abilities (each ward's kit is BossKitFor)
 // The replicated byte AASEnemy::Flags (PhaseTwo: a boss that has passed half health and made its roar): bits for what every machine must show about an enemy beyond its state (a tint, a shield, a flash).
-constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u,FlagPhaseTwo=16u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
+constexpr unsigned FlagEnraged=1u,FlagGuardBroken=2u,FlagParryToggle=4u,FlagPackCall=8u,FlagPhaseTwo=16u,FlagLaunched=32u; // ParryToggle flips on every blocked blow, so each machine plays the block's sound and spark once; PackCall: this Gloomwing's wind-up calls the pack
+// FlagLaunched (0.24.2): the body is flying or skidding from a launch (ASPartC::LaunchFor); every machine poses it thrown (no walking gait, arms flung, leaning away from the blow).
 constexpr int TellNone=0,TellSector=1,TellDisc=2,TellLine=3;  // ground warning shapes: a half disc, a full disc, a strip
 constexpr unsigned NeedsClearPath=1u;                        // may only start when a straight walk to the target is clear (leaps and charges)
 constexpr unsigned StanceFlag=2u;                            // a long stance or roar: the Special state, with no strike of its own (a parry, an enrage)

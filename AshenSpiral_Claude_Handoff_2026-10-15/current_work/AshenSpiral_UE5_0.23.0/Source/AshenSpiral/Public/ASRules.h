@@ -326,27 +326,50 @@ inline bool CanAirDash(bool Grounded,bool Falling,int AirDashesUsed,int Capacity
 inline bool CanUseWeapons(int Phase) {return (Phase>=0&&Phase<=3)||Phase==5;}
 inline bool CanGainCombatBenefits(int Phase) {return Phase==2;}
 inline bool CanDamageTarget(int Phase,bool PracticeTarget,bool Cosmetic) {return !Cosmetic&&((Phase==0&&PracticeTarget)||(Phase==2&&!PracticeTarget));}
+// 0.24.2 (F4; playtest: "the hammer appears to get so little - buff elemental across the board to equal effective DPS to other meta builds"): an element proc from a weapon hit
+// now also carries damage PROPORTIONAL TO THE HIT - a pool, delivered evenly over the element's time - the way Chain Lightning and Impact Bloom take a share of the hit, so an
+// element build keeps pace with them on every weapon (both are scaled per weapon by the same on-hit scale; see Tests/element_0242_tests.cpp for the parity it is held to).
+// Before, burn, poison and bleed were a flat 6 / 3x3 / 4x2 damage per second whatever the weapon hit for, and frost did no damage at all; those flat parts remain for the sources
+// that are not hits (fields, wells, auras, the burning cask). Shares are of the hit's dealt damage per proc; the caller multiplies by the proc's magnitude. TUNABLE.
+constexpr float BurnShare=1.8f,PoisonShare=2.1f,BleedShare=1.6f,FrostbiteShare=1.4f,OwnElementShare=.18f;
+inline float ElementShare(int Kind) {return Kind==2?BurnShare:(Kind==3?PoisonShare:(Kind==7?BleedShare:(Kind==4?FrostbiteShare:0.f)));}
+// Frost makes a body brittle: it takes more damage from everything while chilled and more again while frozen (bosses never freeze, so they only chill). TUNABLE.
+constexpr float ChillVulnerability=.15f,FrozenVulnerability=.40f,FrostbiteSeconds=3.f;
+inline float FrostVulnerability(float Frost,float Frozen) {
+    if(std::isfinite(Frozen)&&Frozen>0.f) return 1.f+FrozenVulnerability;
+    return std::isfinite(Frost)&&Frost>0.f?1.f+ChillVulnerability:1.f;
+}
 struct ElementState {
     float Burn=0,Poison=0,Frost=0,Frozen=0,Immune=0,BurnDPS=0,PoisonDPS=0,Bleed=0,BleedDPS=0,BleedDamage=0;
     int PoisonStacks=0,BleedStacks=0;
-    // Buildup (0.24) scales how much frost one application adds (34 at 1); the other elements are scaled through Power. Defaulted so older callers are unchanged.
-    void Apply(int Kind,float Power,bool BossTarget,float Duration=1.f,float Buildup=1.f) {
+    // 0.24.2: damage still owed by hit-scaled procs (see ElementShare), drained evenly over what is left of each element's time; Chill is frostbite's own timer.
+    float BurnPool=0,PoisonPool=0,BleedPool=0,FrostPool=0,Chill=0,FrostDamage=0;
+    // Buildup (0.24) scales how much frost one application adds (34 at 1); the other elements are scaled through Power. Pool (0.24.2) is extra damage the proc delivers over its
+    // time. Defaulted so older callers are unchanged. Duration (Lingering Affliction) stretches a pool's time and grows it alike, so its damage per second is kept.
+    void Apply(int Kind,float Power,bool BossTarget,float Duration=1.f,float Buildup=1.f,float Pool=0.f) {
         Duration=std::clamp(Duration,1.f,1.8f);
         Power=std::max(0.f,Power);
-        if(Kind==2) {Burn=3*Duration;BurnDPS=std::max(BurnDPS,6.f*Power);}
-        if(Kind==3) {Poison=4*Duration;PoisonStacks=std::min(3,PoisonStacks+1);PoisonDPS=std::max(PoisonDPS,3.f*Power);}
-        if(Kind==7) {Bleed=3*Duration;BleedStacks=std::min(2,BleedStacks+1);BleedDPS=std::max(BleedDPS,4.f*Power);}
-        if(Kind==4) {Frost=std::min(100.f,Frost+34.f*std::clamp(std::isfinite(Buildup)?Buildup:1.f,0.f,4.f));if(Frost>=100&&Immune<=0) {Frozen=BossTarget?0.f:.8f;Immune=3.8f;Frost=70;}}
+        Pool=std::isfinite(Pool)?std::clamp(Pool,0.f,1.e6f)*Duration:0.f;
+        if(Kind==2) {Burn=3*Duration;BurnDPS=std::max(BurnDPS,6.f*Power);BurnPool=std::min(1.e7f,BurnPool+Pool);}
+        if(Kind==3) {Poison=4*Duration;PoisonStacks=std::min(3,PoisonStacks+1);PoisonDPS=std::max(PoisonDPS,3.f*Power);PoisonPool=std::min(1.e7f,PoisonPool+Pool);}
+        if(Kind==7) {Bleed=3*Duration;BleedStacks=std::min(2,BleedStacks+1);BleedDPS=std::max(BleedDPS,4.f*Power);BleedPool=std::min(1.e7f,BleedPool+Pool);}
+        if(Kind==4) {
+            Frost=std::min(100.f,Frost+34.f*std::clamp(std::isfinite(Buildup)?Buildup:1.f,0.f,4.f));if(Frost>=100&&Immune<=0) {Frozen=BossTarget?0.f:.8f;Immune=3.8f;Frost=70;}
+            if(Pool>0.f) {Chill=FrostbiteSeconds*Duration;FrostPool=std::min(1.e7f,FrostPool+Pool);}
+        }
     }
+    static float Drain(float& Pool,float Time,float Delta) {const float Part=Pool<=0.f?0.f:(Time>Delta?Pool*Delta/Time:Pool);Pool-=Part;return Part;}
     std::pair<float,float> Tick(float Delta) {
-        BleedDamage=0;if(!std::isfinite(Delta)||Delta<=0) return {0.f,0.f};
-        const float FireDamage=std::min(Delta,Burn)*BurnDPS,PoisonDamage=std::min(Delta,Poison)*PoisonDPS*PoisonStacks;
-        BleedDamage=std::min(Delta,Bleed)*BleedDPS*BleedStacks;Bleed=std::max(0.f,Bleed-Delta);
+        BleedDamage=0;FrostDamage=0;if(!std::isfinite(Delta)||Delta<=0) return {0.f,0.f};
+        const float FireDamage=std::min(Delta,Burn)*BurnDPS+Drain(BurnPool,Burn,Delta),PoisonDamage=std::min(Delta,Poison)*PoisonDPS*PoisonStacks+Drain(PoisonPool,Poison,Delta);
+        BleedDamage=std::min(Delta,Bleed)*BleedDPS*BleedStacks+Drain(BleedPool,Bleed,Delta);Bleed=std::max(0.f,Bleed-Delta);
+        FrostDamage=Drain(FrostPool,Chill,Delta);Chill=std::max(0.f,Chill-Delta);
         Burn=std::max(0.f,Burn-Delta);Poison=std::max(0.f,Poison-Delta);Frost=std::max(0.f,Frost-Delta*12.f);
         Frozen=std::max(0.f,Frozen-Delta);Immune=std::max(0.f,Immune-Delta);
-        if(Bleed<=0) {BleedDPS=0;BleedStacks=0;}
-        if(Burn<=0) BurnDPS=0;
-        if(Poison<=0) {PoisonStacks=0;PoisonDPS=0;}
+        if(Bleed<=0) {BleedDPS=0;BleedStacks=0;BleedPool=0;}
+        if(Burn<=0) {BurnDPS=0;BurnPool=0;}
+        if(Poison<=0) {PoisonStacks=0;PoisonDPS=0;PoisonPool=0;}
+        if(Chill<=0) FrostPool=0;
         return {FireDamage,PoisonDamage};
     }
 };

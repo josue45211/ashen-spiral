@@ -45,11 +45,20 @@ public:
     UPROPERTY(Replicated) float HitReactionStrength=0.f;
     UPROPERTY(Replicated) FVector_NetQuantizeNormal HitReactionDirection=FVector::BackwardVector;
     void BeginHitReaction(const FVector& SourceLocation,bool Heavy);
-    void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup=1.f); // Buildup scales the frost added per application (0.24 on-hit reward scaling)
-    void Control(int32 Type,const FVector& Direction,float Strength,int32 Generation=0); // Generation: 0 = launched by a hero, 1+ = thrown on by another launched enemy (ASPartC::ImpactMaxGeneration), -1 = not a launch (a gravity pull)
-    // 0.24 C-2 (server only): a hard launch makes this body a projectile for ASPartC::ImpactWindow seconds; hitting a wall or another enemy hurts, and a struck enemy is thrown on.
-    bool bKnocked=false;float KnockStart=-10.f,KnockStrength=0.f,NextImpactAt=0.f;int32 KnockGeneration=0;TWeakObjectPtr<AASCharacter> KnockSource;
-    void TickKnock(float Now);
+    // Buildup scales the frost added per application (0.24 on-hit reward scaling); Pool (0.24.2) is damage the proc delivers over the element's time (ASRules::ElementShare of the hit)
+    void ApplyElement(EASHitKind Type,AASCharacter* Source,float Power,float Buildup=1.f,float Pool=0.f);
+    // Generation: 0 = launched by a hero, 1+ = thrown on by another launched enemy (ASPartC::ImpactMaxGeneration), -1 = not a launch (a gravity pull). Source: the hero behind a launch
+    // (0.24.2: Repulse deals no damage, so the old "last hitter" guess left its launches uncredited and their slams harmless).
+    void Control(int32 Type,const FVector& Direction,float Strength,int32 Generation=0,AASCharacter* Source=nullptr);
+    // 0.24 C-2 / 0.24.2 F1-F3 (server only): a launch is a short hop and a skid (ASPartC::LaunchFor) during which the AI is suspended (Launched); a hard one also makes the body a
+    // projectile: every tick sweeps ahead along its flight for a wall (WallSlam) or another enemy (PileInto), and NotifyHit is a second opinion.
+    bool bKnocked=false;float KnockStart=-10.f,KnockStrength=0.f,KnockSpeed=0.f,KnockUntil=-10.f,NextImpactAt=0.f;int32 KnockGeneration=0;TWeakObjectPtr<AASCharacter> KnockSource;
+    FVector KnockVelocity=FVector::ZeroVector; // the horizontal velocity at the last tick: the speed a body had before something stopped it
+    bool bSkidFriction=false;float BaseFriction=8.f; // the walker's own ground friction comes back when the skid ends
+    bool Launched(float Now) const {return Now<KnockUntil;}
+    void TickKnock(float Now,float Delta);
+    void WallSlam(const FVector& Normal,const FVector& At,float Strength,AActor* Struck);
+    void PileInto(AASEnemy* Other,float Strength,const FVector& Heading);
     void ImpactHurt(AASEnemy* Victim,float Strength,int32 Generation); // impact damage credited to the hero who launched it (nothing without one), then counted for the death screen
     virtual void NotifyHit(UPrimitiveComponent* MyComp,AActor* Other,UPrimitiveComponent* OtherComp,bool bSelfMoved,FVector HitLocation,FVector HitNormal,FVector NormalImpulse,const FHitResult& Hit) override;
     void EndWindup(); // authority: abandons whatever attack is in progress (windup, committed motion, recovery) and returns to moving, so the ground warning can never outlive the attack
@@ -78,6 +87,8 @@ private:
     void AnimateArmor(float Delta,float Windup);
     void ApplyRig(const ASEnemyPose::RigOut& Out,float HalfHeight,float Fade); // puts a solved pose on the armour components, the weapon, the shield and the figure (Fade scales the whole figure)
     void AnimateBlob();         // 0.24: the leaper and the broodcaller (one body) squash, stretch and tip from the same ability tracks as the armour rig
+    void ThrownPose(float* D,const FVector& LocalVelocity,float Delta); // 0.24.2: adds the flung pose of a launched body (FlagLaunched) to the track's channels
+    float ThrownAmount=0.f;
     float PoseTime(float Now);  // track time (ASEnemyPose::AbilityU) of the ability pose that is playing, or -1; remembers the ability after the replicated one resets
     int32 PoseAbility=0;
     int32 DeathVariant=-1;      // which baked Mannequin collapse this enemy plays (ASEnemyPose::DeathVariantFor), chosen when its death is first seen
@@ -110,8 +121,8 @@ private:
     float SynergyTimes[9]={-100,-100,-100,-100,-100,-100,-100,-100,-100};
     float NextSynergy=0;
 
-    TWeakObjectPtr<AASCharacter> BurnSource,PoisonSource,BleedSource;
-    float BurnPending=0,PoisonPending=0,BleedPending=0,NextStatusDamage=0;
+    TWeakObjectPtr<AASCharacter> BurnSource,PoisonSource,BleedSource,FrostSource;
+    float BurnPending=0,PoisonPending=0,BleedPending=0,FrostPending=0,NextStatusDamage=0;
     bool TickElements(float Delta);
     float NextAttack=0,NextRoute=0,ChargeUntil=0,LastContact=0,NextStuckCheck=0,StuckFor=0,NextSummon=0;
     float LeapUntil=0,BodyScale=1;

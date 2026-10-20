@@ -112,7 +112,7 @@ public:
     // 0.24 Part C (server only): C-3 perfect dash, C-1 proc chains, C-6 metamorphoses.
     float DashInvulEnd=0,LastPerfectDashAt=-100.f,NextProcChain=0,PerfectBoostUntil=0; // PerfectBoostUntil: the perfect-dash damage boost lasts until then
     void OnPerfectDash();
-    void ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited); // an element proc jumps to a neighbour (ASPartC::ChainMaxDepth hops, weaker each time)
+    void ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,float Pool,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited); // an element proc jumps to a neighbour (ASPartC::ChainMaxDepth hops, weaker each time) Pool (0.24.2): the proc's hit-scaled damage, carried at the echo's strength
     bool Metamorphosed(ASPartC::Metamorphosis M) const; // the trait behind M is at its catalogue maximum
     void NoteMetamorphosis(ASPartC::Metamorphosis M);   // first time per run: banner + the run fact for the death screen
     int32 WildfireDepth=0;                               // recursion guard: explosions that kill burning enemies set off more

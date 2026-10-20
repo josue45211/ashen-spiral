@@ -74,7 +74,7 @@ void AASCharacter::NoteMetamorphosis(ASPartC::Metamorphosis M) {
     if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(FString::Printf(TEXT("%s / %s"),UTF8_TO_TCHAR(ASPartC::MetamorphosisName(M)),UTF8_TO_TCHAR(ASPartC::MetamorphosisText(M))));
 }
 // 0.24 C-1: an element proc jumps from enemy to enemy (depth 0 -> 1 -> 2), weaker each hop. Visited keeps it from bouncing back; the caller owns the per-chain cooldown.
-void AASCharacter::ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited) {
+void AASCharacter::ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,float Pool,int32 Depth,TSet<TWeakObjectPtr<AASEnemy>>& Visited) {
     auto* S=AS::State(this);if(!HasAuthority()||!S||!IsValid(From)||!ASPartC::ChainMayContinue(Depth)||!FMath::IsFinite(Power)||Power<=0.f) return;
     AASEnemy* Best=nullptr;float Distance=FMath::Square(ASPartC::ChainRange*AreaScale());const FVector Start=From->GetActorLocation();
     const auto Enemies=S->Enemies;
@@ -86,8 +86,8 @@ void AASCharacter::ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,int32 Dep
     Visited.Add(Best);const FVector End=Best->GetActorLocation();const float Magnitude=ASPartC::ChainMagnitude(Depth);
     S->Effect(9,Start+FVector(0,0,50),(End-Start).GetSafeNormal(),ASData::HitColor(Kind),FVector::Distance(Start,End));
     if(auto* Player=GetPlayerState<AASPlayerState>()) Player->RunEchoes=FMath::Min(Player->RunEchoes+1,100000);
-    Best->ApplyElement(Kind,this,Power*Magnitude,Magnitude);
-    ProcEcho(Best,Kind,Power,Depth+1,Visited);
+    Best->ApplyElement(Kind,this,Power*Magnitude,Magnitude,Pool*Magnitude);
+    ProcEcho(Best,Kind,Power,Pool,Depth+1,Visited);
 }
 void AASCharacter::ResetTraits() {
     TraitRanks.Init(0,ASBuild::Count);EvolutionMask=0;LastUpgrade=-1;Rerolls=1;CurseStacks=0;Focus=60;NextRune=0;
@@ -173,20 +173,22 @@ void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
     if(IsValid(E)&&E->Health>0) {
         const Trait Types[]={Trait::Burn,Trait::Poison,Trait::Bleed,Trait::Frost};
         const EASHitKind Kinds[]={EASHitKind::Burn,EASHitKind::Poison,EASHitKind::Bleed,EASHitKind::Frost};
-        int32 Fired=-1;float FiredPower=0.f;
+        int32 Fired=-1;float FiredPower=0.f,FiredPool=0.f;
         for(int32 I=0;I<4;++I) {
             const auto R=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Types[I]),.18f),Scale);
             if(R.Chance>0.f&&FMath::FRand()<R.Chance) {
-                const float Power=DamageScale(true)*(Kinds[I]==ASData::WeaponElement(Build.Weapon)?1.3f:1.f)*R.Magnitude;
-                E->ApplyElement(Kinds[I],this,Power,R.Magnitude);Fired=I;FiredPower=Power;
+                const float Native=Kinds[I]==ASData::WeaponElement(Build.Weapon)?1.3f:1.f; // a trait matching the weapon's own element hits harder
+                const float Power=DamageScale(true)*Native*R.Magnitude;
+                const float Pool=Dealt*ASRules::ElementShare(int32(Kinds[I]))*Native*R.Magnitude; // 0.24.2 (F4): the proc carries a share of the hit, like Chain Lightning's links
+                E->ApplyElement(Kinds[I],this,Power,R.Magnitude,Pool);Fired=I;FiredPower=Power;FiredPool=Pool;
             }
         }
         // 0.24 C-1: with a conductor (Chain Lightning, Storm Touch or Impact Bloom) an element proc echoes to a neighbour, and from there once more; one chain per ASPartC::ChainCooldown.
         if(Fired>=0&&ASPartC::ChainConducts(TraitValue(Trait::Chain),TraitValue(Trait::Shock),TraitValue(Trait::Splash))&&ASPartC::ChainMayStart(Now,NextProcChain)&&IsValid(E)) {
             NextProcChain=Now+ASPartC::ChainCooldown;TSet<TWeakObjectPtr<AASEnemy>> Visited;Visited.Add(E);
-            ProcEcho(E,Kinds[Fired],FiredPower,0,Visited);
+            ProcEcho(E,Kinds[Fired],FiredPower,FiredPool,0,Visited);
         }
-        if(TraitValue(Trait::Knockback)>0) E->Control(0,E->GetActorLocation()-GetActorLocation(),120.f*float(TraitValue(Trait::Knockback))*Scale);
+        if(TraitValue(Trait::Knockback)>0) E->Control(0,E->GetActorLocation()-GetActorLocation(),120.f*float(TraitValue(Trait::Knockback))*Scale,0,this);
         const auto Stun=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Stun),.08f),Scale),Root=ASArsenal::ScaleReward(ASBuild::ProcChance(TraitValue(Trait::Root),.10f),Scale);
         if(Stun.Chance>0.f&&FMath::FRand()<Stun.Chance) E->Control(1,FVector::ZeroVector,0);
         if(Root.Chance>0.f&&FMath::FRand()<Root.Chance) E->Control(2,FVector::ZeroVector,0);

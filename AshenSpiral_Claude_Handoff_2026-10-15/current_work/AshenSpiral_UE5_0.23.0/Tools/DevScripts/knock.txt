@@ -1,0 +1,32 @@
+# 0.24.2 F1-F3 in-engine check: launches, wall slams, pile-ups. Run with -ProfileSlot=95 (a test profile).
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.shot knock_00_hub
+as.dev.endless 4242
+waitfor combat 30
+wait 1.5
+as.dev.state
+as.dev.shot knock_01_endless_start
+as.dev.slamtest 950
+wait 0.25
+as.dev.shot knock_02_slam_flight
+wait 1.5
+as.dev.state
+as.dev.slamtest 600
+wait 2
+as.dev.piletest 950
+wait 0.3
+as.dev.shot knock_03_pile_flight
+wait 2
+as.dev.state
+as.dev.spawn 0 4 380 3
+wait 0.6
+as.dev.knock 950 900
+wait 0.2
+as.dev.shot knock_04_group_launch
+wait 2
+as.dev.state
+as.dev.shot knock_05_after
+wait 1
+quit

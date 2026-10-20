@@ -327,6 +327,7 @@ def validate():
             decor_025=native_suite('decor_025_tests','0.25 Endless decor ring (deterministic, beyond the walls, spaced, three stages with the sky) passed')
             clip_025=native_suite('clip_025_tests','0.25 baked Paragon attack tracks (the switch is honoured, every ability resolves to a clip or its hand-made track, structure and limits held) passed')
             foley_025=native_suite('foley_025_tests','0.25 hero footsteps (one per half stride, audibility, variant rotation, distance gain) passed')
+            element_0242=native_suite('element_0242_tests','0.24.2 element rework (hit-scaled pools delivered exactly, flat parts unchanged, frost brittleness, element parity with Chain Lightning and Impact Bloom on every weapon) passed')
             trig=subprocess.run([sys.executable,str(ROOT/'Tests/check_trig_overloads.py')],check=True,text=True,capture_output=True).stdout.strip()
             check(trig.startswith('PASS:'),'Actual fern expressions compile against the float/double overloads from the reported C2668 diagnostic')
     report={
@@ -334,7 +335,7 @@ def validate():
         'mesh_count':len(meshes),'mesh_vertex_count':vertices,'mesh_triangle_count':triangles,
         'degenerate_triangles':degenerates,'texture_count':len(textures),'audio_count':len(sounds),
         'rpc_implementation_presence_checks':rpcs,'native_tests':native,'gameplay_tests':gameplay,'buildcraft_tests':buildcraft,'adventure_tests':adventure,'career_tests':career,
-        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'partc_024_tests':partc_024,'maul_025_tests':maul_025,'decor_025_tests':decor_025,'clip_025_tests':clip_025,'foley_025_tests':foley_025,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
+        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'partc_024_tests':partc_024,'maul_025_tests':maul_025,'decor_025_tests':decor_025,'clip_025_tests':clip_025,'foley_025_tests':foley_025,'element_0242_tests':element_0242,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
         'unreal_module_compile':'NOT RUN - Unreal Engine unavailable',
         'unreal_import_and_material_compile':'NOT RUN',
         'unreal_visual_physics_network_performance_tests':'NOT RUN',

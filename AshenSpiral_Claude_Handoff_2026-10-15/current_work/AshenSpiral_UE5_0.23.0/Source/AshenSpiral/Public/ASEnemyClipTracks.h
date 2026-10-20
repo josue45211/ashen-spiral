@@ -6,9 +6,10 @@
 #pragma once
 #include "ASEnemyPose.h"
 namespace ASEnemyPose {
-// ON since 2026-10-19 (Josue's order) for the playtest, where he and P2 judge the clips by eye. The offline previews are no proof they read better than the hand-made poses, and nothing here has been
-// played. Set false and every ability plays its hand-made track (TrackFor) again; to go back for ONE ability only, delete its case line from BakedClipIndexFor below.
-constexpr bool BakedClipsOn=true;
+// OFF again since the 0.24.1 playtest (2026-10-19 evening): with the clips on, Josue and P2 saw enemies "do some weird collapsing thing while being attacked" (the slash clip alone twists the
+// torso 120 degrees, rolls it 48 and leans the body 40 cm), where the hand-made tracks had passed the 0.24 playtest. Set true to play the clips again; to try ONE ability only, keep the switch on
+// and delete every other case line from BakedClipIndexFor below.
+constexpr bool BakedClipsOn=false;
 constexpr int ClipCount=13;
 inline const Track& ClipTrack(int Index) {
     static constexpr Track Table[ClipCount]={

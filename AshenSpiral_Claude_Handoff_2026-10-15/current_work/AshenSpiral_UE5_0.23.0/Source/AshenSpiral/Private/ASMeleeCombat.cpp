@@ -75,7 +75,7 @@ void AASCharacter::ResolveMelee() {
             Contact=true;
             if(!RangeTicked) {RangeTicked=true;S->Effect(16,E->GetActorLocation()-FVector(0,0,E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-4.f),FVector::UpVector,FLinearColor::White,0.f);} // faint hit-confirm tick, once per swing
             HitEnemy(E,Damage+(Build.Weapon==0&&E->PulledUntil>S->SimTime?25.f:0.f),bMeleeCritical,ASData::WeaponElement(Build.Weapon),true);
-            if(Build.Weapon==1&&IsValid(E)&&E->Health>0) E->Control(0,Forward,Slam?950.f:230.f);
+            if(Build.Weapon==1&&IsValid(E)&&E->Health>0) E->Control(0,Forward,Slam?950.f:230.f,0,this);
         }
     const auto Props=S->Breakables;
     for(auto W:Props) if(auto* B=W.Get()) if(FVector::DistSquared2D(GetActorLocation(),B->GetActorLocation())<Reach*Reach

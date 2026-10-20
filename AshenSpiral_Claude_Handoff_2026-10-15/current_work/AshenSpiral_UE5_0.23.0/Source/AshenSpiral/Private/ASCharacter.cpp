@@ -282,7 +282,7 @@ void AASCharacter::OnDash() {
     DashVictims.Empty();DashTraceStart=GetActorLocation();bDashTraceActive=true;
     const float DashProtection=FMath::Max(Rank(11)? .4f:0.f,.26f+Rank(9)*.025f+.03f*TraitValue(ASBuild::Trait::LongDash));
     InvulnerableUntil=FMath::Max(InvulnerableUntil,S->SimTime+DashProtection);DashInvulEnd=S->SimTime+DashProtection; // 0.24 C-3: DashInvulEnd (+ ASPartC::PerfectDashWindow) is what Hurt() tests for a perfect dash
-    if(CombatBenefits()&&TraitValue(ASBuild::Trait::Repulse)>0) for(auto W:S->Enemies) if(auto* E=W.Get()) if(CanDamage(E)&&FVector::DistSquared2D(GetActorLocation(),E->GetActorLocation())<FMath::Square((280.f+40.f*TraitValue(ASBuild::Trait::Repulse))*AreaScale())&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) E->Control(0,E->GetActorLocation()-GetActorLocation(),600.f);
+    if(CombatBenefits()&&TraitValue(ASBuild::Trait::Repulse)>0) for(auto W:S->Enemies) if(auto* E=W.Get()) if(CanDamage(E)&&FVector::DistSquared2D(GetActorLocation(),E->GetActorLocation())<FMath::Square((280.f+40.f*TraitValue(ASBuild::Trait::Repulse))*AreaScale())&&AS::ClearSight(GetWorld(),GetActorLocation(),E->GetActorLocation())) E->Control(0,E->GetActorLocation()-GetActorLocation(),600.f,0,this);
     if(CombatBenefits()&&Talent(4)) RallyUntil=S->SimTime+3;
     S->Effect(4,GetActorLocation()-FVector(0,0,65),Movement()->DashDirection,BodyColor(),100);
     if(Relic(22)) AASWell::Plant(this,GetActorLocation()-FVector(0,0,78),false,.55f,1);
@@ -310,7 +310,7 @@ void AASCharacter::HitEnemy(AASEnemy* E,float Amount,bool Critical,EASHitKind Ki
     E->LastHitter=this;E->LastHitTime=S->SimTime;
     const FVector At=E->GetActorLocation();const bool Pulled=E->PulledUntil>S->SimTime;const bool ShowNumber=Critical||ApplyElement||E->NextDamageNumber<=S->SimTime;if(ShowNumber) E->NextDamageNumber=S->SimTime+.14f;const float Before=E->Health;const bool Killed=E->Hit(Amount,this);const float Dealt=Killed?Before:Before-E->Health;
     if(!Killed&&Kind==EASHitKind::Shock&&IsValid(E)) E->RegisterCoopElement(Kind,this,DamageScale(false));
-    if(!Killed&&ApplyElement&&IsValid(E)) {const float Scale=OnHitScale();E->ApplyElement(Kind,this,DamageScale(true)*Scale,Scale);} // 0.24: the weapon's own element is an on-hit reward too (damage-over-time strength and frost buildup scale with the weapon's base rate)
+    if(!Killed&&ApplyElement&&IsValid(E)) {const float Scale=OnHitScale();E->ApplyElement(Kind,this,DamageScale(true)*Scale,Scale,Dealt*ASRules::OwnElementShare*Scale);} // 0.24: the weapon's own element is an on-hit reward too (damage-over-time strength and frost buildup scale with the weapon's base rate)
     if(ShowNumber) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At+FVector(0,0,80),Dealt,Critical,Kind);
     if(ApplyElement&&AllowProcs) HitProcs(Killed||!IsValid(E)||E->Health<=0?nullptr:E,At,Dealt);
     if(Critical) S->Effect(8,At+FVector(0,0,35),FVector::ForwardVector,ASData::HitColor(Kind),80);

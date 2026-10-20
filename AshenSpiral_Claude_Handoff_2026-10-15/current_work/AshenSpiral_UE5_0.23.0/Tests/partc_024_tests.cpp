@@ -28,14 +28,36 @@ int main() {
     Check(ChainConducts(1,0,0)&&ChainConducts(0,2,0)&&ChainConducts(0,0,1)&&!ChainConducts(0,0,0)&&!ChainConducts(-1,-1,-1),"only Chain, Storm Touch or Impact Bloom conduct");
     // ---- C-2 impact knockback ----
     Check(!ImpactWorthy(100.f)&&ImpactWorthy(ImpactMinStrength)&&ImpactWorthy(900.f)&&!ImpactWorthy(NaN)&&!ImpactWorthy(-5.f),"only a hard launch counts");
-    Check(Near(ImpactDamage(420.f,0),6.f+420.f*.045f)&&ImpactDamage(800.f,0)>ImpactDamage(420.f,0),"harder launches hit harder");
+    Check(Near(ImpactDamage(420.f,0),10.f+420.f*.055f)&&ImpactDamage(800.f,0)>ImpactDamage(420.f,0),"harder launches hit harder");
     Check(ImpactDamage(600.f,1)<ImpactDamage(600.f,0)&&ImpactDamage(600.f,2)<ImpactDamage(600.f,1)&&ImpactDamage(600.f,9)==ImpactDamage(600.f,ImpactMaxGeneration),"each generation hits weaker, and generations are clamped");
-    Check(Near(ImpactDamage(600.f,0,PinballImpactMultiplier),ImpactDamage(600.f,0)*2.5f)&&ImpactDamage(1e9f,0,10.f)<=160.f,"Pinball multiplies, and nothing exceeds the cap");
+    Check(Near(ImpactDamage(600.f,0,PinballImpactMultiplier),ImpactDamage(600.f,0)*2.5f)&&ImpactDamage(1e9f,0,10.f)<=220.f,"Pinball multiplies, and nothing exceeds the cap");
     Check(ImpactDamage(NaN,0)==0.f&&ImpactDamage(500.f,0,NaN)==0.f&&ImpactDamage(-1.f,0)==0.f&&ImpactDamage(500.f,0,-3.f)==0.f,"bad numbers give no damage, never NaN");
-    Check(Near(RemainingStrength(800.f,0.f),800.f)&&RemainingStrength(800.f,.3f)<800.f&&RemainingStrength(800.f,.3f)>RemainingStrength(800.f,.6f)&&RemainingStrength(800.f,.69f)>=800.f*ImpactSpeedLossFraction-.01f,"the strength left at contact fades over the window to a floor");
-    Check(RemainingStrength(800.f,ImpactWindow)==0.f&&RemainingStrength(800.f,5.f)==0.f&&RemainingStrength(800.f,-.1f)==0.f&&RemainingStrength(0.f,.1f)==0.f&&RemainingStrength(NaN,.1f)==0.f&&RemainingStrength(800.f,NaN)==0.f,"outside the window, or with bad numbers, there is no impact");
     Check(Near(ThrownOnStrength(1000.f),650.f)&&ThrownOnStrength(NaN)==0.f,"the body that is struck flies off at 65%");
     {float S=900.f;int Bodies=0;for(int G=0;G<=ImpactMaxGeneration&&ImpactWorthy(S);++G,S=ThrownOnStrength(S)) ++Bodies;Check(Bodies>=2&&Bodies<=ImpactMaxGeneration+1,"a 900 launch chains through at least one more enemy but stops");}
+    // ---- 0.24.2 (F1-F3) the flight: a hop, then a skid; far enough to reach walls, and the farther the harder ----
+    {
+        const Flight Slam=LaunchFor(950.f),Leap=LaunchFor(700.f),Repulse=LaunchFor(600.f),Light=LaunchFor(230.f),Hard=LaunchFor(ImpactMinStrength);
+        Check(Slam.Distance>=600.f&&Slam.Distance<=900.f,"the maul's slam (950) throws a body 6 to 9 m - the playtest asked for more launch than the old 20 cm");
+        Check(Leap.Distance>=300.f&&Repulse.Distance>=250.f,"the leap landing and Repulse throw bodies at least 3 and 2.5 m");
+        Check(Hard.Distance>=80.f&&Light.Distance>=50.f&&Light.Distance<Hard.Distance,"even the weakest hard launch moves a body most of a metre; a light knock is a nudge");
+        Check(LaunchFor(950.f*EliteLaunchScale).Distance<Slam.Distance*.5f&&LaunchFor(950.f*EliteLaunchScale).Distance>=150.f,"an elite flies under half as far, but still visibly");
+        Check(Slam.Vertical>0.f&&Slam.Airtime>.3f&&Slam.Airtime<1.f&&Slam.Seconds<=LaunchMaxSeconds&&Slam.Seconds>=Slam.Airtime,"a slam is a real hop (off the floor, so nothing brakes it), then a skid");
+        Check(Slam.Vertical*Slam.Vertical/(2.f*LaunchGravity)<80.f,"the hop stays low (under 80 cm): a launch never carries a body over a wall");
+        float Previous=-1.f;bool Monotonic=true;
+        for(int I=0;I<=300;++I) {const Flight F=LaunchFor(float(I)*10.f);if(F.Distance+.01f<Previous) Monotonic=false;Previous=F.Distance;if(!std::isfinite(F.Distance)||F.Seconds<0.f||F.Seconds>LaunchMaxSeconds) Monotonic=false;}
+        Check(Monotonic,"distance never shrinks as strength grows, and every flight is finite and bounded");
+        const Flight Bad=LaunchFor(NaN),Zero=LaunchFor(0.f),Negative=LaunchFor(-50.f);
+        Check(Bad.Distance==0.f&&Zero.Distance==0.f&&Negative.Seconds==0.f&&LaunchFor(Inf).Horizontal==0.f,"bad strengths launch nothing");
+        Check(Near(SkidDistance(0.f),0.f)&&SkidSeconds(-1.f)==0.f&&SkidSeconds(NaN)==0.f&&SkidDistance(900.f)>SkidDistance(400.f),"the skid is longer from a faster landing, and nothing for no speed");
+        // the skid closed form against a step simulation of the same braking (CharacterMovement's: v' = -friction v - braking)
+        {float V=800.f,X=0.f,T=0.f;const float Dt=1.f/2000.f;while(V>0.f) {V=std::max(0.f,V-(SkidFriction*V+SkidBraking)*Dt);X+=V*Dt;T+=Dt;}
+         Check(std::fabs(X-SkidDistance(800.f))<6.f&&std::fabs(T-SkidSeconds(800.f))<.01f,"the skid's closed form matches a simulated brake");}
+        Check(ContactStrength(950.f,950.f,950.f)==950.f&&Near(ContactStrength(950.f,950.f,475.f),475.f)&&ContactStrength(950.f,950.f,ImpactMinSpeed-1.f)==0.f,"contact strength follows the speed left, and a crawl hurts nothing");
+        Check(ContactStrength(950.f,950.f,5000.f)==950.f&&ContactStrength(NaN,950.f,900.f)==0.f&&ContactStrength(950.f,0.f,900.f)==0.f&&ContactStrength(950.f,950.f,NaN)==0.f,"contact strength never exceeds the launch and is zero for bad numbers");
+        Check(ImpactWorthy(ContactStrength(950.f,Slam.Horizontal,Slam.Horizontal*.6f)),"a slam that has lost 40% of its speed still counts as a hard impact");
+        Check(SlamBounce>0.f&&SlamBounce<.6f&&SlamDaze>0.f&&SlamDaze<1.f&&PileCarry>=0.f&&PileCarry<.6f,"a slam rebounds softly and dazes briefly; a projectile gives up most of its speed to what it strikes");
+        Check(Closing(Slam.Horizontal)&&!Closing(0.f)&&!Closing(Slam.Horizontal-Slam.Horizontal)&&!Closing(-400.f)&&!Closing(NaN),"only a body closing on another collides with it: two flung side by side at the same speed do not");
+    }
     // ---- C-6 metamorphoses ----
     Check(AtMax(3,3)&&AtMax(5,3)&&!AtMax(2,3)&&!AtMax(0,0)&&!AtMax(1,-1),"a metamorphosis needs the catalogue maximum");
     Check(StormWebLinks(3,false)==3&&StormWebLinks(3,true)==5&&StormWebLinks(9,true)==6&&StormWebLinks(-2,false)==0,"Storm Web adds two links, capped at six");

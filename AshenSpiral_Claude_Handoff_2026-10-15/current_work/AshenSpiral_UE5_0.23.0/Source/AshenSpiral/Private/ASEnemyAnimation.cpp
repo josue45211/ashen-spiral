@@ -48,8 +48,9 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     // Gait. Enemies strafe and back away while facing the target, so the feet swing along the direction of motion in the enemy's own frame (forward walks as before,
     // sideways side-steps, backwards steps back).
     const FVector Velocity=GetVelocity(),LocalVelocity=GetActorTransform().InverseTransformVectorNoScale(Velocity);
-    const float Speed=Velocity.Size2D(),Weight=FMath::Clamp(Speed/400.f,0.f,1.f);
-    GaitPhase+=Delta*Speed/190.f*UE_TWO_PI;
+    const bool Thrown=(Flags&ASEnemyRules::FlagLaunched)!=0; // 0.24.2: flying or skidding from a launch - the feet do not walk it, the body is flung
+    const float Speed=Velocity.Size2D(),Weight=Thrown?0.f:FMath::Clamp(Speed/400.f,0.f,1.f);
+    if(!Thrown) GaitPhase+=Delta*Speed/190.f*UE_TWO_PI;
     EP::RigInput In;
     In.GaitPhase=GaitPhase;In.Weight=Weight;In.Step=FMath::Sin(GaitPhase)*Weight;
     if(Speed>5.f) {In.HeadingX=LocalVelocity.X/Speed;In.HeadingY=LocalVelocity.Y/Speed;}
@@ -58,8 +59,31 @@ void AASEnemy::AnimateArmor(float Delta,float Windup) {
     float D[EP::ChannelCount];EP::ClearChannels(D);
     const float U=PoseTime(Now);
     if(U>=0.f) EP::Evaluate(EP::PlayedTrack(PoseAbility),U,D);
+    ThrownPose(D,LocalVelocity,Delta);
     EP::RigOut Out;EP::Solve(In,D,Out);
     ApplyRig(Out,HalfHeight,1.f);
+}
+// 0.24.2: a launched body is flung, not walked: in the air it tips away from the blow with its arms thrown up and its knees drawn in; skidding on the floor it crouches low with
+// its feet planted wide and leans against the slide. The amount eases in and out (ThrownAmount), so the landing and the recovery are not snaps. Cosmetic, every machine.
+void AASEnemy::ThrownPose(float* D,const FVector& LocalVelocity,float Delta) {
+    namespace EP=ASEnemyPose;
+    const bool Thrown=(Flags&ASEnemyRules::FlagLaunched)!=0;
+    ThrownAmount=FMath::FInterpTo(ThrownAmount,Thrown?1.f:0.f,Delta,Thrown?14.f:6.f);
+    if(ThrownAmount<.01f) return;
+    const FVector2D Flat(LocalVelocity.X,LocalVelocity.Y);const float Speed=Flat.Size();
+    const FVector2D Dir=Speed>1.f?Flat/Speed:FVector2D(-1.f,0.f);
+    const float T=ThrownAmount*FMath::Clamp(Speed/500.f,.35f,1.f);
+    const bool Air=GetCharacterMovement()&&GetCharacterMovement()->IsFalling();
+    const float Spin=FMath::Sin(AS::Time(this)*17.f+float(GetUniqueID()%11))*T; // a little wobble so a thrown body is not a statue
+    D[EP::ChFigPitch]+=(-Dir.X*(Air?30.f:16.f)+Spin*4.f)*T; // moving backwards (the usual launch) tips it back
+    D[EP::ChFigRoll]+=Dir.Y*(Air?22.f:12.f)*T;
+    if(ASEnemyRules::KitFor(Kind).AnimSet==ASEnemyRules::AnimBlob) {D[EP::ChScaleZ]+=(Air?.10f:-.16f)*T;D[EP::ChScaleX]+=(Air?-.05f:.10f)*T;D[EP::ChScaleY]+=(Air?-.05f:.10f)*T;return;} // one body: stretch in the air, squash on the skid
+    D[EP::ChTorsoPitch]+=(Air?10.f:6.f)*T;D[EP::ChHeadPitch]+=(Air?14.f:8.f)*T;
+    D[EP::ChHandLZ]+=(Air?70.f:30.f)*T;D[EP::ChHandRZ]+=(Air?70.f:30.f)*T;D[EP::ChHandLY]-=26.f*T;D[EP::ChHandRY]+=26.f*T;
+    D[EP::ChHandLX]+=Spin*10.f;D[EP::ChHandRX]-=Spin*10.f;
+    D[EP::ChCrouch]+=(Air?10.f:18.f)*T;D[EP::ChPlant]=FMath::Max(D[EP::ChPlant],Air?0.f:T);D[EP::ChStance]+=(Air?0.f:14.f)*T;
+    D[EP::ChFootLX]+=(Air?-14.f:10.f)*T;D[EP::ChFootRX]+=(Air?8.f:-12.f)*T;
+    D[EP::ChWeaponPitch]+=40.f*T*(Air?1.f:.4f);
 }
 // Puts a solved pose on the components: every armour part, the weapon and the shield, the figure's own transform (the death's Fade shrinks the whole figure), and the glow.
 void AASEnemy::ApplyRig(const ASEnemyPose::RigOut& Out,float HalfHeight,float Fade) {
@@ -87,6 +111,7 @@ void AASEnemy::AnimateBlob() {
     float D[EP::ChannelCount];EP::ClearChannels(D);
     const float U=PoseTime(AS::Time(this));
     if(U>=0.f) EP::Evaluate(EP::PlayedTrack(PoseAbility),U,D);
+    ThrownPose(D,GetActorTransform().InverseTransformVectorNoScale(GetVelocity()),GetWorld()?GetWorld()->GetDeltaSeconds():.016f); // a launched blob tips and wobbles the same way
     EP::BlobOut Out;EP::SolveBlob(D,Out);
     const float HalfHeight=GetCapsuleComponent()?GetCapsuleComponent()->GetScaledCapsuleHalfHeight():83.f;
     Body->SetRelativeLocationAndRotation(FVector(Out.Offset.X,Out.Offset.Y,-HalfHeight+Out.Offset.Z),FQuat(Out.Rot.X,Out.Rot.Y,Out.Rot.Z,Out.Rot.W));
