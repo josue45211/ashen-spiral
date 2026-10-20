@@ -165,6 +165,14 @@ void AASPlayerController::HammerAltUp() {if(auto* H=Cast<AASCharacter>(GetPawn()
 
 void AASPlayerController::Rune() {if(!MenuOpen()) UpdateAim(true);if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->CastRune();}
 void AASPlayerController::Reload() {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->RequestReload();}
+void AASPlayerController::DevButton(const FString& B,bool bDown) {
+    if(B==TEXT("attack")) {if(bDown) AttackDown();else AttackUp();}
+    else if(B==TEXT("spiral")) {if(bDown) SpiralDown();else SpiralUp();}
+    else if(B==TEXT("dash")) {if(bDown) Dash();}
+    else if(B==TEXT("jump")) {if(bDown) JumpDown();else JumpUp();}
+    else if(B==TEXT("rune")) {if(bDown) Rune();}
+    else if(B==TEXT("reload")) {if(bDown) Reload();}
+}
 void AASPlayerController::Dash() {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->Movement()->bWantsDash=true;}
 void AASPlayerController::JumpDown() {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->Jump();}
 void AASPlayerController::JumpUp() {if(auto* H=Cast<AASCharacter>(GetPawn())) H->StopJumping();}

@@ -8,7 +8,7 @@
 #include "ASAnimationRules.h"
 #include "ASPartCRules.h"
 #include "ASCharacter.generated.h"
-class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;
+class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;class UAnimMontage;
 UCLASS() class ASHENSPIRAL_API AASCharacter : public ACharacter {
     GENERATED_BODY()
 public:
@@ -163,7 +163,17 @@ public:
     void ResetInput(bool Force=false);
     // Meshes that make up this character right now (body parts, cape, weapon); the dash trail copies them as afterimages.
     void CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const;
+    bool IsSkeletalHero() const {return bSkeletalHero;} // 0.24.2 Phase F: drawn as the Unreal Mannequin (ASCharacterSkeletal.cpp)
 private:
+    // 0.24.2 Phase F: the hero as the Unreal Mannequin; the 21-part rig stays as the fallback (as.hero.skeletal 0, or the assets missing on this machine).
+    bool bSkeletalHero=false,bSkelDashSeen=false,bSkelDownedSeen=false;uint8 SkelLeapSeen=0;float SkelReloadSeen=0.f;
+    TWeakObjectPtr<UAnimMontage> SkelStance;int32 SkelStanceWeapon=-1; // the weapon's stance looping on the upper body between moves, and the weapon it is for
+    void SetupSkeletalHero();
+    bool SkeletalMovePlaying() const; // a move (an attack, a dash, a flinch, a cast, the fall) holds the slots, not the stance
+    void AnimateSkeletal(float Delta,bool Dashing,bool Airborne);
+    UAnimMontage* PlayHeroClip(const TCHAR* Clip,FName Slot,float Seconds,float BlendIn=.06f,float BlendOut=.14f); // the clip as a one-off montage on that slot, stretched over Seconds
+    void PlayAttackClip();
+    void PlayHitClip(const FVector& Direction,float Strength);
     UPROPERTY() TObjectPtr<USceneComponent> Figure;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Parts;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WeaponMesh;

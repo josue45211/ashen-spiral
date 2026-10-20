@@ -14,7 +14,9 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/SceneComponent.h"
+#include "Animation/AnimInstance.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Math/RotationMatrix.h"
 #include "Engine/World.h"
@@ -44,6 +46,15 @@ void AASCharacter::Animate(float Delta) {
     const float PreviousWalkPhase=WalkPhase;
     if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/ASAnimation::StrideDistance(LocomotionWeight)*UE_TWO_PI;
     if(ASFoley::StepsCrossed(PreviousWalkPhase,WalkPhase)>0&&ASFoley::Audible(Airborne,Dashing,bDowned,Speed)) PlayFootstep(Speed); // a step each time the gait passes a half stride
+    // Visual-only acceleration lean from smoothed velocity; never feeds back into movement.
+    const FVector Velocity=GetVelocity();
+    if(!bVisualInitialized||(Velocity-AnimationVelocity).SizeSquared2D()>2200.f*2200.f) {AnimationVelocity=Velocity;PreviousVisualVelocity=Velocity;bVisualInitialized=true;}
+    PreviousVisualVelocity=AnimationVelocity;
+    AnimationVelocity=FMath::Lerp(AnimationVelocity,Velocity,ASAnimation::Blend(Delta,9.f));
+    const FVector LeanAccel=GetActorTransform().InverseTransformVectorNoScale((AnimationVelocity-PreviousVisualVelocity)/FMath::Max(Delta,.001f));
+    CapeAccelLocal=FMath::Lerp(CapeAccelLocal,LeanAccel,ASAnimation::Blend(Delta,10.f));
+    if(bSkeletalHero) AnimateSkeletal(Delta,Dashing,Airborne); // 0.24.2 Phase F: the Mannequin, posed by its animation blueprint and clips
+    else {
     const float Step=FMath::Sin(WalkPhase)*LocomotionWeight*(1.f-AirWeight);
     const FVector LocalMove=GetActorTransform().InverseTransformVectorNoScale(GetVelocity()).GetSafeNormal2D();
     const float LeapPhase=ASMelee::Phase(Now,HammerLeapStarted,ASHammer::Startup);
@@ -55,13 +66,6 @@ void AASCharacter::Animate(float Delta) {
     const FVector RecoilLocal=GetActorTransform().InverseTransformVectorNoScale(DamageReactionDirection);
     Figure->SetRelativeLocation(Figure->GetRelativeLocation()+FVector(RecoilLocal.X,RecoilLocal.Y,0.f)*(Recoil*10.f));
     Figure->SetRelativeRotation(FRotator(bDowned?65.f:-RecoilLocal.X*Recoil*14.f,0,RecoilLocal.Y*Recoil*10.f));
-    // Visual-only acceleration lean from smoothed velocity; never feeds back into movement.
-    const FVector Velocity=GetVelocity();
-    if(!bVisualInitialized||(Velocity-AnimationVelocity).SizeSquared2D()>2200.f*2200.f) {AnimationVelocity=Velocity;PreviousVisualVelocity=Velocity;bVisualInitialized=true;}
-    PreviousVisualVelocity=AnimationVelocity;
-    AnimationVelocity=FMath::Lerp(AnimationVelocity,Velocity,ASAnimation::Blend(Delta,9.f));
-    const FVector LeanAccel=GetActorTransform().InverseTransformVectorNoScale((AnimationVelocity-PreviousVisualVelocity)/FMath::Max(Delta,.001f));
-    CapeAccelLocal=FMath::Lerp(CapeAccelLocal,LeanAccel,ASAnimation::Blend(Delta,10.f));
     const float LeanPitch=FMath::Clamp(LeanAccel.X/2600.f,-1.f,1.f)*6.f*(1.f-AirWeight),LeanRoll=FMath::Clamp(LeanAccel.Y/2600.f,-1.f,1.f)*5.f*(1.f-AirWeight);
     const float Breath=FMath::Sin(Now*2.2f)*.6f;
     Parts[0]->SetRelativeRotation(FRotator(Dashing?-18.f:-LocomotionWeight*LocalMove.X*6.f-Landing*5.f-LeanPitch,Step*2.5f,-LocalMove.Y*LocomotionWeight*5.f+LeanRoll));
@@ -136,6 +140,7 @@ void AASCharacter::Animate(float Delta) {
         Parts[17]->SetRelativeRotation(HandRotation);Parts[18]->SetRelativeRotation(HandRotation);
         WeaponMesh->SetRelativeRotation(HandRotation.Inverse()*WeaponRotation);
     }
+    } // the 21-part armour rig
     CapeLean=FMath::Lerp(CapeLean,LocomotionWeight*26.f+(Dashing?24.f:0.f)+AirWeight*9.f,ASAnimation::Blend(Delta,5.f));
     float CapeFlare=0,CapeTwist=0;
     // Cape drivers (cosmetic): dash flares, the hammer leap lifts, every melee swing throws the hem out; the Blade lunge most.
@@ -160,7 +165,7 @@ void AASCharacter::Animate(float Delta) {
         const float Cast=ASAnimation::ReleaseGesture(AbilityGestureAge);
         if(Cast>0.f) {Parts[0]->AddRelativeRotation(FRotator(-Cast*9.f,0,0));Parts[1]->AddRelativeRotation(FRotator(Cast*4.f,0,0));CapeFlare=FMath::Max(CapeFlare,Cast*.5f);}
     }
-    AnimateCape(Delta,CapeFlare,CapeTwist);
+    if(!bSkeletalHero) AnimateCape(Delta,CapeFlare,CapeTwist); // the Mannequin wears no cape
     DamageReactionAge+=Delta;AbilityGestureAge+=Delta;
     HammerShakeAge+=Delta;
     if(IsLocallyControlled()) if(auto* GI=GetGameInstance<UASGameInstance>()) {
@@ -174,14 +179,24 @@ void AASCharacter::Animate(float Delta) {
     Boom->TargetArmLength=FMath::FInterpTo(Boom->TargetArmLength,CameraZoom,Delta,10.f);
     const bool HideSelf=IsLocallyControlled()&&FVector::DistSquared(Camera->GetComponentLocation(),GetActorLocation()+FVector(0,0,45))<190.f*190.f;
     for(auto Part:Parts) Part->SetOwnerNoSee(HideSelf);
+    GetMesh()->SetOwnerNoSee(HideSelf);
     WeaponMesh->SetOwnerNoSee(HideSelf);ArrowMesh->SetOwnerNoSee(HideSelf);ChargeMesh->SetOwnerNoSee(HideSelf);
     for(auto Part:BowStrings) Part->SetOwnerNoSee(HideSelf);for(auto Part:Wisps) Part->SetOwnerNoSee(HideSelf);
 }
 
 void AASCharacter::DamageReaction_Implementation(FVector_NetQuantizeNormal Direction,float Strength) {
     DamageReactionAge=0;DamageReactionStrength=FMath::Clamp(Strength,0.f,1.f);DamageReactionDirection=Direction;
+    if(bSkeletalHero) PlayHitClip(Direction,Strength);
 }
-void AASCharacter::AbilityGesture_Implementation() {AbilityGestureAge=0;}
+void AASCharacter::AbilityGesture_Implementation() {AbilityGestureAge=0;if(bSkeletalHero) PlayHeroClip(TEXT("gideon_RMB_Cast"),FName(TEXT("UpperBody")),.55f,.06f,.18f);}
+// 0.24.2 Phase F: a flinch from the side the blow came from (on the arms and torso; the legs keep running), a stagger for a heavy one
+void AASCharacter::PlayHitClip(const FVector& Direction,float Strength) {
+    if(bDowned) return;
+    const FVector Local=GetActorTransform().InverseTransformVectorNoScale(-Direction).GetSafeNormal2D(); // where the blow came from, in the hero's frame
+    const TCHAR* Clip=FMath::Abs(Local.X)>=FMath::Abs(Local.Y)?(Local.X>=0.f?TEXT("TwinBlast_HitReact_Front"):TEXT("TwinBlast_HitReact_Back")):(Local.Y>=0.f?TEXT("TwinBlast_HitReact_Right"):TEXT("TwinBlast_HitReact_Left"));
+    if(Strength>=.85f) PlayHeroClip(TEXT("TwinBlast_KnockBack"),FName(TEXT("DefaultSlot")),.7f,.05f,.2f);
+    else if(!SkeletalMovePlaying()) PlayHeroClip(Clip,FName(TEXT("UpperBody")),.45f,.04f,.16f); // a light flinch never cuts a swing, a dash or a cast short (only the stance)
+}
 void AASCharacter::CreateCape() {
     // Six linked cloth segments replace the rigid cape boards. Segments are visual only.
     for(int32 I=0;I<6;++I) {

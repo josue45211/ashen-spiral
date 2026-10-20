@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ASSpell.generated.h"
-class USceneComponent;class UStaticMeshComponent;class UMaterialInstanceDynamic;class AASCharacter;class AASEnemy;
+class USceneComponent;class UStaticMeshComponent;class UPoseableMeshComponent;class UMaterialInstanceDynamic;class AASCharacter;class AASEnemy;
 UCLASS() class ASHENSPIRAL_API AASProjectile : public AActor {
     GENERATED_BODY()
 public:
@@ -152,6 +152,7 @@ public:
 private:
     UPROPERTY() TObjectPtr<UStaticMeshComponent> Visual;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Copies;
+    UPROPERTY() TObjectPtr<UPoseableMeshComponent> Pose; // 0.24.2 Phase F: the Mannequin hero's afterimage, its pose frozen at the moment
     UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Shared;
     float Age=0;bool bCounted=false;
 };

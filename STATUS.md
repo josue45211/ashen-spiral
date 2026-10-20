@@ -358,3 +358,11 @@ Bar per item: UBT editor build unity AND non-unity Succeeded (only engine-header
 Also fixed (found in-engine): ring flashes stood as vertical arches over every elite slam/chain/wildfire/lightning, others floated mid-air -> all lie flat on the floor; the Bellwether's stampede strip never showed -> shows.
 UNVERIFIED (playtest): launch distances and feel, slam damage balance, element balance with real builds, the ring warning and glint as read by humans, lightning look in co-op.
 Needs Josue: nothing.
+
+## 0.24.2 new-permission items (2026-10-20, Opus session) - Endless map, footsteps, hero look DONE and pushed; each checked in-engine
+1. Endless map (f48e00d): the walls stand far out (5600, was 3100) beyond the ring of ruins, which is now solid ground to explore (each piece has a collision footprint, the same on every machine; later-stage pieces switch on with the sky and push anyone out of the way). The cover still fills the old fight square and the host still publishes it (no regression of the 0.24.1 sync). In-engine: walked into ruins, stopped at the surface every time.
+2. Footsteps (f48e00d): quieter and natural - separate walk, run, strafe and backpedal sounds from Epic's Game Animation Sample, natural pitch, plus landing and jump sounds.
+3. Hero look (Phase F): the heroes are the Unreal Mannequin - P1 Manny, P2 Quinn - with Unreal's own walk/run/strafe/jump/land and foot placement. Each weapon is held in a fitting combat stance (sword guard, heavy maul drag, bow, staff, gun at the hip, mortar on the shoulder) and swung with Paragon attack animations on the upper body, so you can run while attacking. Dashes, the maul's leap, flinches, heavy knockbacks and the downed fall are animated; dash afterimages are glowing copies of the pose. No cape (the base UE look). The old armour rig is the fallback (console as.hero.skeletal 0). In-engine: every weapon photographed idle and attacking (Saved/Screenshots/Dev/hero_*.png).
+UNVERIFIED (playtest): P2 as Quinn over the network; how each attack animation's timing feels against its hit; reload and cast animations; the downed pose held in co-op (solo ends the run at once).
+P2's machine needs the local content: run Tools/import_mannequin.ps1 there, or use the next playtest zip (it will carry Content/Characters). Without it P2 sees the old armour rig, which still works.
+Needs Josue: nothing.

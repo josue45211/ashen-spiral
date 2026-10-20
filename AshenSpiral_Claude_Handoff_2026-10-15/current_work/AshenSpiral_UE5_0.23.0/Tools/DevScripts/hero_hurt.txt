@@ -1,0 +1,51 @@
+# 0.24.2 Phase F: the Mannequin hero being hit (flinch, heavy knockback), going down, and the run ending. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+wait 1
+as.dev.shot hero_h01_hub
+wait 0.5
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.clearing 350
+as.dev.face 0
+as.dev.weapon 0
+as.dev.follow 320 15 40 55
+wait 1
+as.dev.hurt 12
+wait 0.12
+as.dev.shot hero_h02_flinch
+wait 1.2
+as.dev.hurt 80
+wait 0.2
+as.dev.shot hero_h03_knockback
+wait 1.5
+# the maul's planted finisher, from the side
+as.dev.weapon 1
+as.dev.follow 360 20 95 55
+wait 0.6
+as.dev.input attack 2.4
+wait 1.55
+as.dev.shot hero_h04_maul_finisher_a
+wait 0.2
+as.dev.shot hero_h05_maul_finisher_b
+wait 1.5
+# going down: god off, a killing blow
+as.dev.god 0
+as.dev.follow 380 60 40 55
+as.dev.hurt 9999
+wait 0.5
+as.dev.shot hero_h06_falling 0
+wait 1.5
+as.dev.shot hero_h07_downed 0
+as.dev.state
+wait 6
+as.dev.cam off
+wait 1
+as.dev.shot hero_h08_after
+as.dev.state
+wait 4
+as.dev.shot hero_h09_later
+as.dev.state
+quit

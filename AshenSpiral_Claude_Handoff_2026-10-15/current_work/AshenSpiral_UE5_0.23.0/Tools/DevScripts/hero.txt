@@ -1,0 +1,94 @@
+# 0.24.2 Phase F: the hero as the Unreal Mannequin, photographed by a camera riding beside it. Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.clearing 350
+as.dev.face 0
+as.dev.weapon 0
+as.dev.follow 330 10 35 55
+wait 0.8
+as.dev.shot hero_01_blade_front
+as.dev.follow 330 10 95 55
+wait 0.3
+as.dev.shot hero_02_blade_side
+as.dev.state
+# run, then the three-step combo, then a dash
+as.dev.walk 0 1.4
+wait 0.7
+as.dev.shot hero_03_run
+as.dev.state
+wait 1
+as.dev.input attack 1.2
+wait 0.1
+as.dev.shot hero_04_blade_a
+as.dev.state
+wait 0.25
+as.dev.shot hero_05_blade_b
+wait 0.25
+as.dev.shot hero_06_blade_c
+wait 0.8
+as.dev.input dash
+wait 0.08
+as.dev.shot hero_07_dash
+wait 0.08
+as.dev.shot hero_08_dash_ghosts
+wait 1
+# the maul: front view, the swings, the leap
+as.dev.weapon 1
+as.dev.clearing 350
+as.dev.face 0
+as.dev.follow 330 10 35 55
+wait 0.6
+as.dev.shot hero_09_maul_front
+as.dev.follow 360 20 95 55
+as.dev.input attack 2.2
+wait 0.25
+as.dev.shot hero_10_maul_a
+wait 0.6
+as.dev.shot hero_11_maul_b
+wait 0.7
+as.dev.shot hero_12_maul_smash
+wait 1.2
+as.dev.input spiral 0.2
+wait 0.25
+as.dev.shot hero_13_leap_start
+wait 0.35
+as.dev.shot hero_14_leap_air
+wait 1.2
+# the bow, the staff, the guns
+as.dev.weapon 2
+as.dev.follow 330 10 35 55
+wait 0.6
+as.dev.shot hero_15_bow_front
+as.dev.input attack 0.6
+wait 0.12
+as.dev.shot hero_16_bow_shot
+wait 0.8
+as.dev.weapon 4
+wait 0.6
+as.dev.shot hero_17_staff_front
+wait 0.4
+as.dev.weapon 5
+wait 0.6
+as.dev.shot hero_18_scythe_front
+wait 0.4
+as.dev.weapon 6
+wait 0.6
+as.dev.shot hero_19_scattergun_front
+as.dev.follow 330 10 95 55
+as.dev.input attack 0.6
+wait 0.1
+as.dev.shot hero_20_scattergun_shot
+wait 0.8
+as.dev.weapon 7
+wait 0.6
+as.dev.shot hero_21_rotary_side
+as.dev.weapon 8
+wait 0.6
+as.dev.shot hero_22_mortar_side
+wait 0.4
+as.dev.state
+quit

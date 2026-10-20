@@ -143,6 +143,7 @@ def create_material():
     out(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     out(normal_mix, "", unreal.MaterialProperty.MP_NORMAL)
     edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_SKELETAL_MESH, True)  # 0.24.2 Phase F: the Mannequin hero's dash afterimages
     edit.layout_material_expressions(material)
     edit.recompile_material(material)
     require(assets.save_loaded_asset(material, False), "Could not save M_Surface")

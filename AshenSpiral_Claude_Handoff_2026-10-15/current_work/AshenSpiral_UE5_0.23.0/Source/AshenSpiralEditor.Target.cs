@@ -7,5 +7,6 @@ public class AshenSpiralEditorTarget : TargetRules
         DefaultBuildSettings = BuildSettingsVersion.Latest;
         IncludeOrderVersion = EngineIncludeOrderVersion.Latest;
         ExtraModuleNames.Add("AshenSpiral");
+        ExtraModuleNames.Add("AshenSpiralTools"); // 0.24.2: editor-only asset tooling (commandlets)
     }
 }

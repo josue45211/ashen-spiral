@@ -19,6 +19,7 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformTime.h"
@@ -28,6 +29,7 @@
 #include "UnrealClient.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 
 namespace ASDev {
 UWorld* GameWorld() {
@@ -41,8 +43,9 @@ AASGameMode* Mode(UWorld* W) {return W?W->GetAuthGameMode<AASGameMode>():nullptr
 float ArgFloat(const TArray<FString>& Args,int32 I,float Default) {return Args.IsValidIndex(I)?FCString::Atof(*Args[I]):Default;}
 int32 ArgInt(const TArray<FString>& Args,int32 I,int32 Default) {return Args.IsValidIndex(I)?FCString::Atoi(*Args[I]):Default;}
 bool bGod=false;
-float WalkYaw=0.f;double WalkUntil=0.0;
+float WalkYaw=0.f;double WalkUntil=0.0;double AttackUntil=0.0,SpiralUntil=0.0; // as.dev.input: buttons held until then
 bool Tick(float);extern FTSTicker::FDelegateHandle Handle; // as.dev.walk: the host hero walks this way until then
+void Cam(const TArray<FString>& Args,UWorld* W);
 
 // The direction from a point to the nearest wall (world-static, side-on) between MinDistance and MaxDistance, from 24 probes; false when none is in that band.
 bool NearestWall(UWorld* W,const FVector& From,float MinDistance,float MaxDistance,FVector& Direction,float& Distance) {
@@ -122,7 +125,22 @@ void Walk(const TArray<FString>& Args,UWorld* W) {
     if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
     UE_LOG(LogTemp,Display,TEXT("AshenDev: walking yaw %.0f for %.1f s from %s"),WalkYaw,ArgFloat(Args,1,1.f),HostHero(W)?*HostHero(W)->GetActorLocation().ToCompactString():TEXT("-"));
 }
+// as.dev.input attack|spiral <seconds> | dash | jump | rune | reload: the host's own buttons, through its controller (the same calls the key bindings make).
+void Input(const TArray<FString>& Args,UWorld* W) {
+    auto* PC=HostController(W);if(!PC||!Args.IsValidIndex(0)) return;
+    const FString What=Args[0];const double Hold=FPlatformTime::Seconds()+ArgFloat(Args,1,.5f);
+    if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
+    PC->DevButton(What,true);
+    if(What==TEXT("attack")) AttackUntil=Hold;else if(What==TEXT("spiral")) SpiralUntil=Hold;else if(What==TEXT("jump")) PC->DevButton(What,false);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: input %s"),*What);
+}
 void God(const TArray<FString>& Args,UWorld*) {bGod=ArgInt(Args,0,1)!=0;UE_LOG(LogTemp,Display,TEXT("AshenDev: god %d"),bGod?1:0);}
+// as.dev.hurt <amount>: a blow to the host hero from the front through its own damage path (armour, shields, the flinch, going down); it lands even in god mode.
+void HurtHero(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);if(!H) return;const float Before=H->Health;
+    H->InvulnerableUntil=0.f;H->Hurt(ArgFloat(Args,0,20.f));
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: hurt %.0f: health %.0f -> %.0f, downed %d"),ArgFloat(Args,0,20.f),Before,H->Health,H->bDowned?1:0);
+}
 // as.dev.place <x> <y> [yaw] / as.dev.face <yaw>: move or turn the hero (and its controller, so the camera follows).
 void Place(const TArray<FString>& Args,UWorld* W) {
     auto* H=HostHero(W);if(!H) return;FVector P=H->GetActorLocation();P.X=ArgFloat(Args,0,P.X);P.Y=ArgFloat(Args,1,P.Y);
@@ -140,12 +158,49 @@ void Cam(const TArray<FString>& Args,UWorld* W) {
     PC->SetViewTarget(PhotoCamera.Get());
 }
 void Face(const TArray<FString>& Args,UWorld* W) {if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(ArgFloat(Args,1,-15.f),ArgFloat(Args,0,0.f),0.f));}
+// as.dev.follow <distance> <height> <angle> [fov] | off: the photo camera rides with the hero, <angle> degrees round from its facing (0 in front, 90 its right side, 180 behind),
+// <height> cm above its middle, looking at its chest; for photographing the hero's own animation wherever it goes.
+bool bFollow=false;float FollowDistance=360.f,FollowHeight=30.f,FollowAngle=90.f;
+void FollowTick(UWorld* W) {
+    auto* H=HostHero(W);if(!bFollow||!H||!PhotoCamera.IsValid()) return;
+    const FVector Chest=H->GetActorLocation()+FVector(0.f,0.f,25.f);
+    const FVector From=Chest+FRotator(0.f,H->GetActorRotation().Yaw+FollowAngle,0.f).Vector()*FollowDistance+FVector(0.f,0.f,FollowHeight);
+    PhotoCamera->SetActorLocationAndRotation(From,(Chest-From).Rotation());
+}
+void Follow(const TArray<FString>& Args,UWorld* W) {
+    if(Args.IsValidIndex(0)&&Args[0]==TEXT("off")) {bFollow=false;Cam({TEXT("off")},W);return;}
+    FollowDistance=ArgFloat(Args,0,360.f);FollowHeight=ArgFloat(Args,1,30.f);FollowAngle=ArgFloat(Args,2,90.f);
+    // the camera is placed beside the hero at once (re-aiming a camera that is already the view never sends it through the origin)
+    if(!PhotoCamera.IsValid()) Cam({TEXT("0"),TEXT("0"),TEXT("0"),TEXT("0"),TEXT("0"),TEXT("55")},W);
+    else if(auto* PC=HostController(W)) if(PC->GetViewTarget()!=PhotoCamera.Get()) PC->SetViewTarget(PhotoCamera.Get());
+    if(PhotoCamera.IsValid()) if(UCameraComponent* C=PhotoCamera->GetCameraComponent()) C->SetFieldOfView(ArgFloat(Args,3,55.f));
+    bFollow=PhotoCamera.IsValid();FollowTick(W);
+    if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
+}
+// as.dev.clearing [radius=600] [away=1600]: the hero is moved to the open ground nearest the arena's middle, at least <away> cm from it (the chest and its loot stand there,
+// without collision to find), with no wall, cover or ruin within <radius>, for clean photographs.
+void Clearing(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);auto* S=AS::State(W);if(!H||!W) return;
+    const float Radius=ArgFloat(Args,0,600.f),Half=H->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    const FVector Middle=S&&S->Arena?S->Arena->CellPosition(0):H->GetActorLocation();const FCollisionObjectQueryParams Static(ECC_WorldStatic);
+    FVector Best=FVector::ZeroVector;float BestDistance=FLT_MAX;const float Ground=H->GetActorLocation().Z-Half; // the hero stands on the arena floor: only that level counts (not a block's top)
+    for(int32 X=-14;X<=14;++X) for(int32 Y=-14;Y<=14;++Y) {
+        const FVector P=Middle+FVector(X*200.f,Y*200.f,0.f);FHitResult Floor;
+        if(FVector::Dist2D(P,Middle)<ArgFloat(Args,1,1600.f)||FVector::Dist2D(P,Middle)>=BestDistance||!W->LineTraceSingleByObjectType(Floor,P+FVector(0,0,800),P-FVector(0,0,800),Static)||FMath::Abs(Floor.ImpactPoint.Z-Ground)>40.f) continue;
+        if(W->OverlapAnyTestByObjectType(Floor.ImpactPoint+FVector(0,0,110),FQuat::Identity,Static,FCollisionShape::MakeBox(FVector(Radius,Radius,80.f)))) continue; // 30-190 cm above the ground: walls, cover, ruins; not the floor
+        Best=Floor.ImpactPoint+FVector(0,0,Half+2.f);BestDistance=FVector::Dist2D(P,Middle);
+    }
+    if(BestDistance==FLT_MAX) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: clearing - no open ground %.0f cm wide near the middle"),Radius);return;}
+    H->SetActorLocation(Best,false,nullptr,ETeleportType::TeleportPhysics);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: clearing at %s (%.0f cm from the middle)"),*Best.ToCompactString(),BestDistance);
+}
 // as.dev.shot <name> [ui]: a screenshot of the game view to Saved/Screenshots/Dev/<name>.png (ui 1: with the HUD).
-void Shot(const TArray<FString>& Args,UWorld*) {
+void Shot(const TArray<FString>& Args,UWorld* W) {
     const FString Name=Args.IsValidIndex(0)?Args[0]:FString::Printf(TEXT("shot_%.0f"),FPlatformTime::Seconds());
     const FString File=FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir()/TEXT("Screenshots/Dev")/(Name+TEXT(".png")));
     FScreenshotRequest::RequestScreenshot(File,ArgInt(Args,1,1)!=0,false);
-    UE_LOG(LogTemp,Display,TEXT("AshenDev: screenshot requested %s"),*File);
+    const AASPlayerController* PC=HostController(W);const AASCharacter* H=HostHero(W);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: screenshot requested %s (camera %s, hero %s)"),*File,PC&&PC->PlayerCameraManager?*PC->PlayerCameraManager->GetCameraLocation().ToCompactString():TEXT("-"),H?*H->GetActorLocation().ToCompactString():TEXT("-"));
 }
 // as.dev.lightning [count] [distance]: Endless sky strikes around the hero (the same actor the wave 50+ timer spawns), the first right in front of the camera.
 void Lightning(const TArray<FString>& Args,UWorld* W) {
@@ -191,6 +246,11 @@ void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->E
 void State(const TArray<FString>&,UWorld* W) {
     auto* S=AS::State(W);auto* H=HostHero(W);if(!S) return;
     UE_LOG(LogTemp,Display,TEXT("AshenDev: phase %d room %d wave %d endless %d enemies %d hero %s hp %.0f"),int32(S->Phase),S->Room,S->Wave,S->bEndless?S->EndlessWave:-1,S->Enemies.Num(),H?*H->GetActorLocation().ToCompactString():TEXT("-"),H?H->Health:0.f);
+    if(H) { // which way the hero faces: the actor, its controller, and (the Mannequin) its pelvis, whose forward is the bone's +Y... logged raw for comparison
+        const USkeletalMeshComponent* Body=H->GetMesh();const bool Bones=Body&&Body->DoesSocketExist(TEXT("pelvis"));
+        UE_LOG(LogTemp,Display,TEXT("AshenDev:   hero yaw %.0f control %.0f mesh %.0f pelvis %s velocity %s"),H->GetActorRotation().Yaw,H->GetControlRotation().Yaw,Body?Body->GetComponentRotation().Yaw:0.f,
+            Bones?*Body->GetSocketRotation(TEXT("pelvis")).ToCompactString():TEXT("-"),*H->GetVelocity().ToCompactString());
+    }
     for(auto Weak:S->Enemies) if(const AASEnemy* E=Weak.Get()) UE_LOG(LogTemp,Display,TEXT("AshenDev:   enemy kind %d hp %.0f/%.0f state %d at %s launched %d"),E->Kind,E->Health,E->MaxHealth,int32(E->AIState),*E->GetActorLocation().ToCompactString(),(E->Flags&ASEnemyRules::FlagLaunched)?1:0);
 }
 
@@ -208,6 +268,9 @@ bool Tick(float) {
     if(bGod) if(auto* H=HostHero(W)) {H->InvulnerableUntil=AS::Time(W)+1.f;if(H->Health<H->MaxHealth*.5f) H->Health=H->MaxHealth;}
     const double Now=FPlatformTime::Seconds();
     if(Now<WalkUntil) if(auto* H=HostHero(W)) H->AddMovementInput(FRotator(0.f,WalkYaw,0.f).Vector(),1.f,true);
+    FollowTick(W);
+    if(AttackUntil>0.0&&Now>=AttackUntil) {AttackUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("attack"),false);}
+    if(SpiralUntil>0.0&&Now>=SpiralUntil) {SpiralUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("spiral"),false);}
     if(Next>=Lines.Num()) return true; // keep ticking for god mode; a new script restarts the list
     if(Now<ResumeAt) return true;
     if(!WaitingFor.IsEmpty()) {
@@ -246,10 +309,14 @@ AS_DEV_COMMAND("as.dev.piletest",PileTest,"Launches a grunt into another across 
 AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host hero.");
 AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8).");
 AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
+AS_DEV_COMMAND("as.dev.input",Input,"Presses the host's buttons: attack|spiral <hold seconds>, dash, jump, rune, reload.");
 AS_DEV_COMMAND("as.dev.god",God,"1: the host hero cannot be hurt (and is healed back up); 0: off.");
+AS_DEV_COMMAND("as.dev.hurt",HurtHero,"A blow of <amount> to the host hero from the front (lands even in god mode).");
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
 AS_DEV_COMMAND("as.dev.cam",Cam,"A fixed photo camera: <x> <y> <z> <pitch> <yaw> [fov=80], or off.");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
+AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55], or off.");
+AS_DEV_COMMAND("as.dev.clearing",Clearing,"Moves the hero to open ground near the arena's middle: [radius=600] clear all round.");
 AS_DEV_COMMAND("as.dev.shot",Shot,"Screenshot to Saved/Screenshots/Dev/<name>.png [ui=1].");
 AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around the host hero [distance=520].");
 AS_DEV_COMMAND("as.dev.decortest",DecorTest,"Walks the host hero at the nearest standing ruin from 5 m.");

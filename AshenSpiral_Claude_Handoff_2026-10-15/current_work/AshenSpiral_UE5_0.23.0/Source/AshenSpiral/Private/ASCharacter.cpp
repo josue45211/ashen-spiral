@@ -110,8 +110,9 @@ void AASCharacter::RefreshLook() {
     for(auto* C: {BowStrings[0].Get(),BowStrings[1].Get()}) {ASAssets::Style(C,TEXT("Cylinder"),FLinearColor(.78f,.74f,.61f));C->SetVisibility(Build.Weapon==2);}
     Parts[18]->SetRelativeLocation(FVector(34,62,82));Parts[18]->SetRelativeRotation(FRotator::ZeroRotator);
     ASAssets::Style(ChargeMesh,TEXT("Sphere"),Fire,0,9);ChargeMesh->SetRelativeLocation(FVector(12,0,0));ChargeMesh->SetRelativeScale3D(FVector(.22f));
+    SetupSkeletalHero(); // 0.24.2 Phase F: the Mannequin takes over the look when its assets are here (the rig above stays as the fallback)
 }
-void AASCharacter::OnAttackPose() {PoseAge=0;}
+void AASCharacter::OnAttackPose() {PoseAge=0;if(bSkeletalHero&&GetNetMode()!=NM_DedicatedServer) PlayAttackClip();} // 0.24.2 Phase F: the Mannequin's attack clip
 float AASCharacter::ReloadProgress() const {return ASArsenal::ReloadProgress(ReloadStart,ReloadEnd,AS::Time(this));}
 void AASCharacter::ResetMagazine() {if(HasAuthority()) {Ammo=MagazineCapacity();ReloadStart=ReloadEnd=0;RotaryHeat=0;}}
 void AASCharacter::RequestReload_Implementation() {

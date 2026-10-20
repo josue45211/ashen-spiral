@@ -10,6 +10,9 @@
 #include "ASEnemyRules.h"
 #include "ASBreakable.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/PoseableMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
 #include "Components/SceneComponent.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
@@ -376,7 +379,8 @@ void AASDashGhost::SetupFromCharacter(const AASCharacter* Source,FLinearColor Co
     ++Active;bCounted=true;
     SetActorLocation(Source->GetActorLocation());
     TArray<UStaticMeshComponent*> Meshes;Source->CollectTrailMeshes(Meshes);
-    if(Meshes.IsEmpty()) {Destroy();return;}
+    USkeletalMeshComponent* Skin=Source->IsSkeletalHero()?Source->GetMesh():nullptr;
+    if(Meshes.IsEmpty()&&!Skin) {Destroy();return;}
     // One material shared by every copy keeps the cost to a single dynamic instance per afterimage.
     Shared=ASAssets::Material(this,Color,0.f,3.5f);
     for(auto* Piece:Meshes) {
@@ -386,13 +390,22 @@ void AASDashGhost::SetupFromCharacter(const AASCharacter* Source,FLinearColor Co
         Copy->SetMaterial(0,Shared);Copy->SetupAttachment(RootComponent);Copy->RegisterComponent();
         Copy->SetWorldTransform(Piece->GetComponentTransform());Copies.Add(Copy);
     }
-    if(Copies.IsEmpty()) Destroy();
+    // 0.24.2 Phase F: the Mannequin's afterimage is a copy of its skeleton frozen in the pose of the moment, in the same glowing tint as the weapon's copy
+    if(Skin&&Skin->GetSkeletalMeshAsset()) {
+        auto* Copy=NewObject<UPoseableMeshComponent>(this);Copy->SetSkinnedAssetAndUpdate(Skin->GetSkeletalMeshAsset());
+        Copy->SetCollisionEnabled(ECollisionEnabled::NoCollision);Copy->SetGenerateOverlapEvents(false);Copy->SetCastShadow(false);
+        Copy->SetupAttachment(RootComponent);Copy->RegisterComponent();
+        Copy->SetWorldTransform(Skin->GetComponentTransform());Copy->CopyPoseFromSkeletalComponent(Skin);
+        for(int32 I=0;I<Copy->GetNumMaterials();++I) Copy->SetMaterial(I,Shared);
+        Pose=Copy;
+    }
+    if(Copies.IsEmpty()&&!Pose) Destroy();
 }
 void AASDashGhost::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
     Age+=Delta;if(Age>=ASPresentation::DashGhostLife) {Destroy();return;}
     const float Alpha=ASPresentation::DashGhostAlpha(Age);
-    if(Copies.IsEmpty()) {
+    if(Copies.IsEmpty()&&!Pose) {
         Visual->SetRelativeScale3D(FVector(1.3f,.5f,1.5f)*ASPresentation::DashGhostShrink(Age));
         if(auto* M=Cast<UMaterialInstanceDynamic>(Visual->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),5.f*Alpha);
         return;
