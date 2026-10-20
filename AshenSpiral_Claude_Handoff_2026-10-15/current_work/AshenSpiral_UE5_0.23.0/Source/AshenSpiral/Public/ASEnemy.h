@@ -137,6 +137,7 @@ private:
     // 0.24 abilities with their own effect and flow (ASEnemyAbilities.cpp; rules and numbers in ASEnemyAbilities.h).
     enum EFlow : int32 {FlowNotMine,FlowFinish,FlowChained,FlowAttack}; // after an ability's effect: the old by-kind path / the recovery / another ability began / committed motion began
     int32 ReleaseOwnAbility(int32 AbilityId,const FVector& ToTarget);   // ReleaseAbility calls it first; FlowNotMine means CommitAttack handles the ability as before
+    FVector SlamPointFor(int32 AbilityId,const FVector& Feet) const; // where a maul slam lands (the head of the maul), on the floor; the feet for any other ability
     void ShowTell(float Progress);                               // the ground warning of the ability being wound up: its shape, its radius, its fill
     TWeakObjectPtr<AASCharacter> CurrentTarget;                  // authority: the hero TickGround is working against this tick
     float HopUntil=0,RiposteAt=-1.f;                             // the archer's back-hop in flight; when the duelist's counter starts after a block

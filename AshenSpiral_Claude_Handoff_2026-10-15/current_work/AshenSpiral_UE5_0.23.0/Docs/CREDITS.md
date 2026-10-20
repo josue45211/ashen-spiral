@@ -25,3 +25,7 @@ The 0.21 Archives kit contains seven original procedural meshes and nine origina
 ## 0.22 hammer
 
 Three reference sheets and the prompt were supplied by the user in `0.22-hammer-prompt-pack.zip`; retained in `reference/` as design inputs. Hammer pose curves, tangent head alignment, debris behavior and four synthesized audio cues are original project code/assets generated for this update. No external audio samples used.
+
+## 0.25 imported vault assets (local only, not in the repository)
+
+- **Molten Face Hammer Weapon FBX** (Fab listing b0be64dd-284f-4aa6-8a08-44e0b8fb3ccf): imported on one machine by `Tools/import_vault_assets.py` as `SM_MoltenHammer` and `M_MoltenHammer`, used as the elite maul. **Licence not yet confirmed by Josue (Docs/0.25_ASSET_PLAN.md, Gate 0).** The source FBX and the imported assets are not committed; the game falls back to its built-in maul when they are absent. Confirm the licence, and any attribution it needs, before a release build ships this mesh.

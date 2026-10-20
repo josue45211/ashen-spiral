@@ -120,7 +120,13 @@ void AASEnemy::RefreshLook() {
         ArmorParts[16]->AttachToComponent(ArmorParts[1],FAttachmentTransformRules::KeepRelativeTransform);ArmorParts[16]->SetRelativeLocation(FVector::ZeroVector);
         ArmorParts[19]->AttachToComponent(ArmorParts[15],FAttachmentTransformRules::KeepRelativeTransform);ArmorParts[19]->SetRelativeLocation(FVector(-3,0,-55));
         ArmorParts[20]->AttachToComponent(ArmorParts[0],FAttachmentTransformRules::KeepRelativeTransform);ArmorParts[20]->SetRelativeLocation(FVector::ZeroVector);
-        ASAssets::Armor(ArmorWeapon,FString::Printf(TEXT("SM_Weapon%d"),Kind==8?7:(Kind==1||Kind==7?4:(Elite()||Kind==6?1:0))),Metal,.8f);
+        const int32 WeaponIndex=Kind==8?7:(Kind==1||Kind==7?4:(Elite()||Kind==6?1:0));
+        ASAssets::Armor(ArmorWeapon,FString::Printf(TEXT("SM_Weapon%d"),WeaponIndex),Metal,.8f);
+        // 0.25 phase A: an elite swinging the maul carries the Molten Face Hammer when it has been imported on this machine (Tools/import_vault_assets.py, Docs/0.25_ASSET_PLAN.md); the built-in maul stands in otherwise.
+        if(WeaponIndex==1&&Elite()&&ASAssets::HasMesh(TEXT("SM_MoltenHammer"))) {
+            ASAssets::Style(ArmorWeapon,TEXT("SM_MoltenHammer"),Metal,.8f);
+            if(auto* Molten=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Imported/MoltenHammer/M_MoltenHammer.M_MoltenHammer"),nullptr,LOAD_NoWarn)) ArmorWeapon->SetMaterial(0,Molten);
+        }
         ASAssets::Armor(ArmorShield,TEXT("SM_EnemyShield"),Metal,.8f);ArmorShield->SetRelativeLocation(FVector(14,0,15));
         Eye->SetVisibility(false);
     }

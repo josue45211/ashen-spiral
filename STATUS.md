@@ -318,3 +318,10 @@ Bugs from the 0.24 playtest are separate and should land before art touches thos
 Doc: AshenSpiral_Claude_Handoff_2026-10-15/current_work/AshenSpiral_UE5_0.23.0/Docs/0.25_ASSET_PLAN.md
 Phases: A hammer + import pipeline (S), B concrete block material (S), C endless arena skin and decay stages (M), D Paragon enemy animations (L), E audio (S). Held: player model, AI creatures.
 Needs Josue: (1) licence check on the five packs, (2) bug-fix batch before B and C, (3) Paragon repackaging only if its licence is clear, (4) leave the player model closed, (5) AI creatures stay held for P2.
+
+### 0.25 phase A done (2026-10-19) - UNVERIFIED in-engine
+Unity and non-unity editor builds clean (0 errors, none of the warnings from our sources), run_tests exit 0, new native suite maul_025 (177 checks).
+- Elite maul slam and its warning disc now land at the head of the maul, in front of the brute, instead of under its feet (Pound and the frostbound slam).
+- Molten Face Hammer imported through the editor commandlet (Tools/import_vault_assets.py) and used by elite maul wielders. Local only: not committed; the game falls back to the built-in maul without it.
+- Needs Josue: the Molten Face Hammer licence is still unconfirmed (Gate 0); Docs/CREDITS.md says so. P2's machine shows the built-in maul unless the imported assets are copied to it.
+- Playtest: the slam ring and disc sit where the maul head lands; the molten hammer's size, grip and facing; whether it reads as molten (emission 5x, tunable in M_MoltenHammer).

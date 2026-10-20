@@ -195,6 +195,17 @@ inline const Kit& KitFor(int Kind) {
     };
     return Table[std::clamp(Kind,0,KindCount-1)];
 }
+// ---- 0.25 phase A: the slam lands where the maul's head does ----
+// The 0.24 playtest: an elite hammer enemy's slam should come from the head of its hammer, as the hero's does, not from under its feet. The head of the maul meets the floor in front of the
+// brute at the strike of the ground-pound pose track; MaulHeadFigureX is that point's forward distance in the figure's own space (Tests/maul_025_tests.cpp recomputes it from the track
+// and the mesh, so a pose edit that moves the head fails the test). The figure is squashed to MaulFigureScaleX on X and scaled by the body scale (ASEnemy::RefreshLook), so the
+// distance on the floor is the product. Only the two abilities that swing the maul (the brute's pound and the frostbound elite's glacial slam) have a reach.
+constexpr float MaulHeadFigureX=170.f,MaulFigureScaleX=.82f,MaulHeadMeshZ=90.f;
+inline float SlamReach(int Ability,float BodyScale) {
+    if(Ability!=AbilityPound&&Ability!=AbilityGlacial) return 0.f;
+    return std::isfinite(BodyScale)&&BodyScale>0.f?MaulHeadFigureX*MaulFigureScaleX*std::min(BodyScale,3.f):0.f;
+}
+
 // The radius a ground warning is drawn at: the melee slash's is the strike radius (the elite's is wider), every other warning's size is in its row.
 inline float TellRadiusFor(int Ability,bool Elite) {
     if(Ability==AbilitySlash) return StrikeRadius(Elite);

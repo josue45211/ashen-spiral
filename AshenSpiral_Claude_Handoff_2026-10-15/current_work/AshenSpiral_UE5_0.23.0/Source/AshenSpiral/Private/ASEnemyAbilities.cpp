@@ -20,6 +20,12 @@
 // Tests/enemy_ability_024_tests.cpp); this file applies them in the world, on the server. Everything runs through the replicated state machine, so the other machines pose
 // and draw it from AIState, Ability, WindupStart/End, AttackReleaseTime and Flags, and the effects below are multicast or replicated actors.
 
+// Where a maul slam lands: in front of the brute, at the reach of the head of its maul (ASEnemyRules::SlamReach), on the floor. Every other ability has no reach and lands at the feet.
+FVector AASEnemy::SlamPointFor(int32 AbilityId,const FVector& Feet) const {
+    FVector Forward=GetActorForwardVector();Forward.Z=0.f;
+    return Feet+Forward.GetSafeNormal()*ASEnemyRules::SlamReach(AbilityId,BodyScale);
+}
+
 // The warning on the floor for the ability being wound up (the server never draws it). A half disc for the swings, a full disc for the ground pound; the dim shape shows the whole
 // area at once, the bright one grows over it as the wind-up completes. Neither is a ring: a ring on screen is not a thing an enemy puts on the floor.
 void AASEnemy::ShowTell(float Progress) {
@@ -39,7 +45,8 @@ void AASEnemy::ShowTell(float Progress) {
         TellFill->SetRelativeLocation(FVector(Grown*.5f,0.f,Floor+4.5f));TellFill->SetRelativeScale3D(FVector(Grown/100.f,Width/100.f*.95f,.03f));
     } else {
         const float Radius=ER::TellRadiusFor(Ability,Elite()),Unit=Disc?50.f:(HasSector?50.f:53.f),Full=Radius/Unit,Grow=Full*FMath::Max(.04f,Progress),Flat=Disc?.02f:1.f; // the basic cylinder is 100 cm across: flattened it is a disc
-        Tell->SetRelativeLocation(FVector(0.f,0.f,Floor+3.f));TellFill->SetRelativeLocation(FVector(0.f,0.f,Floor+4.5f));
+        const float Reach=ER::SlamReach(Ability,BodyScale); // a maul slam lands where the head of the maul does (0 for every other ability), so the warning is drawn there too
+        Tell->SetRelativeLocation(FVector(Reach,0.f,Floor+3.f));TellFill->SetRelativeLocation(FVector(Reach,0.f,Floor+4.5f));
         Tell->SetRelativeScale3D(FVector(Full,Full,Flat));TellFill->SetRelativeScale3D(FVector(Grow,Grow,Flat*1.5f));
     }
     if(auto* M=Cast<UMaterialInstanceDynamic>(TellFill->GetMaterial(0))) M->SetScalarParameterValue(TEXT("Emission"),3+Progress*6);
@@ -111,11 +118,12 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
     case ER::AbilityRiposte: // the fast counter-slash out of a block
         ++Pattern;Swing(ER::RiposteRadius,ER::RiposteDamage,0.f,0.f);
         return FlowFinish;
-    case ER::AbilityPound: { // a shockwave ring from the feet; ground contact when its front passes is what hurts
+    case ER::AbilityPound: { // a shockwave ring from where the head of the maul meets the floor; ground contact when its front passes is what hurts
         ++Pattern;
-        AASShockwave::Spawn(World,Feet,this,ER::PoundDamage,ER::PoundMaxRadius);
-        S->Effect(6,Feet,FVector::UpVector,FLinearColor(1.f,.3f,.05f),360.f);                // the impact flash (and its sound)
-        S->Effect(11,Feet,FVector::UpVector,FLinearColor(.75f,.6f,.45f),2.f);                // thrown rubble
+        const FVector Slam=SlamPointFor(Id,Feet);
+        AASShockwave::Spawn(World,Slam,this,ER::PoundDamage,ER::PoundMaxRadius);
+        S->Effect(6,Slam,FVector::UpVector,FLinearColor(1.f,.3f,.05f),360.f);                // the impact flash (and its sound)
+        S->Effect(11,Slam,FVector::UpVector,FLinearColor(.75f,.6f,.45f),2.f);                // thrown rubble
         return FlowFinish;
     }
     case ER::AbilityEnrage: { // the roar is over: faster, quicker to wind up, quicker to recharge, and hot red from now on
@@ -165,10 +173,11 @@ int32 AASEnemy::ReleaseOwnAbility(int32 Id,const FVector& ToTarget) {
     }
     case ER::AbilityGlacial: { // the frostbound elite's slam: everyone inside its warning disc is hurt, and a frost zone stays where it landed
         ++Pattern;
-        for(auto W:S->Heroes) if(auto* Hero=W.Get()) if(!Hero->bDowned&&FVector::Dist2D(Hero->GetActorLocation(),Here)<ER::GlacialRadius&&AS::ClearSight(World,Here,Hero->GetActorLocation())) Hero->Hurt(ER::GlacialDamage,this);
-        AASHazard::Spawn(World,Feet,ER::HazardFrost,this,0.f,0.f);
-        S->Effect(6,Feet,FVector::UpVector,FLinearColor(.12f,1.f,1.f),ER::GlacialRadius);                  // a cyan flash: frost, and only frost, is blue
-        S->Effect(11,Feet,FVector::UpVector,FLinearColor(.55f,.95f,1.f),2.f);                             // ice shards
+        const FVector Slam=SlamPointFor(Id,Feet);                                                          // where the head of the maul lands: the warning disc is drawn there too
+        for(auto W:S->Heroes) if(auto* Hero=W.Get()) if(!Hero->bDowned&&FVector::Dist2D(Hero->GetActorLocation(),Slam)<ER::GlacialRadius&&AS::ClearSight(World,Here,Hero->GetActorLocation())) Hero->Hurt(ER::GlacialDamage,this);
+        AASHazard::Spawn(World,Slam,ER::HazardFrost,this,0.f,0.f);
+        S->Effect(6,Slam,FVector::UpVector,FLinearColor(.12f,1.f,1.f),ER::GlacialRadius);                  // a cyan flash: frost, and only frost, is blue
+        S->Effect(11,Slam,FVector::UpVector,FLinearColor(.55f,.95f,1.f),2.f);                             // ice shards
         return FlowFinish;
     }
     case ER::AbilityCinders: { // the burning elite's fire pools in a line toward the hero, each with its own warning, one after another

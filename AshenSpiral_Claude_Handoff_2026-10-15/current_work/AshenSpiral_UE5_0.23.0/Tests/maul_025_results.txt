@@ -1,0 +1,2 @@
+PASS: 177 maul slam checks; reach per ability and body scale, bad inputs, and the head of the maul against the ground-pound pose at its strike.
+Shared rules only; the slam, its warning disc and the imported mesh are Unreal gameplay: UNVERIFIED.
