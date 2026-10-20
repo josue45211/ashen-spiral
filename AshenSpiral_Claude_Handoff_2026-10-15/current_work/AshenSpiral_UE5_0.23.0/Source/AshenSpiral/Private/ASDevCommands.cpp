@@ -20,6 +20,8 @@
 #include "Engine/World.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Animation/AnimInstance.h"
+#include "Animation/AnimMontage.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformTime.h"
@@ -122,6 +124,22 @@ void Slay(const TArray<FString>& Args,UWorld*) {
 void Keeper(const TArray<FString>&,UWorld* W) {
     auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
     if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()-H->GetActorForwardVector().GetSafeNormal2D()*2500.f,nullptr,0,1.f,false)) {E->CustomTimeDilation=0.f;UE_LOG(LogTemp,Display,TEXT("AshenDev: keeper frozen at %s"),*E->GetActorLocation().ToCompactString());}
+}
+// as.dev.freeze [1|0]: every enemy stops in time (CustomTimeDilation 0) or runs again; for photographing them where they stand.
+void Freeze(const TArray<FString>& Args,UWorld* W) {
+    auto* S=AS::State(W);if(!S) return;const bool Stop=ArgInt(Args,0,1)!=0;int32 Count=0;
+    for(auto Weak:S->Enemies) if(AASEnemy* E=Weak.Get()) {E->CustomTimeDilation=Stop?0.f:1.f;++Count;}
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: %d enemies %s"),Count,Stop?TEXT("frozen"):TEXT("running"));
+}
+// as.dev.lineup [distance=500] [spacing=260]: one enemy of every ground kind (0-9, the boss and the elite left out) in a row in front of the hero, at full health, turned to face it.
+void Lineup(const TArray<FString>& Args,UWorld* W) {
+    auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
+    const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D(),Right(-Forward.Y,Forward.X,0.f);const float Distance=ArgFloat(Args,0,500.f),Spacing=ArgFloat(Args,1,260.f);
+    const int32 Kinds[]={0,1,2,5,6,7,8,9};int32 Made=0;
+    for(int32 I=0;I<UE_ARRAY_COUNT(Kinds);++I) if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()+Forward*Distance+Right*(float(I)-(UE_ARRAY_COUNT(Kinds)-1)*.5f)*Spacing,nullptr,Kinds[I],1.f,true)) {
+        E->SetActorRotation((-Forward).Rotation());E->RefreshLook();++Made;
+    }
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: lineup of %d enemy kinds"),Made);
 }
 // as.dev.status <burn|poison|frost|bleed|shock> [radius]: the element applied by the hero (a full proc with its pool) to every enemy near it.
 void Status(const TArray<FString>& Args,UWorld* W) {
@@ -357,7 +375,15 @@ void State(const TArray<FString>&,UWorld* W) {
         UE_LOG(LogTemp,Display,TEXT("AshenDev:   hero yaw %.0f control %.0f mesh %.0f pelvis %s velocity %s"),H->GetActorRotation().Yaw,H->GetControlRotation().Yaw,Body?Body->GetComponentRotation().Yaw:0.f,
             Bones?*Body->GetSocketRotation(TEXT("pelvis")).ToCompactString():TEXT("-"),*H->GetVelocity().ToCompactString());
     }
-    for(auto Weak:S->Enemies) if(const AASEnemy* E=Weak.Get()) UE_LOG(LogTemp,Display,TEXT("AshenDev:   enemy kind %d hp %.0f/%.0f state %d at %s launched %d"),E->Kind,E->Health,E->MaxHealth,int32(E->AIState),*E->GetActorLocation().ToCompactString(),(E->Flags&ASEnemyRules::FlagLaunched)?1:0);
+    for(auto Weak:S->Enemies) if(const AASEnemy* E=Weak.Get()) {
+        UE_LOG(LogTemp,Display,TEXT("AshenDev:   enemy kind %d hp %.0f/%.0f state %d at %s launched %d"),E->Kind,E->Health,E->MaxHealth,int32(E->AIState),*E->GetActorLocation().ToCompactString(),(E->Flags&ASEnemyRules::FlagLaunched)?1:0);
+        if(E->IsSkeletalBoss()) if(const USkeletalMeshComponent* M=E->GetMesh()) {
+            const UAnimInstance* A=M->GetAnimInstance();const UAnimMontage* Playing=A?A->GetCurrentActiveMontage():nullptr;
+            const float HeadZ=M->DoesSocketExist(TEXT("Head"))?float(M->GetSocketLocation(TEXT("Head")).Z-E->GetActorLocation().Z):0.f,FootZ=M->DoesSocketExist(TEXT("LeftFoot"))?float(M->GetSocketLocation(TEXT("LeftFoot")).Z-E->GetActorLocation().Z):0.f;
+            UE_LOG(LogTemp,Display,TEXT("AshenDev:     titan mesh rot %s scale %.2f head %+.0f foot %+.0f (from the actor) move mode %d montage %s actor rot %s"),*M->GetComponentRotation().ToCompactString(),M->GetComponentScale().Z,HeadZ,FootZ,
+                E->GetCharacterMovement()?int32(E->GetCharacterMovement()->MovementMode.GetValue()):-1,Playing?*Playing->GetName():TEXT("-"),*E->GetActorRotation().ToCompactString());
+        }
+    }
 }
 
 // ---- the script player: one command per line; "wait <seconds>", "waitfor ready|players|combat|hub|reward [timeout]", "#" comments; anything else is a console command ----
@@ -419,6 +445,8 @@ AS_DEV_COMMAND("as.dev.wound",Wound,"Hits every enemy near the hero down to <fra
 AS_DEV_COMMAND("as.dev.killall",KillAll,"Strikes down every enemy near the hero, credited to it [radius=6000].");
 AS_DEV_COMMAND("as.dev.slay",Slay,"Strikes down every enemy as it appears for [seconds=20] (clears a story room's waves).");
 AS_DEV_COMMAND("as.dev.keeper",Keeper,"A grunt frozen 25 m behind the hero that keeps the wave in combat (killall spares it).");
+AS_DEV_COMMAND("as.dev.freeze",Freeze,"Stops every enemy in time [1] or lets them run again [0].");
+AS_DEV_COMMAND("as.dev.lineup",Lineup,"One enemy of every ground kind in a row in front of the hero: [distance=500] [spacing=260].");
 AS_DEV_COMMAND("as.dev.status",Status,"Applies <burn|poison|frost|bleed|shock> from the hero to every enemy near it [radius=3000].");
 AS_DEV_COMMAND("as.dev.station",Station,"Puts the hero beside interaction point <id> (9 = the reward chest).");
 AS_DEV_COMMAND("as.dev.knock",Knock,"Launches every enemy near the hero away from it: [strength=950] [radius=700].");

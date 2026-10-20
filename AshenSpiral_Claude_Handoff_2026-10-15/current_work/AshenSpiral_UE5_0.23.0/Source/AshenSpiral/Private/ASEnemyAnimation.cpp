@@ -128,6 +128,7 @@ void AASEnemy::AnimateDeath() {
         DeathVariant=EP::DeathVariantFor(Push.X,Push.Y,GetUniqueID());
         for(auto* Piece:{Tell.Get(),TellFill.Get(),TellRipple.Get(),Beam.Get(),Eye.Get(),Crown.Get(),WingL.Get(),WingR.Get(),WingBoneL.Get(),WingBoneR.Get()}) if(Piece) Piece->SetVisibility(false);
     }
+    if(AnimateSkeletalDeath(Now-DeathSeenAt)) return; // 0.24.2: the Titan boss falls with the Mannequin's death retargeted onto it
     const auto Look=ASPresentation::EnemyDeathAt(Now-DeathSeenAt);
     // 0.24: an armoured walker plays a collapse retargeted from the Mannequin's own death animations (ASEnemyDeathTracks.h) over EnemyDeathSeconds, then shrinks away as before.
     if(!bTrainingDummy&&!Flies()&&ASEnemyRules::KitFor(Kind).AnimSet==ASEnemyRules::AnimHumanoid&&ArmorParts.Num()>EP::Core) {

@@ -1,0 +1,46 @@
+# diagnostic: the Titan boss hangs upside down at times - its state every 0.4 s from the spawn
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.abilitylog 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.face 0
+as.dev.boss 0 0 1000
+as.dev.follow 380 120 160 60 700
+as.dev.state
+wait 0.4
+as.dev.state
+as.dev.shot bdiag_01 0
+wait 0.4
+as.dev.state
+wait 0.4
+as.dev.state
+as.dev.shot bdiag_02 0
+wait 0.4
+as.dev.state
+wait 0.4
+as.dev.state
+as.dev.shot bdiag_03 0
+wait 0.4
+as.dev.state
+wait 0.4
+as.dev.state
+as.dev.shot bdiag_04 0
+wait 0.4
+as.dev.state
+wait 0.4
+as.dev.state
+as.dev.shot bdiag_05 0
+wait 0.4
+as.dev.state
+wait 0.4
+as.dev.state
+as.dev.shot bdiag_06 0
+wait 0.4
+as.dev.state
+wait 0.5
+quit

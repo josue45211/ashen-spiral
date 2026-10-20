@@ -133,11 +133,13 @@ void AASEnemy::RefreshLook() {
         Eye->SetVisibility(false);
     }
     GetCapsuleComponent()->SetCapsuleRadius(Boss()?80:(Elite()?52:38));
+    SetupSkeletalBoss(); // 0.24.2: a ground boss takes the Warrior Titan's look when it is imported here (the armour rig above stays as the fallback)
 }
 
 void AASEnemy::Glint() {
     FVector At=GetActorLocation()+GetActorForwardVector()*40.f*BodyScale+FVector(0.f,0.f,55.f*BodyScale); // a body without a weapon (the leaper) glints at its brow
-    if(ArmorWeapon&&ArmorWeapon->IsVisible()&&ArmorWeapon->GetStaticMesh()) At=ArmorWeapon->GetComponentTransform().TransformPosition(FVector(0.f,0.f,ArmorWeapon->GetStaticMesh()->GetBoundingBox().Max.Z*.92f)); // the tip: weapons stand along +Z
+    if(bSkeletalBoss&&GetMesh()&&GetMesh()->DoesSocketExist(TEXT("RightHand"))) At=GetMesh()->GetSocketLocation(TEXT("RightHand")); // the Titan fights with its gauntlets
+    else if(ArmorWeapon&&ArmorWeapon->IsVisible()&&ArmorWeapon->GetStaticMesh()) At=ArmorWeapon->GetComponentTransform().TransformPosition(FVector(0.f,0.f,ArmorWeapon->GetStaticMesh()->GetBoundingBox().Max.Z*.92f)); // the tip: weapons stand along +Z
     if(UWorld* W=GetWorld()) if(auto* FX=W->SpawnActor<AASVisualEffect>()) FX->Setup(20,At,FVector::ForwardVector,FLinearColor(1.f,.93f,.72f),Boss()?140.f:(Elite()?100.f:72.f));
 }
 bool AASEnemy::ShowsStrikeCircle() const {
@@ -152,6 +154,17 @@ void AASEnemy::TickStatusTint() {
     const float Now=AS::Time(this);
     const bool Enraged=(Flags&(ASEnemyRules::FlagEnraged|ASEnemyRules::FlagPhaseTwo))!=0,Mutated=Mutation!=ASEnemyRules::MutationNone; // a boss in its second phase is as angry as an enraged brute
     const bool Active=(StatusBits!=0||Enraged||Mutated)&&Health>0;
+    if(bSkeletalBoss) { // 0.24.2: the Titan shows the same pulses as a glow over its own textures (its tint is its ward's cast)
+        if(!SkelMaterial||Health<=0) return;
+        FLinearColor Glow=FLinearColor::Black;
+        if(Active) {
+            FLinearColor Status(1.f,.16f,.03f);float Pulse=.32f+.28f*FMath::Sin(Now*11.f+float(GetUniqueID()%7));
+            if(StatusBits!=0) {const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));Status=ASData::HitColor(Type);Pulse=(StatusBits&8)?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7));}
+            Glow=Status*(FMath::Clamp(Pulse,0.f,.85f)*1.2f);
+        }
+        SkelMaterial->SetVectorParameterValue(TEXT("Glow"),Glow);
+        return;
+    }
     if(!Active&&!bTintApplied) return;
     TArray<UStaticMeshComponent*> Parts;Parts.Add(Body.Get());for(const auto& Part:ArmorParts) Parts.Add(Part.Get());
     if(bTintApplied&&BaseTints.Num()!=Parts.Num()) {BaseTints.Reset();bTintApplied=false;} // part list changed: forget stale colours
@@ -224,7 +237,8 @@ void AASEnemy::Tick(float Delta) {
         const float T=bWinding?FMath::Clamp((S->SimTime-WindupStart)/FMath::Max(.01f,WindupEnd-WindupStart),0.f,1.f):0;
         const bool Blob=ASEnemyRules::KitFor(Kind).AnimSet==ASEnemyRules::AnimBlob; // the leaper and the broodcaller: one body, posed by AnimateBlob
         if(GetNetMode()!=NM_DedicatedServer) {
-            AnimateArmor(Delta,T);if(Flies()) AnimateFlier();if(Blob) AnimateBlob();TickStatusTint();UpdateCues(AS::Time(this));
+            if(bSkeletalBoss) AnimateSkeletalBoss(Delta);else AnimateArmor(Delta,T); // 0.24.2: the Titan boss plays clips; the armour rig is posed
+            if(Flies()) AnimateFlier();if(Blob) AnimateBlob();TickStatusTint();UpdateCues(AS::Time(this));
             if(Kind==ASEnemyRules::Sniper&&bWinding) ShowBeam(T);
             if(Kind==ASEnemyRules::Bulwark&&ArmorShield) {const bool Up=!(Flags&ASEnemyRules::FlagGuardBroken);if(ArmorShield->IsVisible()!=Up) ArmorShield->SetVisibility(Up);} // a broken guard drops its shield for a few seconds
         }

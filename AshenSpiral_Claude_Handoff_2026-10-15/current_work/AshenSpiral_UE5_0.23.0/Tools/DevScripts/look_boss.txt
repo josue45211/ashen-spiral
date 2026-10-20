@@ -1,0 +1,45 @@
+# 0.24.2: the ward boss as the Warrior Titan - standing, walking, winding up its attacks, the half-health fury, the death; a second ward for its tint.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.abilitylog 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.face 0
+as.dev.boss 0 0 1000
+wait 0.8
+as.dev.follow 380 120 160 60 700
+wait 0.3
+as.dev.shot boss_01_arrive 0
+wait 2
+as.dev.shot boss_02_walk 0
+wait 1.2
+as.dev.shot boss_03_a 0
+wait 1.2
+as.dev.shot boss_04_b 0
+wait 1.2
+as.dev.shot boss_05_c 0
+wait 1.2
+as.dev.shot boss_06_d 0
+as.dev.wound 0.45 3000
+wait 0.6
+as.dev.shot boss_07_fury_a 0
+wait 0.8
+as.dev.shot boss_08_fury_b 0
+wait 2
+as.dev.shot boss_09_phase_two 0
+as.dev.killall
+wait 0.6
+as.dev.shot boss_10_death_a 0
+wait 0.9
+as.dev.shot boss_11_death_b 0
+wait 2
+as.dev.boss 2 0 900
+wait 2.5
+as.dev.shot boss_12_ward2 0
+as.dev.state
+wait 0.5
+quit
