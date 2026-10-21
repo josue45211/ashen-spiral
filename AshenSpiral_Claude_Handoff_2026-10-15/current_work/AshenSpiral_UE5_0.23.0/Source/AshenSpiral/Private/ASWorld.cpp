@@ -408,10 +408,15 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
                     Mat=Gold;
                 }
         }
-        // 0.24.2 aesthetics: the stations' flames burn (M_Flame, made by the bootstrap) instead of blooming into white eggs; Color and Glow as before
-        if(Group==TEXT("HubFlame"))
+        // 0.24.2 aesthetics: the flames burn (M_Flame, made by the bootstrap) instead of blooming into white eggs - the hub's stations, the chambers' braziers and funeral
+        // flames, the lanterns; Color and Glow as before
+        if(Group==TEXT("HubFlame")||Group==TEXT("Flame")||Group==TEXT("FuneralFlame")||Group==TEXT("LanternGlow"))
             if(auto* Fire=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Flame.M_Flame"),nullptr,LOAD_NoWarn|LOAD_Quiet))
                 if(auto* Burning=UMaterialInstanceDynamic::Create(Fire,C)) {Burning->SetVectorParameterValue(TEXT("Tint"),Color);Burning->SetScalarParameterValue(TEXT("Emission"),Glow);Mat=Burning;C->SetCastShadow(false);}
+        // ... and the final chamber's way home is a turning vortex like the hub's portals (M_Portal)
+        if(Group==TEXT("ReturnPortal"))
+            if(auto* Vortex=LoadObject<UMaterialInterface>(nullptr,TEXT("/Game/Art/Materials/M_Portal.M_Portal"),nullptr,LOAD_NoWarn|LOAD_Quiet))
+                if(auto* Way=UMaterialInstanceDynamic::Create(Vortex,C)) {Way->SetVectorParameterValue(TEXT("Tint"),Color);Way->SetScalarParameterValue(TEXT("Emission"),Glow*2.f);Mat=Way;}
         ASAssets::Paint(C,Mat); // every section of the mesh (0.24.2: only the first had a material; the rest drew the engine's grid)
         C->SetMobility(Group.StartsWith(TEXT("EndlessCover"))?EComponentMobility::Movable:EComponentMobility::Static); // cover sinks and rises
         C->SetCollisionEnabled(Collision?ECollisionEnabled::QueryAndPhysics:ECollisionEnabled::NoCollision);

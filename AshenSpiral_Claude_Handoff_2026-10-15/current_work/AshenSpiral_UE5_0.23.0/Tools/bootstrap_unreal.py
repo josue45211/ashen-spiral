@@ -283,6 +283,7 @@ def create_portal_material():
     for name, source in sources.items():
         require(edit.connect_material_expressions(source, "", custom, name), "M_Portal input " + name)
     require(edit.connect_material_property(custom, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR), "M_Portal output")
+    edit.set_base_material_usage(material, unreal.MaterialUsage.MATUSAGE_INSTANCED_STATIC_MESHES, True)  # the final chamber's return portal is a world batch
     edit.layout_material_expressions(material)
     edit.recompile_material(material)
     require(assets.save_loaded_asset(material, False), "Could not save M_Portal")

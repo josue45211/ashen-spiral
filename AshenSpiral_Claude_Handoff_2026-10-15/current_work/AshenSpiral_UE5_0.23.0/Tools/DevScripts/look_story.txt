@@ -26,5 +26,13 @@ as.dev.room 25
 waitfor combat 30
 wait 2.5
 as.dev.shot story_25_biome3 0
+# the final chamber's return portal, from beside the exit
+as.dev.room 31
+waitfor combat 30
+wait 2
+as.dev.killall
+as.dev.station 9
+wait 1
+as.dev.shot story_31_return 0
 wait 0.5
 quit
