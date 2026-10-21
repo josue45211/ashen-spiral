@@ -1,8 +1,8 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-20 17:05 PDT
+updated: 2026-10-20 17:45 PDT
 phase: 0.24.2 PLAYTEST ZIP READY (Edison 09:01 order done); continuing Edison's 08:30 list (visual polish, 0.25 plan)
-current_item: visual polish - the story chambers' return portal and look
+current_item: queued in-engine checks, held until the playtest game now running on this machine (started 17:17) exits: a floor fix (the dirt normal map's shards), softer pickups, the vault chest, a co-op Titan-boss check, a frame-time probe, and elite brutes as smaller Titans (built, off by default). Nothing is committed unverified.
 
 ## 0.24.2 PLAYTEST ZIP (Edison 09:01 order) - for Josue and P2; both PCs must run this exact file
 - Path: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip
