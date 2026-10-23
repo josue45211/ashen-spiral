@@ -1,2 +1,2 @@
-PASS: 7941 Part C checks; perfect dash window, proc-chain depth and falloff, impact damage and chains, metamorphoses, ceremony curve, death-screen lines.
+PASS: 7942 Part C checks; perfect dash window, proc-chain depth and falloff, impact damage and chains, metamorphoses, ceremony curve, death-screen lines.
 Shared rules only; Unreal actors, replication and feel were not run.

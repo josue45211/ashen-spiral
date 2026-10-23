@@ -489,7 +489,8 @@ void AASWorld::MakeHub() {
         Add(TEXT("Cylinder"),TEXT("WeaponPlinth"),P+FVector(0,0,35),FVector(1.5f,1.5f,.7f),Stone);
         Add(TEXT("SM_Ring"),FString::Printf(TEXT("WeaponAccent%d"),I),P+FVector(0,0,72),FVector(1.6f,1.6f,1),Color,false,0,2);
         if(I%2) Add(TEXT("Cube"),TEXT("WeaponBackboard"),P+FVector(0,-90,180),FVector(2.9f,.2f,3.5f),Stone,true);
-        Add(FString::Printf(TEXT("SM_Weapon%d"),I),TEXT("WeaponDisplay"),P+FVector(0,0,165),FVector(1),FLinearColor(.48f,.42f,.30f),false,90,0,.55f);
+        Add(FString::Printf(TEXT("SM_Weapon%d"),I),TEXT("WeaponDisplay"),P+FVector(0,0,165)+(I==ASRules::Claws?FVector(-26,0,0):FVector::ZeroVector),FVector(1),FLinearColor(.48f,.42f,.30f),false,90,0,.55f);
+        if(I==ASRules::Claws) Add(TEXT("SM_Weapon9"),TEXT("WeaponDisplay"),P+FVector(26,0,165),FVector(1),FLinearColor(.48f,.42f,.30f),false,90,0,.55f); // the claws are a pair
         if(I==2) Add(TEXT("Cylinder"),TEXT("DisplayString"),P+FVector(0,-24,165),FVector(.009f,.009f,1.46f),FLinearColor(.8f,.75f,.6f),false);
         Text(FString::Printf(TEXT("%02d"),I+1),P+FVector(0,0,90),90,18);
     }
@@ -1173,7 +1174,7 @@ FVector AASWorld::EnemySpawn(const FVector& Near,FRandomStream& Random) const {
     return Options.IsEmpty()?SafeEnemyPoint(Near+FVector(800,0,0)):NavPoint(Options[Random.RandRange(0,Options.Num()-1)])+FVector(0,0,240);
 }
 bool AASWorld::InWater(const FVector& P) const {for(const FVector& W:Water) if(FVector::DistSquared2D(P,W)<180*180) return true;return false;}
-FVector AASWorld::WeaponStand(int32 I) const {return FVector(-1160+FMath::Clamp(I,0,ASRules::WeaponCount-1)*290,-1150,0);}
+FVector AASWorld::WeaponStand(int32 I) const {return FVector(-1160+FMath::Clamp(I,0,ASRules::WeaponCount-1)*258,-1150,0);} // 0.26: ten stands in the room nine had (290 apart then)
 int32 AASWorld::WeaponAt(const FVector& P) const {
     if(Config.Room>=0) return -1;
     int32 Best=-1;float Distance=320.f*320.f;

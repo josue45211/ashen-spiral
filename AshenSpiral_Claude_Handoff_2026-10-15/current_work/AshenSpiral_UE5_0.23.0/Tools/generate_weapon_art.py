@@ -40,6 +40,18 @@ class Mesh:
         for a,b in zip(rings,rings[1:]):
             for i in range(4):self.quad(a[i],a[(i+1)%4],b[(i+1)%4],b[i])
         self.quad(*rings[-1])
+    def spike(self,pts,broads,thins,thin_axis=(0,1,0)):
+        # A curved, tapering blade along a polyline (0.26 Twin Claws): a diamond cross section, broad across the curve's plane and thin through it, that closes to a point.
+        # The ring order is the one blade() uses (counter-clockwise seen from the tip), so the faces come out facing outward.
+        rings=[]
+        for i,p in enumerate(pts):
+            t=unit(sub(pts[min(len(pts)-1,i+1)],pts[max(0,i-1)]))
+            broad=unit(cross(t,thin_axis))
+            rings.append([add(p,mul(thin_axis,thins[i])),add(p,mul(broad,broads[i])),sub(p,mul(thin_axis,thins[i])),sub(p,mul(broad,broads[i]))])
+        self.quad(*reversed(rings[0]))
+        for a,b in zip(rings,rings[1:]):
+            for i in range(4):self.quad(a[i],a[(i+1)%4],b[(i+1)%4],b[i])
+        self.quad(*rings[-1])
     def grip(self):
         self.group='grip';self.link((0,0,-13),(0,0,13),2.6,12)
         for z in range(-11,12,3):self.link((0,0,z),(0,0,z+.8),3,12)
@@ -57,9 +69,21 @@ class Mesh:
         (ROOT/'Meshes'/f'{name}.obj').write_text('\n'.join(lines)+'\n',encoding='ascii')
 
 def generate():
-    for weapon in range(9):
+    for weapon in range(10):
         m=Mesh();m.grip()
-        if weapon==0:
+        if weapon==9:
+            # Twin Claws: one claw, a katar. The fist closes on the grip (Z); a knuckle plate stands in front of it and three curved blades run forward (+X), hooked down toward the little finger
+            # (-Z), the outer two fanned. The same mesh is the right claw and the left: the hand frame (ASHeroLook::GripInHand) puts +Z from the little finger to the index finger on both hands.
+            m.group='knuckle_plate';m.box((6,0,0),(4,11,34))
+            m.group='frame'
+            for sign in (-1,1):m.link((0,0,13*sign),(5,0,16*sign),2.2)
+            m.group='pommel';m.link((0,0,-14),(0,0,-17),3.4)
+            m.group='claw_blades'
+            for z0,length,splay in ((-9,44,-1),(0,52,0),(9,44,1)):
+                pts=[(8,0,z0),(18,0,z0+splay*1.5-.5),(30,0,z0+splay*3.5-2.5),(41,0,z0+splay*5.5-7)]
+                pts.append((length,0,z0+splay*7-14))
+                m.spike(pts,[3.0,2.8,2.2,1.3,.08],[1.1,1.0,.8,.5,.08])
+        elif weapon==0:
             m.group='guard';m.link((0,-18,16),(0,18,16),2.4);m.group='pommel';m.link((0,0,-19),(0,0,-13),4)
             m.group='blade';m.blade([(0,19,5.2,1.2),(0,78,4.5,1),(0,102,.08,.08)])
         elif weapon==1:
@@ -136,6 +160,6 @@ def generate():
         low=[min(v[i] for v in verts) for i in range(3)];high=[max(v[i] for v in verts) for i in range(3)]
         manifest[file.stem]={'min':low,'max':high,'extent':[high[i]-low[i] for i in range(3)]}
     (ROOT/'mesh_bounds.json').write_text(json.dumps(manifest,indent=2)+'\n')
-    print('Generated nine forward-facing weapons, thick world-route arrow, bow arrow and training dummy.')
+    print('Generated ten forward-facing weapons, thick world-route arrow, bow arrow and training dummy.')
 
 if __name__=='__main__':generate()

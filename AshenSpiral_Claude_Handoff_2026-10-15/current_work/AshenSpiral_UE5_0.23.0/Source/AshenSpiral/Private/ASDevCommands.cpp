@@ -38,6 +38,7 @@
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "GameFramework/SpringArmComponent.h"
 
 namespace ASDev {
 UWorld* GameWorld() {
@@ -264,6 +265,21 @@ void Cam(const TArray<FString>& Args,UWorld* W) {
     PC->SetViewTarget(PhotoCamera.Get());
 }
 void Face(const TArray<FString>& Args,UWorld* W) {if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(ArgFloat(Args,1,-15.f),ArgFloat(Args,0,0.f),0.f));}
+// as.dev.aimat [nth=0]: turns the camera so the crosshair's ray (the one the claws' pounce reads, ASPlayerController::UpdateAim) runs through the nth nearest living enemy's body. The camera sits
+// on a boom to the hero's right, so a plain "face the enemy" misses it by the boom's offset; this solves for the camera's own position (a few rounds of the same boom arithmetic).
+void AimAt(const TArray<FString>& Args,UWorld* W) {
+    auto* PC=HostController(W);auto* H=HostHero(W);auto* S=AS::State(W);if(!PC||!H||!S) return;
+    TArray<AASEnemy*> Near;for(auto Weak:S->Enemies) if(AASEnemy* E=Weak.Get()) if(E->Health>0) Near.Add(E);
+    const FVector Me=H->GetActorLocation();Near.Sort([&Me](const AASEnemy& A,const AASEnemy& B){return FVector::DistSquared(Me,A.GetActorLocation())<FVector::DistSquared(Me,B.GetActorLocation());});
+    const int32 Nth=ArgInt(Args,0,0);if(!Near.IsValidIndex(Nth)) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: aimat - no enemy number %d"),Nth);return;}
+    const FVector Chest=Near[Nth]->GetActorLocation();FRotator R=(Chest-Me).Rotation();
+    for(int32 Round=0;Round<6;++Round) {
+        const FVector Camera=Me+H->Boom->TargetOffset+FRotationMatrix(R).TransformVector(FVector(-H->Boom->TargetArmLength,0.f,0.f)+H->Boom->SocketOffset);
+        const FRotator Want=(Chest-Camera).Rotation();R=FRotator(Want.Pitch-H->Camera->GetRelativeRotation().Pitch,Want.Yaw,0.f);
+    }
+    PC->SetControlRotation(R);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: aimat - the camera ray runs through %s at %.0f cm (control rotation %s)"),*Near[Nth]->GetName(),FVector::Dist(Me,Chest),*R.ToCompactString());
+}
 // as.dev.follow <distance> <height> <angle> [fov] | off: the photo camera rides with the hero, <angle> degrees round from its facing (0 in front, 90 its right side, 180 behind),
 // <height> cm above its middle, looking at its chest; for photographing the hero's own animation wherever it goes. [look-ahead] [other=1]: it rides with the OTHER player's hero instead,
 // as this machine draws it (a simulated proxy, or on the host the guest's hero).
@@ -480,8 +496,18 @@ void Trace(const TArray<FString>& Args,UWorld* W) {
                 if(State->bHave) Feet=FString::Printf(TEXT("feet %.0f / %.0f cm/s in the mesh frame, %.1f / %.1f cm above the capsule bottom"),FVector::Dist(L,State->FootL)/Dt,FVector::Dist(R,State->FootR)/Dt,FootLeft.Z-Bottom,FootRight.Z-Bottom);
                 State->FootL=L;State->FootR=R;State->LastAt=Now;State->bHave=true;
             }
-            UE_LOG(LogTemp,Display,TEXT("AshenTrace: %s +%.2f speed %.0f cm/s at %s combo step %d, hammer committed %d, leap %d, %s, montage %s"),*State->Label,Now-State->Began,H->GetVelocity().Size2D(),*H->GetActorLocation().ToCompactString(),H->MeleeStep,
-                H->HammerCommitted()?1:0,int32(H->HammerLeapState),Feet.IsEmpty()?TEXT("no feet yet"):*Feet,Playing?*Playing->GetName():TEXT("-"));
+            // 0.26 Twin Claws: the pounce (state 0 none, 1 crouch, 2 leap, 3 latched), how far the wielder stands from its target's surface against the ring gap (the latch holds it at ASClaws::RingGap),
+            // and how far the capsule's bottom is above the floor under it (0 on the ground: a float or a sink shows here, whatever the animation does)
+            FString Pounce;
+            {
+                float Gap=0.f;const AASEnemy* T=H->PounceTarget;
+                if(IsValid(T)) Gap=float(FVector::Dist2D(H->GetActorLocation(),T->GetActorLocation()))-H->GetCapsuleComponent()->GetScaledCapsuleRadius()-T->GetCapsuleComponent()->GetScaledCapsuleRadius();
+                FHitResult Floor;const FVector Me=H->GetActorLocation();const float Bottom=Me.Z-H->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+                const bool Found=World.IsValid()&&World->LineTraceSingleByObjectType(Floor,Me,Me-FVector(0,0,600),FCollisionObjectQueryParams(ECC_WorldStatic));
+                Pounce=FString::Printf(TEXT("pounce %d target %s gap %.0f cm, floor clearance %.1f cm"),int32(H->PounceState),IsValid(T)?*T->GetName():TEXT("-"),Gap,Found?Bottom-Floor.ImpactPoint.Z:-999.f);
+            }
+            UE_LOG(LogTemp,Display,TEXT("AshenTrace: %s +%.2f speed %.0f cm/s at %s combo step %d, hammer committed %d, leap %d, %s, %s, montage %s"),*State->Label,Now-State->Began,H->GetVelocity().Size2D(),*H->GetActorLocation().ToCompactString(),H->MeleeStep,
+                H->HammerCommitted()?1:0,int32(H->HammerLeapState),*Pounce,Feet.IsEmpty()?TEXT("no feet yet"):*Feet,Playing?*Playing->GetName():TEXT("-"));
         }
         return Now<State->Until;
     }),0.f);
@@ -589,7 +615,7 @@ AS_DEV_COMMAND("as.dev.piletest",PileTest,"Launches a grunt into another across 
 AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host hero.");
 AS_DEV_COMMAND("as.dev.pick",Pick,"The host hero takes trait <index> through the real reward path, [times=1] (stops at its maximum).");
 AS_DEV_COMMAND("as.dev.weaponlook",WeaponLook,"Retunes the host hero's weapon material: <metallic> <roughness> (until the next look refresh).");
-AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8); [other=1: the guest's hero, from the host].");
+AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-9; 9 = Twin Claws); [other=1: the guest's hero, from the host].");
 AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
 AS_DEV_COMMAND("as.dev.input",Input,"Presses the host's buttons: attack|spiral <hold seconds>, dash, jump, rune, reload.");
 AS_DEV_COMMAND("as.dev.god",God,"1: the host hero cannot be hurt (and is healed back up); 0: off.");
@@ -597,6 +623,7 @@ AS_DEV_COMMAND("as.dev.hurt",HurtHero,"A blow of <amount> to the host hero from 
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
 AS_DEV_COMMAND("as.dev.cam",Cam,"A fixed photo camera: <x> <y> <z> <pitch> <yaw> [fov=80], or off.");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
+AS_DEV_COMMAND("as.dev.aimat",AimAt,"Turns the camera so the crosshair's ray runs through the [nth=0] nearest living enemy (what a pounce picks).");
 AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55] [look-ahead cm=0] [other=1: the other player's hero], or off.");
 AS_DEV_COMMAND("as.dev.heroes",Heroes,"Logs per hero how THIS machine draws it: role, mesh offset against the capsule, the foot bone's height above the capsule bottom, the engine's cached mesh offset ('AshenHeroes:' lines); [label].");
 AS_DEV_COMMAND("as.dev.clearing",Clearing,"Moves the hero to open ground near the arena's middle: [radius=600] clear all round.");

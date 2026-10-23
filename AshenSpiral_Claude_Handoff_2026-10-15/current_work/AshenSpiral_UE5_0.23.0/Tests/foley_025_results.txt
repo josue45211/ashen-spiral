@@ -1,2 +1,2 @@
-PASS: 62025 footstep checks; one step per half stride, audibility, variant rotation, distance gain, walk/run/strafe/backpedal sets, landings.
+PASS: 62036 footstep checks; one step per half stride, audibility, variant rotation, distance gain, walk/run/strafe/backpedal sets, landings.
 Shared rules only; the imported sounds, their level and how they sit in the mix are unverified.

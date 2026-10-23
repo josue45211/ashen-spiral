@@ -99,13 +99,13 @@ void AASCharacter::ResetTraits() {
 void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
 float AASCharacter::DamageScale(bool WeaponHit) const {
     const float Now=AS::Time(this);float Bonus=0;
-    if(WeaponHit&&(Build.Weapon==0||Build.Weapon==1||Build.Weapon==5)) Bonus+=.12f*TraitValue(Trait::Melee);
-    if(WeaponHit&&(Build.Weapon==2||Build.Weapon==3||Build.Weapon>=6)) Bonus+=.12f*TraitValue(Trait::Ranged);
+    if(WeaponHit&&ASMelee::IsMelee(Build.Weapon)) Bonus+=.12f*TraitValue(Trait::Melee);
+    if(WeaponHit&&(Build.Weapon==2||Build.Weapon==3||ASRules::IsGun(Build.Weapon))) Bonus+=.12f*TraitValue(Trait::Ranged);
     if(!WeaponHit||Build.Weapon==4) Bonus+=.12f*TraitValue(Trait::Magic);
     Bonus+=.45f*TraitValue(Trait::BloodPact);
     if(WeaponHit) Bonus+=.08f*EndlessValue(3); // Unbound Fury (Endless exclusive): 8% primary damage per effective rank
     const auto* State=AS::State(this);
-    if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&WeaponHit&&Now<WarCryUntil&&(Build.Weapon==0||Build.Weapon==1||Build.Weapon==5)) Bonus+=.20f;
+    if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&WeaponHit&&Now<WarCryUntil&&ASMelee::IsMelee(Build.Weapon)) Bonus+=.20f;
     if(CombatBenefits()) {
         if(Now<RoomBuffUntil) Bonus+=ASBuild::VanguardBonus(TraitValue(Trait::RoomBlessing));
         if(Now<KillBuffUntil) Bonus+=.05f*TraitValue(Trait::KillFlow);

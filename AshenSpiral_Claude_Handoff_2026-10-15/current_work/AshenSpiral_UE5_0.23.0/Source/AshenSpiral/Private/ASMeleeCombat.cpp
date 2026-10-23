@@ -54,10 +54,11 @@ void AASCharacter::TickMelee(float Now) {
 }
 float AASCharacter::MeleeReachFor(int32 Step) const {
     const bool Slam=Build.Weapon==1&&Step==2;
-    return MeleeReachMultiplier()*(Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==0&&Step==2?320.f:280.f)));
+    return MeleeReachMultiplier()*(Slam?410.f:(Build.Weapon==5?360.f:(Build.Weapon==ASRules::Claws?ASClaws::Reach:(Build.Weapon==0&&Step==2?320.f:280.f))));
 }
 void AASCharacter::ResolveMelee() {
     auto* S=AS::State(this);if(!HasAuthority()||!S||!CanUseWeapons()||PendingMeleeWeapon!=Build.Weapon) return;
+    if(Build.Weapon==ASRules::Claws) {ResolveClaws();return;} // one target a swing (ASClawCombat.cpp)
     const bool Slam=Build.Weapon==1&&MeleeStep==2;
     const float Reach=MeleeReachFor(MeleeStep);
     const float Oath=MeleeStep==2&&bVengeanceFinisherReady?ASBuild::VengeanceFinisherMultiplier:1.f;

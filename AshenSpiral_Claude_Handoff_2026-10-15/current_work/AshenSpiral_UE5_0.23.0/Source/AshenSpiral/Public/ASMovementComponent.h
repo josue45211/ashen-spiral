@@ -18,6 +18,7 @@ public:
     virtual void PerformMovement(float DeltaSeconds) override;
     virtual void UpdateCharacterStateBeforeMovement(float DeltaSeconds) override;
     virtual void PhysCustom(float DeltaTime,int32 Iterations) override;
+    virtual void CalcVelocity(float DeltaTime,float Friction,bool bFluid,float BrakingDeceleration) override;
     virtual void UpdateFromCompressedFlags(uint8 Flags) override;
     virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
     virtual float GetMaxSpeed() const override;

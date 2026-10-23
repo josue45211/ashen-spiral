@@ -118,7 +118,7 @@ def validate():
                       f'{field}: declared replicated property has a registration macro')
     bounds=json.loads((ROOT/'SourceArt/mesh_bounds.json').read_text())
     meshes=sorted((ROOT/'SourceArt/Meshes').glob('*.obj'))
-    check(len(meshes)==83,'83 meshes: the 78 originals (including the 7-mesh Archives kit) plus the 0.24 swing arc, strike sector and boss wing membrane + bones, and the 0.24.2 chest trim')
+    check(len(meshes)==84,'84 meshes: the 78 originals (including the 7-mesh Archives kit) plus the 0.24 swing arc, strike sector and boss wing membrane + bones, the 0.24.2 chest trim and the 0.26 Twin Claws')
     vertices=triangles=degenerates=0
     for p in meshes:
         v=[];uv=[];norm=[];faces=[]
@@ -196,6 +196,7 @@ def validate():
     decor_025=reload_navigation
     clip_025=reload_navigation
     foley_025=reload_navigation
+    claws_026=reload_navigation
     if compiler:
         with tempfile.TemporaryDirectory(prefix='ashen_native_') as d:
             exe=Path(d)/('rules_tests.exe' if sys.platform=='win32' else 'rules_tests')
@@ -278,7 +279,7 @@ def validate():
             subprocess.run(feature_cmd,cwd=d,check=True)
             interface_arsenal=subprocess.run([str(feature_exe)],check=True,text=True,capture_output=True).stdout.strip()
             (ROOT/'Tests/interface_arsenal_results.txt').write_text(interface_arsenal+'\n')
-            check(interface_arsenal.startswith('PASS:'),'HUD scale, slower notification fade, all nine unlock bits and new weapon tuning passed')
+            check(interface_arsenal.startswith('PASS:'),'HUD scale, slower notification fade, all ten unlock bits and new weapon tuning passed')
             reload_exe=Path(d)/('reload_navigation_tests.exe' if sys.platform=='win32' else 'reload_navigation_tests')
             reload_src=ROOT/'Tests/reload_navigation_tests.cpp'
             if Path(compiler).stem.lower()=='cl':
@@ -330,6 +331,7 @@ def validate():
             decor_025=native_suite('decor_025_tests','0.25 Endless decor ring (deterministic, beyond the walls, spaced, three stages with the sky) passed')
             clip_025=native_suite('clip_025_tests','0.25 baked Paragon attack tracks (the switch is honoured, every ability resolves to a clip or its hand-made track, structure and limits held) passed')
             foley_025=native_suite('foley_025_tests','0.25 hero footsteps (one per half stride, audibility, variant rotation, distance gain) passed')
+            claws_026=native_suite('claws_026_tests','0.26 Twin Claws (weapon plumbing and masks, cadence and damage, the pounce leap and arc, the latch against a runner, the crosshair pick, every release reason) passed')
             element_0242=native_suite('element_0242_tests','0.24.2 element rework (hit-scaled pools delivered exactly, flat parts unchanged, frost brittleness, element parity with Chain Lightning and Impact Bloom on every weapon) passed')
             trig=subprocess.run([sys.executable,str(ROOT/'Tests/check_trig_overloads.py')],check=True,text=True,capture_output=True).stdout.strip()
             check(trig.startswith('PASS:'),'Actual fern expressions compile against the float/double overloads from the reported C2668 diagnostic')
@@ -338,7 +340,7 @@ def validate():
         'mesh_count':len(meshes),'mesh_vertex_count':vertices,'mesh_triangle_count':triangles,
         'degenerate_triangles':degenerates,'texture_count':len(textures),'audio_count':len(sounds),
         'rpc_implementation_presence_checks':rpcs,'native_tests':native,'gameplay_tests':gameplay,'buildcraft_tests':buildcraft,'adventure_tests':adventure,'career_tests':career,
-        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'partc_024_tests':partc_024,'maul_025_tests':maul_025,'decor_025_tests':decor_025,'clip_025_tests':clip_025,'foley_025_tests':foley_025,'element_0242_tests':element_0242,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
+        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'partc_024_tests':partc_024,'maul_025_tests':maul_025,'decor_025_tests':decor_025,'clip_025_tests':clip_025,'foley_025_tests':foley_025,'element_0242_tests':element_0242,'claws_026_tests':claws_026,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
         'unreal_module_compile':'NOT RUN - Unreal Engine unavailable',
         'unreal_import_and_material_compile':'NOT RUN',
         'unreal_visual_physics_network_performance_tests':'NOT RUN',

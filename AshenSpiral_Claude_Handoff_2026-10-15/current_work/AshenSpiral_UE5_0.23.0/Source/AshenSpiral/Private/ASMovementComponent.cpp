@@ -9,7 +9,7 @@
 #include "Engine/World.h"
 void UASMovementComponent::RefreshDashCollision() {
     auto* H=Cast<AASCharacter>(CharacterOwner);auto* S=AS::State(this);if(!H) return;
-    const bool PhaseThrough=(DashRemaining>0&&!H->bDowned&&H->TraitValue(ASBuild::Trait::DashStrike)>0)||H->HammerPhasing();
+    const bool PhaseThrough=(DashRemaining>0&&!H->bDowned&&H->TraitValue(ASBuild::Trait::DashStrike)>0)||H->HammerPhasing()||H->PounceInFlight(); // the pounce's crouch and leap pass through every enemy, the target included
     if(!PhaseThrough) {
         for(auto W:DashIgnoredActors) if(auto* E=Cast<AASEnemy>(W.Get())) {H->GetCapsuleComponent()->IgnoreActorWhenMoving(E,false);E->GetCapsuleComponent()->IgnoreActorWhenMoving(H,false);}
         DashIgnoredActors.Empty();return;
@@ -31,7 +31,7 @@ void UASMovementComponent::PerformMovement(float Delta) {
 }
 float UASMovementComponent::GetMaxSpeed() const {
     const auto* Hero=Cast<AASCharacter>(CharacterOwner);auto* S=AS::State(this);
-    if(Hero && (Hero->bDowned||Hero->HammerLeapState!=0)) return 0;
+    if(Hero && (Hero->bDowned||Hero->HammerLeapState!=0||Hero->PounceInFlight())) return 0;
     if(S && S->Frozen()) return 0;
     // The hammer finisher no longer roots: movement continues at 20% speed (80% slow).
     const float Speed=(Hero?Hero->RunningSpeed():640.f)*(Hero&&Hero->HammerCommitted()?ASHammer::FinisherSpeedScale():1.f);
@@ -52,6 +52,10 @@ void UASMovementComponent::UpdateCharacterStateBeforeMovement(float Delta) {
         RefreshDashCollision();return;
     }
     if(H&&H->HammerLeapState!=0&&H->HammerLeapState!=2) {Velocity.X=0;Velocity.Y=0;}
+    if(H&&H->PounceState==1) {Velocity.X=0;Velocity.Y=0;}                                       // the pounce's crouch
+    // 0.26: from the pounce's crouch until a moment after its latch lets go, the server trusts this wielder's own position (the engine's flags for "short bursts of movement that are difficult to sync
+    // over the network"): the leap and the latch follow a moving enemy, which the owner sees a moment behind the server, so any fixed comparison would correct the owner on every move.
+    {const bool Trust=H&&H->PounceNetAuthority();bIgnoreClientMovementErrorChecksAndCorrection=Trust;bServerAcceptClientAuthoritativePosition=Trust;}
     if(bWantsDash && H && !H->HammerBusy() && !H->bDowned && S && !S->Frozen() && ASRules::CanAirDash(IsMovingOnGround(),IsFalling(),AirDashesUsed,Capacity,DashCharges) && ASRules::CanUseWeapons(int(S->Phase))) {
         DashDirection=Acceleration.GetSafeNormal2D();if(DashDirection.IsNearlyZero()) DashDirection=H->GetActorForwardVector();
         DashDirection.Z=0;DashDirection.Normalize();DashRemaining=H->DashDuration();
@@ -73,6 +77,12 @@ void UASMovementComponent::PhysCustom(float Delta,int32 Iterations) {
         DashRemaining=0;Velocity=DashDirection*GetMaxSpeed()+FVector(0,0,DashVerticalVelocity);bAirDashing=false;SetMovementMode(MOVE_Falling);RefreshDashCollision();
         if(Delta>Used) StartNewPhysics(Delta-Used,Iterations+1);
     }
+}
+void UASMovementComponent::CalcVelocity(float Delta,float Friction,bool bFluid,float BrakingDeceleration) {
+    // 0.26: a latched pounce holds its ring around the target by velocity (the target's own plus a pull onto the ring point), not by input; the floor and gravity are still the engine's
+    FVector Held;
+    if(auto* H=Cast<AASCharacter>(CharacterOwner)) if(H->PounceGlueVelocity(Held)) {Velocity.X=Held.X;Velocity.Y=Held.Y;return;}
+    Super::CalcVelocity(Delta,Friction,bFluid,BrakingDeceleration);
 }
 void UASMovementComponent::UpdateFromCompressedFlags(uint8 Flags) {Super::UpdateFromCompressedFlags(Flags);bWantsDash=(Flags&FSavedMove_Character::FLAG_Custom_0)!=0;}
 FNetworkPredictionData_Client* UASMovementComponent::GetPredictionData_Client() const {

@@ -1,2 +1,2 @@
-PASS: 3548 interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.
+PASS: 3560 interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.
 Shared rules only; Unreal rendering, actors, save I/O and networking were not run.

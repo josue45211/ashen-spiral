@@ -19,7 +19,10 @@ inline void RetireUnusedProgress(int& TalentMask,int& Points,int& Scrap,int& Cry
     Scrap=int(std::min<std::int64_t>(100000000,Total));Crystal=Vine=0;
 }
 inline float GrantShield(float Current,float Gain,float Cap) {return std::max(Current,std::min(Cap,Current+std::max(0.f,Gain)));}
-constexpr int WeaponCount=9, WeaponMask=(1<<WeaponCount)-1;
+// 0.26: ten weapons. A weapon's id is its bit in a profile's OwnedWeapons, so Twin Claws takes the new top bit and no saved id moves (the mask only grows).
+constexpr int WeaponCount=10, WeaponMask=(1<<WeaponCount)-1;
+constexpr int FirstGun=6, LastGun=8, Claws=9;
+inline bool IsGun(int Weapon) {return Weapon>=FirstGun&&Weapon<=LastGun;} // the three firearms; every "Weapon>=6" before 0.26 meant this
 constexpr int MaxEnemies = 42, MaxProjectiles = 180, MaxWells = 8;
 constexpr int MaxCurrency = 100000000;
 constexpr int HearthCount=20, RunUpgradeCount=6, MaxRunUpgradeRank=5, RunUpgradeOfferBase=100;
@@ -90,7 +93,7 @@ inline WeaponPose WeaponGripPose(float Age,float Duration,float WalkStep,int Wea
     auto P=RightHandPose(Age,Duration,WalkStep,Weapon>=2&&Weapon<=4);
     if(Weapon==1) P.Y=70.f;
     if(Weapon==2) {P.X=82.f-P.Swing*3.f;P.Y=-5.f;P.Z=123.f+std::abs(WalkStep);P.ForwardAngle=0;}
-    if(Weapon>=6) {P.X=84.f-P.Swing*5.f;P.Y=25.f;P.Z=120.f+std::abs(WalkStep);P.ForwardAngle=-P.Swing*.04f;}
+    if(IsGun(Weapon)) {P.X=84.f-P.Swing*5.f;P.Y=25.f;P.Z=120.f+std::abs(WalkStep);P.ForwardAngle=-P.Swing*.04f;}
     return P;
 }
 inline Layout Generate(std::uint32_t Seed) {

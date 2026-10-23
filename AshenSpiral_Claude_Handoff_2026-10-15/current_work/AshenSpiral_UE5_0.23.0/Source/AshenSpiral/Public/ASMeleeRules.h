@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cmath>
+#include "ASRules.h"
 #include "ASHammerRules.h"
 // Shared timing and grip foundation. One complete pose cycle is one attack.
 namespace ASMelee {
@@ -17,13 +18,16 @@ inline bool TargetInReach(float Distance2D,float Reach,float TargetRadius,float 
 // Countdown (1) turning into Combat (2) is the same fight starting, not a new context: a swing or leap begun while enemies spawn must survive it (0.23.5).
 inline bool PhaseCompatible(int PhaseThen,int PhaseNow) {return PhaseThen==PhaseNow||(PhaseThen==1&&PhaseNow==2);}
 inline bool ContextValid(int PhaseThen,int PhaseNow,int EpochThen,int EpochNow) {return PhaseCompatible(PhaseThen,PhaseNow)&&EpochThen==EpochNow;}
-inline bool IsMelee(int W) {return W==0||W==1||W==5;}
-inline int ComboLength(int W) {return W==0||W==1?3:1;}
-inline float BaseSeconds(int W) {return W==0?.28f:(W==1?.72f:.40f);}
+inline bool IsMelee(int W) {return W==0||W==1||W==5||W==ASRules::Claws;}
+// The weapons whose right mouse button is their own move (the maul's leap, the claws' pounce); Spiral moves to the alternate key (G) on them.
+inline bool LeapsOnRmb(int W) {return W==1||W==ASRules::Claws;}
+// 0.26 Twin Claws: a two-step left/right combo (no finisher), the fastest swing in the game.
+inline int ComboLength(int W) {return W==0||W==1?3:(W==ASRules::Claws?2:1);}
+inline float BaseSeconds(int W) {return W==0?.28f:(W==1?.72f:(W==ASRules::Claws?.19f:.40f));}
 inline float TimeScale(int W,int Step) {return Step==2?(W==1?1.65f:(W==0?1.25f:1.f)):1.f;}
 inline float AverageTimeScale(int W) {return ComboLength(W)==3?(2.f+TimeScale(W,2))/3.f:1.f;}
 inline float DamageScale(int W,int Step) {return Step==2?(W==1?2.6f:(W==0?1.3f:1.f)):1.f;}
-inline float ImpactFraction(int W,int Step) {return W==1?(Step==2?.76f:.56f):(W==0&&Step==2?.60f:.48f);}
+inline float ImpactFraction(int W,int Step) {return W==1?(Step==2?.76f:.56f):(W==0&&Step==2?.60f:(W==ASRules::Claws?.38f:.48f));} // claws rake early in the swing: the hit lands at 38%
 inline float MotionFraction(int W) {return W==1?.24f:.18f;}
 inline float Phase(float Now,float Start,float Duration) {return Duration>0?std::clamp((Now-Start)/Duration,0.f,1.f):1.f;}
 inline bool ImpactDue(float Now,float At,bool Pending) {return Pending&&Now>=At;}

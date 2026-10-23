@@ -12,6 +12,7 @@ const FASWeapon Weapons[ASRules::WeaponCount] = {
     {TEXT("Cinder Scattergun"), TEXT("Six burning pellets in a tight cone. Devastating nearby; damage falls with distance. One proc-carrying pellet per shot."), 65, ASArsenal::Rate(6)},
     {TEXT("Tempest Rotary"), TEXT("Rapid frost rounds. Sustained fire widens the cone; release briefly to recover accuracy."), 80, ASArsenal::Rate(7)},
     {TEXT("Rift Mortar"), TEXT("Launch an ember rocket that bursts on contact. Splash scales with area upgrades and cannot hurt allies."), 95, ASArsenal::Rate(8)},
+    {TEXT("Twin Claws"), TEXT("Hold Attack: left claw, right claw, the fastest melee there is. Every swing shreds ONE target and bleeds it. No reload. RMB POUNCES: leap onto the enemy under your crosshair and stay latched on, facing it, while you tear it apart; dash to break free. G uses Spiral."), 20, ASArsenal::Rate(9)}, // 0.26: the lead melee weapon; priced between the maul (15) and the bow (25) so an early profile can reach it
 };
 const FASRelic Relics[24] = {
     {TEXT("ignite"), TEXT("Ashen Kindling"), TEXT("Wells ignite enemies inside.")},
@@ -44,7 +45,7 @@ const FASStyle Abilities[ASAdventure::AbilityCount] = {
     {TEXT("Winter Fan"),TEXT("30 Focus / 6s. A 650cm forward cone deals 24 damage and builds frost twice. Freeze foes before a hammer slam or line up a bow shot. Bosses resist hard control.")},
     {TEXT("Storm Thread"),TEXT("32 Focus / 5s. Aim at a foe to arc through up to four enemies for 38/29/22/17 damage. +30% against chilled or poisoned targets. Pairs with frost and poison weapons.")},
     {TEXT("Venom Bloom"),TEXT("35 Focus / 7s. Plant a 320cm poison field for 4s. Pulses deal 7 damage and apply poison, or +30% pulse damage against bleeding enemies. Gather with Spiral; finish with ranged attacks.")},
-    {TEXT("War Cry"),TEXT("28 Focus / 9s. Stagger nearby foes for 18 damage; gain 22 shield and +20% melee damage for 4s. Pairs with blade, hammer and scythe. No shield or buff between waves.")},
+    {TEXT("War Cry"),TEXT("28 Focus / 9s. Stagger nearby foes for 18 damage; gain 22 shield and +20% melee damage for 4s. Pairs with blade, hammer, scythe and claws. No shield or buff between waves.")},
     {TEXT("Cinder Mine"),TEXT("30 Focus / 6s. Place an aimed rune that explodes after 1s for 68 damage in 330cm and ignites survivors. +25% damage to pulled foes. Set a well, then detonate.")}
 };
 const FASStyle Styles[10] = {
@@ -109,7 +110,7 @@ const TCHAR* Bosses[4]={TEXT("The Indexer"),TEXT("The Bellwether"),TEXT("The Hor
 const TCHAR* Materials[5]={TEXT("Scrap"),TEXT("Bone Dust"),TEXT("Retired"),TEXT("Retired"),TEXT("Spiral Core")};
 const TCHAR* ChestKinds[6]={TEXT("Relic"),TEXT("Cinders"),TEXT("Skill"),TEXT("Heal"),TEXT("Shop"),TEXT("Event")};
 EASHitKind WeaponElement(int32 W) {
-    const EASHitKind Types[]={EASHitKind::Burn,EASHitKind::Frost,EASHitKind::Poison,EASHitKind::Frost,EASHitKind::Burn,EASHitKind::Poison,EASHitKind::Burn,EASHitKind::Frost,EASHitKind::Burn};
+    const EASHitKind Types[]={EASHitKind::Burn,EASHitKind::Frost,EASHitKind::Poison,EASHitKind::Frost,EASHitKind::Burn,EASHitKind::Poison,EASHitKind::Burn,EASHitKind::Frost,EASHitKind::Burn,EASHitKind::Bleed};
     return Types[FMath::Clamp(W,0,ASRules::WeaponCount-1)];
 }
 FString CareerTitle(int32 Choice,int32 Tier) {
@@ -148,10 +149,11 @@ FLinearColor CrosshairColor(int32 Choice) {
 FLinearColor PlayerColor(int32 I) { return I==0?FLinearColor(1.f,.57f,.15f):FLinearColor(.10f,.85f,.75f); }
 FWeaponFinish WeaponFinish(int32 Weapon) {
     // brushed rather than polished (seen in-engine: a mirror finish on the maul's flat faces showed the scene's low-resolution reflections as blocks)
-    static const FWeaponFinish Finishes[9]={{FLinearColor(.58f,.56f,.55f),.9f,.4f},{FLinearColor(.30f,.42f,.56f),.85f,.44f},{FLinearColor(.16f,.10f,.06f),0.f,.6f},
+    static const FWeaponFinish Finishes[ASRules::WeaponCount]={{FLinearColor(.58f,.56f,.55f),.9f,.4f},{FLinearColor(.30f,.42f,.56f),.85f,.44f},{FLinearColor(.16f,.10f,.06f),0.f,.6f},
         {FLinearColor(.55f,.55f,.58f),.9f,.4f},{FLinearColor(.45f,.29f,.15f),.7f,.46f},{FLinearColor(.30f,.28f,.32f),.85f,.44f},
-        {FLinearColor(.24f,.25f,.27f),.8f,.5f},{FLinearColor(.24f,.25f,.27f),.8f,.48f},{FLinearColor(.28f,.27f,.25f),.75f,.52f}};
-    return Finishes[FMath::Clamp(Weapon,0,8)];
+        {FLinearColor(.24f,.25f,.27f),.8f,.5f},{FLinearColor(.24f,.25f,.27f),.8f,.48f},{FLinearColor(.28f,.27f,.25f),.75f,.52f},
+        {FLinearColor(.34f,.33f,.35f),.9f,.38f}}; // Twin Claws: dark steel, brushed
+    return Finishes[FMath::Clamp(Weapon,0,ASRules::WeaponCount-1)];
 }
 FLinearColor BiomeColor(int32 I) {
  const FLinearColor Colors[5]={FLinearColor(.22f,.65f,.57f),FLinearColor(.9f,.20f,.12f),FLinearColor(.48f,.30f,1.f),FLinearColor(.20f,.75f,.26f),FLinearColor(.12f,.8f,.95f)};

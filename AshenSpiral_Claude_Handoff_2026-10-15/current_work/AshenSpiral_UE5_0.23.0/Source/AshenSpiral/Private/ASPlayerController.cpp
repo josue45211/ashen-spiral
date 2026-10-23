@@ -158,10 +158,11 @@ void AASPlayerController::TurnStick(float V) {Turn(V*GetWorld()->GetDeltaSeconds
 void AASPlayerController::LookStick(float V) {Look(V*GetWorld()->GetDeltaSeconds()*90.f);}
 void AASPlayerController::AttackDown() {if(!MenuOpen()) UpdateAim(true);if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->SetAttack(true);}
 void AASPlayerController::AttackUp() {if(!MenuOpen()) UpdateAim(true);if(auto* H=Cast<AASCharacter>(GetPawn())) H->SetAttack(false);}
-void AASPlayerController::SpiralDown() {if(!MenuOpen()) UpdateAim(true);if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) {if(H->Build.Weapon==1) H->RequestHammerLeap();else H->SetSpiral(true);}}
-void AASPlayerController::SpiralUp() {if(!MenuOpen()) UpdateAim(true);if(auto* H=Cast<AASCharacter>(GetPawn())) if(H->Build.Weapon!=1) H->SetSpiral(false);}
-void AASPlayerController::HammerAltDown() {if(!MenuOpen()) {UpdateAim(true);if(auto* H=Cast<AASCharacter>(GetPawn())) if(H->Build.Weapon==1) H->SetSpiral(true);}}
-void AASPlayerController::HammerAltUp() {if(auto* H=Cast<AASCharacter>(GetPawn())) if(H->Build.Weapon==1) H->SetSpiral(false);}
+// The maul's RMB is its leap and the claws' is the pounce (0.26); Spiral is on the alternate key (G / left trigger) for both.
+void AASPlayerController::SpiralDown() {if(!MenuOpen()) UpdateAim(true);if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) {if(H->Build.Weapon==1) H->RequestHammerLeap();else if(H->Build.Weapon==ASRules::Claws) H->RequestPounce(AimRayStart,AimRayDirection);else H->SetSpiral(true);}}
+void AASPlayerController::SpiralUp() {if(!MenuOpen()) UpdateAim(true);if(auto* H=Cast<AASCharacter>(GetPawn())) if(!ASMelee::LeapsOnRmb(H->Build.Weapon)) H->SetSpiral(false);}
+void AASPlayerController::HammerAltDown() {if(!MenuOpen()) {UpdateAim(true);if(auto* H=Cast<AASCharacter>(GetPawn())) if(ASMelee::LeapsOnRmb(H->Build.Weapon)) H->SetSpiral(true);}}
+void AASPlayerController::HammerAltUp() {if(auto* H=Cast<AASCharacter>(GetPawn())) if(ASMelee::LeapsOnRmb(H->Build.Weapon)) H->SetSpiral(false);}
 
 void AASPlayerController::Rune() {if(!MenuOpen()) UpdateAim(true);if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->CastRune();}
 void AASPlayerController::Reload() {if(!MenuOpen()) if(auto* H=Cast<AASCharacter>(GetPawn())) H->RequestReload();}
@@ -576,6 +577,7 @@ void AASPlayerController::UpdateAim(bool Send) {
     auto* H=Cast<AASCharacter>(GetPawn());auto* S=AS::State(this);if(!H||!S) return;
     int32 W=0,Height=0;GetViewportSize(W,Height);FVector Start,Direction;
     if(!DeprojectScreenPositionToWorld(W*.5f,Height*.5f,Start,Direction)) return;
+    AimRayStart=Start;AimRayDirection=Direction;
     FCollisionQueryParams Query;Query.AddIgnoredActor(H);Query.bTraceComplex=true;
     for(auto Weak:S->Heroes) if(auto* Ally=Weak.Get()) Query.AddIgnoredActor(Ally);
     FHitResult Hit;const FVector End=Start+Direction*15000.f;

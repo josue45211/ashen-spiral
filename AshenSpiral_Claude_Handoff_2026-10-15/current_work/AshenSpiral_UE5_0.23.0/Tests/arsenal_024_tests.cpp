@@ -14,14 +14,15 @@ int main() {
     // ---- Base interval and scale per weapon: slower weapons reward more per hit ----
     Check(Near(BaseInterval(0),.28f*(2.f+1.25f)/3.f)&&Near(BaseInterval(1),.72f*(2.f+1.65f)/3.f)&&Near(BaseInterval(5),.40f),"melee base intervals include the combo's average step length");
     Check(Near(BaseInterval(2),.30f)&&Near(BaseInterval(3),.48f)&&Near(BaseInterval(4),.34f)&&Near(BaseInterval(6),.72f)&&Near(BaseInterval(7),.105f)&&Near(BaseInterval(8),1.05f),"ranged base intervals are the weapon table's");
-    const float Expect[9]={.758f,2.19f,.75f,1.2f,.85f,1.0f,1.8f,OnHitScaleMin,OnHitScaleMax};
-    for(int W=0;W<9;++W) Check(Near(OnHitScale(W),Expect[W],.012f),"per-weapon on-hit scale: Blade .76, Hammer 2.19, Bow .75, Glaive 1.2, Staff .85, Scythe 1, Scattergun 1.8, Rotary floor, Mortar cap");
+    const float Expect[ASRules::WeaponCount]={.758f,2.19f,.75f,1.2f,.85f,1.0f,1.8f,OnHitScaleMin,OnHitScaleMax,.475f};
+    for(int W=0;W<ASRules::WeaponCount;++W) Check(Near(OnHitScale(W),Expect[W],.012f),"per-weapon on-hit scale: Blade .76, Hammer 2.19, Bow .75, Glaive 1.2, Staff .85, Scythe 1, Scattergun 1.8, Rotary floor, Mortar cap, Twin Claws .48");
     Check(OnHitScale(1)>OnHitScale(0)&&OnHitScale(8)>OnHitScale(6)&&OnHitScale(6)>OnHitScale(3)&&OnHitScale(3)>OnHitScale(2)&&OnHitScale(2)>OnHitScale(7),"slower weapons always get the larger per-hit scale");
-    Check(OnHitScale(-5)==OnHitScale(0)&&OnHitScale(99)==OnHitScale(8),"an out-of-range weapon id is clamped, never undefined");
-    for(int W=0;W<9;++W) Check(OnHitScale(W)>=OnHitScaleMin&&OnHitScale(W)<=OnHitScaleMax,"scale is always inside its limits");
+    Check(OnHitScale(ASRules::Claws)<OnHitScale(0)&&OnHitScale(ASRules::Claws)>OnHitScale(7),"the claws, faster than the blade and slower than the rotary, sit between them");
+    Check(OnHitScale(-5)==OnHitScale(0)&&OnHitScale(99)==OnHitScale(ASRules::WeaponCount-1),"an out-of-range weapon id is clamped, never undefined");
+    for(int W=0;W<ASRules::WeaponCount;++W) Check(OnHitScale(W)>=OnHitScaleMin&&OnHitScale(W)<=OnHitScaleMax,"scale is always inside its limits");
     // ---- Rewards per second are comparable across weapons (that is the point) ----
     float Low=1e9f,High=0.f;
-    for(int W=0;W<9;++W) {
+    for(int W=0;W<ASRules::WeaponCount;++W) {
         const float PerSecond=OnHitScale(W)/BaseInterval(W); // base swings per second x per-hit scale
         Low=std::min(Low,PerSecond);High=std::max(High,PerSecond);
         const bool Clamped=OnHitScale(W)<=OnHitScaleMin+1e-6f||OnHitScale(W)>=OnHitScaleMax-1e-6f;
@@ -29,7 +30,7 @@ int main() {
     }
     Check(High/Low<1.2f,"even with the floor and cap, no weapon's reward rate is more than 1.2x another's");
     // Attack speed (a live rate) must not enter the scale: the scale takes only the weapon id, and more swings per second means proportionally more rewards.
-    for(int W=0;W<9;++W) Check(Near(OnHitScale(W)*(1.5f/BaseInterval(W)),1.5f*OnHitScale(W)/BaseInterval(W),.001f),"a faster live rate multiplies the number of rewards, not their size");
+    for(int W=0;W<ASRules::WeaponCount;++W) Check(Near(OnHitScale(W)*(1.5f/BaseInterval(W)),1.5f*OnHitScale(W)/BaseInterval(W),.001f),"a faster live rate multiplies the number of rewards, not their size");
 
     // ---- ScaleReward keeps the expected value exact ----
     {const auto R=ScaleReward(.18f,.5f);Check(Near(R.Chance,.09f,.0001f)&&R.Magnitude==1.f,"under 1: a smaller chance at full strength");}

@@ -14,7 +14,7 @@ int main() {
     Check(HUDScale(std::numeric_limits<float>::quiet_NaN())==1.f,"invalid saved HUD size repairs to default");
     Check(NoticeAlpha(0)==1&&NoticeAlpha(4.5f)==1,"notices hold for four and a half seconds");
     Check(Near(NoticeAlpha(6.75f),.5f)&&NoticeAlpha(9)==0&&NoticeAlpha(20)==0,"notices fade slowly then expire");
-    for(int Weapon=6;Weapon<ASRules::WeaponCount;++Weapon) {
+    for(int Weapon=ASRules::FirstGun;Weapon<=ASRules::LastGun;++Weapon) {
         const float DPS=ASArsenal::Damage(Weapon)*ASArsenal::Pellets(Weapon)/ASArsenal::Rate(Weapon);
         Check(DPS>=120&&DPS<=140,"new firearms compensate for their reload downtime with comparable burst DPS");
         for(int Rank=0;Rank<=5;++Rank) {
@@ -27,7 +27,8 @@ int main() {
         Check(ASBuild::CanChoose(Build,200+ASBuild::Index(ASBuild::Trait::Pierce))==(Weapon!=8),"explosive launcher is excluded from piercing");
         Check(ASBuild::CanChoose(Build,200+ASBuild::Index(ASBuild::Trait::Split))==(Weapon!=8),"explosive launcher is excluded from recursive split choices");
     }
-    Check(ASRules::WeaponMask==511&&(63&ASRules::WeaponMask)==63,"original six unlock bits survive the nine-weapon mask");
+    Check(ASRules::WeaponMask==1023&&(63&ASRules::WeaponMask)==63,"original six unlock bits survive the ten-weapon mask");
+    Check((511&ASRules::WeaponMask)==511&&!(511&(1<<ASRules::Claws))&&(ASRules::WeaponMask&(1<<ASRules::Claws))!=0,"a nine-weapon profile keeps every bit it had and does not own the claws; the claws have the new top bit");
     Check(ASArsenal::Pellets(6)==6&&ASArsenal::Pellets(7)==1&&ASArsenal::Pellets(8)==1,"burst and single-projectile patterns differ");
     float Previous=1.f;
     for(int Distance=0;Distance<=6000;Distance+=10) {

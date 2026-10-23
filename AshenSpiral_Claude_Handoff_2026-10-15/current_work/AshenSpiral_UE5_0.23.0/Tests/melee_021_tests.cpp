@@ -47,7 +47,7 @@ int main(int Argc,char** Argv) {
         Check(!ASRules::CanAirDash(false,false,Used,Capacity,Available),"custom dash movement cannot restart itself");
     }
     const int RangedCaps[]={10,7,14,6,40,3};int RangedIndex=0;
-    for(int W=0;W<9;++W) {
+    for(int W=0;W<ASRules::WeaponCount;++W) {
         if(!ASMelee::IsMelee(W)) {Check(ASArsenal::BaseCapacity(W)==RangedCaps[RangedIndex++],"ranged magazine capacity unchanged");continue;}
         ASBuild::Context C;C.Weapon=W;
         Check(!ASArsenal::UsesMagazine(W)&&ASArsenal::Capacity(W,5)==0&&ASArsenal::ReloadSeconds(W,5)==0,"every melee weapon has no magazine/reload");
@@ -70,7 +70,7 @@ int main(int Argc,char** Argv) {
                 const double Right=std::sqrt(P.X*P.X+(P.Y-34)*(P.Y-34)+(P.Z-133)*(P.Z-133));
                 if(Right>=83.99) std::cerr<<"right grip W "<<W<<" step "<<Step<<" frame "<<Frame<<" length "<<Right<<'\n';
                 Check(Right<83.99,"right grip remains reachable without a stretched or detached arm");
-                if(W!=0) {
+                if(W!=0&&W!=ASRules::Claws) { // the claws have no shaft: the left hand holds a claw of its own
                     const V Offset=Rotate({0,0,ASMelee::SupportHeight(W)},P.Pitch,P.Yaw);
                     const double X=P.X+Offset.X,Y=P.Y+Offset.Y+34,Z=P.Z+Offset.Z-133;
                     const double Left=std::sqrt(X*X+Y*Y+Z*Z);

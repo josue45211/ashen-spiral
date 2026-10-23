@@ -1,6 +1,6 @@
+#include "ASEnemyAbilities.h"
 #include "ASEnemy.h"
 #include "ASEnemyRules.h"
-#include "ASEnemyAbilities.h"
 #include "ASEnemyHazards.h"
 #include "ASBreakable.h"
 #include "ASGameMode.h"

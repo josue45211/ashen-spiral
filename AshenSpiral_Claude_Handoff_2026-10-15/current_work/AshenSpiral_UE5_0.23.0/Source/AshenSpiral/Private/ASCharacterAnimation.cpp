@@ -87,7 +87,7 @@ void AASCharacter::Animate(float Delta) {
         Parts[11+Side]->SetRelativeLocation(Ankle+FVector(3,0,-2));Parts[11+Side]->SetRelativeRotation(FRotator(F.Pitch*(1.f-AirWeight),0,0));
     }
     PoseAge+=Delta;auto Pose=ASRules::WeaponGripPose(PoseAge,AttackPoseDuration,Step,Build.Weapon);
-    if(Build.Weapon>=6) {Pose.X-=30.f;Pose.Y=25.f;}
+    if(ASRules::IsGun(Build.Weapon)) {Pose.X-=30.f;Pose.Y=25.f;}
     if(Build.Weapon==2) Pose.X-=8.f;
     const bool Reloading=IsReloading();const float ReloadMotion=Reloading?FMath::Sin(ReloadProgress()*UE_PI):0.f;
     FVector Grip=FVector(Pose.X,Pose.Y,Pose.Z)+FVector(-8,8,-18)*ReloadMotion;
@@ -110,7 +110,9 @@ void AASCharacter::Animate(float Delta) {
             Parts[1]->SetRelativeRotation(FRotator(-M.BodyPitch*.3f,M.BodyYaw*.35f,0));
         }
         Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,FVector(M.X,M.Y,M.Z),RightPole);Parts[18]->SetRelativeLocation(Grip);
-        const FVector Support=Build.Weapon==0?FVector(12+Step*12,-39-FMath::Clamp(M.Yaw,-65.f,65.f)*.18f,86-FMath::Abs(M.BodyPitch)*.8f):Grip+WeaponRotation.RotateVector(FVector(0,0,ASMelee::SupportHeight(Build.Weapon)));
+        const FVector Support=Build.Weapon==0?FVector(12+Step*12,-39-FMath::Clamp(M.Yaw,-65.f,65.f)*.18f,86-FMath::Abs(M.BodyPitch)*.8f)
+            :(Build.Weapon==ASRules::Claws?FVector(M.X,-M.Y,M.Z) // the left claw mirrors the right (the part rig is the fallback look; the Mannequin plays the claw clips)
+            :Grip+WeaponRotation.RotateVector(FVector(0,0,ASMelee::SupportHeight(Build.Weapon))));
         Parts[17]->SetRelativeLocation(ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole));
         Parts[0]->AddRelativeRotation(FRotator(-M.BodyPitch,M.BodyYaw,0));Parts[2]->AddRelativeRotation(FRotator(0,M.BodyYaw*.35f,0));
     } else if(Build.Weapon==2) {
@@ -125,7 +127,7 @@ void AASCharacter::Animate(float Delta) {
         ArrowMesh->SetRelativeLocation(Draw+FVector(33,0,0));ArrowMesh->SetRelativeRotation(FRotator::ZeroRotator);ArrowMesh->SetVisibility(!Reloading&&PoseAge>AttackPoseDuration*.55f);
     } else {
         Grip=ASPose::Limb(Parts[5],Parts[6],RightShoulder,Grip,RightPole);Parts[18]->SetRelativeLocation(Grip);
-        FVector Support=Build.Weapon>=6?Grip+FVector(22,-30,14)+FVector(-25,-8,-36)*ReloadMotion:FVector(15+Step*12+30*ReloadMotion,-38+32*ReloadMotion,68+20*ReloadMotion);
+        FVector Support=ASRules::IsGun(Build.Weapon)?Grip+FVector(22,-30,14)+FVector(-25,-8,-36)*ReloadMotion:FVector(15+Step*12+30*ReloadMotion,-38+32*ReloadMotion,68+20*ReloadMotion);
         if(bCharging) Support=FVector(40,-27,111);
         Support=ASPose::Limb(Parts[3],Parts[4],LeftShoulder,Support,LeftPole);Parts[17]->SetRelativeLocation(Support);
     }
@@ -247,6 +249,7 @@ void AASCharacter::CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const 
     for(const auto& Part:Parts) if(Part&&Part->GetStaticMesh()&&Part->IsVisible()) Out.Add(Part.Get());
     for(const auto& Piece:FlowingCape) if(Piece&&Piece->GetStaticMesh()&&Piece->IsVisible()) Out.Add(Piece.Get());
     if(WeaponMesh&&WeaponMesh->GetStaticMesh()&&WeaponMesh->IsVisible()) Out.Add(WeaponMesh.Get());
+    if(OffhandMesh&&OffhandMesh->GetStaticMesh()&&OffhandMesh->IsVisible()) Out.Add(OffhandMesh.Get()); // the left claw
 }
 
 // 0.26 G6: a multiplier on every footstep's volume, for judging the level in a recording of the mix (as.dev.record) without a rebuild; the shipped level is ASFoley::StepVolume / WalkVolume.

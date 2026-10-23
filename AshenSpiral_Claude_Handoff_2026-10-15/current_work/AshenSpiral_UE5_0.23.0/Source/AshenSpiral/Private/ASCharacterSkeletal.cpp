@@ -40,7 +40,7 @@ UAnimSequenceBase* Clip(const TCHAR* Name) {
 // What each weapon's attack plays, by combo step (melee) or in turn (shots and casts), and on which slot. TUNABLE: swap a clip by name (Tools/build_hero_animation.py imports them).
 struct Attack {const TCHAR* Clip[3];bool FullBody[3];};
 const Attack& AttackFor(int32 Weapon) {
-    static const Attack Table[9]={
+    static const Attack Table[ASRules::WeaponCount]={
         {{TEXT("Aurora_Primary_Attack_Fast_A"),TEXT("Aurora_Primary_Attack_Fast_B"),TEXT("Aurora_Primary_Attack_Fast_C")},{false,false,true}},   // Cinder Blade (the third lunges)
         {{TEXT("Grux_PrimaryAttack_LA"),TEXT("Grux_PrimaryAttack_RA"),TEXT("terra_Primary_Melee_C_slow")},{false,false,true}},                 // Hoarfrost Maul (across, overhead, the planted overhead smash)
         {{TEXT("Sparrow_Primary_Fire_Fast"),TEXT("Sparrow_Primary_Fire_Fast"),TEXT("Sparrow_Primary_Fire_Med")},{false,false,false}},         // Ash Bow
@@ -50,8 +50,9 @@ const Attack& AttackFor(int32 Weapon) {
         {{TEXT("Murdock_Fire_Fast"),TEXT("Murdock_Fire_Fast"),TEXT("Murdock_Fire_Fast")},{false,false,false}},                                 // Cinder Scattergun
         {{TEXT("TwinBlast_DoubleShot_Fire_Rt_Fast"),TEXT("TwinBlast_DoubleShot_Fire_Rt_Fast"),TEXT("TwinBlast_DoubleShot_Fire_Rt_Fast")},{false,false,false}}, // Tempest Rotary
         {{TEXT("Wraith_Ability_Q_Fire"),TEXT("Wraith_Ability_Q_Fire"),TEXT("Wraith_Ability_Q_Fire")},{false,false,false}},                     // Rift Mortar
+        {{TEXT("Aurora_Primary_Attack_Fast_A"),TEXT("Aurora_Primary_Attack_Fast_B"),TEXT("Aurora_Primary_Attack_Fast_A")},{false,false,false}}, // Twin Claws (two steps; the blade's clips until the claw clips are chosen)
     };
-    return Table[FMath::Clamp(Weapon,0,8)];
+    return Table[FMath::Clamp(Weapon,0,ASRules::WeaponCount-1)];
 }
 // The stance each weapon is carried in between moves, looped on the upper body (the legs keep their own walk, run and jump). TUNABLE: swap a clip by name.
 const TCHAR* StanceFor(int32 Weapon) {
@@ -59,9 +60,9 @@ const TCHAR* StanceFor(int32 Weapon) {
     // time. Chosen from contact sheets of every candidate clip on every weapon (Tools/DevScripts/look_stances.txt, look_stances2.txt): the blade's Kwang_Idle and the maul's Grux_TravelMode_Idle
     // were bent over at the waist with the head down; TwinBlast_Idle is an upright guard with the sword forward, and Steel's combat idle an upright two-handed carry, the hammer (or scythe)
     // shouldered with both hands on the shaft. The others were already upright and stay.
-    static const TCHAR* Table[9]={TEXT("TwinBlast_Idle"),TEXT("steel_Steel_Idle_Combat"),TEXT("Sparrow_idle"),TEXT("Yin_Idle_Combat"),TEXT("Yin_Idle_Combat"),TEXT("steel_Steel_Idle_Combat"),
-        TEXT("Murdock_Idle"),TEXT("Murdock_Idle"),TEXT("Wraith_Idle_Combat")};
-    return Table[FMath::Clamp(Weapon,0,8)];
+    static const TCHAR* Table[ASRules::WeaponCount]={TEXT("TwinBlast_Idle"),TEXT("steel_Steel_Idle_Combat"),TEXT("Sparrow_idle"),TEXT("Yin_Idle_Combat"),TEXT("Yin_Idle_Combat"),TEXT("steel_Steel_Idle_Combat"),
+        TEXT("Murdock_Idle"),TEXT("Murdock_Idle"),TEXT("Wraith_Idle_Combat"),TEXT("TwinBlast_Idle")};
+    return Table[FMath::Clamp(Weapon,0,ASRules::WeaponCount-1)];
 }
 FString StanceName(int32 Weapon) {
 #if !UE_BUILD_SHIPPING
@@ -88,7 +89,7 @@ bool GripInHand(const USkeletalMeshComponent* Body,bool Left,int32 Weapon,FName&
     FVector Palm=FVector::CrossProduct(Along,Knuckles);if(FVector::DotProduct(Palm,T-W)<0.f) Palm=-Palm;  // the thumb's root sits on the palm side
     const FVector Centre=(I+P)*.5f+Palm*GripDepth-Knuckles*GripBack;
     // the meshes (Tools/generate_weapon_art.py) hold the handle on +Z at the origin; a blade's edges and a maul's faces lie on Y; a gun's barrel and a bow's belly on +X
-    const FMatrix Axes=Weapon==2||Weapon>=6?FRotationMatrix::MakeFromZX(Along,Knuckles):FRotationMatrix::MakeFromZY(Along,Knuckles);
+    const FMatrix Axes=Weapon==2||ASRules::IsGun(Weapon)||Weapon==ASRules::Claws?FRotationMatrix::MakeFromZX(Along,Knuckles):FRotationMatrix::MakeFromZY(Along,Knuckles); // the claws' blades, like a barrel, point the way the knuckles do
     Bone=Ref.GetBoneName(Hand);Out=FTransform(Axes.ToQuat(),Centre).GetRelativeTransform(Wrist);
     return true;
 }
@@ -139,6 +140,12 @@ void AASCharacter::SetupSkeletalHero() {
         Grip.SetScale3D(FVector(ASHeroLook::WeaponScale(Build.Weapon))); // about the fist (the mesh's origin): the hammer grows both ways along its handle
         WeaponMesh->AttachToComponent(Body,FAttachmentTransformRules::SnapToTargetNotIncludingScale,Hand);WeaponMesh->SetRelativeTransform(Grip);WeaponMesh->SetVisibility(true);
     } else WeaponMesh->SetVisibility(false); // a mesh without hand bones: better no weapon than one at the feet
+    // Twin Claws: the second claw in the left fist (the same mesh: the hand frame makes it symmetric)
+    FName OffHand;FTransform OffGrip;
+    if(Build.Weapon==ASRules::Claws&&ASHeroLook::GripInHand(Body,true,Build.Weapon,OffHand,OffGrip)) {
+        OffGrip.SetScale3D(FVector(ASHeroLook::WeaponScale(Build.Weapon)));
+        OffhandMesh->AttachToComponent(Body,FAttachmentTransformRules::SnapToTargetNotIncludingScale,OffHand);OffhandMesh->SetRelativeTransform(OffGrip);OffhandMesh->SetVisibility(true);
+    } else OffhandMesh->SetVisibility(false);
     ChargeMesh->AttachToComponent(Body,FAttachmentTransformRules::SnapToTargetNotIncludingScale,FName(TEXT("hand_l")));
     ArrowMesh->SetVisibility(false);for(auto& String:BowStrings) if(String) String->SetVisibility(false);
     // no cape: the base Unreal look Josue asked for (the part rig keeps its cloth)

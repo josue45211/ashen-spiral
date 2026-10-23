@@ -1,2 +1,2 @@
-PASS: 40148 on-hit scaling checks (per-weapon scale, equal reward rate, exact expected value over 20000 random rewards, conduit hits).
+PASS: 40153 on-hit scaling checks (per-weapon scale, equal reward rate, exact expected value over 20000 random rewards, conduit hits).
 Shared rules only; Unreal combat, replication and gameplay are not executed.

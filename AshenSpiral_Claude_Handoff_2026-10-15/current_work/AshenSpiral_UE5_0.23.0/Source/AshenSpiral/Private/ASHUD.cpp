@@ -191,18 +191,19 @@ void AASHUD::DrawHUD() {
     if(S->SimTime-PC->LastHurtAt<.25f) {const float Alpha=(.25f-S->SimTime+PC->LastHurtAt)*2;Box(0,0,Width,4,FLinearColor(1,.15f,.2f,Alpha));Box(0,Height-4,Width,4,FLinearColor(1,.15f,.2f,Alpha));}
     const float Dash=H->Movement()->DashCooldown,Spiral=FMath::Max(0.f,H->NextSpiral-S->SimTime),Rune=FMath::Max(0.f,H->NextRune-S->SimTime);
     const auto Key=[PC](FName Binding) {const FKey Bound=PC->BoundKey(Binding);if(Bound==EKeys::RightMouseButton) return FString(TEXT("RMB"));if(Bound==EKeys::LeftMouseButton) return FString(TEXT("LMB"));return Bound.GetDisplayName().ToString().Replace(TEXT("Left "),TEXT("")).Replace(TEXT("Right "),TEXT("")).Left(6).ToUpper();};
-    if(H->Build.Weapon==1) {
-        const float Leap=FMath::Max(0.f,H->NextHammerLeap-S->SimTime);
+    if(ASMelee::LeapsOnRmb(H->Build.Weapon)) { // the maul's leap and the claws' pounce share the row and the cooldown clock (NextHammerLeap)
+        const bool Claws=H->Build.Weapon==ASRules::Claws;
+        const float Leap=FMath::Max(0.f,H->NextHammerLeap-S->SimTime),Cooldown=Claws?ASClaws::PounceCooldown:ASHammer::Cooldown;
         Group(Width-24-384*UI,Height-24-112*UI,UI);
-        Text(FString::Printf(TEXT("%s  LEAP  %s"),*Key("Spiral"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Leap<=.02f?ASHudGold:ASHudMuted,.62f);
-        Bar(12,24,358,2,1.f-Leap/ASHammer::Cooldown,ASHudGold);Group();
+        Text(FString::Printf(TEXT("%s  %s  %s"),*Key("Spiral"),Claws?TEXT("POUNCE"):TEXT("LEAP"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Leap<=.02f?ASHudGold:ASHudMuted,.62f);
+        Bar(12,24,358,2,1.f-Leap/Cooldown,ASHudGold);Group();
     }
     Group(Width-24-384*UI,Height-24-76*UI,UI);
     for(int32 I=1;I<3;++I) Box(I*128,12,1,52,FLinearColor(.22f,.31f,.34f,.65f));
     Text(TEXT("DASH"),12,10,ASHudMuted,.65f);Text(Key("Dash"),68,10,ASHudGold,.6f);
     Text(Dash<=.02f?TEXT("READY"):FString::Printf(TEXT("%.1fs"),Dash),12,30,Dash<=.02f?ASHudGold:ASHudMuted,.85f);
     Text(FString::Printf(TEXT("%d / %d CHARGES"),H->Movement()->DashCharges,H->MaxDashCharges()),12,56,ASHudMuted,.55f);
-    Text(TEXT("SPIRAL"),140,10,ASHudMuted,.65f);Text(Key(H->Build.Weapon==1?"HammerAlt":"Spiral"),206,10,ASHudTeal,.6f);
+    Text(TEXT("SPIRAL"),140,10,ASHudMuted,.65f);Text(Key(ASMelee::LeapsOnRmb(H->Build.Weapon)?"HammerAlt":"Spiral"),206,10,ASHudTeal,.6f);
     Text(Spiral<=.02f?TEXT("READY"):FString::Printf(TEXT("%.1fs"),Spiral),140,30,Spiral<=.02f?ASHudTeal:ASHudMuted,.85f);
     Bar(140,61,102,3,1.f-Spiral/FMath::Max(.1f,H->SpiralCooldown()),ASHudTeal);
     Text(FString(ASData::Abilities[H->Build.Ability].Name).Left(14),268,10,ASHudMuted,.60f);

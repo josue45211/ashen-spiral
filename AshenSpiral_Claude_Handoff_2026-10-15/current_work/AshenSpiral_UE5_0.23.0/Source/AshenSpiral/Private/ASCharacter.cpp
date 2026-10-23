@@ -45,6 +45,7 @@ AASCharacter::AASCharacter(const FObjectInitializer& Init):Super(Init.SetDefault
     // The hand is the grip pivot. Attaching to the forearm previously inherited
     // its large negative pitch and drove the blade back through the body.
     WeaponMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Weapon"));WeaponMesh->SetupAttachment(Parts[18]);
+    OffhandMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OffhandWeapon"));OffhandMesh->SetupAttachment(Parts[17]);OffhandMesh->SetVisibility(false);
     ChargeMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("SpiralCharge"));ChargeMesh->SetupAttachment(Parts[17]);
     for(int32 I=0;I<3;++I) {auto* W=CreateDefaultSubobject<UStaticMeshComponent>(*FString::Printf(TEXT("OrbitWisp%d"),I));W->SetupAttachment(RootComponent);Wisps.Add(W);}
     ArrowMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("NockedArrow"));ArrowMesh->SetupAttachment(Figure);
@@ -57,7 +58,7 @@ void AASCharacter::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTra
 UASMovementComponent* AASCharacter::Movement() const {return Cast<UASMovementComponent>(GetCharacterMovement());}
 bool AASCharacter::CanJumpInternal_Implementation() const {
     const auto* S=AS::State(this);
-    return !bDowned&&!bReviving&&!HammerBusy()&&S&&!S->bEnteringPortal&&!S->Frozen()&&S->Phase!=EASPhase::Defeat
+    return !bDowned&&!bReviving&&!HammerBusy()&&!PounceBusy()&&S&&!S->bEnteringPortal&&!S->Frozen()&&S->Phase!=EASPhase::Defeat
         &&Super::CanJumpInternal_Implementation();
 }
 void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
@@ -75,6 +76,7 @@ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AASCharacter,bHammerContact);DOREPLIFETIME(AASCharacter,HammerLeapState);
     DOREPLIFETIME(AASCharacter,HammerLeapStarted);DOREPLIFETIME(AASCharacter,HammerLandedAt);DOREPLIFETIME(AASCharacter,NextHammerLeap);
     DOREPLIFETIME(AASCharacter,AttackPoseStarted);DOREPLIFETIME(AASCharacter,MeleeStep);
+    DOREPLIFETIME(AASCharacter,PounceState);DOREPLIFETIME(AASCharacter,PounceStateAt);DOREPLIFETIME(AASCharacter,PounceTarget); // 0.26 Twin Claws
 }
 void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
     if(!HasAuthority()) return;Build=V;Build.Sanitize();
@@ -109,6 +111,13 @@ void AASCharacter::RefreshLook() {
     ASAssets::Armor(WeaponMesh,FString::Printf(TEXT("SM_Weapon%d"),Build.Weapon),Coat.Shade,Coat.Metallic,0.f,Coat.Roughness);
     WeaponMesh->AttachToComponent(Build.Weapon==2?Parts[17].Get():Parts[18].Get(),FAttachmentTransformRules::KeepRelativeTransform);
     WeaponMesh->SetRelativeLocation(FVector::ZeroVector);WeaponMesh->SetRelativeRotation(FRotator::ZeroRotator);
+    // 0.26 Twin Claws: a second claw in the left hand (the same mesh serves both hands: SM_Weapon9 is symmetric through the hand frame)
+    const bool Pair=Build.Weapon==ASRules::Claws;
+    if(Pair) {
+        ASAssets::Armor(OffhandMesh,FString::Printf(TEXT("SM_Weapon%d"),Build.Weapon),Coat.Shade,Coat.Metallic,0.f,Coat.Roughness);
+        OffhandMesh->AttachToComponent(Parts[17].Get(),FAttachmentTransformRules::KeepRelativeTransform);OffhandMesh->SetRelativeLocation(FVector::ZeroVector);OffhandMesh->SetRelativeRotation(FRotator::ZeroRotator);
+    }
+    OffhandMesh->SetVisibility(Pair);
     if(Build.Weapon==2) Parts[17]->SetRelativeLocation(FVector(82,-5,123));
     for(auto W:Wisps) {ASAssets::Style(W,TEXT("SM_Crystal"),FLinearColor(1,.42f,.06f),0,4);W->SetRelativeScale3D(FVector(.12f));}
     ASAssets::Style(ArrowMesh,TEXT("SM_Arrow"),FLinearColor(.55f,.38f,.17f),.25f);ArrowMesh->SetVisibility(Build.Weapon==2);
@@ -136,6 +145,7 @@ void AASCharacter::ReloadCue_Implementation(bool Complete) {
 void AASCharacter::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S || S->Frozen()) return;
     if(GetNetMode()!=NM_DedicatedServer) Animate(Delta);
+    TickPounceHoming(); // the server and the owner keep the pounce's leap on its moving target
     if(!HasAuthority()) return;
     {const bool DashNow=!bDowned&&Movement()->DashRemaining>0;if(DashNow!=bDashActive) {bDashActive=DashNow;ForceNetUpdate();}}
     const float Now=S->SimTime;
@@ -164,8 +174,8 @@ void AASCharacter::Tick(float Delta) {
     ReviveProgress=0;TickTraits(Delta);
     if(ASArsenal::ReloadComplete(ReloadEnd,Now)) {Ammo=MagazineCapacity();ReloadStart=ReloadEnd=0;ReloadCue(true);ForceNetUpdate();}
     RotaryHeat=ASArsenal::Heat(RotaryHeat,Delta,bAttackHeld&&!IsReloading()&&Build.Weapon==ASArsenal::Rotary&&CanUseWeapons());
-    TickHammer(Now);TickMelee(Now);
-    if(CanUseWeapons() && !IsReloading() && !bReviving && bAttackHeld && Now>=NextAttack&&!bMeleePending&&!HammerBusy()) Attack();
+    TickHammer(Now);TickPounce(Now,Delta);TickMelee(Now);
+    if(CanUseWeapons() && !IsReloading() && !bReviving && bAttackHeld && Now>=NextAttack&&!bMeleePending&&!HammerBusy()&&!PounceInFlight()) Attack();
     if(Now>=ResonanceAt && Talent(7) && CombatBenefits()) {
         ResonanceAt=Now+8;bool Nearby=false;
         for(auto W:S->Heroes) if(W.IsValid()&&W.Get()!=this&&!W->bDowned&&FVector::DistSquared2D(GetActorLocation(),W->GetActorLocation())<720*720) {Nearby=true;W->Heal(W->MaxHealth*.02f);}
@@ -181,7 +191,7 @@ bool AASCharacter::CombatBenefits() const {
 bool AASCharacter::CanDamage(const AASEnemy* Enemy) const {
     const auto* S=AS::State(this);return IsValid(Enemy)&&!Enemy->SpawnProtected()&&S&&!S->Frozen()&&!bDowned&&ASRules::CanDamageTarget(int(S->Phase),Enemy->bTrainingDummy,false);
 }
-void AASCharacter::ResetInput(bool Force) {CancelMelee(Force);if(Force) CancelHammerLeap();RotaryHeat=0;bAttackHeld=false;bCharging=false;bReviving=false;StopJumping();Movement()->bWantsDash=false;}
+void AASCharacter::ResetInput(bool Force) {CancelMelee(Force);if(Force) {CancelHammerLeap();CancelPounce(ASClaws::Release::Interrupted);}RotaryHeat=0;bAttackHeld=false;bCharging=false;bReviving=false;StopJumping();Movement()->bWantsDash=false;}
 bool AASCharacter::CanRevive(const AASCharacter* Target) const {
     const auto* S=AS::State(this);
     if(!S||S->Frozen()||!(S->Fighting()||S->Phase==EASPhase::Reward)||bDowned||Health<=0
@@ -205,26 +215,26 @@ void AASCharacter::SetAttack_Implementation(bool Held) {
 }
 void AASCharacter::SetSpiral_Implementation(bool Held) {
     auto* S=AS::State(this);if(!S || S->Frozen() || bDowned || !CanUseWeapons()) {bCharging=false;return;}
-    if(HammerBusy()) {bCharging=false;return;}
+    if(HammerBusy()||PounceInFlight()) {bCharging=false;return;}
     if(Held) bReviving=false;
     if(Held && !bCharging && S->SimTime>=NextSpiral) {bCharging=true;ChargeStart=S->SimTime;}
     if(!Held && bCharging) {CastSpiral(ASRules::Perfect(S->SimTime-ChargeStart,Rank(6),Relic(19)));bCharging=false;}
 }
 void AASCharacter::SetRevive_Implementation(bool Held) {
     const auto* S=AS::State(this);
-    bReviving=Held&&!HammerBusy()&&!bDowned&&Health>0&&S&&!S->Frozen()&&(S->Fighting()||S->Phase==EASPhase::Reward);
+    bReviving=Held&&!HammerBusy()&&!PounceBusy()&&!bDowned&&Health>0&&S&&!S->Frozen()&&(S->Fighting()||S->Phase==EASPhase::Reward);
     if(bReviving) {CancelMelee();ReloadStart=ReloadEnd=0;bAttackHeld=false;bCharging=false;StopJumping();}
     ForceNetUpdate();
 }
 FVector AASCharacter::MuzzleLocation() const {
     const FVector Start=GetActorLocation()+FVector(0,0,35);
-    const FVector Desired=Start+GetActorForwardVector()*(Build.Weapon==2?120.f:(Build.Weapon>=6?190.f:65.f))+GetActorRightVector()*18.f;
+    const FVector Desired=Start+GetActorForwardVector()*(Build.Weapon==2?120.f:(ASRules::IsGun(Build.Weapon)?190.f:65.f))+GetActorRightVector()*18.f;
     FHitResult Hit;FCollisionQueryParams Query;Query.AddIgnoredActor(this);
     if(GetWorld()->SweepSingleByObjectType(Hit,Start,Desired,FQuat::Identity,FCollisionObjectQueryParams(ECC_WorldStatic),FCollisionShape::MakeSphere(9.f),Query)) return Hit.Location;
     return Desired;
 }
 void AASCharacter::Attack() {
-    auto* S=AS::State(this);if(!HasAuthority()||!S||!CanUseWeapons()||IsReloading()||HammerBusy()||(Build.Weapon==1&&Movement()->DashRemaining>0)) return;
+    auto* S=AS::State(this);if(!HasAuthority()||!S||!CanUseWeapons()||IsReloading()||HammerBusy()||PounceInFlight()||(Build.Weapon==1&&Movement()->DashRemaining>0)) return;
     if(ASArsenal::UsesMagazine(Build.Weapon)&&!ASArsenal::Consume(Ammo,false)) {RequestReload();return;}
     float Haste=1;if(CombatBenefits()) for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&IsValid(W->Hero)&&W->Hero.Get()!=this&&W->Hero->Relic(5)&&FVector::DistSquared2D(GetActorLocation(),W->GetActorLocation())<FMath::Square(W->Radius)) Haste=1.25f;
     const bool Melee=ASMelee::IsMelee(Build.Weapon);
@@ -284,7 +294,9 @@ void AASCharacter::CastSpiral(bool Perfect) {
 }
 void AASCharacter::OnDash() {
     CancelMelee();
+    if(PounceState!=0) {bPounceDashBroke=true;Movement()->RemoveRootMotionSource(FName(TEXT("PounceLeap")));} // a dash breaks a pounce: every machine that runs the dash lets go at once (the server's word follows)
     if(!HasAuthority()) return;auto* S=AS::State(this);if(!S) return;
+    CancelPounce(ASClaws::Release::Dashed);
     DashVictims.Empty();DashTraceStart=GetActorLocation();bDashTraceActive=true;
     const float DashProtection=FMath::Max(Rank(11)? .4f:0.f,.26f+Rank(9)*.025f+.03f*TraitValue(ASBuild::Trait::LongDash));
     InvulnerableUntil=FMath::Max(InvulnerableUntil,S->SimTime+DashProtection);DashInvulEnd=S->SimTime+DashProtection; // 0.24 C-3: DashInvulEnd (+ ASPartC::PerfectDashWindow) is what Hurt() tests for a perfect dash

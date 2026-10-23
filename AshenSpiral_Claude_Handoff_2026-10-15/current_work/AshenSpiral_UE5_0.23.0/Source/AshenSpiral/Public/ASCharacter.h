@@ -4,6 +4,7 @@
 #include "ASData.h"
 #include "ASArsenalRules.h"
 #include "ASMeleeRules.h"
+#include "ASClawRules.h"
 #include "ASExpeditionRules.h"
 #include "ASAnimationRules.h"
 #include "ASPartCRules.h"
@@ -73,6 +74,21 @@ public:
     bool HammerBusy() const {return Build.Weapon==1&&(HammerCommitted()||HammerLeapState!=0);}
     bool HammerInvulnerable() const;
     bool HammerPhasing() const {return Build.Weapon==1&&HammerLeapState==2&&!bDowned;}
+    // ---- 0.26 Twin Claws: the pounce (ASPounceCombat.cpp) ----
+    // RMB leaps ONTO the enemy under the crosshair and LATCHES there, facing it, until it dies, the wielder dashes, or ASClaws::GlueSeconds pass. The state is the server's and replicates:
+    // 0 none, 1 windup (the crouch), 2 flight, 3 latched. The cooldown clock is NextHammerLeap (a hero wields one weapon, so the maul's leap and the claws' pounce share it).
+    UPROPERTY(Replicated) uint8 PounceState=0;
+    UPROPERTY(Replicated) float PounceStateAt=-10;                // SimTime the state began
+    UPROPERTY(Replicated) TObjectPtr<AASEnemy> PounceTarget=nullptr;
+    UFUNCTION(Server,Reliable) void RequestPounce(FVector_NetQuantize Origin,FVector_NetQuantizeNormal Direction);   // the crosshair's ray; the server picks the enemy along it
+    UFUNCTION(NetMulticast,Reliable) void PounceMotion(bool Launch,FVector_NetQuantize Destination,FVector_NetQuantizeNormal Outward,float Seconds,float Arc); // Outward: the side of the target the latch holds
+    UFUNCTION(NetMulticast,Reliable) void PounceCue(uint8 Kind,FVector_NetQuantize At,FVector_NetQuantizeNormal Direction);
+    bool PounceBusy() const {return Build.Weapon==ASRules::Claws&&PounceState!=0&&!bDowned;}
+    bool PounceInFlight() const {return Build.Weapon==ASRules::Claws&&(PounceState==1||PounceState==2)&&!bDowned;}  // the crouch and the leap: no swings, no spells, no walking, and the leap passes through enemies
+    bool PounceLatched() const;
+    bool PounceGlueVelocity(FVector& OutVelocity) const;           // the latched wielder's horizontal velocity (UASMovementComponent::CalcVelocity); false when not latched
+    bool PounceNetAuthority() const;                               // the server trusts this wielder's own position (UASMovementComponent) from the crouch until a moment after the latch lets go
+    virtual void FaceRotation(FRotator NewControlRotation,float DeltaTime=0.f) override; // a pouncing wielder faces its target, not the camera
     UPROPERTY(ReplicatedUsing=OnAttackPose) int32 AttackSequence=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorIndex=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorChoice=-1;
@@ -184,6 +200,7 @@ private:
     UPROPERTY() TObjectPtr<USceneComponent> Figure;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> Parts;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> WeaponMesh;
+    UPROPERTY() TObjectPtr<UStaticMeshComponent> OffhandMesh;   // 0.26: the left claw (Twin Claws is a pair); hidden for every other weapon
     UPROPERTY() TObjectPtr<UStaticMeshComponent> ChargeMesh;
     UPROPERTY() TObjectPtr<UStaticMeshComponent> ArrowMesh;
     UPROPERTY() TArray<TObjectPtr<UStaticMeshComponent>> BowStrings;
@@ -203,6 +220,17 @@ private:
     FVector HammerLeapDirection=FVector::ForwardVector;
     FVector2D HammerLeapPlan=FVector2D::ZeroVector; // planned arc (distance, height) toward the crosshair point; sent with the launch
     float HammerShakeAge=10,HammerShakeStrength=0;
+    void TickPounce(float Now,float Delta);                        // ASPounceCombat.cpp (the server: the state machine)
+    void TickPounceHoming();                                       // the server and the owner: the leap's root motion follows its moving target
+    void CancelPounce(ASClaws::Release Why);
+    void BeginLatch(float Now);
+    bool FindPounceLanding(const AASEnemy* Target,const FVector& From,FVector& Landing,FVector& Outward) const;
+    AASEnemy* PickPounceTarget(const FVector& Origin,const FVector& Direction) const;
+    void ResolveClaws();
+    FVector PounceOutward=FVector::ForwardVector,PounceLastTarget=FVector::ZeroVector,PounceLanding=FVector::ZeroVector; // outward from the target to the wielder at launch; where the target was last frame; the planned landing
+    float PounceFlightSeconds=0,PounceReleasedAt=-100,PounceOffRing=0,PounceAirborneFor=0;
+    bool bPounceDashBroke=false;                                   // the owner broke the latch with a dash: the glue stops at once, before the server's word arrives
+    UPROPERTY() TObjectPtr<class UCurveVector> PounceArc;          // the leap's rise, rewritten for each leap
     void TickHammer(float Now);
     void CancelHammerLeap();
     void ResolveHammerLanding(const FVector& At);

@@ -1,2 +1,2 @@
-PASS: 2169971 gameplay logic/geometry checks; 1598508 sampled weapon vertices.
+PASS: 2421378 gameplay logic/geometry checks; 1846476 sampled weapon vertices.
 Uses the game's shared rules and actual OBJ geometry. Does not run Unreal networking, input, collision, or rendering.

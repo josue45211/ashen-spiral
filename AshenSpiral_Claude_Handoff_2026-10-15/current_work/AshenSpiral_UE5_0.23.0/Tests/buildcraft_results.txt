@@ -1,2 +1,2 @@
-PASS: 456307 buildcraft checks; 18000 weighted reward drafts; 69 stable trait IDs (68 selectable).
+PASS: 456308 buildcraft checks; 18000 weighted reward drafts; 69 stable trait IDs (68 selectable).
 Shared C++ rules only: does not compile or run Unreal actors, replication, UI, physics or saves.
