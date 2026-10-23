@@ -1,0 +1,53 @@
+# 0.26 Phase 2, the guest's half of verify_team_coop_host.txt (test profile 91): it only has to be there. The host casts for it through the server; this machine aims at the nearest enemy (aimlock: its rounds
+# are what fill the brand), takes the HUD screenshots of what the SECOND player sees (tcg_*.png: the brand's diamond and ring, the tether and the call rows) and logs every team cue that reaches it
+# (AshenTeam: cue lines; the host's log has the server's side). Shots are taken every two seconds from the host's scene 1 on; the ones that matter are picked from the sequence.
+t.MaxFPS 60
+waitfor combat 240
+wait 8
+Net PktLag=50
+as.team.log 1
+as.dev.aimlock 1
+as.dev.heroes coop_team_guest_before
+wait 7.0
+as.dev.shot tcg_01 1
+wait 2.0
+as.dev.shot tcg_02 1
+wait 2.0
+as.dev.shot tcg_03 1
+wait 2.0
+as.dev.shot tcg_04 1
+wait 2.0
+as.dev.shot tcg_05 1
+wait 2.0
+as.dev.shot tcg_06 1
+wait 2.0
+as.dev.shot tcg_07 1
+wait 2.0
+as.dev.shot tcg_08 1
+wait 2.0
+as.dev.shot tcg_09 1
+wait 2.0
+as.dev.shot tcg_10 1
+wait 2.0
+as.dev.shot tcg_11 1
+wait 2.0
+as.dev.shot tcg_12 1
+wait 2.0
+as.dev.shot tcg_13 1
+wait 2.0
+as.dev.shot tcg_14 1
+wait 2.0
+as.dev.shot tcg_15 1
+wait 2.0
+as.dev.shot tcg_16 1
+wait 2.0
+as.dev.shot tcg_17 1
+wait 2.0
+as.dev.shot tcg_18 1
+wait 2.0
+as.dev.shot tcg_19 1
+wait 2.0
+as.dev.shot tcg_20 1
+wait 6
+as.dev.heroes coop_team_guest_after
+quit

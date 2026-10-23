@@ -1,0 +1,120 @@
+# 0.26 Phase 2, the three team skills with TWO players (the real thing). Pairs with verify_team_coop_client.txt:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunCoopCheck.ps1 -HostScript verify_team_coop_host -GuestScript verify_team_coop_client
+# The host drives both heroes' casts and attacks through the server (as.dev.cast / as.dev.attack [other]) so every moment is timed exactly; the guest's machine runs its own aim (aimlock) and watches: its log
+# carries AshenTeam: cue lines for every cue that reached it, and its screenshots (tcg_*.png, with the HUD) are what the second player saw. 100 ms of round trip. The host starts at (-1000,-200) and the guest
+# at (-210,138), 860 cm apart: inside the tether's bonus range (900), the Twin Collapse's join range (1600), and the host looks along the line (yaw 23) so what it spawns "in front" lies between them.
+# Scene 1 Ashen Brand: the host brands an elite, the guest's rounds (the Rotary) fill it, it bursts. Scene 2 Ember Tether: paired, lashes the grunts between them, the damage bonus holds.
+# Scene 3 Twin Collapse: the host casts, the guest 0.5 s later (they join: the pull, the detonation); then the host casts alone and the guest answers late (no join). Screenshots: tch_*.png (a photo camera at (-700,-700,420) looking at the midpoint of the two heroes; the guest's tcg_* shots carry the HUD).
+# Only the enemies near the host are cleared (killall 900): the rest of the wave stays frozen and alive, or the wave would end and the skills stop working (they work in a fight).
+t.MaxFPS 60
+waitfor players 150
+wait 4
+as.dev.god 1
+as.team.log 1
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.freeze 0
+as.dev.killall 900
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.face 23
+as.dev.weapon 0
+as.dev.weapon 7 1
+as.dev.ability 6
+as.dev.ability 6 1
+Net PktLag=50
+wait 3.5
+as.dev.heroes coop_team_before
+as.dev.cam -700 -700 420 -32 82 70
+# ---- scene 1: Ashen Brand ----
+as.dev.freeze 0 1300
+as.dev.killall 1300
+wait 0.6
+as.dev.spawn 0 1 150 12 1
+wait 0.7
+as.dev.freeze 1 3000
+wait 0.2
+as.dev.brand
+wait 0.5
+as.dev.shot tch_brand_set 0
+as.dev.attack 1.2 1
+wait 0.28
+as.dev.shot tch_brand_fill_a 0
+wait 0.12
+as.dev.shot tch_brand_fill_b 0
+wait 0.12
+as.dev.shot tch_brand_fill_c 0
+wait 0.12
+as.dev.shot tch_brand_pop_a 0
+wait 0.1
+as.dev.shot tch_brand_pop_b 0
+wait 0.1
+as.dev.shot tch_brand_pop_c 0
+wait 0.15
+as.dev.shot tch_brand_pop_d 0
+wait 2.5
+as.dev.state
+# ---- scene 2: Ember Tether (a pair) ----
+as.dev.face 23
+as.dev.ability 7
+as.dev.ability 7 1
+as.dev.spawn 0 3 380 12
+wait 0.9
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.cast
+wait 0.6
+as.dev.shot tch_tether_a 0
+wait 1.2
+as.dev.shot tch_tether_b 0
+wait 2.4
+as.dev.shot tch_tether_c 0
+wait 3.8
+as.dev.state
+# ---- scene 3: Twin Collapse (the same grunts, still between the two heroes) ----
+as.dev.ability 8
+as.dev.ability 8 1
+wait 0.3
+as.dev.cast
+wait 0.5
+as.dev.fx
+as.dev.actors 3500
+as.dev.shot tch_twin_call 0
+as.dev.cast 1
+wait 0.25
+as.dev.shot tch_twin_pull_a 0
+wait 0.25
+as.dev.shot tch_twin_pull_b 0
+wait 0.2
+as.dev.shot tch_twin_blast_a 0
+wait 0.1
+as.dev.shot tch_twin_blast_b 0
+wait 0.3
+as.dev.shot tch_twin_blast_c 0
+wait 3.0
+# the cooldowns are long: reset them, then a call nobody answers in time
+as.dev.ability 8
+as.dev.ability 8 1
+wait 0.3
+as.dev.cast
+wait 2.0
+as.dev.cast 1
+wait 1.5
+# ---- scene 4: a tether, then the partner goes down: the tether lets go, the brand's owner downed lapses it ----
+as.dev.ability 7
+wait 0.3
+as.dev.cast
+wait 1.5
+as.dev.hurt 999 1
+wait 1.5
+as.dev.ability 6 1
+as.dev.brand
+wait 0.5
+as.dev.state
+as.dev.cam off
+as.dev.heroes coop_team_after
+wait 1
+quit

@@ -8,9 +8,10 @@
 #include "Engine/World.h"
 
 void AASCharacter::CastRune_Implementation() {
-    if(HammerBusy()) return;
+    if(HammerBusy()||PounceInFlight()) return;
     auto* S=AS::State(this);if(!S||!CanUseWeapons()||bReviving||S->SimTime<NextRune) return;
     const int32 Ability=FMath::Clamp(Build.Ability,0,ASAdventure::AbilityCount-1);
+    if(ASTeam::AbilityIsTeam(Ability)) {CastTeam(Ability);return;} // 0.26 Phase 2: Ashen Brand, Ember Tether, Twin Collapse (ASTeamAbilities.cpp)
     const bool Nova=TraitValue(ASBuild::Trait::RuneNova)>0;
     const bool Active=S->Phase==EASPhase::Hub||CombatBenefits();const float Cost=ASAdventure::AbilityCost(Ability);
     if(Active&&Focus<Cost) {if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(TEXT("Not enough Focus. It regenerates during combat and in the lobby."));return;}

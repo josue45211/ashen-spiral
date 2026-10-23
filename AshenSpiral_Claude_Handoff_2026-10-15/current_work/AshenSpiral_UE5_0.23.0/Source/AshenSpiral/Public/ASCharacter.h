@@ -5,6 +5,7 @@
 #include "ASArsenalRules.h"
 #include "ASMeleeRules.h"
 #include "ASClawRules.h"
+#include "ASTeamRules.h"
 #include "ASExpeditionRules.h"
 #include "ASAnimationRules.h"
 #include "ASPartCRules.h"
@@ -93,6 +94,20 @@ public:
     bool PounceGlueVelocity(FVector& OutVelocity) const;           // the latched wielder's horizontal velocity (UASMovementComponent::CalcVelocity); false when not latched
     bool PounceNetAuthority() const;                               // the server trusts this wielder's own position (UASMovementComponent) from the crouch until a moment after the latch lets go
     virtual void FaceRotation(FRotator NewControlRotation,float DeltaTime=0.f) override; // a pouncing wielder faces its target, not the camera
+    // ---- 0.26 Phase 2: the team skills (ASTeamAbilities.cpp; rules in ASTeamRules.h) ----
+    // Ashen Brand (Mark & Pop), Ember Tether (Link) and Twin Collapse (Twin Cast) are active skills on F. Each runs on the server and replicates the little its show needs: the tether (who holds it,
+    // to whom or to what, until when) and the open Twin Collapse call live here; a brand lives on the enemy it marks (AASEnemy::BrandUntil). Each has a weaker form for a hero alone.
+    UPROPERTY(Replicated) float LinkUntil=0;                                // SimTime this hero's tether ends (0: none)
+    UPROPERTY(Replicated) uint8 LinkMode=0;                                 // ASTeam::LinkNone / LinkPair (to LinkPartner) / LinkAnchor (to LinkAnchor)
+    UPROPERTY(Replicated) TObjectPtr<AASCharacter> LinkPartner=nullptr;
+    UPROPERTY(Replicated) FVector_NetQuantize LinkAnchor=FVector::ZeroVector;
+    UPROPERTY(Replicated) float TwinCallUntil=0;                            // a Twin Collapse was cast: until then the partner's own Twin Collapse joins it
+    UFUNCTION(NetMulticast,Unreliable) void TeamCue(uint8 Kind,FVector_NetQuantize At,FVector_NetQuantize To,float Size); // ASTeam::Cue*: the show of a team skill (every machine)
+    bool LinkBuffActive() const;                                            // a tether holds this hero and its partner within ASTeam::TetherBuffRange: the damage bonus
+    AASCharacter* FindPartner() const;                                      // the other hero, if it is up
+    float TeamFovNow=0.f;bool bTeamShake=false;                             // degrees a team moment adds to this camera's field of view (decays; read by ASPlayerController); the shake in progress is a team moment's
+    void TeamPunch(float FovDegrees,float Shake);                           // a camera punch for this machine's player: a push in (negative) or out, and a shake
+    void ClearTeamState();                                                  // a fresh run, or a hero that is out: no tether, no open call
     UPROPERTY(ReplicatedUsing=OnAttackPose) int32 AttackSequence=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorIndex=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorChoice=-1;
@@ -226,6 +241,17 @@ private:
     FVector2D HammerLeapPlan=FVector2D::ZeroVector; // planned arc (distance, height) toward the crosshair point; sent with the launch
     float HammerShakeAge=10,HammerShakeStrength=0;
     float ClawChainAt=-10.f;int32 ClawChain=0;                     // 0.26: the rhythm of a shred as this machine saw it (presentation only; ClawHit_Implementation)
+    // 0.26 Phase 2 (ASTeamAbilities.cpp, the server's working state): CastRune sends a team skill to CastTeam, which pays for it only when it has something to do
+    void CastTeam(int32 Ability);
+    bool CastBrand();
+    bool CastTether();
+    bool CastTwin();
+    void TickTeam(float Now,float Delta);                          // the tether's lash and snap, the Twin Collapse's pull and detonation
+    void EndTether(int32 Why);                                      // 0 it ran out, 1 it was stretched too far (snapped), 2 a new tether replaces it (silent)
+    void LesserCollapse();                                         // the small collapse every Twin Collapse cast makes
+    void BeginTwinCollapse(AASCharacter* Other);                   // two casts joined: a short pull toward the midpoint, then the detonation
+    void FireTwinCollapse();
+    float NextLash=0,TwinFireAt=0,NextTwinPull=0;bool bTwinPending=false;FVector TwinPoint=FVector::ZeroVector;TWeakObjectPtr<AASCharacter> TwinOther;
     void TickPounce(float Now,float Delta);                        // ASPounceCombat.cpp (the server: the state machine)
     void TickPounceHoming();                                       // the server and the owner: the leap's root motion follows its moving target
     void CancelPounce(ASClaws::Release Why);

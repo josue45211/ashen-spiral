@@ -358,12 +358,13 @@ void SASMenu::Construct(const FArguments& Args) {
             P.Build.Weapon==I?TEXT("EQUIPPED"):(Owned?TEXT("EQUIP"):FString::Printf(TEXT("%d ASH"),ASData::Weapons[I].Cost)),20,I,Hub&&P.Build.Weapon!=I&&(Owned||P.Ash>=ASData::Weapons[I].Cost));
     } else if(Page==3) {
         Text(TEXT("ACTIVE ABILITIES / F OR RIGHT TRIGGER"),22,ASMenuGold);
-        Text(TEXT("Choose one active ability alongside Spiral. All six are free to equip and test on the lobby dummy. Selection is saved. Ability cooldown upgrades shorten these cooldowns too."));
+        Text(TEXT("Choose one active ability alongside Spiral. All nine are free to equip and test on the lobby dummy; the last three are team skills, built for two players and weaker alone. Selection is saved. Ability cooldown upgrades shorten these cooldowns too."));
         TSharedPtr<SWrapBox> Skills;
         Body->AddSlot().AutoHeight()[SAssignNew(Skills,SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(10,10))];
-        const int32 Icons[]={ASEffectArt::Bolt,ASEffectArt::Frost,ASEffectArt::Fork,ASEffectArt::Venom,ASEffectArt::Shield,ASEffectArt::Flame};
-        const TCHAR* Briefs[]={TEXT("Pierce with runic power"),TEXT("Freeze a cone of foes"),TEXT("Arc through four targets"),TEXT("Plant a poison field"),TEXT("Shield and melee boost"),TEXT("Set an explosive rune")};
-        for(int32 I=0;I<ASAdventure::AbilityCount;++I) Skills->AddSlot()[ChoiceTile(ASData::Abilities[I].Name,Briefs[I],ASData::Abilities[I].Desc,TEXT("ACTIVE SKILL"),Icons[I],1,P.Build.Ability==I?TEXT("EQUIPPED"):TEXT("EQUIP + TEST"),28,I,Hub&&P.Build.Ability!=I,232.f)];
+        const int32 Icons[ASAdventure::AbilityCount]={ASEffectArt::Bolt,ASEffectArt::Frost,ASEffectArt::Fork,ASEffectArt::Venom,ASEffectArt::Shield,ASEffectArt::Flame,ASEffectArt::Brand,ASEffectArt::Tether,ASEffectArt::Twin};
+        const TCHAR* Briefs[ASAdventure::AbilityCount]={TEXT("Pierce with runic power"),TEXT("Freeze a cone of foes"),TEXT("Arc through four targets"),TEXT("Plant a poison field"),TEXT("Shield and melee boost"),TEXT("Set an explosive rune"),
+            TEXT("Your partner's hits detonate it"),TEXT("Bind to your partner, lash the line"),TEXT("Cast together: one collapse")};
+        for(int32 I=0;I<ASAdventure::AbilityCount;++I) Skills->AddSlot()[ChoiceTile(ASData::Abilities[I].Name,Briefs[I],ASData::Abilities[I].Desc,ASTeam::AbilityIsTeam(I)?TEXT("TEAM SKILL"):TEXT("ACTIVE SKILL"),Icons[I],1,P.Build.Ability==I?TEXT("EQUIPPED"):TEXT("EQUIP + TEST"),28,I,Hub&&P.Build.Ability!=I,232.f)];
         Body->AddSlot().AutoHeight().Padding(0,12)[DetailStrip()];
         Text(TEXT("SPIRAL STYLES / RIGHT MOUSE"),22,ASMenuGold);
         for(int32 I=0;I<P.Build.StylePool;++I) Card(ASData::Styles[I].Name,ASData::Styles[I].Desc,P.Build.Style==I?TEXT("EQUIPPED"):TEXT("EQUIP"),21,I,Hub&&P.Build.Style!=I);

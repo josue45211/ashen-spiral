@@ -1,0 +1,100 @@
+# 0.26 Phase 2, the three team skills as a hero ALONE (their weaker forms), from the player's own camera with the HUD and from a side camera. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_team_solo
+# Part 1 Ashen Brand: an elite brute is branded, the claws fill the brand at 35% (AshenTeam lines carry the fill), it bursts. Part 2 Ember Tether: alone it anchors to an ember stake and lashes the grunts
+# on its line. Part 3 Twin Collapse: alone it is the small collapse (no call is opened). Screenshots: Saved\Screenshots\Dev\ts_*.png (ts_ui_* carry the HUD)
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.team.log 1
+as.claw.log 0
+as.pounce.log 1
+as.dev.aimlock 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.freeze 0
+as.dev.killall
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.weapon 9
+as.dev.ability 6
+wait 1.0
+# ---- part 1: Ashen Brand ----
+as.dev.elite 0 1 450 0
+wait 0.9
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.aimat 0
+wait 0.3
+as.dev.input rune
+wait 0.25
+as.dev.shot ts_ui_brand_set 1
+wait 0.4
+as.dev.follow 480 90 70 58 0
+as.dev.input spiral 0.1
+wait 0.6
+as.dev.shot ts_brand_latched 0
+as.dev.input attack 2.6
+wait 0.8
+as.dev.shot ts_brand_half 0
+wait 0.7
+as.dev.shot ts_brand_fill 0
+wait 0.5
+as.dev.shot ts_brand_pop_a 0
+wait 0.08
+as.dev.shot ts_brand_pop_b 0
+wait 0.12
+as.dev.shot ts_brand_pop_c 0
+wait 1.2
+as.dev.follow off
+as.dev.state
+# ---- part 2: Ember Tether (anchored) ----
+as.dev.freeze 0 900
+as.dev.killall 900
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.freeze 1 3000
+wait 6
+as.dev.ability 7
+as.dev.spawn 0 3 450 12
+wait 0.9
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.aimat 0
+wait 0.3
+as.dev.input rune
+wait 0.5
+as.dev.shot ts_ui_tether 1
+as.dev.follow 520 160 60 58 0
+wait 0.5
+as.dev.shot ts_tether_a 0
+wait 0.9
+as.dev.shot ts_tether_b 0
+wait 2.5
+as.dev.shot ts_tether_c 0
+as.dev.follow off
+wait 5
+# ---- part 3: Twin Collapse (alone: the small collapse) ----
+as.dev.freeze 0 900
+as.dev.killall 900
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.ability 8
+as.dev.spawn 0 3 250 12
+wait 0.9
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.follow 560 120 55 58 0
+as.dev.input rune
+wait 0.12
+as.dev.shot ts_twin_a 0
+wait 0.12
+as.dev.shot ts_twin_b 0
+wait 0.4
+as.dev.shot ts_twin_c 0
+as.dev.follow off
+as.dev.state
+wait 1
+quit

@@ -20,7 +20,7 @@ inline float DamageTop(float CenterY,float Scale,float TextHeight,float Age,int 
 
 // ---- Damage-number personalities (looks only). Every special damage source moves, pops and fades in its own way,
 // so a crit, a synergy or a status tick reads from the number's behaviour, never from a label.
-enum class NumberPersona {Plain,Crit,Burn,Poison,Frost,Bleed,Shock,Spiral,SynergyLightning,SynergyStorm,SynergyWild};
+enum class NumberPersona {Plain,Crit,Burn,Poison,Frost,Bleed,Shock,Spiral,SynergyLightning,SynergyStorm,SynergyWild,SynergyBrand,SynergyTether,SynergyTwin}; // 0.26 Phase 2: the last three are the team skills'
 struct DamageLook {float Scale,Rise,X,Y,Alpha,Flash,Heat;int Rings;float RingT;};
 inline float NumberNoise(float Seed,float Step) {
     const float V=std::sin(Seed*12.9898f+Step*78.233f)*43758.5453f;return V-std::floor(V)-.5f;

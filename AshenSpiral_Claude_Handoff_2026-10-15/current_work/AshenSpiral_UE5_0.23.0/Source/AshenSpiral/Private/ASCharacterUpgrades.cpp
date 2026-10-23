@@ -95,6 +95,7 @@ void AASCharacter::ResetTraits() {
     NextSplashFx=NextChainFx=NextAura=NextOrbit=NextThorns=0;
     DashInvulEnd=0;LastPerfectDashAt=-100.f;NextProcChain=0;PerfectBoostUntil=0;MetamorphosisAnnounced=0;WildfireDepth=0;
     DashVictims.Empty();bDashTraceActive=false;Movement()->DashCharges=1;Movement()->KnownDashCapacity=1;Movement()->DashRecharge=0;
+    ClearTeamState(); // 0.26 Phase 2: no tether, no open Twin Collapse call into a fresh run
 }
 void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
 float AASCharacter::DamageScale(bool WeaponHit) const {
@@ -106,6 +107,7 @@ float AASCharacter::DamageScale(bool WeaponHit) const {
     if(WeaponHit) Bonus+=.08f*EndlessValue(3); // Unbound Fury (Endless exclusive): 8% primary damage per effective rank
     const auto* State=AS::State(this);
     if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&WeaponHit&&Now<WarCryUntil&&ASMelee::IsMelee(Build.Weapon)) Bonus+=.20f;
+    if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&LinkBuffActive()) Bonus+=ASTeam::TetherDamageBonus; // 0.26 Phase 2: an Ember Tether holding this hero and its partner close together
     if(CombatBenefits()) {
         if(Now<RoomBuffUntil) Bonus+=ASBuild::VanguardBonus(TraitValue(Trait::RoomBlessing));
         if(Now<KillBuffUntil) Bonus+=.05f*TraitValue(Trait::KillFlow);

@@ -46,7 +46,11 @@ const FASStyle Abilities[ASAdventure::AbilityCount] = {
     {TEXT("Storm Thread"),TEXT("32 Focus / 5s. Aim at a foe to arc through up to four enemies for 38/29/22/17 damage. +30% against chilled or poisoned targets. Pairs with frost and poison weapons.")},
     {TEXT("Venom Bloom"),TEXT("35 Focus / 7s. Plant a 320cm poison field for 4s. Pulses deal 7 damage and apply poison, or +30% pulse damage against bleeding enemies. Gather with Spiral; finish with ranged attacks.")},
     {TEXT("War Cry"),TEXT("28 Focus / 9s. Stagger nearby foes for 18 damage; gain 22 shield and +20% melee damage for 4s. Pairs with blade, hammer, scythe and claws. No shield or buff between waves.")},
-    {TEXT("Cinder Mine"),TEXT("30 Focus / 6s. Place an aimed rune that explodes after 1s for 68 damage in 330cm and ignites survivors. +25% damage to pulled foes. Set a well, then detonate.")}
+    {TEXT("Cinder Mine"),TEXT("30 Focus / 6s. Place an aimed rune that explodes after 1s for 68 damage in 330cm and ignites survivors. +25% damage to pulled foes. Set a well, then detonate.")},
+    // 0.26 Phase 2: the team skills (ASTeamRules.h). Each works alone, weaker; each is built for two.
+    {TEXT("Ashen Brand"),TEXT("30 Focus / 10s. MARK & POP. Brand the enemy under your crosshair for 8s. Your partner's hits fill the brand (yours fill it at a third of the rate); full, it bursts for the damage it stored and splashes 60% of that across the crowd around it. A brand that dies half full still splashes. Call your target; focus it together.")},
+    {TEXT("Ember Tether"),TEXT("35 Focus / 16s. LINK. Bind yourself to your partner for 7s. The line lashes every enemy it crosses for 18 damage every .45s, and you both deal +15% damage while within 9m. Alone, it anchors to an ember stake you plant: a weaker lash and no bonus. Stand either side of the enemy line.")},
+    {TEXT("Twin Collapse"),TEXT("40 Focus / 16s. TWIN CAST. A small collapse around you: 24 damage and a stagger in 330cm. If your partner casts theirs within 1.5s and 16m, the two merge: everything within 7m is dragged to the midpoint, then detonates for 95 damage and a stun, and you are both shielded. Press together.")}
 };
 const FASStyle Styles[10] = {
     {TEXT("Gather"), TEXT("Balanced pull and collapse.")},

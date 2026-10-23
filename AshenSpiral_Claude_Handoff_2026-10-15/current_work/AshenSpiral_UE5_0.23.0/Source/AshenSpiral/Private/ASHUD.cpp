@@ -199,6 +199,29 @@ void AASHUD::DrawHUD() {
         Text(Latched?FString::Printf(TEXT("%s  LATCHED  %.1fs  /  DASH TO BREAK"),*Key("Spiral"),Held*ASClaws::GlueSeconds):FString::Printf(TEXT("%s  %s  %s"),*Key("Spiral"),Claws?TEXT("POUNCE"):TEXT("LEAP"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Latched?ASHudRed:(Leap<=.02f?ASHudGold:ASHudMuted),.62f);
         Bar(12,24,358,2,Latched?Held:1.f-Leap/Cooldown,Latched?ASHudRed:ASHudGold);Group();
     }
+    {
+        // 0.26 Phase 2: the team skills' state, in rows above the skill row: the tether that holds you (and whether you stand close enough for its bonus), and an open Twin Collapse call (yours,
+        // or your partner's: the one to answer with the key).
+        const float SimNow=S->SimTime;const AASCharacter* Linker=nullptr;const AASCharacter* Caller=nullptr;
+        for(auto W:S->Heroes) if(const AASCharacter* Other=W.Get()) {
+            if(!Linker&&Other->LinkMode!=ASTeam::LinkNone&&SimNow<Other->LinkUntil&&(Other==H||Other->LinkPartner.Get()==H)) Linker=Other;
+            if(!Caller&&Other->TwinCallUntil>SimNow&&!Other->bDowned) Caller=Other;
+        }
+        float RowY=Height-24-134*UI;
+        if(Linker) {
+            const bool Pair=Linker->LinkMode==ASTeam::LinkPair,Close=H->LinkBuffActive();const float Left=FMath::Max(0.f,Linker->LinkUntil-SimNow);
+            Group(Width-24-384*UI,RowY,UI);
+            Text(Pair?FString::Printf(TEXT("TETHERED  %.1fs  /  %s"),Left,Close?TEXT("+15% DAMAGE"):TEXT("STAND CLOSER FOR +15%")):FString::Printf(TEXT("ANCHORED  %.1fs  /  WEAKER ALONE"),Left),12,0,Close?FLinearColor(1.f,.52f,.14f):ASHudMuted,.62f);
+            Bar(12,24,358,2,Left/ASTeam::TetherSeconds,FLinearColor(1.f,.52f,.14f));Group();RowY-=36*UI;
+        }
+        if(Caller) {
+            const bool Mine=Caller==H,CanJoin=!Mine&&H->Build.Ability==ASTeam::Twin;const float Left=FMath::Max(0.f,Caller->TwinCallUntil-SimNow);
+            const float Beat=CanJoin?.65f+.35f*FMath::Sin(SimNow*18.f):.8f;const FLinearColor Violet(.72f,.5f,1.f,Beat);
+            Group(Width-24-384*UI,RowY,UI);
+            Text(Mine?FString::Printf(TEXT("TWIN COLLAPSE CALLED  %.1fs  /  WAITING FOR YOUR PARTNER"),Left):(CanJoin?FString::Printf(TEXT("YOUR PARTNER CALLS TWIN COLLAPSE  /  PRESS %s  %.1fs"),*Key("Rune"),Left):FString::Printf(TEXT("YOUR PARTNER CALLS TWIN COLLAPSE  %.1fs"),Left)),12,0,CanJoin||Mine?Violet:ASHudMuted,.62f);
+            Bar(12,24,358,2,Left/ASTeam::TwinWindow,Violet);Group();
+        }
+    }
     Group(Width-24-384*UI,Height-24-76*UI,UI);
     for(int32 I=1;I<3;++I) Box(I*128,12,1,52,FLinearColor(.22f,.31f,.34f,.65f));
     Text(TEXT("DASH"),12,10,ASHudMuted,.65f);Text(Key("Dash"),68,10,ASHudGold,.6f);
@@ -291,6 +314,23 @@ void AASHUD::DrawHUD() {
                 if(InRange) Text(Key("Spiral"),Mid_X-float(Key("Spiral").Len())*5.5f,Mid_Y+HalfH+6.f,FLinearColor(1.f,.78f,.22f,Breath),.62f);
             }
         }
+    }
+    // 0.26 Phase 2: Ashen Brand. Every branded enemy wears a diamond over its head and a ring that fills as the brand stores damage (the ring beats once it is three-quarters full); a short bar
+    // under it is the brand's time. Both players see all of it.
+    for(auto W:S->Enemies) if(const AASEnemy* E=W.Get()) if(E->Health>0&&E->Branded(S->SimTime)) {
+        FVector2D P;if(!PC->ProjectWorldLocationToScreen(E->GetActorLocation()+FVector(0,0,E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+55.f),P)) continue;
+        const float X=P.X/Scale,Y=P.Y/Scale,Fill=float(E->BrandFill)/100.f,Left=FMath::Clamp((E->BrandUntil-S->SimTime)/ASTeam::BrandSeconds,0.f,1.f);
+        const float Beat=Fill>=.75f?.62f+.38f*FMath::Sin(S->SimTime*22.f):1.f,Half=21.f+7.f*Fill;
+        const FLinearColor Gold(1.f,.78f,.22f,Beat),Pale(1.f,.96f,.80f,Beat),Dim(.50f,.44f,.28f,.60f),Ink(0.f,0.f,0.f,.75f);
+        const FVector2D Diamond[4]={FVector2D(0,-Half),FVector2D(Half,0),FVector2D(0,Half),FVector2D(-Half,0)};
+        for(int32 I=0;I<4;++I) {const FVector2D A=Diamond[I],B=Diamond[(I+1)%4];Line(X+A.X,Y+A.Y,X+B.X,Y+B.Y,Ink,5.f);}
+        for(int32 I=0;I<4;++I) {const FVector2D A=Diamond[I],B=Diamond[(I+1)%4];Line(X+A.X,Y+A.Y,X+B.X,Y+B.Y,Fill>=.75f?Pale:Gold,2.4f);}
+        constexpr int32 Segments=28;const float RingR=Half+9.f;
+        for(int32 I=0;I<Segments;++I) {
+            const float A0=-UE_HALF_PI+I*UE_TWO_PI/Segments,A1=-UE_HALF_PI+(I+.82f)*UE_TWO_PI/Segments;const bool On=(I+.5f)/Segments<=Fill;
+            Line(X+FMath::Cos(A0)*RingR,Y+FMath::Sin(A0)*RingR,X+FMath::Cos(A1)*RingR,Y+FMath::Sin(A1)*RingR,On?Gold:Dim,On?4.f:2.f);
+        }
+        Box(X-18,Y+RingR+8,36,4,Ink);Box(X-18,Y+RingR+8,36*Left,4,Gold);
     }
     FString Objective;
     if(S->Phase==EASPhase::Countdown) Objective=FString::Printf(TEXT("WAVE IN %.0f / WATCH RED MARKERS"),FMath::CeilToFloat(S->CountdownEnd-S->SimTime));
@@ -417,14 +457,14 @@ void AASHUD::DrawHUD() {
         using ASPresentation::NumberPersona;
         NumberPersona Persona=NumberPersona::Plain;
         if(!Incoming) {
-            if(N.Synergy>=0) Persona=NumberPersona(int(NumberPersona::SynergyLightning)+FMath::Clamp(N.Synergy,0,2));
+            if(N.Synergy>=0) Persona=NumberPersona(int(NumberPersona::SynergyLightning)+FMath::Clamp(N.Synergy,0,5));
             else if(N.Critical) Persona=NumberPersona::Crit;
             else switch(N.Kind) {case EASHitKind::Burn:Persona=NumberPersona::Burn;break;case EASHitKind::Poison:Persona=NumberPersona::Poison;break;case EASHitKind::Frost:Persona=NumberPersona::Frost;break;
                 case EASHitKind::Bleed:Persona=NumberPersona::Bleed;break;case EASHitKind::Shock:Persona=NumberPersona::Shock;break;case EASHitKind::Spiral:Persona=NumberPersona::Spiral;break;default:break;}
         }
         const auto Look=ASPresentation::DamageLookFor(Persona,Age,N.Life,N.Seed);
-        const FLinearColor SynergyTint[3]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f)};
-        FLinearColor Color=N.Synergy>=0?SynergyTint[FMath::Clamp(N.Synergy,0,2)]:ASData::HitColor(N.Kind);
+        const FLinearColor SynergyTint[6]={FLinearColor(.6f,.8f,1),FLinearColor(.12f,1,1),FLinearColor(1,.35f,.05f),FLinearColor(1.f,.78f,.22f),FLinearColor(1.f,.52f,.14f),FLinearColor(.72f,.5f,1.f)}; // 0.26 Phase 2: brand gold, tether ember, twin violet
+        FLinearColor Color=N.Synergy>=0?SynergyTint[FMath::Clamp(N.Synergy,0,5)]:ASData::HitColor(N.Kind);
         FLinearColor Edge=Color*.35f;Edge.A=1.f;
         if(Persona==NumberPersona::Burn) Color=FMath::Lerp(FLinearColor(.55f,.05f,.03f),Color,Look.Heat);
         if(Persona==NumberPersona::Crit) {Edge=FLinearColor(1.f,.45f,.05f);Color=FMath::Lerp(FLinearColor(1.f,.8f,.25f),FLinearColor(1.f,1.f,.9f),Look.Flash);}

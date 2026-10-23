@@ -1,1 +1,1 @@
-PASS: 45507 adventure checks; camera, popup clearance, interaction reach, six abilities, shrine safety, biome mapping and four-ward trap motion.
+PASS: 45819 adventure checks; camera, popup clearance, interaction reach, nine abilities, shrine safety, biome mapping and four-ward trap motion.

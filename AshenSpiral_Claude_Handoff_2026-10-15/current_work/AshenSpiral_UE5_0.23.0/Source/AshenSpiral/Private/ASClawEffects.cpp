@@ -77,13 +77,13 @@ void AASClawFx::SetupDust(const FVector& At,float R,float Power) {
         B.Spin=FRotator(FMath::FRandRange(-420.f,420.f),FMath::FRandRange(-420.f,420.f),0.f);B.Mesh->SetRelativeScale3D(B.Scale0);Bits.Add(B);
     }
 }
-void AASClawFx::SetupRing(const FVector& At,FLinearColor Color,float R,float Seconds) {
+void AASClawFx::SetupRing(const FVector& At,FLinearColor Color,float R,float Seconds,float Thickness) {
     if(Active>=30) {Destroy();return;}
     ++Active;bCounted=true;Kind=Look::Ring;Life=FMath::Max(.1f,Seconds);Radius=R;Emission=7.f;
     FHitResult Floor;FVector Place=At;
     if(GetWorld()&&GetWorld()->LineTraceSingleByObjectType(Floor,At+FVector(0,0,40),At-FVector(0,0,320),FCollisionObjectQueryParams(ECC_WorldStatic))) Place=Floor.ImpactPoint+FVector(0,0,3);
     SetActorLocation(Place);
-    FBit B;B.Mesh=AddBit(TEXT("SM_Ring"),nullptr);ASAssets::StyleGlowBand(B.Mesh,TEXT("SM_Ring"),Color,Emission,.45f,.52f,0.f);B.Mesh->SetRelativeScale3D(FVector(.2f,.2f,1.f));Bits.Add(B);
+    FBit B;B.Mesh=AddBit(TEXT("SM_Ring"),nullptr);ASAssets::StyleGlowBand(B.Mesh,TEXT("SM_Ring"),Color,Emission,.52f-FMath::Clamp(Thickness,.02f,.30f),.52f,0.f);B.Mesh->SetRelativeScale3D(FVector(.2f,.2f,1.f));Bits.Add(B);
 }
 // The bond: a thin ring on the floor under the target; while the wielder holds on it breathes, and it goes the moment the latch ends.
 void AASClawFx::SetupBond(AASCharacter* Hero,FLinearColor Color) {
@@ -94,6 +94,7 @@ void AASClawFx::SetupBond(AASCharacter* Hero,FLinearColor Color) {
 void AASClawFx::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
     Age+=Delta;
+    if(Kind>=Look::Tether) {TickTeamLook(Delta);return;} // 0.26 Phase 2: the team skills' looks
     if(Kind==Look::Bond) {
         const AASCharacter* H=Holder.Get();const AASEnemy* T=H?H->PounceTarget.Get():nullptr;
         if(!H||!T||!H->PounceLatched()||Age>Life) {Destroy();return;}

@@ -371,11 +371,17 @@ void AASPlayerController::DamageNumber_Implementation(FVector_NetQuantize Positi
     auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
     if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);DamageNumbers.Add({Position,Value,AS::Time(this)+1.25f,Critical,Kind,FMath::FRandRange(-65.f,65.f),DamageLane,-1,1.25f,FMath::FRand()*100.f});DamageLane=(DamageLane+1)%3;
 }
+// A synergy happened (0 Lightning Blast, 1 Stormbreak, 2 Wildfire; 0.26 Phase 2: 3 Brand Burst, 4 Ember Tether, 5 Twin Collapse): its sound and, for every one of them, its name as a big floating word.
+// The team skills (3-5) bring their own sounds and camera with their world cues (AASCharacter::TeamCue), so only the word is added here.
 void AASPlayerController::SynergyCue_Implementation(int32 Trigger) {
-    if(Trigger<0||Trigger>2) return;
-    // Placeholder cues reuse existing assets with distinct pitch per synergy; P2 audio pass to replace.
-    const TCHAR* Cues[]={TEXT("S_Hit"),TEXT("S_Collapse"),TEXT("S_Spiral")};const float Pitch[]={1.45f,1.f,.8f};
-    if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) UGameplayStatics::PlaySound2D(this,Cue,.8f,Pitch[Trigger]);
+    if(Trigger<0||Trigger>5) return;
+    if(Trigger<=2) { // placeholder cues reuse existing assets with distinct pitch per synergy; P2 audio pass to replace
+        const TCHAR* Cues[]={TEXT("S_Hit"),TEXT("S_Collapse"),TEXT("S_Spiral")};const float Pitch[]={1.45f,1.f,.8f};
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) UGameplayStatics::PlaySound2D(this,Cue,.8f,Pitch[Trigger]);
+    }
+    static const TCHAR* Words[]={TEXT("LIGHTNING BLAST"),TEXT("STORMBREAK"),TEXT("WILDFIRE"),TEXT("BRAND BURST"),TEXT("EMBER TETHER"),TEXT("TWIN COLLAPSE")};
+    static const FLinearColor Colors[]={FLinearColor(.86f,.74f,1.f),FLinearColor(.12f,1.f,1.f),FLinearColor(1.f,.35f,.05f),FLinearColor(1.f,.78f,.22f),FLinearColor(1.f,.52f,.14f),FLinearColor(.72f,.5f,1.f)};
+    RewardText_Implementation(Words[Trigger],Colors[Trigger],true);
 }
 void AASPlayerController::RewardText_Implementation(const FString& InText,FLinearColor Color,bool Big) {
     if(InText.IsEmpty()) return;
@@ -393,7 +399,7 @@ void AASPlayerController::RewardText_Implementation(const FString& InText,FLinea
     if(Big) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) UGameplayStatics::PlaySound2D(this,Cue,.7f,1.15f);
 }
 void AASPlayerController::SynergyNumber_Implementation(FVector_NetQuantize Position,float Value,int32 Trigger) {
-    if(Trigger<0||Trigger>2) return;
+    if(Trigger<0||Trigger>5) return;
     auto* GI=GetGameInstance<UASGameInstance>();if(!GI||!GI->bShowNumbers) return;
     if(DamageNumbers.Num()>=64) DamageNumbers.RemoveAt(0);
     DamageNumbers.Add({Position,Value,AS::Time(this)+1.7f,false,EASHitKind::Physical,FMath::FRandRange(-45.f,45.f),DamageLane,Trigger,1.7f,FMath::FRand()*100.f});DamageLane=(DamageLane+1)%3;
@@ -514,7 +520,7 @@ void AASPlayerController::ApplyCameraSettings() {
     H->Boom->SocketOffset.Y=GI->CameraShoulder;
     H->Camera->SetRelativeRotation(FRotator(GI->CameraPitch,0.f,0.f));
     CeremonyAmount=GI->bReduceMotion?0.f:(bCeremony?ASPartC::CeremonyPush(GetWorld()->GetRealTimeSeconds()-CeremonyStartReal):FMath::FInterpTo(CeremonyAmount,0.f,GetWorld()->GetDeltaSeconds(),6.f));
-    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion)+ASPartC::CeremonyPushFov*CeremonyAmount+H->ClawFovNow);}
+    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion)+ASPartC::CeremonyPushFov*CeremonyAmount+H->ClawFovNow+H->TeamFovNow);}
     // Character animation is suspended during a party pause; settings still apply.
     if(auto* S=AS::State(this)) if(S->Frozen()) H->Boom->TargetArmLength=GI->CameraDistance;
 }

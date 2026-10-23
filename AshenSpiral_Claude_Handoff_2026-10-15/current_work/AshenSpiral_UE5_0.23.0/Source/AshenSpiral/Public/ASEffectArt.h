@@ -5,7 +5,7 @@
 namespace ASEffectArt {
 struct Point {float X,Y;};
 struct Stroke {std::vector<Point> Points;float Width=3,Alpha=1;};
-enum Icon {Blade,Shield,Flame,Venom,Frost,Bolt,Fork,Dash,Vortex,Star,Magazine,Reload,Precision,Dice,Heart,Bow};
+enum Icon {Blade,Shield,Flame,Venom,Frost,Bolt,Fork,Dash,Vortex,Star,Magazine,Reload,Precision,Dice,Heart,Bow,Brand,Tether,Twin};
 inline std::vector<Stroke> Draw(int Kind) {
     std::vector<Stroke> Out;
     const auto Line=[&](std::initializer_list<Point> P,float Width=3.f,float Alpha=1.f) {Out.push_back({std::vector<Point>(P),Width,Alpha});};
@@ -32,6 +32,10 @@ inline std::vector<Stroke> Draw(int Kind) {
     case Dice:Line({{21,20},{67,12},{78,61},{30,70},{21,20}},4);Line({{78,31},{88,76},{42,88},{38,73}},4);for(const Point P:std::vector<Point>{{35,32},{61,27},{40,55},{65,50},{50,41},{63,73},{76,65}})Ring(P.X,P.Y,2.7f,0,6.283f);break;
     case Heart:Line({{50,84},{22,59},{16,40},{25,24},{39,24},{50,36},{61,24},{75,24},{85,39},{80,58},{50,84}},4);Line({{21,51},{37,51},{44,41},{53,64},{61,49},{81,49}},3);break;
     case Bow:Line({{39,15},{67,31},{76,50},{67,70},{39,86}},5);Line({{39,15},{28,50},{39,86}},2);Line({{19,50},{88,50}},4);Line({{77,42},{88,50},{77,58}},3);break;
+    // 0.26 team skills: a brand (a diamond locked on by a cross), a tether (two nodes joined by a crackling line), a twin collapse (two strokes driving into one burst)
+    case Brand:Line({{50,11},{87,50},{50,89},{13,50},{50,11}},5);Line({{50,30},{50,70}},3);Line({{30,50},{70,50}},3);Ring(50,50,9,0,6.283f);Line({{50,3},{50,9}},2,.5f);Line({{91,50},{97,50}},2,.5f);Line({{3,50},{9,50}},2,.5f);Line({{50,91},{50,97}},2,.5f);break;
+    case Tether:Ring(23,68,10,0,6.283f);Ring(77,32,10,0,6.283f);Line({{31,62},{43,58},{40,47},{57,51},{53,40},{69,37}},4);Line({{47,64},{55,73}},2,.55f);Line({{61,28},{54,20}},2,.55f);Line({{12,80},{18,88}},2,.4f);Line({{88,20},{82,12}},2,.4f);break;
+    case Twin:Line({{50,28},{55,45},{72,50},{55,55},{50,72},{45,55},{28,50},{45,45},{50,28}},4);Line({{10,22},{27,36},{40,46}},4);Line({{90,78},{73,64},{60,54}},4);Line({{10,36},{22,44}},2,.5f);Line({{90,64},{78,56}},2,.5f);Ring(50,50,44,.4f,1.1f,.4f);Ring(50,50,44,3.55f,4.25f,.4f);break;
     default:break;
     }
     return Out;

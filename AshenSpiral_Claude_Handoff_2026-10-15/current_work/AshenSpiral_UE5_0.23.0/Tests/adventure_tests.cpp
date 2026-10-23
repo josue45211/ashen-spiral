@@ -46,7 +46,7 @@ int main() {
     for(int Ability=0;Ability<AbilityCount;++Ability) {
         Check(AbilityCost(Ability)>0&&AbilityCost(Ability)<=60,"every ability usable from base focus pool");
         const float Base=AbilityCooldown(Ability,1);
-        Check(Base>0&&Base<=9,"bounded ability base cooldown");
+        Check(Base>0&&Base<=16,"bounded ability base cooldown (the 0.26 team skills are payoffs of two players: up to 16 s)");
         float Last=Base;
         for(int I=100;I>=0;--I) {
             const float CD=AbilityCooldown(Ability,I/100.f);
@@ -54,7 +54,7 @@ int main() {
         }
         Check(Near(AbilityCooldown(Ability,-100),Base*.5f)&&Near(AbilityCooldown(Ability,100),Base),"recovery clamp");
     }
-    Check(AbilityCost(-1)==AbilityCost(0)&&AbilityCost(99)==AbilityCost(5),"out of range ability ids bounded");
+    Check(AbilityCost(-1)==AbilityCost(0)&&AbilityCost(99)==AbilityCost(AbilityCount-1),"out of range ability ids bounded");
     for(int Max=1;Max<=1000;++Max) {
         const float Cost=ShrineCost(float(Max));
         Check(Cost>=1&&Cost>=Max*.12f-.001f&&Cost<Max*.12f+1.001f,"offering rounded up to whole health");
@@ -72,5 +72,5 @@ int main() {
             Check(std::abs(B-A)*440<7,"no large sixty fps saw teleport");
         }
     }
-    std::cout<<"PASS: "<<Checks<<" adventure checks; camera, popup clearance, interaction reach, six abilities, shrine safety, biome mapping and four-ward trap motion.\n";
+    std::cout<<"PASS: "<<Checks<<" adventure checks; camera, popup clearance, interaction reach, nine abilities, shrine safety, biome mapping and four-ward trap motion.\n";
 }

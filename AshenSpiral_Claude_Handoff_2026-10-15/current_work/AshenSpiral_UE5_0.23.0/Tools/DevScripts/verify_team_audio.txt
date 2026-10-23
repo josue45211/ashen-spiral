@@ -1,0 +1,54 @@
+# 0.26 Phase 2, the team skills' sounds in the game's own mix (the audio output is recorded and measured: Tools/measure_recording.py). Solo, so the lone forms: the brand (set, ticks, burst), the tether
+# (formed, lashes, ended) and the small collapse. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_team_audio
+#   python Tools\measure_recording.py Saved\AudioRecordings\Dev\team_audio.wav Saved\Logs\dev_verify_team_audio.log
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.team.log 1
+as.dev.aimlock 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.freeze 0
+as.dev.killall
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.weapon 9
+wait 2.0
+as.dev.record start 40
+wait 1.0
+# ---- Ashen Brand: set, the claws' hits tick it, the burst ----
+as.dev.ability 6
+as.dev.spawn 0 1 420 3
+wait 0.9
+as.dev.freeze 1 3000
+as.dev.aimat 0
+wait 0.3
+as.dev.cast
+wait 0.8
+as.dev.input spiral 0.1
+wait 0.6
+as.dev.input attack 2.6
+wait 3.5
+# ---- Ember Tether alone: the stake, the lashes, the end ----
+as.dev.ability 7
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 1.0
+as.dev.spawn 0 3 450 12
+wait 0.8
+as.dev.freeze 1 3000
+as.dev.aimat 0
+wait 0.3
+as.dev.cast
+wait 8.5
+# ---- Twin Collapse alone: the small collapse ----
+as.dev.ability 8
+wait 0.3
+as.dev.cast
+wait 2.0
+as.dev.record stop team_audio
+quit

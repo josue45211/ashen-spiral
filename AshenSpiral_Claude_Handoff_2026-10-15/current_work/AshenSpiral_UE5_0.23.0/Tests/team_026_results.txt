@@ -1,0 +1,2 @@
+PASS: 125 team ability checks (the nine-skill tables, brand need/charge/burst/splash/death, tether lash geometry/buff/snap, twin collapse window/separation/oversize, every lone-hero form weaker).
+Shared rules only; Unreal gameplay, replication and the show are not executed.

@@ -171,8 +171,10 @@ void AASCharacter::Animate(float Delta) {
     DamageReactionAge+=Delta;AbilityGestureAge+=Delta;
     HammerShakeAge+=Delta;
     if(IsLocallyControlled()) if(auto* GI=GetGameInstance<UASGameInstance>()) {
-        const bool Shake=(Build.Weapon==1||Build.Weapon==ASRules::Claws)&&!GI->bReduceMotion&&HammerShakeAge<.28f; // the maul's and the claws' blows share the camera shake
+        const bool Shake=(Build.Weapon==1||Build.Weapon==ASRules::Claws||bTeamShake)&&!GI->bReduceMotion&&HammerShakeAge<.28f; // the maul's and the claws' blows (and a team moment, whoever's weapon) share the camera shake
+        if(HammerShakeAge>=.28f) bTeamShake=false;
         ClawFovNow=FMath::FInterpTo(ClawFovNow,ClawFovTarget(Now),Delta,18.f);                                    // the pounce's field-of-view push (ASPlayerController adds it)
+        TeamFovNow=FMath::FInterpTo(TeamFovNow,0.f,Delta,5.f);                                                    // a team moment's punch, easing back (0.26 Phase 2)
         const float Envelope=Shake?HammerShakeStrength*FMath::Square(1.f-HammerShakeAge/.28f):0.f;
         Camera->SetRelativeLocation(FVector(0,FMath::Sin(HammerShakeAge*83.f)*Envelope,FMath::Sin(HammerShakeAge*107.f)*Envelope*.6f));
     }

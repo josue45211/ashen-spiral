@@ -11,6 +11,10 @@
 #include "ASCharacter.h"
 #include "ASEnemy.h"
 #include "ASWorld.h"
+#include "ASSpell.h"
+#include "EngineUtils.h"
+#include "Engine/StaticMeshActor.h"
+#include "Engine/LevelScriptActor.h"
 #include "ASBuildRules.h"
 #include "ASExpeditionRules.h"
 #include "ASLightning.h"
@@ -226,6 +230,65 @@ void Weapon(const TArray<FString>& Args,UWorld* W) {
     if(ArgInt(Args,1,0)!=0) {H=nullptr;if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* Other=Weak.Get()) if(!Other->IsLocallyControlled()) {H=Other;break;}}
     if(!H) return;FASBuild B=H->Build;B.Weapon=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WeaponCount-1);H->ApplyBuild(B,false);H->RefreshLook();
     UE_LOG(LogTemp,Display,TEXT("AshenDev: weapon %d%s"),B.Weapon,ArgInt(Args,1,0)!=0?TEXT(" (the other player's hero)"):TEXT(""));
+}
+// as.dev.ability <id> [other=1]: gives the host hero (other 1: the guest's, from the host) active skill <id> (0-8; 6 Ashen Brand, 7 Ember Tether, 8 Twin Collapse), a full focus pool and no cooldown.
+void Ability(const TArray<FString>& Args,UWorld* W) {
+    AASCharacter* H=HostHero(W);
+    if(ArgInt(Args,1,0)!=0) {H=nullptr;if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* Other=Weak.Get()) if(!Other->IsLocallyControlled()) {H=Other;break;}}
+    if(!H) return;FASBuild B=H->Build;B.Ability=FMath::Clamp(ArgInt(Args,0,0),0,ASAdventure::AbilityCount-1);H->ApplyBuild(B,false);H->Focus=H->MaxFocus();H->NextRune=0;H->ForceNetUpdate();
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: ability %d (%s)%s"),B.Ability,ASData::Abilities[B.Ability].Name,ArgInt(Args,1,0)!=0?TEXT(" (the other player's hero)"):TEXT(""));
+}
+// as.dev.cast [other=1]: the F skill of the host hero (other 1, run on the host: the guest's hero, cast by the SERVER as the guest's own request would be: the same CastRune path). A two-player check
+// can then time both players' casts exactly, from one script.
+AASCharacter* PickHero(UWorld* W,bool Other) {
+    if(!Other) return HostHero(W);
+    if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* H=Weak.Get()) if(!H->IsLocallyControlled()) return H;
+    return nullptr;
+}
+void Cast(const TArray<FString>& Args,UWorld* W) {
+    AASCharacter* H=PickHero(W,ArgInt(Args,0,0)!=0);if(!H||!H->HasAuthority()) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: cast - no such hero (or not on the host)"));return;}
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: %s casts its F skill (%s)"),*H->GetName(),ASData::Abilities[FMath::Clamp(H->Build.Ability,0,ASAdventure::AbilityCount-1)].Name);
+    H->CastRune_Implementation();
+}
+// as.dev.attack <seconds> [other=1]: holds the primary attack of the host hero (other 1: the guest's hero, held by the server; its aim is whatever the guest's own machine sends, so give that machine
+// as.dev.aimlock 1) for that long.
+double OtherAttackUntil=0.0;TWeakObjectPtr<AASCharacter> OtherAttacker;
+void AttackFor(const TArray<FString>& Args,UWorld* W) {
+    AASCharacter* H=PickHero(W,ArgInt(Args,1,0)!=0);if(!H||!H->HasAuthority()) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: attack - no such hero (or not on the host)"));return;}
+    if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
+    OtherAttacker=H;OtherAttackUntil=FPlatformTime::Seconds()+ArgFloat(Args,0,1.f);H->SetAttack_Implementation(true);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: %s holds its attack for %.1f s"),*H->GetName(),ArgFloat(Args,0,1.f));
+}
+// as.dev.fx: logs every live claw/team effect actor (look, age, place): finds an effect that outlived its time ('AshenFx:' lines).
+void FxList(const TArray<FString>&,UWorld* W) {
+    int32 Count=0;for(TActorIterator<AASClawFx> It(W);It;++It) {UE_LOG(LogTemp,Display,TEXT("AshenFx: %s"),*It->DebugText());++Count;}
+    UE_LOG(LogTemp,Display,TEXT("AshenFx: %d live (counter %d)"),Count,AASClawFx::Active);
+}
+// as.dev.ring <radius> <r> <g> <b> <seconds> [forward cm=0]: an effect ring (the claws' and team skills' look) on the floor at the host hero, for judging colours and sizes.
+void RingFx(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);if(!H||!W) return;
+    const FVector At=H->GetActorLocation()+H->GetActorForwardVector().GetSafeNormal2D()*ArgFloat(Args,5,0.f);
+    if(auto* R=W->SpawnActor<AASClawFx>()) R->SetupRing(At,FLinearColor(ArgFloat(Args,1,1.f),ArgFloat(Args,2,.8f),ArgFloat(Args,3,.2f)),ArgFloat(Args,0,300.f),ArgFloat(Args,4,1.f));
+}
+// as.dev.actors [radius=2500]: logs every actor within the radius of the host hero that is not a character, a floor piece or a block: its class, name and place ('AshenActors:' lines) - finds a stray effect.
+void ActorsNear(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);if(!H||!W) return;const float Radius=ArgFloat(Args,0,2500.f);int32 Count=0;
+    for(TActorIterator<AActor> It(W);It;++It) {
+        AActor* A=*It;if(!A||A==H||A->IsA<ACharacter>()||A->IsA<AStaticMeshActor>()||A->IsA<ALevelScriptActor>()) continue;
+        const float D=float(FVector::Dist(A->GetActorLocation(),H->GetActorLocation()));if(D>Radius) continue;
+        UE_LOG(LogTemp,Display,TEXT("AshenActors: %s %s at %s (%.0f cm)%s"),*A->GetClass()->GetName(),*A->GetName(),*A->GetActorLocation().ToCompactString(),D,A->IsHidden()?TEXT(" hidden"):TEXT(""));++Count;
+    }
+    UE_LOG(LogTemp,Display,TEXT("AshenActors: %d actors"),Count);
+}
+// as.dev.brand [other=1]: Ashen Brand, by the host hero (other 1: by the guest's), on the living enemy nearest the guest's hero (the one the guest's aimlock shoots; the host's when there is no guest): no aim, no focus,
+// no cooldown. A script then brands exactly what the partner is firing at.
+void BrandNearest(const TArray<FString>& Args,UWorld* W) {
+    auto* S=AS::State(W);AASCharacter* Brander=PickHero(W,ArgInt(Args,0,0)!=0);AASCharacter* Near=PickHero(W,true);if(!Near) Near=HostHero(W);
+    if(!S||!Brander||!Near||!Brander->HasAuthority()) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: brand - no hero (or not on the host)"));return;}
+    AASEnemy* Best=nullptr;double BestDistance=1.e18;
+    for(auto Weak:S->Enemies) if(AASEnemy* E=Weak.Get()) if(E->Health>0) {const double D=FVector::DistSquared(E->GetActorLocation(),Near->GetActorLocation());if(D<BestDistance) {BestDistance=D;Best=E;}}
+    if(!Best) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: brand - no enemy"));return;}
+    Best->Brand(Brander);UE_LOG(LogTemp,Display,TEXT("AshenDev: %s brands %s (kind %d, %.0f cm from %s)"),*Brander->GetName(),*Best->GetName(),Best->Kind,FMath::Sqrt(BestDistance),*Near->GetName());
 }
 // as.dev.walk <yaw> <seconds> [scale=1]: the host hero walks that way (input, through its own movement and collision); the script keeps ticking meanwhile. Scale is the stick's push:
 // 1 runs at full speed, .5 jogs at half of it, .25 walks.
@@ -585,6 +648,7 @@ bool Tick(float) {
     if(Now<SlayUntil&&Now>=NextSlay) {NextSlay=Now+.3;HitAll(W,0.f,1.e6f);}
     if(AttackUntil>0.0&&Now>=AttackUntil) {AttackUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("attack"),false);}
     if(SpiralUntil>0.0&&Now>=SpiralUntil) {SpiralUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("spiral"),false);}
+    if(OtherAttackUntil>0.0&&Now>=OtherAttackUntil) {OtherAttackUntil=0.0;if(auto* G=OtherAttacker.Get()) G->SetAttack_Implementation(false);OtherAttacker.Reset();}
     if(Next>=Lines.Num()) return true; // keep ticking for god mode; a new script restarts the list
     if(Now<ResumeAt) return true;
     if(!WaitingFor.IsEmpty()) {
@@ -636,6 +700,13 @@ AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host he
 AS_DEV_COMMAND("as.dev.pick",Pick,"The host hero takes trait <index> through the real reward path, [times=1] (stops at its maximum).");
 AS_DEV_COMMAND("as.dev.weaponlook",WeaponLook,"Retunes the host hero's weapon material: <metallic> <roughness> (until the next look refresh).");
 AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-9; 9 = Twin Claws); [other=1: the guest's hero, from the host].");
+AS_DEV_COMMAND("as.dev.ability",Ability,"Gives the host hero active skill <id> (0-8; 6 Ashen Brand, 7 Ember Tether, 8 Twin Collapse) with a full focus pool; [other=1: the guest's hero, from the host].");
+AS_DEV_COMMAND("as.dev.cast",Cast,"Casts the host hero's F skill; [other=1: the guest's hero, cast by the server as its own request would be].");
+AS_DEV_COMMAND("as.dev.attack",AttackFor,"Holds the host hero's primary attack for <seconds>; [other=1: the guest's hero, held by the server (its aim comes from the guest's machine: as.dev.aimlock 1 there)].");
+AS_DEV_COMMAND("as.dev.fx",FxList,"Logs every live claw/team effect actor (AshenFx: lines).");
+AS_DEV_COMMAND("as.dev.ring",RingFx,"An effect ring on the floor at the host hero: <radius> <r> <g> <b> <seconds> [forward cm].");
+AS_DEV_COMMAND("as.dev.actors",ActorsNear,"Logs the non-character actors near the host hero (AshenActors: lines).");
+AS_DEV_COMMAND("as.dev.brand",BrandNearest,"Ashen Brand by the host hero (other 1: the guest's) on the enemy nearest the guest's hero, no aim or cost.");
 AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
 AS_DEV_COMMAND("as.dev.input",Input,"Presses the host's buttons: attack|spiral <hold seconds>, dash, jump, rune, reload.");
 AS_DEV_COMMAND("as.dev.god",God,"1: the host hero cannot be hurt (and is healed back up); 0: off.");

@@ -77,6 +77,7 @@ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AASCharacter,HammerLeapStarted);DOREPLIFETIME(AASCharacter,HammerLandedAt);DOREPLIFETIME(AASCharacter,NextHammerLeap);
     DOREPLIFETIME(AASCharacter,AttackPoseStarted);DOREPLIFETIME(AASCharacter,MeleeStep);
     DOREPLIFETIME(AASCharacter,PounceState);DOREPLIFETIME(AASCharacter,PounceStateAt);DOREPLIFETIME(AASCharacter,PounceFlight);DOREPLIFETIME(AASCharacter,PounceTarget); // 0.26 Twin Claws
+    DOREPLIFETIME(AASCharacter,LinkUntil);DOREPLIFETIME(AASCharacter,LinkMode);DOREPLIFETIME(AASCharacter,LinkPartner);DOREPLIFETIME(AASCharacter,LinkAnchor);DOREPLIFETIME(AASCharacter,TwinCallUntil); // 0.26 Phase 2: the team skills
 }
 void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
     if(!HasAuthority()) return;Build=V;Build.Sanitize();
@@ -156,6 +157,8 @@ void AASCharacter::Tick(float Delta) {
     if(GetActorLocation().Z<-600) {ResetInput(true);SetActorLocation(S->Arena?S->Arena->SpawnPoint(ColorIndex):LastSafe,false,nullptr,ETeleportType::TeleportPhysics);GetCharacterMovement()->StopMovementImmediately();Hurt(18);}
     if(bDowned) {
         ResetInput(true);Movement()->bWantsDash=false;Movement()->DashRemaining=0;
+        if(LinkMode!=ASTeam::LinkNone) EndTether(0); // 0.26 Phase 2: a downed hero holds no tether, calls no Twin Collapse and no collapse of its own detonates
+        if(TwinCallUntil>0.f||bTwinPending) {TwinCallUntil=0.f;bTwinPending=false;TwinOther.Reset();ForceNetUpdate();}
         AASCharacter* Helper=nullptr;
         for(auto W:S->Heroes) if(auto* Other=W.Get()) if(Other->bReviving&&Other->CanRevive(this)) {Helper=Other;break;}
         // Only the downed pawn advances its replicated timer. It no longer
@@ -177,7 +180,7 @@ void AASCharacter::Tick(float Delta) {
     ReviveProgress=0;TickTraits(Delta);
     if(ASArsenal::ReloadComplete(ReloadEnd,Now)) {Ammo=MagazineCapacity();ReloadStart=ReloadEnd=0;ReloadCue(true);ForceNetUpdate();}
     RotaryHeat=ASArsenal::Heat(RotaryHeat,Delta,bAttackHeld&&!IsReloading()&&Build.Weapon==ASArsenal::Rotary&&CanUseWeapons());
-    TickHammer(Now);TickPounce(Now,Delta);TickMelee(Now);
+    TickHammer(Now);TickPounce(Now,Delta);TickTeam(Now,Delta);TickMelee(Now);
     if(CanUseWeapons() && !IsReloading() && !bReviving && bAttackHeld && Now>=NextAttack&&!bMeleePending&&!HammerBusy()&&!PounceInFlight()) Attack();
     if(Now>=ResonanceAt && Talent(7) && CombatBenefits()) {
         ResonanceAt=Now+8;bool Nearby=false;

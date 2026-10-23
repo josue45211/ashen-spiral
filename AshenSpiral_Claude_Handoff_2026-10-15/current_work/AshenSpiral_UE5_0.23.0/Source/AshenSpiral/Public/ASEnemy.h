@@ -40,6 +40,13 @@ public:
     float FirstEngagedAt=-1;
     bool SpawnProtected() const;
     void RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Power);
+    // 0.26 Phase 2: Ashen Brand (ASTeamAbilities.cpp, rules in ASTeamRules.h). A hero brands this enemy; the damage it then takes from heroes is stored (a partner's whole, the brander's at a share)
+    // and when enough is stored the brand bursts for it. The server keeps the sums; every machine draws the brand from these three.
+    UPROPERTY(Replicated) float BrandUntil=0;       // SimTime the brand ends (0: not branded)
+    UPROPERTY(Replicated) uint8 BrandFill=0;        // 0-100: how much of what the brand needs is stored
+    UPROPERTY(Replicated) uint8 BrandOwnerIndex=0;  // the branding hero's player index (its colour)
+    void Brand(AASCharacter* Owner);                // authority
+    bool Branded(float Now) const {return BrandUntil>Now;}
 
     UPROPERTY(Replicated) float AttackReleaseTime=-100.f;
     UPROPERTY(Replicated) float HitReactionTime=-100.f;
@@ -74,6 +81,12 @@ public:
     void PlayCue(int32 CueId);                                               // the delivered file if it exists, else its fallback, at the distance-scaled volume
     static USoundBase* ResolveCue(int32 CueId,float& Volume,float& Pitch);   // the sound a cue plays right now (null when there is none)
 private:
+    bool HitInner(float Damage,AASCharacter* Source,bool bDirect);   // Hit's own work; Hit adds the brand's bookkeeping around it
+    void BrandAfter(float Dealt,AASCharacter* Source,bool Killed);   // authority: what a hit stored in the brand (a burst is queued for the next tick, never run inside a hit)
+    void TickBrand(float Now);                                       // authority: the queued burst, the brand's time
+    void ClearBrand(bool Fizzled);
+    void BrandBurst(bool Died);
+    TWeakObjectPtr<AASCharacter> BrandOwner;float BrandStored=0,BrandNeed=0;bool bBrandQueued=false,bBrandQueuedDied=false;
     void UpdateCues(float Now);
     int32 SeenState=0,SeenAbility=0;float SeenRelease=-100.f;
     UPROPERTY() TObjectPtr<USceneComponent> ArmorFigure;

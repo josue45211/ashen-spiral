@@ -163,6 +163,12 @@ private:
 //   dust   brown debris thrown up round a point on the floor (a leap's launch, a landing)
 //   ring   a flat ring spreading out on the floor
 //   bond   a thin pulsing ring on the floor under a pounce's target, for as long as the hero holds on
+// 0.26 Phase 2 (ASTeamEffects.cpp): the team skills' effects ride the same actor and the same cap:
+//   tether   a jagged beam of light between a hero's tether ends (its partner, or its ember stake) for as long as the tether holds, and a short fade
+//   arc      a short jagged bolt (a lash striking an enemy)
+//   call     a breathing ring and four orbiting diamonds on a hero who has called a Twin Collapse, for as long as the call is open
+//   converge two orbs flying from the two heroes to the midpoint under an imploding ring (the radius of the coming blast), a core growing at the midpoint
+//   column   a column of light standing up at a point and thinning away (the burst of a brand or a Twin Collapse, visible across the arena)
 UCLASS() class ASHENSPIRAL_API AASClawFx : public AActor {
     GENERATED_BODY()
 public:
@@ -172,18 +178,26 @@ public:
     void SetupRake(const FVector& At,const FVector& From,FLinearColor Color,int32 Step,float Power);
     void SetupSparks(const FVector& At,const FVector& From,FLinearColor Color,float Power);
     void SetupDust(const FVector& At,float Radius,float Power);
-    void SetupRing(const FVector& At,FLinearColor Color,float Radius,float Seconds);
+    void SetupRing(const FVector& At,FLinearColor Color,float Radius,float Seconds,float Thickness=.07f); // Thickness: the band's width as a share of the ring's radius (a team moment's big rings are wider so they read)
     void SetupBond(AASCharacter* Hero,FLinearColor Color);
+    void SetupTether(AASCharacter* Hero,FLinearColor Color);
+    void SetupArc(const FVector& From,const FVector& To,FLinearColor Color,float Seconds);
+    void SetupCall(AASCharacter* Hero,FLinearColor Color);
+    void SetupConverge(const FVector& Mid,const FVector& A,const FVector& B,float Seconds,float BlastRadius,FLinearColor Color);
+    void SetupColumn(const FVector& At,FLinearColor Color,float Width,float Height,float Seconds);     // a column of light that stands up at a point and thins away (a burst you can see from across the arena)
+    FString DebugText() const; // as.dev.fx: which look, how old, where
     static int32 Active;
 private:
-    enum class Look : uint8 {Rake,Sparks,Dust,Ring,Bond};
+    enum class Look : uint8 {Rake,Sparks,Dust,Ring,Bond,Tether,Arc,Call,Converge,Column};
     struct FBit {TObjectPtr<UStaticMeshComponent> Mesh;FVector Start=FVector::ZeroVector,Velocity=FVector::ZeroVector,Axis=FVector::ForwardVector,Scale0=FVector::OneVector,Scale1=FVector::ZeroVector;FRotator Spin=FRotator::ZeroRotator;float Length=0.f,Gravity=0.f;};
     UStaticMeshComponent* AddBit(const TCHAR* Mesh,UMaterialInterface* Material);
+    void TickTeamLook(float Delta);                                  // the Phase 2 looks (ASTeamEffects.cpp)
     TArray<FBit> Bits;
     UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Glow;
     UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Matte;
     TWeakObjectPtr<AASCharacter> Holder;
     Look Kind=Look::Rake;float Age=0.f,Life=.2f,Emission=20.f,Radius=0.f;bool bCounted=false;
+    FVector PointA=FVector::ZeroVector,PointB=FVector::ZeroVector,PointMid=FVector::ZeroVector;FLinearColor Tint=FLinearColor::White;float Seed=0.f,EndedAt=-1.f; // Phase 2 looks: their ends, colour, noise seed, when the thing they draw ended (a short fade follows)
 };
 namespace ASClawFx {
 // One of Variants numbered sounds (/Game/Audio/<Name>1..N; Variants 1: /Game/Audio/<Name>) at a point, quieter with the distance from the local player like every cue of another player's.

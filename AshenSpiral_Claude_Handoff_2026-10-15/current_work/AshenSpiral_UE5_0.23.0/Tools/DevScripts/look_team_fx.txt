@@ -1,0 +1,89 @@
+# 0.26 Phase 2, the team skills' effects photographed from a fixed camera above and behind the hero (the heroes' own cameras hide most of them): Twin Collapse's small collapse, the Ember Tether's stake and
+# lash, and Ashen Brand's set and burst, a frame every .1 s. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_team_fx
+# Screenshots: Saved\Screenshots\Dev\tf_*.png
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.team.log 1
+as.dev.aimlock 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.freeze 0
+as.dev.killall
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.weapon 0
+wait 1.0
+# ---- Twin Collapse, the small collapse: a ring of 330 cm, dust, sparks ----
+as.dev.ability 8
+as.dev.spawn 0 4 260 12
+wait 0.9
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.cam -1150 -200 520 -38 0 75
+wait 0.4
+as.dev.cast
+wait 0.06
+as.dev.shot tf_twin_00 0
+wait 0.1
+as.dev.shot tf_twin_01 0
+as.dev.fx
+wait 0.1
+as.dev.shot tf_twin_02 0
+wait 0.15
+as.dev.shot tf_twin_03 0
+wait 0.25
+as.dev.shot tf_twin_04 0
+as.dev.fx
+wait 2.0
+# ---- Ashen Brand: the brand set on a grunt, then burst by hand (the claws' hits fill it alone) ----
+as.dev.ability 6
+as.dev.weapon 9
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 1.0
+as.dev.spawn 0 1 420 3
+wait 0.8
+as.dev.freeze 1 3000
+as.dev.aimat 0
+wait 0.3
+as.dev.cast
+wait 0.08
+as.dev.shot tf_brand_00 0
+wait 0.12
+as.dev.shot tf_brand_01 0
+wait 0.3
+as.dev.shot tf_brand_02 0
+as.dev.cam off
+as.dev.input spiral 0.1
+wait 0.5
+as.dev.input attack 3.0
+wait 1.8
+as.dev.cam -1150 -200 520 -38 0 75
+wait 0.8
+as.dev.shot tf_brand_03 0
+wait 1.5
+# ---- Ember Tether alone: the stake ----
+as.dev.ability 7
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 1.0
+as.dev.spawn 0 3 450 12
+wait 0.8
+as.dev.freeze 1 3000
+as.dev.aimat 0
+wait 0.3
+as.dev.cast
+wait 0.15
+as.dev.shot tf_tether_00 0
+wait 0.5
+as.dev.shot tf_tether_01 0
+as.dev.fx
+wait 1.2
+as.dev.shot tf_tether_02 0
+as.dev.cam off
+quit

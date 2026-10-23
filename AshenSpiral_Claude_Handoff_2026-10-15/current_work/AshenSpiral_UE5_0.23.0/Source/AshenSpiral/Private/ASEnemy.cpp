@@ -61,6 +61,7 @@ void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);
     DOREPLIFETIME(AASEnemy,MaxHealth);DOREPLIFETIME(AASEnemy,WindupEnd);DOREPLIFETIME(AASEnemy,WindupStart);DOREPLIFETIME(AASEnemy,Aim);DOREPLIFETIME(AASEnemy,bWinding);DOREPLIFETIME(AASEnemy,Ability);DOREPLIFETIME(AASEnemy,AIState);DOREPLIFETIME(AASEnemy,Flags);DOREPLIFETIME(AASEnemy,Mutation);DOREPLIFETIME(AASEnemy,bTrainingDummy);DOREPLIFETIME(AASEnemy,LastDamageTime);DOREPLIFETIME(AASEnemy,StatusBits);DOREPLIFETIME(AASEnemy,bAirborne);
+    DOREPLIFETIME(AASEnemy,BrandUntil);DOREPLIFETIME(AASEnemy,BrandFill);DOREPLIFETIME(AASEnemy,BrandOwnerIndex); // 0.26 Phase 2: Ashen Brand
 }
 void AASEnemy::RefreshLook() {
     const bool Humanoid=!bTrainingDummy&&Kind!=5&&Kind!=9&&Kind!=ASExpedition::FlierKind;
@@ -242,6 +243,7 @@ void AASEnemy::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S) return;
     GetCharacterMovement()->SetComponentTickEnabled(!S->Frozen());
     if(S->Frozen()) {GetCharacterMovement()->StopMovementImmediately();return;}
+    if(HasAuthority()) TickBrand(S->SimTime); // 0.26: a queued burst (even a dying enemy's) and the brand's time
     if(Health<=0&&!bTrainingDummy) {if(GetNetMode()!=NM_DedicatedServer) AnimateDeath();return;}
     if(HasAuthority()) TickKnock(S->SimTime,Delta);
     const bool ShowWarning=bWinding&&!bTrainingDummy&&!SpawnProtected()&&ShowsStrikeCircle(); // a ground warning means "damage lands in exactly this shape when it fills"
@@ -569,6 +571,12 @@ void AASEnemy::CommitAttack() {
     }
 }
 bool AASEnemy::Hit(float Damage,AASCharacter* Source,bool bDirect) {
+    // 0.26 Phase 2: a branded enemy stores what heroes do to it (ASTeamRules.h). The damage actually taken is measured around the blow, so armour, guards, parries and frost are already in it.
+    const float Before=Health;const bool Killed=HitInner(Damage,Source,bDirect);
+    if(BrandUntil>0.f&&IsValid(Source)) BrandAfter(Killed?Before:FMath::Max(0.f,Before-Health),Source,Killed);
+    return Killed;
+}
+bool AASEnemy::HitInner(float Damage,AASCharacter* Source,bool bDirect) {
     if(!HasAuthority()||SpawnProtected()||Health<=0||!FMath::IsFinite(Damage)||Damage<=0) return false;
     namespace ER=ASEnemyRules;
     if(Kind==ER::Bulwark) { // the shield guard: half damage from the front, unless a heavy blow from the front has ripped it open (a few seconds of full damage, and a stagger)
