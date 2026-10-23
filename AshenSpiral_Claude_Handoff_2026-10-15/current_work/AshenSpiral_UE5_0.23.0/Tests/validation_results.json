@@ -1,5 +1,5 @@
 {
-  "source_checks_passed": 496571,
+  "source_checks_passed": 496615,
   "source_files_checked": 82,
   "mesh_count": 84,
   "mesh_vertex_count": 85902,
@@ -26,7 +26,7 @@
   "clip_025_tests": "PASS: 715881 baked-clip checks; the switch is honoured (off = the hand-made tracks, on = the clips), plus structure, limits, endpoints and solver sanity of every baked track.\nEnvelope breaches over 7800 samples (the hand-made tracks have none; counted, not required: a part reaching past the old box or a boot dipping low is a look, never a crash; the clips are on, so watch for it in the playtest): 1306.\nShared rules only; whether the clips read well in game is unverified: that is what the playtest is for.",
   "foley_025_tests": "PASS: 62036 footstep checks; one step per half stride, audibility, variant rotation, distance gain, walk/run/strafe/backpedal sets, landings.\nShared rules only; the imported sounds, their level and how they sit in the mix are unverified.",
   "element_0242_tests": "PASS: 393 element checks; pools delivered exactly through refreshes and frame rates, flat parts unchanged, frost brittleness, element parity with Chain Lightning and Impact Bloom on all nine weapons, a simulated minute.\nShared rules only; Unreal actors, replication and feel were not run.",
-  "claws_026_tests": "PASS: 3292 Twin Claws checks (weapon plumbing and masks, cadence and damage, flight and arc, the ring and the latch's pull against a runner, the crosshair pick, every release reason).\nShared rules only; Unreal movement, replication and gameplay are not executed.",
+  "claws_026_tests": "PASS: 3337 Twin Claws checks (weapon plumbing and masks, cadence and damage, flight and arc, the ring and the latch's pull against a runner, the crosshair pick, every release reason).\nShared rules only; Unreal movement, replication and gameplay are not executed.",
   "melee_021_tests": "PASS: 13495152 melee/0.21 checks; 1687 full-cycle pose samples; 450 Archives rooms; 3000 melee reward drafts.\nShared rules and source geometry only. Unreal movement, collision, RPC timing and rendering are not executed.",
   "bugfix_020_tests": "PASS: 11362 0.20 regression checks; migrations, one-time milestone rewards, shield grants, traps, joint lengths, 400 multi-endpoint route oracles and seed 6767 chamber 23 floor model.\nUnreal save serialization, mesh collision, Slate, animation rendering and networking are not executed.",
   "reload_navigation_tests": "PASS: 109236 reload/navigation checks; 1200 route-oracle comparisons; 40000 reward drafts.\nStakes tier 0 -> 3: rare cards 8765 -> 11446, legendary cards 805 -> 1150 across 60000 choices per tier.\nShared rules only; Unreal actors, audio, physics, Slate and replication not executed.",

@@ -51,6 +51,15 @@ int main() {
     Check(Near(ArcHeight(0.f),ArcMin)&&Near(ArcHeight(500.f),50.f)&&Near(ArcHeight(5000.f),ArcMax)&&ArcHeight(NaN)==ArcMin,"the rise is a tenth of the leap, between 18 and 120 cm");
     Check(Near(RingRadius(34.f,40.f),34.f+40.f+RingGap)&&RingRadius(-5.f,-5.f)==RingGap,"the ring is the two bodies plus a gap");
     Check(Near(Cooldown(false),6.f)&&Near(Cooldown(true),2.4f),"a pounce is 6 s; a lunge at nothing 40% of that");
+    // ---- the rhythm of a shred (presentation): blows in a row build the show, a pause drops it ----
+    {
+        int Chain=0;for(int Blow=1;Blow<=20;++Blow) {Chain=NextChain(Chain,Blow==1?9.f:.19f);Check(Chain==std::min(Blow-1,ChainMax),"a run of claw swings (.19 s apart) counts up from zero and stops at the maximum");Check(ChainRise(Chain)>=0.f&&ChainRise(Chain)<=1.f,"the rise stays between none and full");}
+        Check(NextChain(5,ChainWindow+.01f)==0&&NextChain(5,ChainWindow)==6&&NextChain(ChainMax,.1f)==ChainMax,"a pause longer than the window drops the chain; a blow inside it adds one, up to the maximum");
+        Check(NextChain(3,NaN)==0&&NextChain(3,-1.f)==0&&NextChain(-4,.1f)==1&&NextChain(3,Inf)==0,"a bad gap or count never makes a bad chain");
+        Check(Near(ChainRise(0),0.f)&&Near(ChainRise(ChainMax),1.f)&&Near(ChainRise(ChainMax/2),.5f)&&ChainRise(99)==1.f&&ChainRise(-3)==0.f,"the rise is the chain over its maximum, clamped");
+        Check(ChainWindow>ASArsenal::Rate(9)*1.5f,"a held attack stays in one chain (the window is longer than one and a half swings)");
+        Check(ChainPower<=.3f+1e-4f&&ChainPitch<=.06f,"the chain's show is a lift, not a different sound (sparks +.3 at most, pitch +6% at most)");
+    }
     // ---- the ring point and the latch ----
     {const Vec2 P=RingPoint({100.f,50.f},{3.f,4.f},50.f);Check(Near(P.X,130.f,.001f)&&Near(P.Y,90.f,.001f),"the ring point lies on the line out from the target, a ring radius away");}
     {const Vec2 P=RingPoint({100.f,50.f},{0.f,0.f},50.f);Check(Near(P.X,150.f)&&Near(P.Y,50.f),"no direction falls back to +X");}

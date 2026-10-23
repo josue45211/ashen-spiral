@@ -241,6 +241,10 @@ void AASCharacter::PounceCue_Implementation(uint8 Kind,FVector_NetQuantize At,FV
         if(auto* Dust=Spawn()) Dust->SetupDust(Feet,110.f,.6f);
         if(auto* Bond=Spawn()) Bond->SetupBond(this,Blood); // lives while this hero holds on
         if(Mine) {HammerShakeAge=0;HammerShakeStrength=2.6f;}
+        if(auto* Viewer=World->GetFirstPlayerController<AASPlayerController>()) if(const auto* WielderState=GetPlayerState<AASPlayerState>()) if(WielderState->PlayerIndex>=0&&WielderState->PlayerIndex<8) { // the word, in gold over the wielder's head for both players (a partner's trait banner floats the same way)
+            Viewer->RewardText(FString::Printf(TEXT("@%d|POUNCE"),WielderState->PlayerIndex),FLinearColor(1.f,.78f,.22f),false);
+            if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: the strike cue reached %s (%s machine): word over player %d"),*GetName(),HasAuthority()?TEXT("the host"):TEXT("a client"),WielderState->PlayerIndex);
+        }
         if(HasAuthority()) if(auto* GM=World->GetAuthGameMode<AASGameMode>()) GM->ClearBeat(.06f,ASClaws::HitStop*1.3f); // the host's hit-stop: a blink of stillness on the arrival
     } else if(Kind==3) {
         ASClawFx::Sound(this,TEXT("S_PounceLand"),1,GetActorLocation(),.7f,.97f,1.04f);

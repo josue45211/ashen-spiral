@@ -1,0 +1,31 @@
+# 0.26 Twin Claws, the word and the rhythm: a pounce on the hub's practice dummy seen from the player's own camera with the HUD (the gold POUNCE rising over the wielder's head), then a long held attack
+# (the sparks' power and the pitch climb with the blows in a row: AshenClaw lines, as.claw.log). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_claws_word
+# Screenshots: Saved\Screenshots\Dev\cw_*.png (all with the HUD)
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.pounce.log 1
+as.claw.log 1
+as.dev.aimlock 1
+as.dev.menu 0
+as.dev.weapon 9
+wait 1.5
+as.dev.place 560 700 40
+wait 1.0
+as.dev.aimat 0
+wait 0.3
+as.dev.input spiral 0.1
+wait 0.35
+as.dev.shot cw_word_a 1
+wait 0.5
+as.dev.shot cw_word_b 1
+as.dev.input attack 3.0
+wait 1.0
+as.dev.shot cw_chain_a 1
+wait 1.4
+as.dev.shot cw_chain_b 1
+wait 1.6
+as.dev.input dash
+wait 0.5
+quit

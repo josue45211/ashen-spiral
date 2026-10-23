@@ -1,2 +1,2 @@
-PASS: 3292 Twin Claws checks (weapon plumbing and masks, cadence and damage, flight and arc, the ring and the latch's pull against a runner, the crosshair pick, every release reason).
+PASS: 3337 Twin Claws checks (weapon plumbing and masks, cadence and damage, flight and arc, the ring and the latch's pull against a runner, the crosshair pick, every release reason).
 Shared rules only; Unreal movement, replication and gameplay are not executed.

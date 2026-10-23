@@ -225,6 +225,7 @@ private:
     FVector HammerLeapDirection=FVector::ForwardVector;
     FVector2D HammerLeapPlan=FVector2D::ZeroVector; // planned arc (distance, height) toward the crosshair point; sent with the launch
     float HammerShakeAge=10,HammerShakeStrength=0;
+    float ClawChainAt=-10.f;int32 ClawChain=0;                     // 0.26: the rhythm of a shred as this machine saw it (presentation only; ClawHit_Implementation)
     void TickPounce(float Now,float Delta);                        // ASPounceCombat.cpp (the server: the state machine)
     void TickPounceHoming();                                       // the server and the owner: the leap's root motion follows its moving target
     void CancelPounce(ASClaws::Release Why);

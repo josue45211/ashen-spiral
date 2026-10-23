@@ -10,6 +10,8 @@ namespace ASClaws {
 // like every melee weapon here; the pounce parks the wielder well inside it.
 constexpr float Reach=215.f,ReachWhenLatched=300.f;           // cm; a latched wielder may drift a little and still hit
 constexpr float HitStop=.045f;                                // seconds of freeze on a hit that lands (presentation; the camera holds a hair longer than the swing)
+constexpr float ChainWindow=.5f,ChainPower=.30f,ChainPitch=.05f; // presentation: blows within this many seconds of each other build the show (sparks up by ChainPower, pitch up by ChainPitch, at ChainMax in a row)
+constexpr int ChainMax=8;
 // ---- the pounce ----
 constexpr float PounceCooldown=6.f,WhiffCooldownScale=.4f;    // a pounce at nothing (a lunge) costs 40% of the cooldown
 constexpr float PounceRange=1100.f;                           // farthest centre-to-centre distance a target can be pounced from (the longest flight, FlightMax, at FlightSpeed)
@@ -33,6 +35,9 @@ inline float FlightSeconds(float Distance) {return std::clamp(std::isfinite(Dist
 inline float ArcHeight(float Distance) {return std::clamp(std::isfinite(Distance)?Distance*ArcPerDistance:ArcMin,ArcMin,ArcMax);}
 inline float RingRadius(float SelfRadius,float TargetRadius) {return std::max(0.f,SelfRadius)+std::max(0.f,TargetRadius)+RingGap;}
 inline float Cooldown(bool Whiff) {return PounceCooldown*(Whiff?WhiffCooldownScale:1.f);}
+// The rhythm of a shred (presentation): the blows in a row after this one, given the one before it and the seconds since the last blow; and how far the show has risen (0..1) at that count.
+inline int NextChain(int Chain,float SinceLast) {return (std::isfinite(SinceLast)&&SinceLast>=0.f&&SinceLast<=ChainWindow)?std::min(std::max(Chain,0)+1,ChainMax):0;}
+inline float ChainRise(int Chain) {return std::clamp(float(Chain)/float(ChainMax),0.f,1.f);}
 
 struct Vec2 {float X=0.f,Y=0.f;};
 inline float Length(Vec2 V) {return std::sqrt(V.X*V.X+V.Y*V.Y);}

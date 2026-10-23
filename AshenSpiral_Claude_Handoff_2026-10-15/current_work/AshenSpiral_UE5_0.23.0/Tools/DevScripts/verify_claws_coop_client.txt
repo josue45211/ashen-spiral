@@ -15,7 +15,13 @@ as.dev.input spiral 0.1
 as.dev.follow 450 80 300 58 0
 wait 0.5
 as.dev.shot gc_guest_pounce_a 0
-wait 0.4
+wait 0.05
+as.dev.follow off
+wait 0.1
+as.dev.shot gc_guest_word 1
+wait 0.1
+as.dev.follow 450 80 300 58 0
+wait 0.15
 as.dev.shot gc_guest_pounce_b 0
 wait 0.7
 as.dev.input attack 2.4
