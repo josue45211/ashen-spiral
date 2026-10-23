@@ -1,0 +1,24 @@
+# 0.24.2: a soak - Endless played at speed (every enemy struck down as it appears) through several waves, the sky stages (waves 21 and 50) and a boss wave, with the log checked
+# afterwards for crashes, ensures and errors (grep "Ensure condition failed|Fatal error|LogOutputDevice: Error" Saved\Logs\dev_soak.log). Test profile 95.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+as.dev.slay 150
+wait 25
+as.dev.state
+wait 25
+as.dev.state
+wait 25
+as.dev.state
+as.dev.wave 20
+wait 30
+as.dev.state
+as.dev.wave 49
+wait 40
+as.dev.state
+wait 30
+as.dev.state
+wait 0.5
+quit

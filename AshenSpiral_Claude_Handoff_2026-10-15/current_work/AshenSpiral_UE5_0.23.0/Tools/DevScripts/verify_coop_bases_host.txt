@@ -1,0 +1,26 @@
+# 0.24.2: what the characters stand on as their movement base, on the host and on the guest (the playtest log's "NOT Supported" warnings). Pairs with verify_coop_bases_client.txt.
+t.MaxFPS 60
+waitfor players 150
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 1
+as.dev.spawn 0 8 700
+wait 2
+as.dev.state
+as.dev.walk 0 3
+wait 3.2
+as.dev.state
+as.dev.input jump
+wait 0.3
+as.dev.state
+wait 1.5
+as.dev.state
+wait 1
+quit

@@ -71,7 +71,7 @@ void AASLightningStrike::ShapeBolt(int32 Seed) {
     };
     TArray<FVector> Joints;Joints.Reserve(MainSegments+1);
     for(int32 I=0;I<=MainSegments;++I) {
-        const float T=float(I)/MainSegments,Wander=FMath::Sin(T*UE_PI)*95.f+12.f;
+        const float T=float(I)/float(int32(MainSegments)),Wander=FMath::Sin(T*UE_PI)*95.f+12.f; // (MainSegments is an enumerator: C5055 deprecates dividing by one)
         const FVector Side=I==0||I==MainSegments?FVector::ZeroVector:FVector(Rand.FRandRange(-1.f,1.f),Rand.FRandRange(-1.f,1.f),0.f)*Wander;
         Joints.Add(FVector(Side.X,Side.Y,ASLightningLook::ChannelTop*(1.f-T)+6.f));
     }

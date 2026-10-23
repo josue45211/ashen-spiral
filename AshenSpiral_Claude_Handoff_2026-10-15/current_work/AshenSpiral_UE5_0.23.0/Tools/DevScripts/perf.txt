@@ -1,0 +1,43 @@
+# 0.24.2: what the looks cost - the frame time over a quiet arena, a fight of thirty armoured enemies with swings, procs and lightning, and an elite with a boss. Test profile 95.
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.clearing 900
+as.dev.face 0
+wait 1.5
+as.dev.keeper
+as.dev.perf 6 quiet_arena
+wait 7
+as.dev.spawn 0 10 500
+as.dev.spawn 1 6 700
+as.dev.spawn 5 4 600
+as.dev.spawn 6 4 800
+as.dev.spawn 7 4 900
+as.dev.spawn 9 2 900
+wait 2
+as.dev.follow 700 260 180 70 200
+as.dev.perf 10 fight_30_enemies
+as.dev.input attack 0.2
+wait 1
+as.dev.status burn 1500
+as.dev.lightning 3 450
+wait 1.5
+as.dev.input spiral 0.6
+wait 1.5
+as.dev.input attack 0.2
+wait 1.2
+as.dev.knock 950 900
+wait 3
+as.dev.killall
+wait 1
+as.dev.elite 2 2 500
+as.dev.boss 0 0 1100
+wait 2
+as.dev.perf 8 elite_and_boss
+wait 9
+as.dev.state
+quit

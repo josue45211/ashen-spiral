@@ -1,0 +1,18 @@
+# 0.26 Phase 0 integration: the guest's half of verify_coop_hammer_host.txt (test profile 91): it photographs the HOST's maul hero as this machine draws it, then swings its own.
+t.MaxFPS 60
+waitfor combat 240
+wait 9
+as.dev.heroes maul_idle
+as.dev.follow 420 40 325 58 0 1
+wait 1.2
+as.dev.shot gi_guest_sees_host_maul_idle 0
+as.dev.follow 420 40 270 58 0 1
+wait 0.6
+as.dev.shot gi_guest_sees_host_maul_idle_side 0
+as.dev.follow off
+as.dev.input attack 3
+wait 1
+as.dev.follow 420 40 270 58 0 1
+as.dev.shot gi_guest_sees_host_after 0
+wait 4
+quit

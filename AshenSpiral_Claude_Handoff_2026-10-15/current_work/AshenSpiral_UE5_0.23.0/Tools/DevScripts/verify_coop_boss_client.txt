@@ -1,0 +1,18 @@
+# 0.24.2: co-op check of the Titan boss (the guest, test profile 91): the boss as the second player sees it - drawn as the Titan, playing its clips, the fury, the death.
+waitfor combat 240
+wait 5
+as.dev.follow 700 260 170 65 300
+as.dev.shot coopboss_c01_arrive
+wait 4
+as.dev.state
+as.dev.shot coopboss_c02_attack
+wait 5
+as.dev.shot coopboss_c03_fury
+wait 3.5
+as.dev.state
+as.dev.shot coopboss_c04_death
+wait 2.5
+as.dev.state
+as.dev.shot coopboss_c05_after
+wait 8
+quit

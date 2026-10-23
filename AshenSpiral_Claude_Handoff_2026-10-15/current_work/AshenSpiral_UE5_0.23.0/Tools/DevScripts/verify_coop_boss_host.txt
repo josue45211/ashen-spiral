@@ -1,0 +1,25 @@
+# 0.24.2: co-op check of the Titan boss (host, test profile 90). Pairs with verify_coop_boss_client.txt; Tools\RunCoopCheck.ps1 -HostScript verify_coop_boss_host -GuestScript verify_coop_boss_client
+waitfor players 150
+wait 3
+as.dev.god 1
+as.dev.abilitylog 1
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 1
+as.dev.boss 0 0 1100
+wait 6
+as.dev.state
+wait 3
+as.dev.wound 0.45 3000
+wait 4
+as.dev.state
+as.dev.killall
+wait 3
+as.dev.state
+wait 8
+quit

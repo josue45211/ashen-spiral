@@ -1,0 +1,11 @@
+# 0.24.2: what the characters stand on as their movement base, as the guest sees them. Pairs with verify_coop_bases_host.txt.
+t.MaxFPS 60
+waitfor combat 240
+wait 6
+as.dev.state
+wait 3.5
+as.dev.state
+wait 3
+as.dev.state
+wait 1
+quit

@@ -6,7 +6,7 @@ $Project=Split-Path -Parent $PSScriptRoot
 $Editor=Join-Path $Engine 'Engine\Binaries\Win64\UnrealEditor.exe'
 $Log=Join-Path $Project "Saved\Logs\dev_$Script.log"
 if(Test-Path $Log){Remove-Item $Log -Force}
-$Args="`"$(Join-Path $Project 'AshenSpiral.uproject')`" /Game/Maps/AshenSpiral -game -windowed -ResX=1600 -ResY=900 -ProfileSlot=95 -log -abslog=`"$Log`" -ExecCmds=`"as.dev.script Tools/DevScripts/$Script.txt`""
+$Args="`"$(Join-Path $Project 'AshenSpiral.uproject')`" /Game/Maps/AshenSpiral -game -windowed -ResX=1600 -ResY=900 -ProfileSlot=95 -log -abslog=`"$Log`" -ini:Engine:[Audio]:UnfocusedVolumeMultiplier=1.0 -ExecCmds=`"as.dev.script Tools/DevScripts/$Script.txt`"" # (0.26: an unfocused game window outputs silence by default, which also silences as.dev.record)
 $P=Start-Process -FilePath $Editor -ArgumentList $Args -PassThru
 if(-not $P.WaitForExit($TimeoutSec*1000)){Stop-Process -Id $P.Id -Force;Write-Output "RunDevScript[$Script] TIMEOUT after $TimeoutSec s"} else {Write-Output "RunDevScript[$Script] exit=$($P.ExitCode)"}
 Write-Output "log=$Log"

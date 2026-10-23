@@ -1,0 +1,41 @@
+# 0.26 Phase 0 integration: both heroes carry the maul (host test profile 90 gives the guest's hero the maul too) and each machine photographs the OTHER hero standing and swinging: the remote
+# hero's height (G1), its upright two-handed stance (G2, G4) and the hammer's size, all as a remote proxy draws them. Pairs with verify_coop_hammer_client.txt:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunCoopCheck.ps1 -HostScript verify_coop_hammer_host -GuestScript verify_coop_hammer_client
+t.MaxFPS 60
+waitfor players 150
+wait 4
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.weapon 1
+as.dev.weapon 1 1
+wait 2.5
+as.dev.heroes maul_idle
+as.dev.follow 420 40 325 58 0 1
+wait 1.2
+as.dev.shot gi_host_sees_guest_maul_idle 0
+as.dev.follow 420 40 270 58 0 1
+wait 0.6
+as.dev.shot gi_host_sees_guest_maul_idle_side 0
+as.dev.input attack 4
+wait 0.5
+as.dev.shot gi_host_sees_guest_swing_a 0
+wait 0.4
+as.dev.shot gi_host_sees_guest_swing_b 0
+wait 0.4
+as.dev.shot gi_host_sees_guest_swing_c 0
+wait 0.4
+as.dev.shot gi_host_sees_guest_swing_d 0
+wait 0.4
+as.dev.shot gi_host_sees_guest_swing_e 0
+wait 0.4
+as.dev.heroes maul_swinging
+as.dev.follow off
+wait 4
+quit

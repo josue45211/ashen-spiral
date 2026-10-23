@@ -22,6 +22,9 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
+#include "RenderTimer.h"
+#include "DynamicRHI.h"
+#include "Misc/App.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "HAL/IConsoleManager.h"
 #include "HAL/PlatformTime.h"
@@ -48,7 +51,7 @@ AASGameMode* Mode(UWorld* W) {return W?W->GetAuthGameMode<AASGameMode>():nullptr
 float ArgFloat(const TArray<FString>& Args,int32 I,float Default) {return Args.IsValidIndex(I)?FCString::Atof(*Args[I]):Default;}
 int32 ArgInt(const TArray<FString>& Args,int32 I,int32 Default) {return Args.IsValidIndex(I)?FCString::Atoi(*Args[I]):Default;}
 bool bGod=false;
-float WalkYaw=0.f;double WalkUntil=0.0;double AttackUntil=0.0,SpiralUntil=0.0; // as.dev.input: buttons held until then
+float WalkYaw=0.f,WalkScale=1.f;double WalkUntil=0.0;double AttackUntil=0.0,SpiralUntil=0.0; // as.dev.input: buttons held until then
 double SlayUntil=0.0,NextSlay=0.0; // as.dev.slay: every enemy that appears is struck down until then (clears a story room's waves)
 bool Tick(float);extern FTSTicker::FDelegateHandle Handle; // as.dev.walk: the host hero walks this way until then
 void Cam(const TArray<FString>& Args,UWorld* W);
@@ -125,10 +128,11 @@ void Keeper(const TArray<FString>&,UWorld* W) {
     auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
     if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()-H->GetActorForwardVector().GetSafeNormal2D()*2500.f,nullptr,0,1.f,false)) {E->CustomTimeDilation=0.f;UE_LOG(LogTemp,Display,TEXT("AshenDev: keeper frozen at %s"),*E->GetActorLocation().ToCompactString());}
 }
-// as.dev.freeze [1|0]: every enemy stops in time (CustomTimeDilation 0) or runs again; for photographing them where they stand.
+// as.dev.freeze [1|0] [radius=2000]: every enemy within the radius of the hero stops in time (CustomTimeDilation 0) or runs again; for photographing them where they stand. The keeper
+// (25 m behind the hero) is out of its reach, so it keeps the wave going.
 void Freeze(const TArray<FString>& Args,UWorld* W) {
-    auto* S=AS::State(W);if(!S) return;const bool Stop=ArgInt(Args,0,1)!=0;int32 Count=0;
-    for(auto Weak:S->Enemies) if(AASEnemy* E=Weak.Get()) {E->CustomTimeDilation=Stop?0.f:1.f;++Count;}
+    auto* S=AS::State(W);auto* H=HostHero(W);if(!S) return;const bool Stop=ArgInt(Args,0,1)!=0;const float Radius=ArgFloat(Args,1,2000.f);int32 Count=0;
+    for(auto Weak:S->Enemies) if(AASEnemy* E=Weak.Get()) if(!H||FVector::Dist2D(E->GetActorLocation(),H->GetActorLocation())<=Radius) {E->CustomTimeDilation=Stop?0.f:1.f;++Count;}
     UE_LOG(LogTemp,Display,TEXT("AshenDev: %d enemies %s"),Count,Stop?TEXT("frozen"):TEXT("running"));
 }
 // as.dev.lineup [distance=500] [spacing=260]: one enemy of every ground kind (0-9, the boss and the elite left out) in a row in front of the hero, at full health, turned to face it.
@@ -210,13 +214,17 @@ void WeaponLook(const TArray<FString>& Args,UWorld* W) {
         if(auto* M=Cast<UMaterialInstanceDynamic>(Mesh->GetMaterial(0))) {M->SetScalarParameterValue(TEXT("Metallic"),ArgFloat(Args,0,.9f));M->SetScalarParameterValue(TEXT("Roughness"),ArgFloat(Args,1,.4f));}
     UE_LOG(LogTemp,Display,TEXT("AshenDev: weapon look metallic %.2f roughness %.2f"),ArgFloat(Args,0,.9f),ArgFloat(Args,1,.4f));
 }
+// as.dev.weapon <id> [other=1]: the host hero's weapon, or (other 1, run on the host) the guest's: the build replicates, so both machines draw it.
 void Weapon(const TArray<FString>& Args,UWorld* W) {
-    auto* H=HostHero(W);if(!H) return;FASBuild B=H->Build;B.Weapon=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WeaponCount-1);H->ApplyBuild(B,false);H->RefreshLook();
-    UE_LOG(LogTemp,Display,TEXT("AshenDev: weapon %d"),B.Weapon);
+    AASCharacter* H=HostHero(W);
+    if(ArgInt(Args,1,0)!=0) {H=nullptr;if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* Other=Weak.Get()) if(!Other->IsLocallyControlled()) {H=Other;break;}}
+    if(!H) return;FASBuild B=H->Build;B.Weapon=FMath::Clamp(ArgInt(Args,0,0),0,ASRules::WeaponCount-1);H->ApplyBuild(B,false);H->RefreshLook();
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: weapon %d%s"),B.Weapon,ArgInt(Args,1,0)!=0?TEXT(" (the other player's hero)"):TEXT(""));
 }
-// as.dev.walk <yaw> <seconds>: the host hero walks that way (input, through its own movement and collision); the script keeps ticking meanwhile.
+// as.dev.walk <yaw> <seconds> [scale=1]: the host hero walks that way (input, through its own movement and collision); the script keeps ticking meanwhile. Scale is the stick's push:
+// 1 runs at full speed, .5 jogs at half of it, .25 walks.
 void Walk(const TArray<FString>& Args,UWorld* W) {
-    WalkYaw=ArgFloat(Args,0,0.f);WalkUntil=FPlatformTime::Seconds()+ArgFloat(Args,1,1.f);
+    WalkYaw=ArgFloat(Args,0,0.f);WalkScale=FMath::Clamp(ArgFloat(Args,2,1.f),.05f,1.f);WalkUntil=FPlatformTime::Seconds()+ArgFloat(Args,1,1.f);
     if(!Handle.IsValid()) Handle=FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateStatic(&Tick),0.f);
     UE_LOG(LogTemp,Display,TEXT("AshenDev: walking yaw %.0f for %.1f s from %s"),WalkYaw,ArgFloat(Args,1,1.f),HostHero(W)?*HostHero(W)->GetActorLocation().ToCompactString():TEXT("-"));
 }
@@ -230,9 +238,12 @@ void Input(const TArray<FString>& Args,UWorld* W) {
     UE_LOG(LogTemp,Display,TEXT("AshenDev: input %s"),*What);
 }
 void God(const TArray<FString>& Args,UWorld*) {bGod=ArgInt(Args,0,1)!=0;UE_LOG(LogTemp,Display,TEXT("AshenDev: god %d"),bGod?1:0);}
-// as.dev.hurt <amount>: a blow to the host hero from the front through its own damage path (armour, shields, the flinch, going down); it lands even in god mode.
+// as.dev.hurt <amount> [other=1]: a blow to the host hero from the front through its own damage path (armour, shields, the flinch, going down); it lands even in god mode. other 1: the
+// first hero that is not the local player's (run on the host, that is the guest's: only the authority can hurt a hero, so a guest's own script cannot down itself).
 void HurtHero(const TArray<FString>& Args,UWorld* W) {
-    auto* H=HostHero(W);if(!H) return;const float Before=H->Health;
+    AASCharacter* H=HostHero(W);
+    if(ArgInt(Args,1,0)!=0) {H=nullptr;if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* Other=Weak.Get()) if(!Other->IsLocallyControlled()) {H=Other;break;}}
+    if(!H) {UE_LOG(LogTemp,Warning,TEXT("AshenDev: hurt - no such hero"));return;}const float Before=H->Health;
     H->InvulnerableUntil=0.f;H->Hurt(ArgFloat(Args,0,20.f));
     UE_LOG(LogTemp,Display,TEXT("AshenDev: hurt %.0f: health %.0f -> %.0f, downed %d"),ArgFloat(Args,0,20.f),Before,H->Health,H->bDowned?1:0);
 }
@@ -254,17 +265,23 @@ void Cam(const TArray<FString>& Args,UWorld* W) {
 }
 void Face(const TArray<FString>& Args,UWorld* W) {if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(ArgFloat(Args,1,-15.f),ArgFloat(Args,0,0.f),0.f));}
 // as.dev.follow <distance> <height> <angle> [fov] | off: the photo camera rides with the hero, <angle> degrees round from its facing (0 in front, 90 its right side, 180 behind),
-// <height> cm above its middle, looking at its chest; for photographing the hero's own animation wherever it goes.
-bool bFollow=false;float FollowDistance=360.f,FollowHeight=30.f,FollowAngle=90.f,FollowAhead=0.f;
+// <height> cm above its middle, looking at its chest; for photographing the hero's own animation wherever it goes. [look-ahead] [other=1]: it rides with the OTHER player's hero instead,
+// as this machine draws it (a simulated proxy, or on the host the guest's hero).
+bool bFollow=false,bFollowOther=false;float FollowDistance=360.f,FollowHeight=30.f,FollowAngle=90.f,FollowAhead=0.f;
+AASCharacter* FollowedHero(UWorld* W) {
+    if(!bFollowOther) return HostHero(W);
+    if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* H=Weak.Get()) if(!H->IsLocallyControlled()) return H;
+    return nullptr;
+}
 void FollowTick(UWorld* W) {
-    auto* H=HostHero(W);if(!bFollow||!H||!PhotoCamera.IsValid()) return;
+    auto* H=FollowedHero(W);if(!bFollow||!H||!PhotoCamera.IsValid()) return;
     const FVector Chest=H->GetActorLocation()+FVector(0.f,0.f,25.f),Target=Chest+FRotator(0.f,H->GetActorRotation().Yaw,0.f).Vector()*FollowAhead; // looked at: the chest, or a point ahead of the hero
     const FVector From=Chest+FRotator(0.f,H->GetActorRotation().Yaw+FollowAngle,0.f).Vector()*FollowDistance+FVector(0.f,0.f,FollowHeight);
     PhotoCamera->SetActorLocationAndRotation(From,(Target-From).Rotation());
 }
 void Follow(const TArray<FString>& Args,UWorld* W) {
-    if(Args.IsValidIndex(0)&&Args[0]==TEXT("off")) {bFollow=false;Cam({TEXT("off")},W);return;}
-    FollowDistance=ArgFloat(Args,0,360.f);FollowHeight=ArgFloat(Args,1,30.f);FollowAngle=ArgFloat(Args,2,90.f);FollowAhead=ArgFloat(Args,4,0.f);
+    if(Args.IsValidIndex(0)&&Args[0]==TEXT("off")) {bFollow=false;bFollowOther=false;Cam({TEXT("off")},W);return;}
+    FollowDistance=ArgFloat(Args,0,360.f);FollowHeight=ArgFloat(Args,1,30.f);FollowAngle=ArgFloat(Args,2,90.f);FollowAhead=ArgFloat(Args,4,0.f);bFollowOther=ArgInt(Args,5,0)!=0;
     // the camera is placed beside the hero at once (re-aiming a camera that is already the view never sends it through the origin)
     if(!PhotoCamera.IsValid()) Cam({TEXT("0"),TEXT("0"),TEXT("0"),TEXT("0"),TEXT("0"),TEXT("55")},W);
     else if(auto* PC=HostController(W)) if(PC->GetViewTarget()!=PhotoCamera.Get()) PC->SetViewTarget(PhotoCamera.Get());
@@ -378,8 +395,109 @@ void Record(const TArray<FString>& Args,UWorld* W) {
     UAudioMixerBlueprintLibrary::StopRecordingOutput(W,EAudioRecordingExportType::WavFile,Name,Folder);
     UE_LOG(LogTemp,Display,TEXT("AshenDev: audio recording written to %s/%s.wav"),*Folder,*Name);
 }
+// as.dev.perf <seconds> [label]: samples the frame time for that long and logs it - average, 95th and 99th percentile, worst, the frame rate, and the game, render and GPU
+// thread averages in ms - for checking what a look costs in a fight ("AshenPerf:" lines).
+void Perf(const TArray<FString>& Args,UWorld*) {
+    struct FSamples {TArray<float> Frame;double GameSum=0.0,RenderSum=0.0,GpuSum=0.0;double Until=0.0;FString Label;};
+    auto State=MakeShared<FSamples>();State->Label=Args.IsValidIndex(1)?Args[1]:TEXT("run");State->Until=FPlatformTime::Seconds()+FMath::Max(1.f,ArgFloat(Args,0,10.f));
+    FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([State](float) {
+        State->Frame.Add(float(FApp::GetDeltaTime()*1000.0));
+        State->GameSum+=FPlatformTime::ToMilliseconds(GGameThreadTime);State->RenderSum+=FPlatformTime::ToMilliseconds(GRenderThreadTime);State->GpuSum+=FPlatformTime::ToMilliseconds(RHIGetGPUFrameCycles());
+        if(FPlatformTime::Seconds()<State->Until) return true;
+        TArray<float> Sorted=State->Frame;Sorted.Sort();const int32 N=Sorted.Num();double Sum=0.0;for(float F:Sorted) Sum+=F;
+        const auto Percentile=[&](float P) {return N?Sorted[FMath::Clamp(int32(P*float(N)),0,N-1)]:0.f;};
+        UE_LOG(LogTemp,Display,TEXT("AshenPerf: %s - %d frames, avg %.2f ms (%.0f fps), p95 %.2f, p99 %.2f, worst %.2f; game thread %.2f ms, render thread %.2f ms, GPU %.2f ms"),*State->Label,N,N?Sum/N:0.0,Sum>0.0?1000.0*N/Sum:0.0,
+            Percentile(.95f),Percentile(.99f),N?Sorted.Last():0.f,N?State->GameSum/N:0.0,N?State->RenderSum/N:0.0,N?State->GpuSum/N:0.0);
+        return false;
+    }),0.f);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: measuring the frame time for %.0f s (%s)"),FMath::Max(1.f,ArgFloat(Args,0,10.f)),*State->Label);
+}
+// as.dev.motion <seconds> [label]: for that long, counts each frame in which an enemy that is moving (its velocity over 150 cm/s) does NOT move on screen - a client that skips a
+// proxy's movement simulation (an unresolved movement base) shows enemies that hold still between net updates; the host never does ("AshenMotion:" line). Also the other heroes.
+void Motion(const TArray<FString>& Args,UWorld* W) {
+    struct FTrack {FVector Last=FVector::ZeroVector;bool bHave=false;};
+    struct FCount {TMap<TWeakObjectPtr<AActor>,FTrack> Seen;int64 Moving=0,Held=0,Frames=0,Watched=0,Unresolved=0;double Moved=0.0,Expected=0.0;double Until=0.0,Began=0.0;FString Label;};
+    auto State=MakeShared<FCount>();State->Label=Args.IsValidIndex(1)?Args[1]:TEXT("run");State->Began=FPlatformTime::Seconds();State->Until=State->Began+FMath::Max(1.f,ArgFloat(Args,0,10.f));
+    TWeakObjectPtr<UWorld> World=W;
+    FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([State,World](float Delta) {
+        UWorld* Now=World.Get();auto* S=Now?AS::State(Now):nullptr;
+        if(Delta>0.f) ++State->Frames;
+        if(S&&Delta>0.f) {
+            TArray<AActor*> Watched;for(auto Weak:S->Enemies) if(AASEnemy* E=Weak.Get()) Watched.Add(E);
+            for(auto Weak:S->Heroes) if(AASCharacter* H=Weak.Get()) if(!H->IsLocallyControlled()) Watched.Add(H);
+            for(AActor* A:Watched) {
+                FTrack& T=State->Seen.FindOrAdd(A);const FVector Here=A->GetActorLocation(),Velocity=A->GetVelocity();
+                ++State->Watched;if(const ACharacter* Body=Cast<ACharacter>(A)) if(Body->GetReplicatedBasedMovement().IsBaseUnresolved()) ++State->Unresolved; // what makes a client skip simulating a proxy
+                if(T.bHave&&Velocity.Size2D()>150.f&&FVector::Dist2D(Here,T.Last)<300.f) {
+                    const double Step=FVector::Dist2D(Here,T.Last);++State->Moving;State->Moved+=Step;State->Expected+=Velocity.Size2D()*Delta;
+                    if(Step<.5) ++State->Held;
+                }
+                T.Last=Here;T.bHave=true;
+            }
+        }
+        if(FPlatformTime::Seconds()<State->Until) return true;
+        UE_LOG(LogTemp,Display,TEXT("AshenMotion: %s - %lld frames at %.0f fps; %lld moving-actor frames, %lld of them held still (%.1f%%), moved %.0f%% of what their velocity says; %lld of %lld actor-frames had an UNRESOLVED movement base (%.1f%%: the client skips simulating those) (%s)"),*State->Label,State->Frames,double(State->Frames)/FMath::Max(.001,FPlatformTime::Seconds()-State->Began),State->Moving,State->Held,
+            State->Moving?100.0*double(State->Held)/double(State->Moving):0.0,State->Expected>0.0?100.0*State->Moved/State->Expected:0.0,State->Unresolved,State->Watched,State->Watched?100.0*double(State->Unresolved)/double(State->Watched):0.0,Now&&Now->GetNetMode()==NM_Client?TEXT("a client"):TEXT("the host or a single player"));
+        return false;
+    }),0.f);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: measuring on-screen motion for %.0f s (%s)"),FMath::Max(1.f,ArgFloat(Args,0,10.f)),*State->Label);
+}
+// as.dev.heroes [label]: one line per hero as THIS machine draws it ("AshenHeroes:"): its role (authority, autonomous or simulated proxy), whether it is the local player, where the mesh
+// sits against the capsule (a Mannequin stands at -half height, turned -90 degrees), the foot bone's height above the capsule's bottom (about 0 when standing on the floor), and the
+// mesh offset the engine's network smoothing rebuilds a proxy's mesh from (ACharacter::CacheInitialMeshOffset). A proxy drawn at the engine's cached offset instead of where the look
+// code put the mesh floats on every OTHER machine (0.26 G1).
+void Heroes(const TArray<FString>& Args,UWorld* W) {
+    auto* S=AS::State(W);if(!S) return;const FString Label=Args.IsValidIndex(0)?Args[0]:TEXT("run");
+    for(auto Weak:S->Heroes) if(const AASCharacter* H=Weak.Get()) {
+        const USkeletalMeshComponent* Body=H->GetMesh();const float Half=H->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(),Bottom=H->GetActorLocation().Z-Half;const ENetRole Role=H->GetLocalRole();
+        const bool Foot=Body&&Body->DoesSocketExist(TEXT("foot_l"));
+        const FString Mesh=Body?FString::Printf(TEXT("mesh rel z %.0f yaw %.0f, mesh world z %+.0f from the actor, foot_l %+.0f above the capsule bottom"),Body->GetRelativeLocation().Z,Body->GetRelativeRotation().Yaw,Body->GetComponentLocation().Z-H->GetActorLocation().Z,Foot?Body->GetSocketLocation(TEXT("foot_l")).Z-Bottom:0.f):FString(TEXT("no mesh"));
+        UE_LOG(LogTemp,Display,TEXT("AshenHeroes: %s - hero %d (%s%s, skeletal %d) at %s; %s; engine cached mesh offset z %.0f yaw %.0f, smoothing %d"),*Label,H->ColorIndex,Role==ROLE_Authority?TEXT("authority"):(Role==ROLE_AutonomousProxy?TEXT("autonomous"):TEXT("simulated")),
+            H->IsLocallyControlled()?TEXT(", LOCAL"):TEXT(", other player"),H->IsSkeletalHero()?1:0,*H->GetActorLocation().ToCompactString(),*Mesh,H->GetBaseTranslationOffset().Z,H->GetBaseRotationOffset().Rotator().Yaw,
+            H->GetCharacterMovement()?int32(H->GetCharacterMovement()->NetworkSmoothingMode):-1);
+    }
+}
+// as.dev.trace <seconds> [label] [interval=.1]: for that long, a line every <interval> s for the host hero ("AshenTrace:") - its speed over the ground, its melee combo step, whether the hammer
+// is committed to its third swing, the leap state, how far each foot moves against the mesh (a planted foot reads 0 while the body travels), and the montage playing. For judging how the
+// body travels against what the animation shows (0.26 G3: the third hammer swing's moonwalk).
+void Trace(const TArray<FString>& Args,UWorld* W) {
+    struct FRun {double Began=0.0,Until=0.0,Next=0.0;float Interval=.1f;FString Label;FVector FootL=FVector::ZeroVector,FootR=FVector::ZeroVector;double LastAt=0.0;bool bHave=false;};
+    auto State=MakeShared<FRun>();State->Label=Args.IsValidIndex(1)?Args[1]:TEXT("run");State->Interval=FMath::Max(.02f,ArgFloat(Args,2,.1f));State->Began=FPlatformTime::Seconds();State->Until=State->Began+FMath::Max(.5f,ArgFloat(Args,0,5.f));
+    TWeakObjectPtr<UWorld> World=W;
+    FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([State,World](float) {
+        const double Now=FPlatformTime::Seconds();const AASCharacter* H=ASDev::HostHero(World.Get());
+        if(H&&Now>=State->Next) {
+            State->Next=Now+State->Interval;
+            const USkeletalMeshComponent* Body=H->GetMesh();const UAnimInstance* Anim=Body?Body->GetAnimInstance():nullptr;const UAnimMontage* Playing=Anim?Anim->GetCurrentActiveMontage():nullptr;
+            // each foot's travel in the MESH's own frame since the last line: a foot the clip keeps planted does not move there however fast the body goes; and each foot bone's height above the
+            // capsule's bottom (what the footstep rule reads: ASFoley::FootStruck)
+            FString Feet;
+            if(Body&&Body->DoesSocketExist(TEXT("foot_l"))&&Body->DoesSocketExist(TEXT("foot_r"))) {
+                const FTransform Frame=Body->GetComponentTransform();
+                const FVector FootLeft=Body->GetSocketLocation(TEXT("foot_l")),FootRight=Body->GetSocketLocation(TEXT("foot_r"));
+                const FVector L=Frame.InverseTransformPosition(FootLeft),R=Frame.InverseTransformPosition(FootRight);
+                const double Dt=FMath::Max(.001,Now-State->LastAt);const float Bottom=H->GetActorLocation().Z-H->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+                if(State->bHave) Feet=FString::Printf(TEXT("feet %.0f / %.0f cm/s in the mesh frame, %.1f / %.1f cm above the capsule bottom"),FVector::Dist(L,State->FootL)/Dt,FVector::Dist(R,State->FootR)/Dt,FootLeft.Z-Bottom,FootRight.Z-Bottom);
+                State->FootL=L;State->FootR=R;State->LastAt=Now;State->bHave=true;
+            }
+            UE_LOG(LogTemp,Display,TEXT("AshenTrace: %s +%.2f speed %.0f cm/s at %s combo step %d, hammer committed %d, leap %d, %s, montage %s"),*State->Label,Now-State->Began,H->GetVelocity().Size2D(),*H->GetActorLocation().ToCompactString(),H->MeleeStep,
+                H->HammerCommitted()?1:0,int32(H->HammerLeapState),Feet.IsEmpty()?TEXT("no feet yet"):*Feet,Playing?*Playing->GetName():TEXT("-"));
+        }
+        return Now<State->Until;
+    }),0.f);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: tracing the hero for %.0f s (%s)"),FMath::Max(.5f,ArgFloat(Args,0,5.f)),*State->Label);
+}
 // as.dev.wave <n>: sets the Endless wave number (the sky, scenery stage and lightning follow it at the next wave's checks).
 void Wave(const TArray<FString>& Args,UWorld* W) {if(auto* S=AS::State(W)) {S->EndlessWave=FMath::Clamp(ArgInt(Args,0,1),1,999);S->ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("AshenDev: endless wave set to %d"),S->EndlessWave);}}
+// what a character stands on as its movement base: the component, its mobility, whether a client can name it, and (on a client) whether the server's base could be resolved
+FString BaseText(const ACharacter* C) {
+    if(!C) return TEXT("-");
+    const UObject* Base=C->GetBasedMovement().MovementBaseInterfaceData.GetMovementBaseObject();
+    const UPrimitiveComponent* Part=Cast<UPrimitiveComponent>(Base);
+    return FString::Printf(TEXT("base %s%s%s%s (replicated: server has base %d, unresolved %d)"),Base?*Base->GetName():TEXT("none"),Part?(Part->Mobility==EComponentMobility::Movable?TEXT(" MOVABLE"):TEXT(" static")):TEXT(""),
+        Base&&Base->IsNameStableForNetworking()?TEXT(" net-stable"):TEXT(""),Part&&Part->GetOwner()?*FString::Printf(TEXT(" of %s"),*Part->GetOwner()->GetName()):TEXT(""),
+        C->GetReplicatedBasedMovement().bServerHasBaseComponent?1:0,C->GetReplicatedBasedMovement().IsBaseUnresolved()?1:0);
+}
 // as.dev.state: one line with the phase, the wave, the hero and every enemy (kind, health, state, launched), for a run's log.
 void State(const TArray<FString>&,UWorld* W) {
     auto* S=AS::State(W);auto* H=HostHero(W);if(!S) return;
@@ -387,11 +505,11 @@ void State(const TArray<FString>&,UWorld* W) {
     if(H) if(const auto* PS=H->GetPlayerState<AASPlayerState>()) UE_LOG(LogTemp,Display,TEXT("AshenDev:   run facts: kills %d, perfect dashes %d, impacts %d, echoes %d, metamorphosed %d"),PS->RunKills,PS->RunPerfectDashes,PS->RunImpacts,PS->RunEchoes,PS->bRunMetamorphosed?1:0);
     if(H) { // which way the hero faces: the actor, its controller, and (the Mannequin) its pelvis, whose forward is the bone's +Y... logged raw for comparison
         const USkeletalMeshComponent* Body=H->GetMesh();const bool Bones=Body&&Body->DoesSocketExist(TEXT("pelvis"));
-        UE_LOG(LogTemp,Display,TEXT("AshenDev:   hero yaw %.0f control %.0f mesh %.0f pelvis %s velocity %s"),H->GetActorRotation().Yaw,H->GetControlRotation().Yaw,Body?Body->GetComponentRotation().Yaw:0.f,
-            Bones?*Body->GetSocketRotation(TEXT("pelvis")).ToCompactString():TEXT("-"),*H->GetVelocity().ToCompactString());
+        UE_LOG(LogTemp,Display,TEXT("AshenDev:   hero yaw %.0f control %.0f mesh %.0f pelvis %s velocity %s; %s"),H->GetActorRotation().Yaw,H->GetControlRotation().Yaw,Body?Body->GetComponentRotation().Yaw:0.f,
+            Bones?*Body->GetSocketRotation(TEXT("pelvis")).ToCompactString():TEXT("-"),*H->GetVelocity().ToCompactString(),*BaseText(H));
     }
     for(auto Weak:S->Enemies) if(const AASEnemy* E=Weak.Get()) {
-        UE_LOG(LogTemp,Display,TEXT("AshenDev:   enemy kind %d hp %.0f/%.0f state %d at %s launched %d"),E->Kind,E->Health,E->MaxHealth,int32(E->AIState),*E->GetActorLocation().ToCompactString(),(E->Flags&ASEnemyRules::FlagLaunched)?1:0);
+        UE_LOG(LogTemp,Display,TEXT("AshenDev:   enemy kind %d hp %.0f/%.0f state %d at %s launched %d; %s"),E->Kind,E->Health,E->MaxHealth,int32(E->AIState),*E->GetActorLocation().ToCompactString(),(E->Flags&ASEnemyRules::FlagLaunched)?1:0,*BaseText(E));
         if(E->IsSkeletalBoss()) if(const USkeletalMeshComponent* M=E->GetMesh()) {
             const UAnimInstance* A=M->GetAnimInstance();const UAnimMontage* Playing=A?A->GetCurrentActiveMontage():nullptr;
             const float HeadZ=M->DoesSocketExist(TEXT("Head"))?float(M->GetSocketLocation(TEXT("Head")).Z-E->GetActorLocation().Z):0.f,FootZ=M->DoesSocketExist(TEXT("LeftFoot"))?float(M->GetSocketLocation(TEXT("LeftFoot")).Z-E->GetActorLocation().Z):0.f;
@@ -416,7 +534,7 @@ bool Tick(float) {
     UWorld* W=GameWorld();
     if(bGod) if(auto* S=AS::State(W)) if(Mode(W)) for(auto Weak:S->Heroes) if(AASCharacter* H=Weak.Get()) {H->InvulnerableUntil=AS::Time(W)+1.f;if(H->Health<H->MaxHealth*.5f) H->Health=H->MaxHealth;} // every hero, on the host
     const double Now=FPlatformTime::Seconds();
-    if(Now<WalkUntil) if(auto* H=HostHero(W)) H->AddMovementInput(FRotator(0.f,WalkYaw,0.f).Vector(),1.f,true);
+    if(Now<WalkUntil) if(auto* H=HostHero(W)) H->AddMovementInput(FRotator(0.f,WalkYaw,0.f).Vector(),WalkScale,true);
     FollowTick(W);
     if(Now<SlayUntil&&Now>=NextSlay) {NextSlay=Now+.3;HitAll(W,0.f,1.e6f);}
     if(AttackUntil>0.0&&Now>=AttackUntil) {AttackUntil=0.0;if(auto* PC=HostController(W)) PC->DevButton(TEXT("attack"),false);}
@@ -460,7 +578,7 @@ AS_DEV_COMMAND("as.dev.wound",Wound,"Hits every enemy near the hero down to <fra
 AS_DEV_COMMAND("as.dev.killall",KillAll,"Strikes down every enemy near the hero, credited to it [radius=6000].");
 AS_DEV_COMMAND("as.dev.slay",Slay,"Strikes down every enemy as it appears for [seconds=20] (clears a story room's waves).");
 AS_DEV_COMMAND("as.dev.keeper",Keeper,"A grunt frozen 25 m behind the hero that keeps the wave in combat (killall spares it).");
-AS_DEV_COMMAND("as.dev.freeze",Freeze,"Stops every enemy in time [1] or lets them run again [0].");
+AS_DEV_COMMAND("as.dev.freeze",Freeze,"Stops every enemy near the hero in time [1] or lets them run again [0]: [radius=2000].");
 AS_DEV_COMMAND("as.dev.lineup",Lineup,"One enemy of every ground kind in a row in front of the hero: [distance=500] [spacing=260].");
 AS_DEV_COMMAND("as.dev.frame",Frame,"The photo camera in front of lineup enemy <n>: [distance=420] [height=10] [fov=50].");
 AS_DEV_COMMAND("as.dev.status",Status,"Applies <burn|poison|frost|bleed|shock> from the hero to every enemy near it [radius=3000].");
@@ -471,15 +589,16 @@ AS_DEV_COMMAND("as.dev.piletest",PileTest,"Launches a grunt into another across 
 AS_DEV_COMMAND("as.dev.trait",Trait,"Sets trait <index> to <rank> on the host hero.");
 AS_DEV_COMMAND("as.dev.pick",Pick,"The host hero takes trait <index> through the real reward path, [times=1] (stops at its maximum).");
 AS_DEV_COMMAND("as.dev.weaponlook",WeaponLook,"Retunes the host hero's weapon material: <metallic> <roughness> (until the next look refresh).");
-AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8).");
+AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-8); [other=1: the guest's hero, from the host].");
 AS_DEV_COMMAND("as.dev.walk",Walk,"Walks the host hero toward <yaw> for <seconds> (real input and collision).");
 AS_DEV_COMMAND("as.dev.input",Input,"Presses the host's buttons: attack|spiral <hold seconds>, dash, jump, rune, reload.");
 AS_DEV_COMMAND("as.dev.god",God,"1: the host hero cannot be hurt (and is healed back up); 0: off.");
-AS_DEV_COMMAND("as.dev.hurt",HurtHero,"A blow of <amount> to the host hero from the front (lands even in god mode).");
+AS_DEV_COMMAND("as.dev.hurt",HurtHero,"A blow of <amount> to the host hero from the front (lands even in god mode); [other=1: to the other player's hero, from the host].");
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
 AS_DEV_COMMAND("as.dev.cam",Cam,"A fixed photo camera: <x> <y> <z> <pitch> <yaw> [fov=80], or off.");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
-AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55] [look-ahead cm=0], or off.");
+AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55] [look-ahead cm=0] [other=1: the other player's hero], or off.");
+AS_DEV_COMMAND("as.dev.heroes",Heroes,"Logs per hero how THIS machine draws it: role, mesh offset against the capsule, the foot bone's height above the capsule bottom, the engine's cached mesh offset ('AshenHeroes:' lines); [label].");
 AS_DEV_COMMAND("as.dev.clearing",Clearing,"Moves the hero to open ground near the arena's middle: [radius=600] clear all round.");
 AS_DEV_COMMAND("as.dev.shot",Shot,"Screenshot to Saved/Screenshots/Dev/<name>.png [ui=1].");
 AS_DEV_COMMAND("as.dev.lightning",Lightning,"Calls [count=1] sky strikes around the host hero [distance=520].");
@@ -487,6 +606,9 @@ AS_DEV_COMMAND("as.dev.decortest",DecorTest,"Walks the host hero at the nearest 
 AS_DEV_COMMAND("as.dev.decorcheck",DecorCheck,"Logs whether the hero stopped at the ruin's surface.");
 AS_DEV_COMMAND("as.dev.lookat",LookAt,"Photo camera on the nearest ruin piece whose mesh name contains <text> [distance=1400] [height=300].");
 AS_DEV_COMMAND("as.dev.record",Record,"Records the game's audio: start [seconds=30] | stop <name> (Saved/AudioRecordings/Dev/<name>.wav).");
+AS_DEV_COMMAND("as.dev.perf",Perf,"Logs the frame time over [seconds=10]: avg, p95, p99, worst, fps and the game, render and GPU thread times; [label].");
+AS_DEV_COMMAND("as.dev.motion",Motion,"Counts frames in which moving enemies and other heroes hold still on screen over [seconds=10] ('AshenMotion:' line): a client skipping proxy simulation shows many; [label].");
+AS_DEV_COMMAND("as.dev.trace",Trace,"Logs the host hero every [interval=.1] s for <seconds>: ground speed, combo step, hammer committed, leap, foot travel in the mesh frame, montage ('AshenTrace:' lines); [label].");
 AS_DEV_COMMAND("as.dev.wave",Wave,"Sets the Endless wave number <n>.");
 AS_DEV_COMMAND("as.dev.state",State,"Logs the phase, wave, hero and every enemy.");
 AS_DEV_COMMAND("as.dev.script",Script,"Plays a script file: one console command per line, plus wait <s> and waitfor ready|combat|hub [timeout].");
