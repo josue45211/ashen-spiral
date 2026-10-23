@@ -1,0 +1,50 @@
+# 0.24.2: the elite brute as an armour rig (as.boss.skeletal 1) and as a smaller Titan with its maul (as.boss.skeletal 2): standing, then closing in on the hero (filmed from behind it).
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 1
+as.boss.skeletal 1
+as.dev.elite 1 1 650
+wait 1.2
+as.dev.freeze 1
+as.dev.follow 100 150 0 50 750
+wait 0.5
+as.dev.shot elite_rig_stand 0
+as.dev.freeze 0
+as.dev.follow 380 170 180 62 320
+wait 1.6
+as.dev.shot elite_rig_fight_a 0
+wait 0.5
+as.dev.shot elite_rig_fight_b 0
+wait 0.5
+as.dev.shot elite_rig_fight_c 0
+as.dev.killall
+wait 1
+as.dev.keeper
+wait 0.5
+as.boss.skeletal 2
+as.dev.elite 1 1 650
+wait 1.2
+as.dev.freeze 1
+as.dev.follow 100 150 0 50 750
+wait 0.5
+as.dev.shot elite_titan_stand 0
+as.dev.freeze 0
+as.dev.follow 380 170 180 62 320
+wait 1.6
+as.dev.shot elite_titan_fight_a 0
+wait 0.5
+as.dev.shot elite_titan_fight_b 0
+wait 0.5
+as.dev.shot elite_titan_fight_c 0
+wait 0.5
+as.dev.shot elite_titan_fight_d 0
+wait 0.3
+quit

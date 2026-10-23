@@ -1,0 +1,48 @@
+# 0.24.2: the four elite mutations (frost, fire, storm, venom) as Titans, frozen side by side, then the pound's strike in a sequence of shots.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 1
+as.boss.skeletal 2
+as.dev.elite 1 1 900 -520
+as.dev.elite 2 1 900 -170
+as.dev.elite 3 1 900 170
+as.dev.elite 4 1 900 520
+wait 1.3
+as.dev.freeze 1
+as.dev.follow 150 160 0 62 900
+wait 0.5
+as.dev.shot mut_01_four 0
+as.dev.freeze 0
+as.dev.killall
+wait 1
+as.dev.keeper
+wait 0.5
+as.dev.elite 2 1 600
+wait 0.4
+as.dev.follow 420 200 150 58 300
+wait 1.0
+as.dev.shot pound_01 0
+wait 0.25
+as.dev.shot pound_02 0
+wait 0.25
+as.dev.shot pound_03 0
+wait 0.25
+as.dev.shot pound_04 0
+wait 0.25
+as.dev.shot pound_05 0
+wait 0.25
+as.dev.shot pound_06 0
+wait 0.25
+as.dev.shot pound_07 0
+wait 0.25
+as.dev.shot pound_08 0
+wait 0.3
+quit

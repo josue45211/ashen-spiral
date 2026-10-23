@@ -1,0 +1,56 @@
+# 0.24.2: finds how an elite Titan holds its maul - the hold sweeps twelve orientations of the weapon (as.elite.hold x y z pitch yaw roll) on a frozen elite; photographs go to elitehold_NN.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 1
+as.boss.skeletal 2
+as.dev.elite 1 1 650
+wait 1.2
+as.dev.freeze 1
+as.dev.follow 100 150 0 50 750
+wait 0.5
+as.elite.hold 0 0 0 0 0 0
+wait 0.15
+as.dev.shot elitehold_00 0
+as.elite.hold 0 0 0 90 0 0
+wait 0.15
+as.dev.shot elitehold_01 0
+as.elite.hold 0 0 0 -90 0 0
+wait 0.15
+as.dev.shot elitehold_02 0
+as.elite.hold 0 0 0 0 90 0
+wait 0.15
+as.dev.shot elitehold_03 0
+as.elite.hold 0 0 0 0 -90 0
+wait 0.15
+as.dev.shot elitehold_04 0
+as.elite.hold 0 0 0 0 0 90
+wait 0.15
+as.dev.shot elitehold_05 0
+as.elite.hold 0 0 0 0 0 -90
+wait 0.15
+as.dev.shot elitehold_06 0
+as.elite.hold 0 0 0 180 0 0
+wait 0.15
+as.dev.shot elitehold_07 0
+as.elite.hold 0 0 0 90 90 0
+wait 0.15
+as.dev.shot elitehold_08 0
+as.elite.hold 0 0 0 -90 90 0
+wait 0.15
+as.dev.shot elitehold_09 0
+as.elite.hold 0 0 0 90 0 90
+wait 0.15
+as.dev.shot elitehold_10 0
+as.elite.hold 0 0 0 -90 0 90
+wait 0.15
+as.dev.shot elitehold_11 0
+wait 0.3
+quit

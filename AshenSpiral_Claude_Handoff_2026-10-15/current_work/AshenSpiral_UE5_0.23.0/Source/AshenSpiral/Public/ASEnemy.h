@@ -173,12 +173,13 @@ private:
     bool WardBossKit() const;                                    // a ground boss outside Endless wave 50+ fights with its ward's kit (the flying boss and the late Endless bosses keep the old boss attack)
     // 0.24.2: a ground boss drawn as the Warrior Titan (ASEnemySkeletal.cpp), animated by the hero's animation blueprint and clips retargeted onto it (Tools/build_boss_model.py);
     // the armour rig is the fallback (as.boss.skeletal 0, or the Titan not imported on this machine). Cosmetic only: the clips follow the replicated ability state.
-    bool bSkeletalBoss=false,bSkelDeathPlayed=false;int32 SkelPattern=0;float SkelWindupSeen=-1.f;
+    bool bSkeletalBoss=false,bSkelDeathPlayed=false;int32 SkelPattern=0;float SkelWindupSeen=-1.f,SkelHitSeen=-100.f;
+    TWeakObjectPtr<USceneComponent> SkelWeaponParent;FTransform SkelWeaponRel;      // where an elite's maul hung on the armour rig, to put it back when the Titan is switched off
     UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> SkelMaterial;
     void SetupSkeletalBoss();
     void AnimateSkeletalBoss(float Delta);
     bool AnimateSkeletalDeath(float Since);                      // true when the Titan played the death (AnimateDeath then leaves the armour rig alone)
-    class UAnimMontage* PlayBossClip(const TCHAR* Clip,float Seconds,float BlendIn=.12f,float BlendOut=.25f);
+    class UAnimMontage* PlayBossClip(const TCHAR* Clip,float Seconds,float BlendIn=.12f,float BlendOut=.25f,const TCHAR* Slot=nullptr); // Slot: null is the full body, "UpperBody" a flinch over the legs
 public:
     bool IsSkeletalBoss() const {return bSkeletalBoss;}
 };

@@ -144,7 +144,7 @@ void AASEnemy::RefreshLook() {
 
 void AASEnemy::Glint() {
     FVector At=GetActorLocation()+GetActorForwardVector()*40.f*BodyScale+FVector(0.f,0.f,55.f*BodyScale); // a body without a weapon (the leaper) glints at its brow
-    if(bSkeletalBoss&&GetMesh()&&GetMesh()->DoesSocketExist(TEXT("RightHand"))) At=GetMesh()->GetSocketLocation(TEXT("RightHand")); // the Titan fights with its gauntlets
+    if(bSkeletalBoss&&Kind!=ASEnemyRules::Brute&&GetMesh()&&GetMesh()->DoesSocketExist(TEXT("RightHand"))) At=GetMesh()->GetSocketLocation(TEXT("RightHand")); // the boss Titan fights with its gauntlets (an elite's maul glints at its head below)
     else if(ArmorWeapon&&ArmorWeapon->IsVisible()&&ArmorWeapon->GetStaticMesh()) At=ArmorWeapon->GetComponentTransform().TransformPosition(FVector(0.f,0.f,ArmorWeapon->GetStaticMesh()->GetBoundingBox().Max.Z*.92f)); // the tip: weapons stand along +Z
     if(UWorld* W=GetWorld()) if(auto* FX=W->SpawnActor<AASVisualEffect>()) FX->Setup(20,At,FVector::ForwardVector,FLinearColor(1.f,.93f,.72f),Boss()?140.f:(Elite()?100.f:72.f));
 }
@@ -165,6 +165,7 @@ void AASEnemy::TickStatusTint() {
         FLinearColor Glow=FLinearColor::Black;
         if(Active) {
             FLinearColor Status(1.f,.16f,.03f);float Pulse=.32f+.28f*FMath::Sin(Now*11.f+float(GetUniqueID()%7));
+            if(!Enraged&&Mutated) {float R,G,B;ASEnemyRules::MutationColor(Mutation,R,G,B);Status=FLinearColor(R*.2f,G*.2f,B*.2f);Pulse=.22f+.16f*FMath::Sin(Now*3.f+float(GetUniqueID()%7));} // an elite's mutation: a faint slow pulse in its colour (its main cue is the Titan's tint, ASEnemySkeletal.cpp)
             if(StatusBits!=0) {const EASHitKind Type=(StatusBits&12)?EASHitKind::Frost:((StatusBits&2)?EASHitKind::Poison:((StatusBits&16)?EASHitKind::Bleed:EASHitKind::Burn));Status=ASData::HitColor(Type);Pulse=(StatusBits&8)?.7f:.35f+.3f*FMath::Sin(Now*7.f+float(GetUniqueID()%7));}
             Glow=Status*(FMath::Clamp(Pulse,0.f,.85f)*1.2f);
         }
