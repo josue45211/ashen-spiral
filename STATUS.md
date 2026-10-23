@@ -1,8 +1,8 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-23 07:50 PDT
-phase: 0.26 RUN - Phase 0 (G1-G8) DONE and committed (10 commits); settling the held 0.24.2 aesthetic work, then Phase 1 (Twin Claws + Pounce)
-current_item: settle the held aesthetic pieces (elite brutes as small Titans, floor relief, pickups, vault chest), then Phase 1 design: Twin Claws weapon id 9, RMB Pounce (root-motion dynamic leap + glue), G for Spiral
+updated: 2026-10-23 12:43 PDT
+phase: 0.26 Phase 2 - team abilities (Phase 0 and Phase 1 done)
+current_item: Phase 2: Mark & Pop, Link, Twin Cast
 
 <!-- 0.26-RUN:BEGIN -->
 ## 0.26 RUN - started 2026-10-23 (Edison's "0.26 Huge Update Plan", inbox 2026-10-22 22:02 parts 1+2; Josue + P2 locked it 2026-10-22)
@@ -25,7 +25,7 @@ A snapshot is kept at git ref refs/wip/pre-0.26-2026-10-23 (fff08f6; no branch, 
 - Config/DefaultInput.ini and DefaultEngine.ini are editor re-saves: never committed; the clean test wrapper swaps in the committed ones.
 
 ### Plan progress
-- [~] Settle the held 0.24.2 work: the net-base fix is verified and committed (f878474); the aesthetic pieces (floor relief, pickups, vault chest, elite brutes as small Titans) are next
+- [x] Settle the held 0.24.2 work: DONE. Net-base fix (f878474); floor relief, softer pickups and vault chest (e739a68); elite brutes as smaller Titans, off by default (a7c65c2). Each checked in-engine with screenshots; the tree is clean apart from the files that are never committed
 - [x] Phase 0 DONE (2026-10-23, 10 commits f878474..9778d50, each checked in-engine with numbers + screenshots; unity + non-unity builds clean, 0 warnings from our sources, run_tests exit 0 with all 23 suites):
     G1 co-op elevation desync (3f89f4e): the engine rebuilt every proxy's mesh from a cached (0,0,0) offset, 88 cm too high and turned 90 degrees; fixed, before/after numbers in MERGE_LOG
     G2 posture (21d3823): blade and maul stances were bent over; now upright (TwinBlast guard, Steel's two-handed carry)
@@ -36,14 +36,16 @@ A snapshot is kept at git ref refs/wip/pre-0.26-2026-10-23 (fff08f6; no branch, 
     G7 downed marker (eb27f83): ice-white under the blood moon, red elsewhere
     G8 launches (9778d50): about 22% farther (slam 7.2 -> 8.8 m)
     UNVERIFIED by humans (feel / art / ears): the new roar (lion vs synthesiser), the blade's new guard stance, the hammer's size and elbows, the finisher feel at 6%, footstep level, plus the standing list: wall slams, pile-ups, elemental fairness
-- [ ] Phase 1: Twin Claws + Pounce (with presentation)
-- [ ] Phase 2: team abilities - Mark & Pop / Link / Twin Cast
+- [x] Phase 1 DONE (2026-10-23; commits 0d61d60, bae50bd, d233ab8; unity + non-unity builds clean, 0 warnings from our sources, run_tests exit 0): TWIN CLAWS (weapon 10 of 10, hub stand at the end of the row). LMB: two alternating claw swings, one every .19 s, each shreds ONE target. RMB: POUNCE (6 s) leaps onto the enemy under the crosshair and glues you to it at claw range, facing it, for up to 3.5 s; dash, the target's death or teleport, or a wall breaks it; a pounce at nothing is a short lunge (2.4 s). G is the Spiral, as on the maul. The glue passed every in-engine check (still grunt, runner, flier, whiff, hub dummy, a co-op guest at 100 ms: no floating, no clipping, no server corrections), so NO FALLBACK was taken. Ships with its show: afterimages on the leap, rake streaks + sparks that build with the blows in a row, 11 sounds, camera push + shake + hit-stop on the arrival, gold target brackets and a LATCHED row on the HUD, a POUNCE word over the wielder. Shred Stacks was NOT built. Details and every judgement call: MERGE_LOG.md "0.26 Phase 1".
+    UNVERIFIED by humans (feel / ears): how the pounce feels in the hands, the 11 synthesised sounds, the claws' stance and clip poses (Khaimera/Kallari clips, no bespoke clip yet), the hub display's contrast in shade
+- [~] Phase 2: team abilities - Mark & Pop / Link / Twin Cast - in progress (three new active skills on F; server-authoritative; SynergyCue expanded)
 - [ ] Phase 3: skill tree, three lanes
 - [ ] Version 0.26.0 / protocol 2600, export the playtest zip, announce it here
 - [ ] Phase 4: polish loop (every pass marked POLISH) until Josue says wrap up
 
 ### For the next playtest (Phase 0 A/B switches, all console variables)
 - as.roar.old 1 plays the 0.24.2 roars; as.hero.twohand 0 drops the hammer IK; as.hero.stance <clip> tries any stance clip; as.foley.gain <x> scales the footsteps; as.net.dropbase 0 turns the net-base fix off.
+- Phase 1: as.pounce.log 1 logs every pounce decision (the pick, the landing, why a latch let go: AshenPounce lines); as.claw.log 1 logs every claw hit's chain and spark power (AshenClaw lines); as.dev.weapon 9 equips the claws anywhere (hub or run).
 
 ### Needs Josue (0.26 run) - nothing blocking
 - Pushing: the 0.26 plan says nothing about pushing, so I commit locally only. Say "push" (or restore the 10/19 "push when green" order) and I push astra/0.23-handoff.
