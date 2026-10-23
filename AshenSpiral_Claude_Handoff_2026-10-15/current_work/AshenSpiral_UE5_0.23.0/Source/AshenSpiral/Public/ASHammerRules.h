@@ -24,8 +24,11 @@ inline float Impact(int Step) {return Step==2?.76f:.56f;}
 inline float Hitstop(int Step) {return Step==2?.14f:.06f;}
 inline float Cycle(int Step) {return Step==2?1.188f:.72f;}
 inline float ComboWindow(float BaseInterval) {return 1.2f*BaseInterval/.72f;}
-// TUNABLE: the finisher slows movement by 45% (was 80%) instead of rooting the player.
-constexpr float FinisherSlow=.45f;
+// TUNABLE: the finisher slows movement instead of rooting the player. 0.26 G3 (the 0.24.2 playtest: on the third swing "the feet stop and the body slides"): the third swing is a
+// full-body clip with the feet planted (terra_Primary_Melee_C_slow), so any travel is a slide. At the old 45% slow (55% speed, about 350 cm/s over its 1.19 s cycle) the body slid
+// some 4 m on planted feet. Measured in-engine (as.dev.trace, Tools/DevScripts/verify_hammer_finisher.txt): once the clip has stepped into its stance the feet move 2-30 cm/s against the
+// mesh, so the body should not travel much faster than that: at 94% slow (6% of the run speed, about 38 cm/s) it drifts under half a metre over the whole swing and the player is still not rooted.
+constexpr float FinisherSlow=.94f;
 inline float FinisherSpeedScale() {return 1.f-FinisherSlow;}
 inline bool Frontal(float DotForward) {return DotForward>0.f;}
 inline bool Committed(int Weapon,int Step,float Now,float Start,float Duration) {return Weapon==1&&Step==2&&Start>=0&&Now>=Start&&Now<Start+Duration;}

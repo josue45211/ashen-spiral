@@ -1,0 +1,33 @@
+# 0.26 G3: the hammer's third swing must not slide the body over planted feet (the 0.24.2 playtest: "the feet stop and the body slides"). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_hammer_finisher
+# The hero attacks with the maul for six seconds (two full combos) while walking round a square in open ground, so nothing blocks it; "AshenTrace:" lines give the ground speed, the combo
+# step, "hammer committed 1" through the third swing, and each foot's travel in the mesh frame (a planted foot reads about 0). Pass: committed speed is about a tenth of the run speed.
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+as.dev.weapon 1
+wait 1.5
+as.dev.follow 380 40 90 55 0
+wait 1
+as.dev.shot g3_hammer_ready
+as.dev.trace 6.6 hammer .1
+as.dev.input attack 6
+as.dev.walk 0 1.6
+wait 2.0
+as.dev.shot g3_hammer_finisher
+wait 1.2
+as.dev.walk 90 1.6
+wait 1.7
+as.dev.walk 180 1.6
+wait 1.7
+as.dev.walk 270 1.6
+wait 1.7
+as.dev.state
+quit

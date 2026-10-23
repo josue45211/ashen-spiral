@@ -61,7 +61,8 @@ int main(int Argc,char** Argv) {
     for(int Angle=-180;Angle<=180;++Angle) {const float D=std::cos(Angle*.0174532925199433f);Check(Frontal(D)==(D>0),"every combo step excludes the rear hemisphere");}
     Check(Committed(1,2,.5f,0,1.188f)&&!Committed(1,1,.5f,0,.72f)&&!Committed(0,2,.5f,0,1),"commitment affects hammer finisher only");
     Check(!Committed(1,2,1.188f,0,1.188f),"commitment releases at full animation recovery");
-    Check(Near(FinisherSpeedScale(),.55f,.0001f)&&FinisherSpeedScale()>0.f,"finisher slows movement by 45 percent rather than rooting");
+    Check(Near(FinisherSpeedScale(),.06f,.0001f)&&FinisherSpeedScale()>0.f,"finisher slows movement by 94 percent (0.26 G3: the feet are planted, so travel must be small) rather than rooting");
+    Check(FinisherSpeedScale()*640.f*Cycle(2)<50.f,"the third swing's drift at full run speed over its whole cycle stays under half a metre");
     Check(!LeapProtected(1,.1f,-10)&&LeapProtected(2,.2f,-10)&&LeapProtected(3,1.3f,1.2f)&&!LeapProtected(3,1.43f,1.2f)&&!LeapProtected(0,2,1.2f),"startup vulnerable; flight/recovery protected; recovery ends immunity");
     {   // 0.23.4: the planned leap lands on the aimed point, including its height.
         const float Run=640.f,Dash=.24f,Max=LeapTravel(Run,Dash),G=1568.f;
