@@ -23,6 +23,9 @@
 #include "HAL/IConsoleManager.h"
 
 static TAutoConsoleVariable<int32> CVarASSkeletalHero(TEXT("as.hero.skeletal"),1,TEXT("1: heroes are the Unreal Mannequin (0.24.2 Phase F) when its assets are present on this machine; 0: the 21-part armour rig. Applied at the next look refresh."),ECVF_Default);
+#if !UE_BUILD_SHIPPING
+static TAutoConsoleVariable<FString> CVarASStanceClip(TEXT("as.hero.stance"),TEXT(""),TEXT("Dev: the clip every hero loops as its stance instead of its weapon's own (a name under /Game/Characters/Hero/Anims, or a full asset path); empty: the weapon's own. For judging stances by screenshot."),ECVF_Default);
+#endif
 
 namespace ASHeroLook {
 const FName UpperBody(TEXT("UpperBody")),FullBody(TEXT("DefaultSlot"));
@@ -52,9 +55,19 @@ const Attack& AttackFor(int32 Weapon) {
 }
 // The stance each weapon is carried in between moves, looped on the upper body (the legs keep their own walk, run and jump). TUNABLE: swap a clip by name.
 const TCHAR* StanceFor(int32 Weapon) {
-    static const TCHAR* Table[9]={TEXT("Kwang_Idle"),TEXT("Grux_TravelMode_Idle"),TEXT("Sparrow_idle"),TEXT("Yin_Idle_Combat"),TEXT("Yin_Idle_Combat"),TEXT("Yin_Idle_Combat"),
+    // 0.26 G2 (the 0.24.2 playtest: the ready stance "reads as a hunchback - cowering, exhausted"): the stance also plays on the arms and torso while running, so it is how the hero looks most of the
+    // time. Chosen from contact sheets of every candidate clip on every weapon (Tools/DevScripts/look_stances.txt, look_stances2.txt): the blade's Kwang_Idle and the maul's Grux_TravelMode_Idle
+    // were bent over at the waist with the head down; TwinBlast_Idle is an upright guard with the sword forward, and Steel's combat idle an upright two-handed carry, the hammer (or scythe)
+    // shouldered with both hands on the shaft. The others were already upright and stay.
+    static const TCHAR* Table[9]={TEXT("TwinBlast_Idle"),TEXT("steel_Steel_Idle_Combat"),TEXT("Sparrow_idle"),TEXT("Yin_Idle_Combat"),TEXT("Yin_Idle_Combat"),TEXT("steel_Steel_Idle_Combat"),
         TEXT("Murdock_Idle"),TEXT("Murdock_Idle"),TEXT("Wraith_Idle_Combat")};
     return Table[FMath::Clamp(Weapon,0,8)];
+}
+FString StanceName(int32 Weapon) {
+#if !UE_BUILD_SHIPPING
+    const FString Override=CVarASStanceClip.GetValueOnGameThread();if(!Override.IsEmpty()) return Override;
+#endif
+    return StanceFor(Weapon);
 }
 // Where a weapon sits in the fist, in the hand bone's own frame, worked out from the mesh's reference skeleton, so it fits Manny and Quinn alike without relying on the bones'
 // axis conventions (the template meshes have no weapon bones of their own): the handle runs through the fist from the little finger to the index finger, a blade's edges (a
@@ -179,7 +192,12 @@ void AASCharacter::AnimateSkeletal(float Delta,bool Dashing,bool Airborne) {
     // a reload: the rifle's reload over the reload time, on the arms
     if(ReloadStart>0.f&&ReloadStart!=SkelReloadSeen&&IsReloading()) {SkelReloadSeen=ReloadStart;PlayHeroClip(TEXT("/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Reload.MM_Rifle_Reload"),ASHeroLook::UpperBody,FMath::Max(.3f,ReloadEnd-ReloadStart),.1f,.15f);}
     // between moves the weapon is carried in its stance: a long loop on the upper body; any move takes the slots over (one slot group) and the stance eases back in after it
-    if(!bDowned) if(UAnimInstance* Anim=Body->GetAnimInstance()) if(!Anim->GetCurrentActiveMontage()) if(UAnimSequenceBase* Clip=ASHeroLook::Clip(ASHeroLook::StanceFor(Build.Weapon))) {
-        SkelStance=Anim->PlaySlotAnimationAsDynamicMontage(Clip,ASHeroLook::UpperBody,.25f,.12f,1.f,1000,-1.f,0.f);SkelStanceWeapon=Build.Weapon;
+    const FString Stance=ASHeroLook::StanceName(Build.Weapon);
+    if(Stance!=SkelStanceClip) { // the stance clip changed (a new weapon is handled in SetupSkeletalHero; the as.hero.stance dev variable changes it live): the old loop eases out
+        if(UAnimInstance* Current=Body->GetAnimInstance()) if(SkelStance.IsValid()) Current->Montage_Stop(.15f,SkelStance.Get());
+        SkelStance.Reset();SkelStanceWeapon=-1;
+    }
+    if(!bDowned) if(UAnimInstance* Anim=Body->GetAnimInstance()) if(!Anim->GetCurrentActiveMontage()) if(UAnimSequenceBase* Clip=ASHeroLook::Clip(*Stance)) {
+        SkelStance=Anim->PlaySlotAnimationAsDynamicMontage(Clip,ASHeroLook::UpperBody,.25f,.12f,1.f,1000,-1.f,0.f);SkelStanceWeapon=Build.Weapon;SkelStanceClip=Stance;
     }
 }

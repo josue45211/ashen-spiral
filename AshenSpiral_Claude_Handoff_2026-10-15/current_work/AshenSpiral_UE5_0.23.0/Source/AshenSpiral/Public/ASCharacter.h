@@ -171,7 +171,7 @@ public:
 private:
     // 0.24.2 Phase F: the hero as the Unreal Mannequin; the 21-part rig stays as the fallback (as.hero.skeletal 0, or the assets missing on this machine).
     bool bSkeletalHero=false,bSkelDashSeen=false,bSkelDownedSeen=false;uint8 SkelLeapSeen=0;float SkelReloadSeen=0.f;
-    TWeakObjectPtr<UAnimMontage> SkelStance;int32 SkelStanceWeapon=-1; // the weapon's stance looping on the upper body between moves, and the weapon it is for
+    TWeakObjectPtr<UAnimMontage> SkelStance;int32 SkelStanceWeapon=-1;FString SkelStanceClip; // the weapon's stance looping on the upper body between moves, the weapon it is for, and the clip
     void SetupSkeletalHero();
     bool SkeletalMovePlaying() const; // a move (an attack, a dash, a flinch, a cast, the fall) holds the slots, not the stance
     void AnimateSkeletal(float Delta,bool Dashing,bool Airborne);

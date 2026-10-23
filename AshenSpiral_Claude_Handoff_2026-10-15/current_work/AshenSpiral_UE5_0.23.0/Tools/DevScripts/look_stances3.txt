@@ -1,0 +1,66 @@
+# 0.26 G2 final check: every weapon's REAL ready stance (the table in ASCharacterSkeletal.cpp, no as.hero.stance override), standing and running, from the hero's left, without the HUD.
+# Test profile 95: powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_stances3
+# Saved\Screenshots\Dev\stance3_<weapon>_idle.png / _run.png (Saved\Scratch\contact.ps1 tiles them).
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.clearing 350 900
+as.dev.face 0
+as.hero.stance ""
+as.dev.weapon 0
+wait 1.4
+as.dev.follow 420 40 270 58 0
+as.dev.shot stance3_0_blade_idle 0
+as.dev.walk 0 1.6 1
+wait 0.9
+as.dev.shot stance3_0_blade_run 0
+wait 1.2
+as.dev.weapon 1
+wait 1.4
+as.dev.shot stance3_1_maul_idle 0
+as.dev.walk 180 1.6 1
+wait 0.9
+as.dev.shot stance3_1_maul_run 0
+wait 1.2
+as.dev.weapon 2
+wait 1.4
+as.dev.shot stance3_2_bow_idle 0
+as.dev.walk 0 1.6 1
+wait 0.9
+as.dev.shot stance3_2_bow_run 0
+wait 1.2
+as.dev.weapon 3
+wait 1.4
+as.dev.shot stance3_3_glaive_idle 0
+as.dev.walk 180 1.6 1
+wait 0.9
+as.dev.shot stance3_3_glaive_run 0
+wait 1.2
+as.dev.weapon 5
+wait 1.4
+as.dev.shot stance3_5_scythe_idle 0
+as.dev.walk 0 1.6 1
+wait 0.9
+as.dev.shot stance3_5_scythe_run 0
+wait 1.2
+as.dev.weapon 6
+wait 1.4
+as.dev.shot stance3_6_gun_idle 0
+as.dev.walk 180 1.6 1
+wait 0.9
+as.dev.shot stance3_6_gun_run 0
+wait 1.2
+as.dev.weapon 8
+wait 1.4
+as.dev.shot stance3_8_mortar_idle 0
+as.dev.walk 0 1.6 1
+wait 0.9
+as.dev.shot stance3_8_mortar_run 0
+wait 1.0
+quit

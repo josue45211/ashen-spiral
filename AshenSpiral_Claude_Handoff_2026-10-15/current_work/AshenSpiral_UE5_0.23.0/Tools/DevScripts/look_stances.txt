@@ -1,0 +1,76 @@
+# 0.26 G2: which clip makes the best upright ready stance. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_stances
+# Every candidate stance clip is looped on the hero (as.hero.stance) and photographed from its right side, first holding the Cinder Blade and then the Hoarfrost Maul, without the HUD:
+# Saved\Screenshots\Dev\stance_<weapon>_<NN>_<clip>.png (Saved\Scratch\contact.ps1 tiles them into contact sheets).
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+as.dev.follow 440 20 90 58 0
+as.dev.weapon 0
+wait 1.2
+as.hero.stance Kwang_Idle
+wait 1.1
+as.dev.shot stance_blade_01_Kwang_Idle 0
+as.hero.stance Aurora_Idle
+wait 1.1
+as.dev.shot stance_blade_02_Aurora_Idle 0
+as.hero.stance TwinBlast_Idle
+wait 1.1
+as.dev.shot stance_blade_03_TwinBlast_Idle 0
+as.hero.stance gideon_Idle
+wait 1.1
+as.dev.shot stance_blade_04_gideon_Idle 0
+as.hero.stance Murdock_Idle
+wait 1.1
+as.dev.shot stance_blade_05_Murdock_Idle 0
+as.hero.stance Yin_Idle_Combat
+wait 1.1
+as.dev.shot stance_blade_06_Yin_Idle_Combat 0
+as.hero.stance Wraith_Idle_Combat
+wait 1.1
+as.dev.shot stance_blade_07_Wraith_Idle_Combat 0
+as.hero.stance steel_Steel_Idle_Combat
+wait 1.1
+as.dev.shot stance_blade_08_steel_Idle_Combat 0
+as.hero.stance Grux_TravelMode_Idle
+wait 1.1
+as.dev.shot stance_blade_09_Grux_TravelMode_Idle 0
+as.hero.stance Sparrow_idle
+wait 1.1
+as.dev.shot stance_blade_10_Sparrow_idle 0
+as.hero.stance /Game/Characters/Mannequins/Anims/Unarmed/MM_Idle.MM_Idle
+wait 1.1
+as.dev.shot stance_blade_11_MM_Idle 0
+as.dev.weapon 1
+wait 1.2
+as.hero.stance Grux_TravelMode_Idle
+wait 1.1
+as.dev.shot stance_maul_01_Grux_TravelMode_Idle 0
+as.hero.stance steel_Steel_Idle_Combat
+wait 1.1
+as.dev.shot stance_maul_02_steel_Idle_Combat 0
+as.hero.stance Yin_Idle_Combat
+wait 1.1
+as.dev.shot stance_maul_03_Yin_Idle_Combat 0
+as.hero.stance Wraith_Idle_Combat
+wait 1.1
+as.dev.shot stance_maul_04_Wraith_Idle_Combat 0
+as.hero.stance Kwang_Idle
+wait 1.1
+as.dev.shot stance_maul_05_Kwang_Idle 0
+as.hero.stance Aurora_Idle
+wait 1.1
+as.dev.shot stance_maul_06_Aurora_Idle 0
+as.hero.stance /Game/Characters/Mannequins/Anims/Unarmed/MM_Idle.MM_Idle
+wait 1.1
+as.dev.shot stance_maul_07_MM_Idle 0
+as.hero.stance ""
+wait 0.5
+quit

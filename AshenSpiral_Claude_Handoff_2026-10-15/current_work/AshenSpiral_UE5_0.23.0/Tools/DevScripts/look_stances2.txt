@@ -1,0 +1,184 @@
+# 0.26 G2 second pass: every weapon's current stance against the proposed upright ones, photographed from the hero's front-left and left, without the HUD. Test profile 95.
+# Generated from the shortlist chosen on the first contact sheets (look_stances.txt): stance2_<weapon>_<NN>_<clip>_<view>.png in Saved\Screenshots\Dev.
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.clearing 900
+as.dev.face 0
+as.dev.weapon 0
+wait 1.0
+as.hero.stance Kwang_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_blade_01_Kwang_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_blade_01_Kwang_Idle_side 0
+as.hero.stance TwinBlast_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_blade_02_TwinBlast_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_blade_02_TwinBlast_Idle_side 0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_blade_03_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_blade_03_Wraith_Idle_Combat_side 0
+as.hero.stance Murdock_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_blade_04_Murdock_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_blade_04_Murdock_Idle_side 0
+as.dev.weapon 1
+wait 1.0
+as.hero.stance Grux_TravelMode_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_maul_01_Grux_TravelMode_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_maul_01_Grux_TravelMode_Idle_side 0
+as.hero.stance steel_Steel_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_maul_02_steel_Steel_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_maul_02_steel_Steel_Idle_Combat_side 0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_maul_03_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_maul_03_Wraith_Idle_Combat_side 0
+as.dev.weapon 2
+wait 1.0
+as.hero.stance Sparrow_idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_bow_01_Sparrow_idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_bow_01_Sparrow_idle_side 0
+as.hero.stance Murdock_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_bow_02_Murdock_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_bow_02_Murdock_Idle_side 0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_bow_03_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_bow_03_Wraith_Idle_Combat_side 0
+as.dev.weapon 3
+wait 1.0
+as.hero.stance Yin_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_glaive_01_Yin_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_glaive_01_Yin_Idle_Combat_side 0
+as.hero.stance TwinBlast_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_glaive_02_TwinBlast_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_glaive_02_TwinBlast_Idle_side 0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_glaive_03_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_glaive_03_Wraith_Idle_Combat_side 0
+as.dev.weapon 5
+wait 1.0
+as.hero.stance Yin_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_scythe_01_Yin_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_scythe_01_Yin_Idle_Combat_side 0
+as.hero.stance steel_Steel_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_scythe_02_steel_Steel_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_scythe_02_steel_Steel_Idle_Combat_side 0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_scythe_03_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_scythe_03_Wraith_Idle_Combat_side 0
+as.dev.weapon 6
+wait 1.0
+as.hero.stance Murdock_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_gun_01_Murdock_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_gun_01_Murdock_Idle_side 0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_gun_02_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_gun_02_Wraith_Idle_Combat_side 0
+as.hero.stance TwinBlast_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_gun_03_TwinBlast_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_gun_03_TwinBlast_Idle_side 0
+as.dev.weapon 8
+wait 1.0
+as.hero.stance Wraith_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_mortar_01_Wraith_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_mortar_01_Wraith_Idle_Combat_side 0
+as.hero.stance Murdock_Idle
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_mortar_02_Murdock_Idle_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_mortar_02_Murdock_Idle_side 0
+as.hero.stance steel_Steel_Idle_Combat
+as.dev.follow 360 30 325 55 0
+wait 1.0
+as.dev.shot stance2_mortar_03_steel_Steel_Idle_Combat_front 0
+as.dev.follow 360 30 270 55 0
+wait 0.5
+as.dev.shot stance2_mortar_03_steel_Steel_Idle_Combat_side 0
+as.hero.stance ""
+wait 0.5
+quit
