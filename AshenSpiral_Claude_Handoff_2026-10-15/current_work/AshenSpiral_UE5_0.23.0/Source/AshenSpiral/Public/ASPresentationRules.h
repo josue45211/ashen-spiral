@@ -176,4 +176,11 @@ inline float ButtonScaleTarget(bool Hover,bool Press,bool Enabled) {return !Enab
 inline float ButtonScaleAt(float From,float To,float Age) {
     const float T=std::clamp(Age/ButtonTween,0.f,1.f);const float Ease=1.f-(1.f-T)*(1.f-T);return From+(To-From)*Ease;
 }
+
+// ---- Downed marker colour (0.26 G7). A downed hero's marker, label and bleed-out readout are red, which vanishes against the blood-moon sky (sky stage 2: a red sun, red fog and a red
+// grade over the whole picture). From that stage on they are a bright ice-white: the brightest thing in that sky, with none of its red, and clearly not the green of a living ally. The other
+// stages keep the red. TUNABLE. Looks only.
+struct MarkerColor {float R,G,B;};
+inline MarkerColor DownedMarkerColor(int SkyStage) {return SkyStage>=2?MarkerColor{.88f,.97f,1.f}:MarkerColor{1.f,.18f,.2f};}
+inline constexpr MarkerColor AllyMarkerColor{.15f,.95f,.35f}; // a living ally's marker (the HUD draws it with this)
 }

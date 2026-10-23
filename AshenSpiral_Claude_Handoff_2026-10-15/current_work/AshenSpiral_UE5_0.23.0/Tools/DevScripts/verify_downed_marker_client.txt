@@ -1,0 +1,5 @@
+# 0.26 G7: the guest's half of verify_downed_marker_host.txt (test profile 91): it only waits; the HOST downs it (only the authority can hurt a hero) and photographs its marker.
+t.MaxFPS 60
+waitfor combat 240
+wait 24
+quit

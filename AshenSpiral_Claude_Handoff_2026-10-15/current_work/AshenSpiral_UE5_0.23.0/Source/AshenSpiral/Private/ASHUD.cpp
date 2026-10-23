@@ -19,7 +19,13 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "ASRules.h"
-namespace {const FLinearColor ASHudPurple(.72f,.24f,1.f),ASHudGold(1,.65f,.22f),ASHudTeal(.15f,.87f,.74f),ASHudMuted(.70f,.75f,.80f),ASHudRed(1,.15f,.16f);}
+namespace {const FLinearColor ASHudPurple(.72f,.24f,1.f),ASHudGold(1,.65f,.22f),ASHudTeal(.15f,.87f,.74f),ASHudMuted(.70f,.75f,.80f),ASHudRed(1,.15f,.16f);
+// 0.26 G7: what marks a downed hero in the world (the ally triangle and its label, the bleed-out text and bar) is red, which disappears against the blood-moon sky (Endless wave 50+): there it
+// is a bright cyan-white instead (ASPresentation::DownedMarkerColor).
+FLinearColor ASHudDown(const AASGameState* S) {
+    const auto C=ASPresentation::DownedMarkerColor(S?ASExpedition::EndlessSkyStage(S->bEndless,S->Phase!=EASPhase::Hub,S->EndlessWave):0);
+    return FLinearColor(C.R,C.G,C.B);
+}}
 // Keep all dynamic text in Slate. Canvas remains responsible for bars/lines only.
 class SASHUDText : public SLeafWidget {
 public:
@@ -300,8 +306,8 @@ void AASHUD::DrawHUD() {
     if(S->bEndless) for(auto W:S->Heroes) if(auto* Down=W.Get()) if(Down->bDowned||Down->bEliminated) {
         FVector2D P;if(PC->ProjectWorldLocationToScreen(Down->GetActorLocation()+FVector(0,0,185),P)) {
             const float X=P.X/Scale,Y=P.Y/Scale;
-            if(Down->bEliminated) Text(TEXT("ELIMINATED"),X-45,Y-18,ASHudRed,.7f);
-            else {Text(FString::Printf(TEXT("BLEEDING OUT  %.0f"),Down->BleedRemaining),X-58,Y-18,ASHudRed,.65f);Bar(X-60,Y,120,7,Down->BleedRemaining/25.f,ASHudRed);}
+            if(Down->bEliminated) Text(TEXT("ELIMINATED"),X-45,Y-18,ASHudDown(S),.7f);
+            else {Text(FString::Printf(TEXT("BLEEDING OUT  %.0f"),Down->BleedRemaining),X-58,Y-18,ASHudDown(S),.65f);Bar(X-60,Y,120,7,Down->BleedRemaining/25.f,ASHudDown(S));}
         }
     }
     FString Station;const int32 Near=S->Arena?S->Arena->StationAt(H->GetActorLocation(),&Station):-1;
@@ -458,7 +464,7 @@ void AASHUD::DrawHUD() {
 }
 
 // A modern triangle that follows each other player: above their head when visible, pinned to the screen edge as a pointer when not.
-// Labelled with that player's number, so P1 sees "P2" and P2 sees "P1". Green for an ally, red while they are downed.
+// Labelled with that player's number, so P1 sees "P2" and P2 sees "P1". Green for an ally, red while they are downed (cyan-white under the blood-moon sky: ASHudDown).
 void AASHUD::DrawAllyMarkers(AASGameState* S,AASPlayerController* PC,AASCharacter* Local) {
     if(!Canvas||!S||!PC||!Local) return;
     FVector CameraAt;FRotator CameraRotation;PC->GetPlayerViewPoint(CameraAt,CameraRotation);
@@ -467,7 +473,7 @@ void AASHUD::DrawAllyMarkers(AASGameState* S,AASPlayerController* PC,AASCharacte
     for(auto W:S->Heroes) {
         const AASCharacter* Ally=W.Get();if(!Ally||Ally==Local) continue;
         const auto* AllyState=Ally->GetPlayerState<AASPlayerState>();const int32 Number=AllyState?AllyState->PlayerIndex+1:2;
-        const FLinearColor Base=Ally->bDowned?FLinearColor(1.f,.18f,.2f):FLinearColor(.15f,.95f,.35f);
+        const FLinearColor Base=Ally->bDowned?ASHudDown(S):FLinearColor(ASPresentation::AllyMarkerColor.R,ASPresentation::AllyMarkerColor.G,ASPresentation::AllyMarkerColor.B);
         const FLinearColor Fill(Base.R,Base.G,Base.B,Ally->bDowned?Pulse:.95f);
         const FVector Head=Ally->GetActorLocation()+FVector(0,0,Ally->bDowned?150.f:225.f);
         const float Meters=FVector::Dist(Local->GetActorLocation(),Ally->GetActorLocation())/100.f;

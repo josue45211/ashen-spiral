@@ -133,6 +133,16 @@ int main() {
         for(float A=-1;A<1;A+=.01f) {const float V=ButtonScaleAt(ButtonPress,ButtonHover,A);Check(V>=ButtonPress-.001f&&V<=ButtonHover+.001f,"button scale never overshoots");}
         Check(ButtonTween<=.12f,"button animation stays snappy");
     }
+    { // 0.26 G7: the downed marker follows the sky. Red where red reads (clear, gloomy), ice-white under the blood-moon sky where red vanishes.
+        const auto Luma=[](const MarkerColor& C) {return .2126f*C.R+.7152f*C.G+.0722f*C.B;};
+        const auto Gap=[](const MarkerColor& A,const MarkerColor& B) {return std::abs(A.R-B.R)+std::abs(A.G-B.G)+std::abs(A.B-B.B);};
+        for(int Stage:{-3,0,1}) {const auto C=DownedMarkerColor(Stage);Check(C.R>=.9f&&C.R>C.G*3.f&&C.R>C.B*3.f,"the downed marker stays red in the clear and gloomy skies");}
+        for(int Stage:{2,3,99}) {const auto C=DownedMarkerColor(Stage);Check(Luma(C)>=.85f&&C.R<=C.B&&C.R<.95f,"under the blood-moon sky the downed marker is bright and has none of the sky's red dominance");}
+        Check(Gap(DownedMarkerColor(2),DownedMarkerColor(0))>1.f,"the blood-moon downed colour differs strongly from the red");
+        const MarkerColor Sky{1.f,.16f,.10f};          // the blood-moon sun (SkyLookFor(2)): what the marker must stand out from
+        Check(Luma(DownedMarkerColor(2))>Luma(Sky)*2.f&&Luma(DownedMarkerColor(0))<Luma(Sky)*1.2f,"the old red is no brighter than the red sky (that is G7); the new colour is far brighter");
+        for(int Stage:{0,1,2}) Check(Gap(DownedMarkerColor(Stage),AllyMarkerColor)>1.f,"a downed marker is never mistaken for a living ally's green");
+    }
     std::cout<<"PASS: "<<Checks<<" interface/arsenal checks; HUD scale, fade duration, legacy unlock bits, firearm balance and upgrade eligibility.\n";
     std::cout<<"Shared rules only; Unreal rendering, actors, save I/O and networking were not run.\n";
 }
