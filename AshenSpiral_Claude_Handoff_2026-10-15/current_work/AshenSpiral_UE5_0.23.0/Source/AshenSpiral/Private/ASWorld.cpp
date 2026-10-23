@@ -34,6 +34,11 @@
 #include "Misc/Crc.h"
 #include "Sound/SoundBase.h"
 #include "Kismet/GameplayStatics.h"
+#include "HAL/IConsoleManager.h"
+// 0.24.2 aesthetics: how much of the pack's debris normal map the Endless floor keeps (M_ArenaGround's DirtRelief). The map was baked for a debris mesh and is full of triangular facets
+// that catch the light as shards and fans on a floor; the rubble's look lives in its colour and ambient occlusion. 0 flat, 1 the pack's. TUNABLE; read when the floor is built.
+static TAutoConsoleVariable<float> CVarASFloorRelief(TEXT("as.floor.relief"),.25f,TEXT("Endless floor: how much of the debris normal map to keep (0 flat .. 1 the pack's). Applied when the arena is built."),ECVF_Default);
+
 namespace ASAssets {
 UStaticMesh* Mesh(const FString& Name) {
     if(Name==TEXT("Cube") || Name==TEXT("Sphere") || Name==TEXT("Cylinder") || Name==TEXT("Cone"))
@@ -392,6 +397,7 @@ void AASWorld::Add(const FString& MeshName,const FString& Group,const FVector& P
                 if(auto* Floor=UMaterialInstanceDynamic::Create(Earth,C)) {
                     // TUNABLE: the pack's sandstone is pale, and under the arena's strong sun it bleached; ash-grey and darker, the plain beyond the ruins darker still
                     Floor->SetVectorParameterValue(TEXT("Tint"),Group.StartsWith(TEXT("EndlessGround"))?FLinearColor(.36f,.35f,.34f):FLinearColor(.56f,.54f,.52f));
+                    Floor->SetScalarParameterValue(TEXT("DirtRelief"),CVarASFloorRelief.GetValueOnGameThread());
                     Mat=Floor;
                 }
         // 0.24.2 aesthetics: the reward chest and the vault's cache are planked wood (the Archives' wood maps on the chest's box-mapped UVs) under their trim, which is worn gold
@@ -749,7 +755,7 @@ void AASWorld::MakeRoom() {
 
         }
         // 0.24.2: the cache is a chest with its trim (silvered), standing on the floor (the chest's base is 43.3 cm below its middle)
-        Add(TEXT("SM_Chest"),TEXT("VaultCache"),VaultPoint(3)+FVector(0,0,37),FVector(.85f),FLinearColor(.15f,.5f,.7f),false,0,1,.5f);
+        Add(TEXT("SM_Chest"),TEXT("VaultCache"),VaultPoint(3)+FVector(0,0,37),FVector(.85f),FLinearColor(.15f,.5f,.7f),false,0,.4f,.5f); // a glow of 1 washed the wood out to a pale blue block
         Add(TEXT("SM_ChestTrim"),TEXT("CacheChestTrim"),VaultPoint(3)+FVector(0,0,37),FVector(.85f),FLinearColor(.62f,.7f,.78f),false,0,0,.95f);
 
     }
@@ -1082,7 +1088,7 @@ void AASWorld::UpdateVaultAppearance() {
         if(auto* Material=Cast<UMaterialInstanceDynamic>(Pair.Value->GetMaterial(0))) {
             const bool Cache=Pair.Key.ToString().Contains(TEXT("VaultCache"));
             Material->SetVectorParameterValue(TEXT("Tint"),bVaultDimmed?FLinearColor(.20f,.24f,.28f):(Cache?FLinearColor(.15f,.5f,.7f):ASData::BiomeColor(Biome())));
-            Material->SetScalarParameterValue(TEXT("Emission"),bVaultDimmed?0.f:(Cache?1.f:3.f));
+            Material->SetScalarParameterValue(TEXT("Emission"),bVaultDimmed?0.f:(Cache?.4f:3.f));
         }
     }
 }

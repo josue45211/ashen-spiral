@@ -339,7 +339,8 @@ AASPickup* AASPickup::Spawn(UWorld* W,const FVector& At,int32 Type,float Value) 
     if(P) {P->Kind=Type;P->Amount=Value;UGameplayStatics::FinishSpawningActor(P,T);}return P;
 }
 void AASPickup::RefreshLook() {
-    ASAssets::Style(Visual,Kind==0?TEXT("SM_HealthPickup"):(Kind==1?TEXT("SM_ShieldPickup"):TEXT("SM_Crystal")),Kind==0?FLinearColor(.1f,1,.35f):(Kind==1?ASData::HitColor(EASHitKind::Shield):FLinearColor(1,.75f,.12f)),0,4);
+    // 0.24.2 aesthetics: a glow of 4 on the lit surface saturated every pickup to a pale blob (a health cross read as white); 1.6 keeps its colour and still lights the floor round it
+    ASAssets::Style(Visual,Kind==0?TEXT("SM_HealthPickup"):(Kind==1?TEXT("SM_ShieldPickup"):TEXT("SM_Crystal")),Kind==0?FLinearColor(.1f,1,.35f):(Kind==1?ASData::HitColor(EASHitKind::Shield):FLinearColor(1,.75f,.12f)),0,1.6f);
     Visual->SetRelativeScale3D(Kind==2?FVector(.25f):FVector(1));
 }
 void AASPickup::BeginPlay() {Super::BeginPlay();if(auto* S=AS::State(this)) S->Pickups.AddUnique(this);Born=AS::Time(this);Expires=Born+90;RefreshLook();}

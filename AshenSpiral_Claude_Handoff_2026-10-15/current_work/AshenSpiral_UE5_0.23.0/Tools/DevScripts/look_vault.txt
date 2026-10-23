@@ -1,0 +1,36 @@
+# 0.24.2 aesthetics: the story vault's cache - a chest with silvered trim (rooms 5, 13 and 25 have a vault: room % 4 == 1).
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.run 4242
+waitfor combat 40
+wait 2
+as.dev.room 5
+waitfor combat 30
+wait 2.5
+as.dev.killall
+as.dev.station 203
+wait 1
+as.dev.follow 320 110 190 55 120
+wait 0.6
+as.dev.shot vault_05 0
+as.dev.room 13
+waitfor combat 30
+wait 2.5
+as.dev.killall
+as.dev.station 203
+wait 1
+as.dev.follow 320 110 190 55 120
+wait 0.6
+as.dev.shot vault_13 0
+as.dev.room 25
+waitfor combat 30
+wait 2.5
+as.dev.killall
+as.dev.station 203
+wait 1
+as.dev.follow 320 110 190 55 120
+wait 0.6
+as.dev.shot vault_25 0
+wait 0.3
+quit

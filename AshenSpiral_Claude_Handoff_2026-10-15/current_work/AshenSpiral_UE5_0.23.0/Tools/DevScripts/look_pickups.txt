@@ -1,0 +1,25 @@
+# 0.24.2 aesthetics: the pickups (health cross, shield, cinder crystal) as they lie on the floor, close up. They are dropped by kills: a wave of grunts is struck down beside the hero.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 0.8
+as.dev.spawn 0 6 300
+wait 0.8
+as.dev.killall 1500
+wait 1.2
+as.dev.follow 260 90 150 55 0
+wait 0.3
+as.dev.shot pickups_01 0
+wait 0.4
+as.dev.follow 160 60 120 50 0
+wait 0.3
+as.dev.shot pickups_02 0
+wait 0.3
+quit

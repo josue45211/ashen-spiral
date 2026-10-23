@@ -1,0 +1,27 @@
+# 0.24.2 aesthetics: the Endless floor up close and at a low angle (the dirt layer's normal map made shards and fans; as.floor.relief tunes how much of it is kept).
+# Run it with the variable set before the arena is built, e.g. as.floor.relief 0 as the first line of a copy, or leave it at its default.
+waitfor ready 60
+wait 2
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 1
+as.dev.cam -1400 -1500 90 -4 50 70
+wait 1
+as.dev.shot floor_01_low 0
+as.dev.cam -1000 -1200 600 -38 45 70
+wait 0.5
+as.dev.shot floor_02_mid 0
+as.dev.cam -700 -900 1700 -75 45 70
+wait 0.5
+as.dev.shot floor_03_top 0
+as.dev.follow 480 130 200 60 0
+wait 0.5
+as.dev.shot floor_04_hero 0
+wait 0.3
+quit
