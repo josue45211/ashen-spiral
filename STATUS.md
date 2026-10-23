@@ -1,8 +1,54 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-20 18:40 PDT
-phase: 0.24.2 PLAYTEST ZIP READY (Edison 09:01 order done); continuing Edison's 08:30 list (visual polish, 0.25 plan)
-current_item: queued in-engine checks, held until the playtest game now running on this machine (started 17:17) exits: a floor fix (the dirt normal map's shards), softer pickups, the vault chest, a co-op Titan-boss check, a frame-time probe, and elite brutes as smaller Titans (built, off by default). Nothing is committed unverified.
+updated: 2026-10-23 07:50 PDT
+phase: 0.26 RUN - Phase 0 (G1-G8) DONE and committed (10 commits); settling the held 0.24.2 aesthetic work, then Phase 1 (Twin Claws + Pounce)
+current_item: settle the held aesthetic pieces (elite brutes as small Titans, floor relief, pickups, vault chest), then Phase 1 design: Twin Claws weapon id 9, RMB Pounce (root-motion dynamic leap + glue), G for Spiral
+
+<!-- 0.26-RUN:BEGIN -->
+## 0.26 RUN - started 2026-10-23 (Edison's "0.26 Huge Update Plan", inbox 2026-10-22 22:02 parts 1+2; Josue + P2 locked it 2026-10-22)
+Model/effort: Sonnet 5.5 on max effort, as ordered (nothing to flip). Reviews off, build directly; I escalate only money, deletions, expensive-to-undo architecture and save-format changes.
+Where I work: C:\Games\AshenSpiral (the main clone). The Playtest folder is only the matched-build playtest copy.
+Definition of done per item: UBT editor build unity AND non-unity clean, Tests/run_tests.py exit 0 (Saved/Scratch/run_tests_clean.ps1), crash-safety self-review, in-engine playtest of the changed behaviour with screenshots and a log scan. Presentation ships in the same item (POP + PIZZAZZ mandate).
+
+### Step 0 - folder check: DONE
+- C:\Games\AshenSpiral_UE5_0.24.2_Playtest is NOT a git repo: a playtest-zip extraction (the zip was cut from commit 6b57967), no history. The bridge (python pid 13268, Tailscale IP, port 8765) runs from it, so the bridge serves ITS INBOX.md and STATUS.md.
+- C:\Games\AshenSpiral EXISTS and is healthy: branch astra/0.23-handoff = origin/astra/0.23-handoff at 49c2e1e, git fsck clean, full project tree, and the build / test / run helpers in the project's Saved/Scratch. All work happens there. No folder was created, moved or re-initialised.
+- The zip is OLDER than that HEAD (the Titan boss and aesthetics passes 1-9 came after 6b57967). The new playtest zip is exported from the main clone at the end of the run.
+- So Edison's poll stays accurate, this STATUS.md is mirrored to <Playtest>\STATUS.md (the file the bridge serves) after every update. New inbox entries arrive in <Playtest>\INBOX.md.
+
+### Held 0.24.2 work found in the tree (uncommitted: the previous run's rule was "nothing is committed unverified")
+A snapshot is kept at git ref refs/wip/pre-0.26-2026-10-23 (fff08f6; no branch, Config files left out). I verify each piece in-engine and commit it on its own before building on it:
+- co-op net base: ASNetBase.h + PreReplication in ASCharacter and ASEnemy, cvar as.net.dropbase (12.7k "NOT Supported" warnings in the live playtest; may be tied to G1)
+- elite brutes as smaller Titans (off by default) and the elite mutation tint (ASEnemy, ASEnemySkeletal)
+- softer pickups (glow 4 to 1.6), vault chest glow, Endless floor debris relief (cvar as.floor.relief .25)
+- dev harness: as.dev.perf (GPU frame time; Build.cs adds RHI), new DevScripts, RunCoopCheck.ps1, import_vault_assets.py
+- Config/DefaultInput.ini and DefaultEngine.ini are editor re-saves: never committed; the clean test wrapper swaps in the committed ones.
+
+### Plan progress
+- [~] Settle the held 0.24.2 work: the net-base fix is verified and committed (f878474); the aesthetic pieces (floor relief, pickups, vault chest, elite brutes as small Titans) are next
+- [x] Phase 0 DONE (2026-10-23, 10 commits f878474..9778d50, each checked in-engine with numbers + screenshots; unity + non-unity builds clean, 0 warnings from our sources, run_tests exit 0 with all 23 suites):
+    G1 co-op elevation desync (3f89f4e): the engine rebuilt every proxy's mesh from a cached (0,0,0) offset, 88 cm too high and turned 90 degrees; fixed, before/after numbers in MERGE_LOG
+    G2 posture (21d3823): blade and maul stances were bent over; now upright (TwinBlast guard, Steel's two-handed carry)
+    G3 hammer 3rd swing (6907bf6): finisher speed 55% -> 6%, feet and travel match
+    G4 hammer (2476d2e): left hand held on the shaft by a two-bone IK through every swing; hammer drawn 1.35x
+    G5 boss roar (0e3c86f): rebuilt from scratch (4 ms onset, 67 Hz pulse, deep); old roars kept, as.roar.old 1 plays them
+    G6 footsteps (908ce7d): fire on real foot strikes (21 steps, strictly alternating), 3 dB quieter
+    G7 downed marker (eb27f83): ice-white under the blood moon, red elsewhere
+    G8 launches (9778d50): about 22% farther (slam 7.2 -> 8.8 m)
+    UNVERIFIED by humans (feel / art / ears): the new roar (lion vs synthesiser), the blade's new guard stance, the hammer's size and elbows, the finisher feel at 6%, footstep level, plus the standing list: wall slams, pile-ups, elemental fairness
+- [ ] Phase 1: Twin Claws + Pounce (with presentation)
+- [ ] Phase 2: team abilities - Mark & Pop / Link / Twin Cast
+- [ ] Phase 3: skill tree, three lanes
+- [ ] Version 0.26.0 / protocol 2600, export the playtest zip, announce it here
+- [ ] Phase 4: polish loop (every pass marked POLISH) until Josue says wrap up
+
+### For the next playtest (Phase 0 A/B switches, all console variables)
+- as.roar.old 1 plays the 0.24.2 roars; as.hero.twohand 0 drops the hammer IK; as.hero.stance <clip> tries any stance clip; as.foley.gain <x> scales the footsteps; as.net.dropbase 0 turns the net-base fix off.
+
+### Needs Josue (0.26 run) - nothing blocking
+- Pushing: the 0.26 plan says nothing about pushing, so I commit locally only. Say "push" (or restore the 10/19 "push when green" order) and I push astra/0.23-handoff.
+- Bridge location (FYI): it serves from the Playtest folder and I mirror STATUS.md there. If you would rather serve from the main clone, copy mission-control-server-v4.py to C:\Games\AshenSpiral and start it there.
+<!-- 0.26-RUN:END -->
 
 ## 0.24.2 PLAYTEST ZIP (Edison 09:01 order) - for Josue and P2; both PCs must run this exact file
 - Path: C:\Games\AshenSpiral_UE5_0.24.2_Playtest.zip
@@ -11,7 +57,7 @@ current_item: queued in-engine checks, held until the playtest game now running 
 - Checked from a fresh folder: extracted, its own Setup (Tools\Setup.ps1, or Setup_and_Open.bat) built and imported with 0 errors in 3m38s, and the game ran - every roar played its delivered file, the arena looked as on this machine, no missing-material fallbacks.
 - On each PC: extract to a new folder, run Setup_and_Open.bat (or Tools\Setup.ps1), then play as usual. Test_Two_Players.bat for a local two-player check.
 
-## NOW (2026-10-20) - read this first; older history is below, newest sections at the bottom of the file
+## State when the 0.26 run began (2026-10-20, 0.24.2) - older history is below, newest sections at the bottom of the file
 Version 0.24.2 / protocol 2402. Branch astra/0.23-handoff, HEAD 3408fa0 (+ this STATUS update), pushed. Every item: UBT editor build unity + non-unity clean, Tests/run_tests.py exit 0, and checked IN-ENGINE (scripted standalone runs; screenshots in Saved/Screenshots/Dev).
 - Hub (3408fa0, after the zip): the portals are turning spiral vortices in their colours (sealed ones a dark slow smoke) and the station flames burn instead of glowing white eggs. Checked in-engine.
 - Reward chest (60a34d7, after the zip): it is a wooden chest with a domed lid and gold bands; it had drawn as a stepped octagonal block since the first meshes (its lid was modelled standing upright). Checked in-engine.
