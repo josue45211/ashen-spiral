@@ -106,7 +106,12 @@ void AASCharacter::SetupSkeletalHero() {
         SkelStance.Reset();SkelStanceWeapon=-1;
     }
     Body->SetHiddenInGame(false);Body->SetVisibility(true);Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    Body->SetRelativeLocationAndRotation(FVector(0.f,0.f,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight()),FRotator(0.f,-90.f,0.f)); // the Mannequin faces +Y: turned to face the actor's +X
+    const FVector Stand(0.f,0.f,-GetCapsuleComponent()->GetScaledCapsuleHalfHeight());const FRotator Face(0.f,-90.f,0.f); // the Mannequin faces +Y: turned to face the actor's +X
+    Body->SetRelativeLocationAndRotation(Stand,Face);
+    // 0.26 G1: the engine rebuilds a proxy's mesh transform every frame from the offset it cached when the actor was created (CharacterMovementComponent::SmoothClientPosition_UpdateVisuals:
+    // smoothing offset + GetBaseTranslationOffset). That was the empty rig's (0,0,0), so the OTHER player's hero was drawn 88 cm too high and turned 90 degrees on every machine (a listen
+    // host's view of its guest included) while one's own hero, which is never smoothed, stood right. The Titan's setup does the same (ASEnemySkeletal.cpp).
+    CacheInitialMeshOffset(Stand,Face);
     Body->VisibilityBasedAnimTickOption=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones; // the weapon and the dash afterimages read its bones every frame
     for(auto& Part:Parts) if(Part) Part->SetVisibility(false);
     // the weapon in the fist (the bow in the left), the spiral charge in the left hand; the part rig's bow string and nocked arrow are not drawn on the Mannequin

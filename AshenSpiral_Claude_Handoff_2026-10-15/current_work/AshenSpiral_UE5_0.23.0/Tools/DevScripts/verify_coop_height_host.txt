@@ -1,0 +1,49 @@
+# 0.26 G1: the other hero's height and facing as each machine draws it (host, test profile 90). Pairs with verify_coop_height_client.txt:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunCoopCheck.ps1 -HostScript verify_coop_height_host -GuestScript verify_coop_height_client
+# Each side logs "AshenHeroes:" lines (mesh offset against the capsule, the foot bone's height above the capsule bottom: about 0 on the floor) and photographs the OTHER player's hero
+# from beside it (as.dev.follow ... other), in the hub, standing in the arena and while it walks. Screenshots: Saved\Screenshots\Dev\g1_host_*.png and g1_guest_*.png.
+t.MaxFPS 60
+waitfor players 150
+wait 4
+as.dev.god 1
+as.dev.heroes hub
+as.dev.follow 380 30 70 55 0 1
+wait 1.5
+as.dev.shot g1_host_sees_guest_hub 0
+wait 0.5
+as.dev.follow off
+wait 6
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 3
+as.dev.heroes arena
+as.dev.follow 380 30 70 55 0 1
+wait 1.5
+as.dev.shot g1_host_sees_guest_arena
+wait 0.5
+as.dev.follow off
+wait 2
+as.dev.walk 0 2
+wait 2.2
+as.dev.walk 60 2
+wait 2.2
+as.dev.walk 120 2
+wait 0.5
+as.dev.heroes arena_walking
+as.dev.follow 380 30 70 55 0 1
+wait 1
+as.dev.shot g1_host_sees_guest_walking
+wait 0.5
+as.dev.follow off
+as.dev.walk 180 2
+wait 2.2
+as.dev.walk 240 2
+wait 2.2
+as.dev.walk 300 2
+wait 8
+quit

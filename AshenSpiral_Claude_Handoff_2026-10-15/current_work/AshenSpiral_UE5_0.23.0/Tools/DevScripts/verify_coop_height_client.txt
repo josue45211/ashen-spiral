@@ -1,0 +1,35 @@
+# 0.26 G1: the guest's half of verify_coop_height_host.txt (test profile 91): logs and photographs the HOST's hero as this machine draws it.
+t.MaxFPS 60
+waitfor hub 120
+wait 4
+as.dev.heroes hub
+as.dev.follow 380 30 70 55 0 1
+wait 1.5
+as.dev.shot g1_guest_sees_host_hub 0
+wait 0.5
+as.dev.follow off
+waitfor combat 240
+wait 8
+as.dev.heroes arena
+as.dev.follow 380 30 70 55 0 1
+wait 1.5
+as.dev.shot g1_guest_sees_host_arena
+wait 0.5
+as.dev.follow off
+as.dev.walk 90 2
+wait 2.2
+as.dev.walk 150 2
+wait 2.2
+as.dev.walk 210 2
+wait 0.5
+as.dev.heroes arena_walking
+as.dev.follow 380 30 70 55 0 1
+wait 1
+as.dev.shot g1_guest_sees_host_walking
+wait 0.5
+as.dev.follow off
+as.dev.walk 270 2
+wait 2.2
+as.dev.walk 330 2
+wait 2.2
+quit
