@@ -37,7 +37,8 @@ int main() {
     // ---- 0.24.2 (F1-F3) the flight: a hop, then a skid; far enough to reach walls, and the farther the harder ----
     {
         const Flight Slam=LaunchFor(950.f),Leap=LaunchFor(700.f),Repulse=LaunchFor(600.f),Light=LaunchFor(230.f),Hard=LaunchFor(ImpactMinStrength);
-        Check(Slam.Distance>=600.f&&Slam.Distance<=900.f,"the maul's slam (950) throws a body 6 to 9 m - the playtest asked for more launch than the old 20 cm");
+        Check(Slam.Distance>=800.f&&Slam.Distance<=1000.f,"the maul's slam (950) throws a body 8 to 10 m (0.26 G8: was 6 to 9 m, 7.2 in the 0.24.2 playtest, which asked for a bit more)");
+        Check(Slam.Distance>=LaunchFor(950.f/1.2f).Distance*1.15f,"0.26 G8: a slam flies at least 15 percent farther than it did at the 0.24.2 launch speed");
         Check(Leap.Distance>=300.f&&Repulse.Distance>=250.f,"the leap landing and Repulse throw bodies at least 3 and 2.5 m");
         Check(Hard.Distance>=80.f&&Light.Distance>=50.f&&Light.Distance<Hard.Distance,"even the weakest hard launch moves a body most of a metre; a light knock is a nudge");
         Check(LaunchFor(950.f*EliteLaunchScale).Distance<Slam.Distance*.5f&&LaunchFor(950.f*EliteLaunchScale).Distance>=150.f,"an elite flies under half as far, but still visibly");

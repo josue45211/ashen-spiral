@@ -1,0 +1,27 @@
+# 0.26 G8: how far a launch really carries a body (the 0.24.2 playtest wanted "a bit more distance"). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_launch_distance
+# One tough grunt in open ground is launched at strength 950 (the maul's slam); its position is read in the same frame as the launch and again once it has come to rest. Distance =
+# between the two "enemy kind 0 ... at V(...)" lines. "AshenKnock: launch" prints the rules' own prediction (ASPartC::LaunchFor) for comparison: the in-engine travel runs about 8% over it.
+# (Measured 2026-10-23: 953 cm in-engine against 878 cm predicted at LaunchSpeedPerStrength 1.2; the rules put the 0.24.2 speed at 719 cm, about 780 cm in-engine.)
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 1800
+as.dev.face 0
+wait 1
+as.dev.spawn 0 1 300 8
+as.dev.freeze 1 1000
+wait 0.5
+as.dev.state
+as.dev.freeze 0
+as.dev.knock 950 700
+wait 1.7
+as.dev.freeze 1 4000
+as.dev.state
+wait 1
+quit

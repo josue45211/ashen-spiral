@@ -43,7 +43,9 @@ inline float ImpactDamage(float Strength,int Generation,float Multiplier=1.f) {
 inline float ThrownOnStrength(float Strength) {return std::isfinite(Strength)?Strength*.65f:0.f;} // the body that was hit flies off at 65% of the strength
 // The flight. Horizontal speed and lift grow with strength; airtime is the hop's (gravity 980 cm/s^2, the enemies' gravity scale is 1); the skid that follows brakes with
 // SkidFriction (per second, proportional) and SkidBraking (cm/s^2, constant), the way CharacterMovement brakes a walker. Elites fly a little over half as far as they used to.
-constexpr float LaunchSpeedPerStrength=1.f,LaunchSpeedMax=1500.f,LaunchLiftPerStrength=.30f,LaunchLiftMin=130.f,LaunchLiftMax=360.f,LaunchGravity=980.f;
+// 0.26 G8 (the 0.24.2 playtest: launches were better but "the players want a bit more distance still"): the speed is 1.2x a strength (was 1.0x) and its cap 1800 (was 1500), so a slam
+// throws a body about 8.8 m (was 7.2) and a leap landing 5 m (was 4.1); the hop, its height and the strengths themselves are unchanged (wall-slam damage follows strength, not speed).
+constexpr float LaunchSpeedPerStrength=1.2f,LaunchSpeedMax=1800.f,LaunchLiftPerStrength=.30f,LaunchLiftMin=130.f,LaunchLiftMax=360.f,LaunchGravity=980.f;
 constexpr float SkidFriction=3.f,SkidBraking=1000.f,EliteLaunchScale=.55f,LaunchMaxSeconds=1.6f;
 struct Flight {float Horizontal=0.f,Vertical=0.f,Airtime=0.f,Skid=0.f,Seconds=0.f,Distance=0.f;};
 inline float SkidSeconds(float Speed) { // time for the skid's braking (friction plus constant braking) to bring Speed to rest
