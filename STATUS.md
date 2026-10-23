@@ -1,8 +1,8 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-23 12:43 PDT
-phase: 0.26 Phase 2 - team abilities (Phase 0 and Phase 1 done)
-current_item: Phase 2: Mark & Pop, Link, Twin Cast
+updated: 2026-10-23 13:51 PDT
+phase: 0.26 Phase 3 - skill tree (Phase 0, 1 and 2 done)
+current_item: Phase 3: skill tree, three lanes
 
 <!-- 0.26-RUN:BEGIN -->
 ## 0.26 RUN - started 2026-10-23 (Edison's "0.26 Huge Update Plan", inbox 2026-10-22 22:02 parts 1+2; Josue + P2 locked it 2026-10-22)
@@ -38,13 +38,15 @@ A snapshot is kept at git ref refs/wip/pre-0.26-2026-10-23 (fff08f6; no branch, 
     UNVERIFIED by humans (feel / art / ears): the new roar (lion vs synthesiser), the blade's new guard stance, the hammer's size and elbows, the finisher feel at 6%, footstep level, plus the standing list: wall slams, pile-ups, elemental fairness
 - [x] Phase 1 DONE (2026-10-23; commits 0d61d60, bae50bd, d233ab8; unity + non-unity builds clean, 0 warnings from our sources, run_tests exit 0): TWIN CLAWS (weapon 10 of 10, hub stand at the end of the row). LMB: two alternating claw swings, one every .19 s, each shreds ONE target. RMB: POUNCE (6 s) leaps onto the enemy under the crosshair and glues you to it at claw range, facing it, for up to 3.5 s; dash, the target's death or teleport, or a wall breaks it; a pounce at nothing is a short lunge (2.4 s). G is the Spiral, as on the maul. The glue passed every in-engine check (still grunt, runner, flier, whiff, hub dummy, a co-op guest at 100 ms: no floating, no clipping, no server corrections), so NO FALLBACK was taken. Ships with its show: afterimages on the leap, rake streaks + sparks that build with the blows in a row, 11 sounds, camera push + shake + hit-stop on the arrival, gold target brackets and a LATCHED row on the HUD, a POUNCE word over the wielder. Shred Stacks was NOT built. Details and every judgement call: MERGE_LOG.md "0.26 Phase 1".
     UNVERIFIED by humans (feel / ears): how the pounce feels in the hands, the 11 synthesised sounds, the claws' stance and clip poses (Khaimera/Kallari clips, no bespoke clip yet), the hub display's contrast in shade
-- [~] Phase 2: team abilities - Mark & Pop / Link / Twin Cast - in progress (three new active skills on F; server-authoritative; SynergyCue expanded)
-- [ ] Phase 3: skill tree, three lanes
+- [x] Phase 2 DONE (2026-10-23; commit 5c826ac; unity + non-unity builds clean, 0 warnings from our sources, run_tests exit 0): three TEAM SKILLS, new active skills on F (loadout page, free to equip and test on the lobby dummy), retheme of the plan's names: ASHEN BRAND (Mark & Pop: brand an enemy; your partner's hits fill it, it bursts for what it stored and splashes the crowd), EMBER TETHER (Link: a line between you and your partner that lashes whatever it crosses and gives you both +15% damage while close), TWIN COLLAPSE (Twin Cast: every cast is a small collapse; if your partner casts theirs within 1.5 s the two merge into a pull to the midpoint and a detonation with a stun). Server-authoritative, replicated cues through the expanded SynergyCue (every synergy now floats its name as a big word), each with a weaker lone-hero form (the brand fills at a third of the rate, the tether anchors to an ember stake, a lone Twin Collapse is the small collapse). Checked alone and with a guest at 100 ms; every cue reached the guest. Details and calls: MERGE_LOG.md "0.26 Phase 2".
+    UNVERIFIED by humans (feel / ears): the 13 synthesised sounds, how the burst and the collapse feel in the hands, the numbers (brand needs a quarter of an enemy's health, lash 18 per .45 s, collapse 95 plus a stun)
+- [~] Phase 3: skill tree, three lanes (MELEE / RANGED / TEAM) - in progress
 - [ ] Version 0.26.0 / protocol 2600, export the playtest zip, announce it here
 - [ ] Phase 4: polish loop (every pass marked POLISH) until Josue says wrap up
 
 ### For the next playtest (Phase 0 A/B switches, all console variables)
 - as.roar.old 1 plays the 0.24.2 roars; as.hero.twohand 0 drops the hammer IK; as.hero.stance <clip> tries any stance clip; as.foley.gain <x> scales the footsteps; as.net.dropbase 0 turns the net-base fix off.
+- Phase 2: as.team.log 1 logs the team skills' decisions and every cue that reaches a machine (AshenTeam lines); as.dev.ability <id> [other] equips a skill (6 Ashen Brand, 7 Ember Tether, 8 Twin Collapse), as.dev.cast [other] / as.dev.attack <s> [other] / as.dev.brand drive both heroes from the host.
 - Phase 1: as.pounce.log 1 logs every pounce decision (the pick, the landing, why a latch let go: AshenPounce lines); as.claw.log 1 logs every claw hit's chain and spark power (AshenClaw lines); as.dev.weapon 9 equips the claws anywhere (hub or run).
 
 ### Needs Josue (0.26 run) - nothing blocking
