@@ -1,5 +1,6 @@
 #include <limits>
 #include "ASEnemy.h"
+#include "ASNetBase.h"
 #include "ASExpeditionRules.h"
 #include "ASEnemyRules.h"
 #include "ASEnemyAbilities.h"
@@ -55,6 +56,7 @@ void AASEnemy::BeginPlay() {Super::BeginPlay();if(HasAuthority()&&Boss()) SpawnP
     if(HasAuthority()&&Kind==ASEnemyRules::Brute&&!bTrainingDummy&&Mutation==ASEnemyRules::MutationNone) Mutation=uint8(ASEnemyRules::MutationFromRoll(FMath::RandRange(0,3))); // every elite brute spawns mutated
    if(auto* S=AS::State(this)) S->Enemies.AddUnique(this);NextAttack=AS::Time(this)+1.5f;NextRoute=AS::Time(this)+FMath::FRandRange(0.f,.3f);LastRoutePosition=GetActorLocation();RefreshLook();
    BaseFriction=GetCharacterMovement()->GroundFriction;} // a launch's skid lowers the friction for a moment (TickKnock restores this)
+void AASEnemy::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) {Super::PreReplication(ChangedPropertyTracker);ASNetBase::DropUnresolvable(GetReplicatedBasedMovement_Mutable());}
 void AASEnemy::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Enemies.Remove(this);Super::EndPlay(R);}
 void AASEnemy::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASEnemy,SpawnProtectedUntil);DOREPLIFETIME(AASEnemy,AttackReleaseTime);DOREPLIFETIME(AASEnemy,HitReactionTime);DOREPLIFETIME(AASEnemy,HitReactionStrength);DOREPLIFETIME(AASEnemy,HitReactionDirection);DOREPLIFETIME(AASEnemy,Kind);DOREPLIFETIME(AASEnemy,Ward);DOREPLIFETIME(AASEnemy,Theme);DOREPLIFETIME(AASEnemy,Health);

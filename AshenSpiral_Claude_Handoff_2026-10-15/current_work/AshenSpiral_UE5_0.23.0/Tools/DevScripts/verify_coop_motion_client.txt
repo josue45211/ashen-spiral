@@ -1,0 +1,9 @@
+# 0.24.2: how smoothly the guest sees moving enemies (the guest, test profile 91). Pairs with verify_coop_motion_host.txt.
+t.MaxFPS 60
+waitfor combat 240
+wait 6
+as.dev.motion 18 guest_view
+wait 19
+as.dev.state
+wait 1
+quit

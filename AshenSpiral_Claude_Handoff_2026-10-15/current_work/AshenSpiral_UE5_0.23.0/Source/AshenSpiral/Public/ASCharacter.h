@@ -20,6 +20,7 @@ public:
     virtual bool CanJumpInternal_Implementation() const override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UPROPERTY(VisibleAnywhere) TObjectPtr<USpringArmComponent> Boom;
+    virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override; // drops a movement base no client can resolve (ASNetBase.h)
     UPROPERTY(VisibleAnywhere) TObjectPtr<UCameraComponent> Camera;
     UPROPERTY(ReplicatedUsing=RefreshLook) FASBuild Build;
     UPROPERTY(Replicated) int32 RelicMask=0;

@@ -14,6 +14,7 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     virtual void Tick(float Delta) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override; // drops a movement base no client can resolve (ASNetBase.h)
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 Kind=0;
     UPROPERTY(Replicated) int32 Ward=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 Theme=0;

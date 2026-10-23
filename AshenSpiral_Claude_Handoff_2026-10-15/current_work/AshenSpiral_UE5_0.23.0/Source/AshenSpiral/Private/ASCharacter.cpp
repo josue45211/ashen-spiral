@@ -3,6 +3,7 @@
 #include "ASPose.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "ASMovementComponent.h"
+#include "ASNetBase.h"
 #include "ASGameState.h"
 #include "ASGameInstance.h"
 #include "Math/RotationMatrix.h"
@@ -51,6 +52,8 @@ AASCharacter::AASCharacter(const FObjectInitializer& Init):Super(Init.SetDefault
 }
 void AASCharacter::BeginPlay() {Super::BeginPlay();if(auto* S=AS::State(this)) S->Heroes.AddUnique(this);RefreshLook();LastSafe=GetActorLocation();}
 void AASCharacter::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Heroes.Remove(this);Super::EndPlay(R);}
+TAutoConsoleVariable<int32> ASNetBase::CVarDropBase(TEXT("as.net.dropbase"),1,TEXT("1: a character's replicated movement base is dropped when no client can resolve it (ASNetBase.h); 0: the engine's behaviour."),ECVF_Default);
+void AASCharacter::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) {Super::PreReplication(ChangedPropertyTracker);ASNetBase::DropUnresolvable(GetReplicatedBasedMovement_Mutable());}
 UASMovementComponent* AASCharacter::Movement() const {return Cast<UASMovementComponent>(GetCharacterMovement());}
 bool AASCharacter::CanJumpInternal_Implementation() const {
     const auto* S=AS::State(this);
