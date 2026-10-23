@@ -177,6 +177,7 @@ private:
     ASFoley::FootState SkelFeet[2];void SkeletalFootsteps(bool Dashing,bool Airborne); // 0.26 G6: a step sounds when a foot bone of the Mannequin comes down (ASFoley::FootStruck)
     bool SkeletalMovePlaying() const; // a move (an attack, a dash, a flinch, a cast, the fall) holds the slots, not the stance
     void AnimateSkeletal(float Delta,bool Dashing,bool Airborne);
+    float SkelTwoHand=0.f;void DriveTwoHandGrip(float Delta);  // 0.26 G4: how much the left hand is held on a two-handed weapon (ABP_AshenHero's IK), and where
     UAnimMontage* PlayHeroClip(const TCHAR* Clip,FName Slot,float Seconds,float BlendIn=.06f,float BlendOut=.14f); // the clip as a one-off montage on that slot, stretched over Seconds
     void PlayAttackClip();
     void PlayHitClip(const FVector& Direction,float Strength);

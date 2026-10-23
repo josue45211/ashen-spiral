@@ -14,6 +14,9 @@
 #include "AnimGraphNode_Slot.h"
 #include "AnimGraphNode_LayeredBoneBlend.h"
 #include "AnimGraphNode_StateMachine.h"
+#include "AnimGraphNode_TwoBoneIK.h"
+#include "K2Node_VariableGet.h"
+#include "EdGraphSchema_K2.h"
 #include "AnimationGraphSchema.h"
 #include "EdGraph/EdGraph.h"
 #include "EdGraph/EdGraphPin.h"
@@ -51,6 +54,36 @@ bool Save(UObject* Asset) {
     const FString File=FPackageName::LongPackageNameToFilename(Package->GetName(),FPackageName::GetAssetPackageExtension());
     FSavePackageArgs Args;Args.TopLevelFlags=RF_Public|RF_Standalone;
     return UPackage::SavePackage(Package,Asset,*File,Args);
+}
+// 0.26 G4: the variables the game sets on the blueprint each frame (ASCharacterSkeletal.cpp, DriveTwoHandGrip): how much the left hand is held on the weapon (0 for one-handed weapons), and where
+// on it, as a point in the RIGHT hand bone's own space (so the target follows the animated right hand exactly, with no frame of lag).
+const FName TwoHandAlpha(TEXT("TwoHandAlpha")),LeftGripOffset(TEXT("LeftGripOffset"));
+UK2Node_VariableGet* PlaceGet(UEdGraph& Graph,FName Variable,int32 X,int32 Y) {
+    FGraphNodeCreator<UK2Node_VariableGet> Creator(Graph);UK2Node_VariableGet* Node=Creator.CreateNode();
+    Node->VariableReference.SetSelfMember(Variable);Node->NodePosX=X;Node->NodePosY=Y;Creator.Finalize();return Node;
+}
+// Inserts a two-bone IK on the left arm (upperarm_l, lowerarm_l, hand_l) after the full-body slot and before whatever the slot fed (the template's foot IK): the left hand is taken to a point on the
+// weapon's handle. The elbow is pointed out to the left and down, behind the body, so the arm folds the way a swung two-handed weapon's does. Returns false (and logs the pins) when it cannot wire.
+bool AddTwoHandIK(UAnimBlueprint* Blueprint,UEdGraph& Graph,UAnimGraphNode_Slot* FullBody) {
+    FEdGraphPinType FloatType(UEdGraphSchema_K2::PC_Real,UEdGraphSchema_K2::PC_Float,nullptr,EPinContainerType::None,false,FEdGraphTerminalType());
+    FEdGraphPinType VectorType(UEdGraphSchema_K2::PC_Struct,NAME_None,TBaseStructure<FVector>::Get(),EPinContainerType::None,false,FEdGraphTerminalType());
+    FBlueprintEditorUtils::AddMemberVariable(Blueprint,TwoHandAlpha,FloatType);
+    FBlueprintEditorUtils::AddMemberVariable(Blueprint,LeftGripOffset,VectorType);
+    UEdGraphPin* SlotOut=FindPin(FullBody,TEXT("Pose"),EGPD_Output);if(!SlotOut) return false;
+    TArray<UEdGraphPin*> Downstream=SlotOut->LinkedTo;SlotOut->BreakAllPinLinks();   // the nodes the slot fed
+    auto* IK=Place<UAnimGraphNode_TwoBoneIK>(Graph,FullBody->NodePosX+300,FullBody->NodePosY);
+    IK->Node.IKBone.BoneName=TEXT("hand_l");
+    IK->Node.EffectorLocationSpace=BCS_BoneSpace;IK->Node.EffectorTarget.BoneReference.BoneName=TEXT("hand_r");
+    IK->Node.JointTargetLocationSpace=BCS_ComponentSpace;IK->Node.JointTargetLocation=FVector(70.f,-30.f,70.f); // the mesh faces +Y, its left is +X: the elbow goes out to the left, down and back
+    IK->Node.bTakeRotationFromEffectorSpace=false;IK->Node.bMaintainEffectorRelRot=true;IK->Node.bAllowStretching=false;
+    IK->ReconstructNode();
+    auto* GetAlpha=PlaceGet(Graph,TwoHandAlpha,IK->NodePosX-260,IK->NodePosY+250),*GetGrip=PlaceGet(Graph,LeftGripOffset,IK->NodePosX-260,IK->NodePosY+330);
+    bool Linked=Link(FindPin(GetAlpha,TEXT("TwoHandAlpha"),EGPD_Output),FindPin(IK,TEXT("Alpha"),EGPD_Input))                       // a variable getter's output pin carries the variable's name
+        &&Link(FindPin(GetGrip,TEXT("LeftGripOffset"),EGPD_Output),FindPin(IK,TEXT("EffectorLocation"),EGPD_Input))
+        &&Link(SlotOut,FindPin(IK,TEXT("ComponentPose"),EGPD_Input));
+    for(UEdGraphPin* Target:Downstream) Linked=Linked&&Link(FindPin(IK,TEXT("Pose"),EGPD_Output),Target);
+    if(!Linked) for(UEdGraphNode* Node:{(UEdGraphNode*)IK,(UEdGraphNode*)GetAlpha,(UEdGraphNode*)GetGrip}) for(UEdGraphPin* Pin:Node->Pins) UE_LOG(LogTemp,Display,TEXT("AshenHeroAnim: IK %s pin %s dir %d"),*Node->GetName(),*Pin->PinName.ToString(),int32(Pin->Direction));
+    return Linked;
 }
 }
 
@@ -96,6 +129,8 @@ int32 UASBuildHeroAnimCommandlet::Main(const FString& Params) {
         for(UEdGraphNode* Node:{(UEdGraphNode*)Cache,(UEdGraphNode*)UseUpper,(UEdGraphNode*)UseBase,(UEdGraphNode*)Upper,(UEdGraphNode*)Layer}) for(UEdGraphPin* Pin:Node->Pins) UE_LOG(LogTemp,Display,TEXT("AshenHeroAnim: %s pin %s dir %d"),*Node->GetName(),*Pin->PinName.ToString(),int32(Pin->Direction));
         UE_LOG(LogTemp,Error,TEXT("AshenHeroAnim: could not wire the layer"));return 1;
     }
+    // 0.26 G4: both hands on a two-handed weapon (the maul): the left hand follows a point on its handle
+    if(!AddTwoHandIK(Blueprint,*Graph,FullBody)) {UE_LOG(LogTemp,Error,TEXT("AshenHeroAnim: could not add the two-hand IK"));return 1;}
     // the new slot must be known to the skeleton (in the default group) for montages to find it
     if(USkeleton* Skeleton=Blueprint->TargetSkeleton) {
         if(Skeleton->GetSlotGroupName(UpperSlot)==NAME_None||!Skeleton->ContainsSlotName(UpperSlot)) {Skeleton->SetSlotGroupName(UpperSlot,FAnimSlotGroup::DefaultGroupName);Save(Skeleton);}

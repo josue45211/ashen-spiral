@@ -1,0 +1,62 @@
+# 0.26 G4: the maul is held with TWO hands on the hilt through every move, and it is bigger (the 0.24.2 playtest). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_two_hand
+# The ABP's left-hand IK (TwoHandAlpha / LeftGripOffset, set by ASCharacter::DriveTwoHandGrip) against the arm as animated (as.hero.twohand 0), in the ready stance from the front-left and the left,
+# then a held attack (a combo and its finisher) from the left, a leap, and a run. Screenshots: Saved\Screenshots\Dev\g4_*.png (no HUD).
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.clearing 650 1000
+as.dev.face 0
+as.dev.weapon 1
+wait 1.6
+as.dev.follow 380 40 325 55 0
+wait 0.8
+as.dev.shot g4_idle_front_ik_on 0
+as.dev.follow 380 40 270 55 0
+wait 0.5
+as.dev.shot g4_idle_left_ik_on 0
+as.hero.twohand 0
+wait 0.9
+as.dev.shot g4_idle_left_ik_off 0
+as.dev.follow 380 40 325 55 0
+wait 0.5
+as.dev.shot g4_idle_front_ik_off 0
+as.hero.twohand 1
+wait 0.9
+as.dev.follow 400 40 270 58 0
+as.dev.input attack 3.4
+wait 0.2
+as.dev.shot g4_swing_01 0
+wait 0.28
+as.dev.shot g4_swing_02 0
+wait 0.28
+as.dev.shot g4_swing_03 0
+wait 0.28
+as.dev.shot g4_swing_04 0
+wait 0.28
+as.dev.shot g4_swing_05 0
+wait 0.28
+as.dev.shot g4_swing_06 0
+wait 0.28
+as.dev.shot g4_swing_07 0
+wait 0.28
+as.dev.shot g4_swing_08 0
+wait 0.28
+as.dev.shot g4_swing_09 0
+wait 0.28
+as.dev.shot g4_swing_10 0
+wait 0.28
+as.dev.shot g4_swing_11 0
+wait 1.2
+as.dev.follow 400 40 270 58 0
+as.dev.walk 0 1.8 1
+wait 0.9
+as.dev.shot g4_run 0
+wait 1.2
+quit

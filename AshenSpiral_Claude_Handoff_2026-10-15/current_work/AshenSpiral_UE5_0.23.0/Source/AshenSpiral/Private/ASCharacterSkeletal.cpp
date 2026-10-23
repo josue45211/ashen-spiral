@@ -92,6 +92,12 @@ bool GripInHand(const USkeletalMeshComponent* Body,bool Left,int32 Weapon,FName&
     Bone=Ref.GetBoneName(Hand);Out=FTransform(Axes.ToQuat(),Centre).GetRelativeTransform(Wrist);
     return true;
 }
+// 0.26 G4 (the 0.24.2 playtest: "hammer held with TWO hands, both on the hilt the whole time, the hands repositioning through the swing; hammer model BIGGER"). TwoHandedGrip says whether the left
+// hand is held on the weapon and where: a point on its handle in the weapon's own units (the meshes hold the handle on +Z with the right fist at the origin; the maul's grip runs -13..13 and its
+// shaft on to 97, so the left hand goes above the right, a good lever's length away). The ABP's two-bone IK (ASBuildHeroAnimCommandlet.cpp) takes the left hand there from the animated right
+// hand each frame, so it stays on the hilt through every swing, leap and stance. WeaponScale: how much bigger a weapon is drawn than its mesh (the maul 1.35). TUNABLE.
+bool TwoHandedGrip(int32 Weapon,FVector& OnHandle) {if(Weapon==1) {OnHandle=FVector(0.f,0.f,24.f);return true;}return false;}
+float WeaponScale(int32 Weapon) {return Weapon==1?1.35f:1.f;}
 }
 
 void AASCharacter::SetupSkeletalHero() {
@@ -130,6 +136,7 @@ void AASCharacter::SetupSkeletalHero() {
     // the weapon in the fist (the bow in the left), the spiral charge in the left hand; the part rig's bow string and nocked arrow are not drawn on the Mannequin
     FName Hand;FTransform Grip;
     if(ASHeroLook::GripInHand(Body,Build.Weapon==2,Build.Weapon,Hand,Grip)) {
+        Grip.SetScale3D(FVector(ASHeroLook::WeaponScale(Build.Weapon))); // about the fist (the mesh's origin): the hammer grows both ways along its handle
         WeaponMesh->AttachToComponent(Body,FAttachmentTransformRules::SnapToTargetNotIncludingScale,Hand);WeaponMesh->SetRelativeTransform(Grip);WeaponMesh->SetVisibility(true);
     } else WeaponMesh->SetVisibility(false); // a mesh without hand bones: better no weapon than one at the feet
     ChargeMesh->AttachToComponent(Body,FAttachmentTransformRules::SnapToTargetNotIncludingScale,FName(TEXT("hand_l")));
@@ -183,6 +190,25 @@ void AASCharacter::SkeletalFootsteps(bool Dashing,bool Airborne) {
     }
 }
 
+// 0.26 G4: tells the animation blueprint how much to hold the left hand on the weapon (TwoHandAlpha, eased in and out so a weapon change or a fall does not snap the arm) and where, as a point in the
+// right hand bone's space (LeftGripOffset: the weapon sits on that bone at WeaponMesh's relative transform, so a point on its handle is that transform applied to it). Both are variables of ABP_AshenHero,
+// set by name; a machine whose ABP predates the IK has no such variables and simply keeps the arm as animated. as.hero.twohand 0 switches it off to compare.
+#if !UE_BUILD_SHIPPING
+static TAutoConsoleVariable<int32> CVarASTwoHand(TEXT("as.hero.twohand"),1,TEXT("Dev: 1 holds the left hand on two-handed weapons with IK (0.26 G4); 0 leaves the arm as animated."),ECVF_Default);
+#endif
+void AASCharacter::DriveTwoHandGrip(float Delta) {
+    UAnimInstance* Anim=GetMesh()?GetMesh()->GetAnimInstance():nullptr;if(!Anim||!WeaponMesh) return;
+    FVector OnHandle=FVector::ZeroVector;bool Wants=!bDowned&&WeaponMesh->IsVisible()&&ASHeroLook::TwoHandedGrip(Build.Weapon,OnHandle);
+#if !UE_BUILD_SHIPPING
+    if(CVarASTwoHand.GetValueOnGameThread()==0) Wants=false;
+#endif
+    SkelTwoHand=FMath::FInterpTo(SkelTwoHand,Wants?1.f:0.f,Delta,10.f);
+    const UClass* Class=Anim->GetClass();
+    if(FFloatProperty* Alpha=CastField<FFloatProperty>(Class->FindPropertyByName(TEXT("TwoHandAlpha")))) Alpha->SetPropertyValue_InContainer(Anim,SkelTwoHand);
+    if(FStructProperty* Grip=CastField<FStructProperty>(Class->FindPropertyByName(TEXT("LeftGripOffset")))) if(Grip->Struct==TBaseStructure<FVector>::Get())
+        *Grip->ContainerPtrToValuePtr<FVector>(Anim)=WeaponMesh->GetRelativeTransform().TransformPosition(OnHandle);
+}
+
 void AASCharacter::AnimateSkeletal(float Delta,bool Dashing,bool Airborne) {
     USkeletalMeshComponent* Body=GetMesh();if(!Body) return;
     PoseAge+=Delta;
@@ -212,6 +238,7 @@ void AASCharacter::AnimateSkeletal(float Delta,bool Dashing,bool Airborne) {
     }
     // a reload: the rifle's reload over the reload time, on the arms
     if(ReloadStart>0.f&&ReloadStart!=SkelReloadSeen&&IsReloading()) {SkelReloadSeen=ReloadStart;PlayHeroClip(TEXT("/Game/Characters/Mannequins/Anims/Rifle/MM_Rifle_Reload.MM_Rifle_Reload"),ASHeroLook::UpperBody,FMath::Max(.3f,ReloadEnd-ReloadStart),.1f,.15f);}
+    DriveTwoHandGrip(Delta); // 0.26 G4: the left hand on a two-handed weapon, through whatever the slots are playing
     // between moves the weapon is carried in its stance: a long loop on the upper body; any move takes the slots over (one slot group) and the stance eases back in after it
     const FString Stance=ASHeroLook::StanceName(Build.Weapon);
     if(Stance!=SkelStanceClip) { // the stance clip changed (a new weapon is handled in SetupSkeletalHero; the as.hero.stance dev variable changes it live): the old loop eases out
