@@ -1,0 +1,43 @@
+# 0.26 Twin Claws in co-op: the guest's half of verify_claws_coop_host.txt (test profile 91). Timeline (from the combat start, as the host's script has it): the host spawns a still grunt in front
+# of this hero at about +7.5 s, a duelist at about +22.6 s. This script pounces at +12 s and +24.5 s and holds attack while latched; its own AshenTrace: lines (guest_own_*) carry the pounce state it
+# sees, and AshenCorrect: lines are the server corrections this client suffered during a leap and a latch (should be none).
+t.MaxFPS 60
+waitfor combat 240
+wait 8
+Net PktLag=50
+as.pounce.log 1
+as.dev.aimlock 1
+as.dev.heroes coop_guest_before
+wait 3.5
+# ---- scene 1: the still grunt ----
+as.dev.trace 9 guest_own_still 0.1
+as.dev.input spiral 0.1
+as.dev.follow 450 80 300 58 0
+wait 0.5
+as.dev.shot gc_guest_pounce_a 0
+wait 0.4
+as.dev.shot gc_guest_pounce_b 0
+wait 0.7
+as.dev.input attack 2.4
+wait 1.5
+as.dev.shot gc_guest_latched 0
+wait 2.5
+as.dev.input dash
+wait 0.6
+as.dev.shot gc_guest_released 0
+as.dev.follow off
+wait 6.2
+# ---- scene 2: the duelist ----
+as.dev.trace 7 guest_own_runner 0.1
+as.dev.input spiral 0.1
+as.dev.follow 480 120 300 58 0
+wait 0.9
+as.dev.input attack 3.0
+wait 1.6
+as.dev.shot gc_guest_runner_a 0
+wait 2.2
+as.dev.shot gc_guest_runner_b 0
+as.dev.follow off
+wait 3.5
+as.dev.heroes coop_guest_after
+quit

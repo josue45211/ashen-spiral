@@ -47,6 +47,12 @@ CLIPS = [
     # 0.24.2 Phase F: weapon stances, looped on the upper body between attacks so each weapon is carried ready (ASCharacterSkeletal.cpp, StanceFor)
     ("KwangManny", r"Idle"), ("AuroraManny", r"Idle"), ("GruxManny", r"TravelMode_Idle"), ("steelmanny", r"Steel_Idle_Combat"), ("SparrowManny", r"idle"),
     ("YinManny", r"Idle_Combat"), ("gideonManny", r"Idle"), ("MurdockManny", r"Idle"), ("WraithManny", r"Idle_Combat"), ("TwinBlastManny", r"Idle"),
+    # 0.26 Twin Claws: Khaimera's claw chain (fast, normal and the air attack), her jump pieces for the pounce, and the idles to choose a stance from
+    ("KhaimeraManny", r"Melee_A_Fast"), ("KhaimeraManny", r"Melee_B_Fast"), ("KhaimeraManny", r"Melee_C_Fast"), ("KhaimeraManny", r"Melee_A"), ("KhaimeraManny", r"Melee_B"), ("KhaimeraManny", r"Melee_C"),
+    ("KhaimeraManny", r"Attack\Melee_Air_Attack"), ("KhaimeraManny", r"Jump_Start"), ("KhaimeraManny", r"Jump_Apex"), ("KhaimeraManny", r"Jump_PreLand"), ("KhaimeraManny", r"Jump_Recovery"),
+    ("KhaimeraManny", r"Idle"), ("KhaimeraManny", r"HS_Idle"), ("KhaimeraManny", r"TravelMode_Idle"), ("KhaimeraManny", r"Idle_Relaxed_A"),
+    ("KhaimeraManny", r"Ability\R_Ability"), ("KhaimeraManny", r"Ability\R_Ability_Intro"), ("KhaimeraManny", r"Ability\E_Ability_Start"),
+    ("KallariManny", r"Idle_Combat"), ("PhaseManny", r"Idle"),
 ]
 report = {"abp": {}, "clips": [], "failed": [], "notes": []}
 assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)

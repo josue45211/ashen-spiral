@@ -1,0 +1,22 @@
+# 0.26 Twin Claws: the tenth weapon stand photographed from several sides (the pair hung on the plinth with their blades outward). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_claws_hub2
+# Screenshots: Saved\Screenshots\Dev\ch2_*.png
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.menu 0
+wait 1.0
+as.dev.cam 1162 -700 200 -5 -90 70
+wait 1.0
+as.dev.shot ch2_a 0
+as.dev.cam 1000 -900 190 -5 -62 60
+wait 0.6
+as.dev.shot ch2_b 0
+as.dev.cam 1162 -1150 600 -85 -90 60
+wait 0.6
+as.dev.shot ch2_c 0
+as.dev.cam 1162 -950 170 0 -90 40
+wait 0.6
+as.dev.shot ch2_d 0
+as.dev.cam off
+quit

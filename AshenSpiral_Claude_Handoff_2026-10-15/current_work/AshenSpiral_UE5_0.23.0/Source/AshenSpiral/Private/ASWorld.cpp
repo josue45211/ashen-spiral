@@ -489,8 +489,10 @@ void AASWorld::MakeHub() {
         Add(TEXT("Cylinder"),TEXT("WeaponPlinth"),P+FVector(0,0,35),FVector(1.5f,1.5f,.7f),Stone);
         Add(TEXT("SM_Ring"),FString::Printf(TEXT("WeaponAccent%d"),I),P+FVector(0,0,72),FVector(1.6f,1.6f,1),Color,false,0,2);
         if(I%2) Add(TEXT("Cube"),TEXT("WeaponBackboard"),P+FVector(0,-90,180),FVector(2.9f,.2f,3.5f),Stone,true);
-        Add(FString::Printf(TEXT("SM_Weapon%d"),I),TEXT("WeaponDisplay"),P+FVector(0,0,165)+(I==ASRules::Claws?FVector(-26,0,0):FVector::ZeroVector),FVector(1),FLinearColor(.48f,.42f,.30f),false,90,0,.55f);
-        if(I==ASRules::Claws) Add(TEXT("SM_Weapon9"),TEXT("WeaponDisplay"),P+FVector(26,0,165),FVector(1),FLinearColor(.48f,.42f,.30f),false,90,0,.55f); // the claws are a pair
+        // 0.26: the claws are a pair, hung side by side with their blades pointing outward (the left one turned about) and a bright steel tint so they read against the dark backboard
+        const bool Pair=I==ASRules::Claws;const FLinearColor Shade=Pair?FLinearColor(.80f,.83f,.90f):FLinearColor(.48f,.42f,.30f);
+        Add(FString::Printf(TEXT("SM_Weapon%d"),I),TEXT("WeaponDisplay"),P+FVector(Pair?-40.f:0.f,0,165),FVector(1),Shade,false,Pair?180.f:90.f,0,.55f);
+        if(Pair) Add(TEXT("SM_Weapon9"),TEXT("WeaponDisplay"),P+FVector(40,0,165),FVector(1),Shade,false,0.f,0,.55f);
         if(I==2) Add(TEXT("Cylinder"),TEXT("DisplayString"),P+FVector(0,-24,165),FVector(.009f,.009f,1.46f),FLinearColor(.8f,.75f,.6f),false);
         Text(FString::Printf(TEXT("%02d"),I+1),P+FVector(0,0,90),90,18);
     }

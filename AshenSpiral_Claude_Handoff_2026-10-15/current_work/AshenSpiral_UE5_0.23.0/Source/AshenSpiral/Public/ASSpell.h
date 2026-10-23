@@ -157,6 +157,39 @@ private:
     float Age=0;bool bCounted=false;
 };
 
+// 0.26 Twin Claws: cosmetic effects, spawned locally on every machine by the character's multicasts (ASClawEffects.cpp). One actor class, several looks:
+//   rake   three glowing streaks drawn across the struck body in a flash (the diagonal alternates with the combo step)
+//   sparks bits thrown out of an impact toward the attacker, tinted by the weapon's element
+//   dust   brown debris thrown up round a point on the floor (a leap's launch, a landing)
+//   ring   a flat ring spreading out on the floor
+//   bond   a thin pulsing ring on the floor under a pounce's target, for as long as the hero holds on
+UCLASS() class ASHENSPIRAL_API AASClawFx : public AActor {
+    GENERATED_BODY()
+public:
+    AASClawFx();
+    virtual void Tick(float Delta) override;
+    virtual void EndPlay(const EEndPlayReason::Type Reason) override;
+    void SetupRake(const FVector& At,const FVector& From,FLinearColor Color,int32 Step,float Power);
+    void SetupSparks(const FVector& At,const FVector& From,FLinearColor Color,float Power);
+    void SetupDust(const FVector& At,float Radius,float Power);
+    void SetupRing(const FVector& At,FLinearColor Color,float Radius,float Seconds);
+    void SetupBond(AASCharacter* Hero,FLinearColor Color);
+    static int32 Active;
+private:
+    enum class Look : uint8 {Rake,Sparks,Dust,Ring,Bond};
+    struct FBit {TObjectPtr<UStaticMeshComponent> Mesh;FVector Start=FVector::ZeroVector,Velocity=FVector::ZeroVector,Axis=FVector::ForwardVector,Scale0=FVector::OneVector,Scale1=FVector::ZeroVector;FRotator Spin=FRotator::ZeroRotator;float Length=0.f,Gravity=0.f;};
+    UStaticMeshComponent* AddBit(const TCHAR* Mesh,UMaterialInterface* Material);
+    TArray<FBit> Bits;
+    UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Glow;
+    UPROPERTY() TObjectPtr<UMaterialInstanceDynamic> Matte;
+    TWeakObjectPtr<AASCharacter> Holder;
+    Look Kind=Look::Rake;float Age=0.f,Life=.2f,Emission=20.f,Radius=0.f;bool bCounted=false;
+};
+namespace ASClawFx {
+// One of Variants numbered sounds (/Game/Audio/<Name>1..N; Variants 1: /Game/Audio/<Name>) at a point, quieter with the distance from the local player like every cue of another player's.
+void Sound(const UObject* Context,const TCHAR* Name,int32 Variants,const FVector& At,float Volume,float PitchMin=1.f,float PitchMax=1.f);
+}
+
 // Cosmetic-only hammer impact, spawned locally by the character's multicast.
 UCLASS() class ASHENSPIRAL_API AASHammerDebris : public AActor {
     GENERATED_BODY()

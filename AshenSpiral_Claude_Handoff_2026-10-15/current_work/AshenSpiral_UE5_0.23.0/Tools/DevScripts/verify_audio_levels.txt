@@ -1,0 +1,36 @@
+# 0.26: how loud the claws' swings and hits are in the game's mix against the blade's and the maul's, so one weapon is not far louder than another. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_audio_levels
+#   python Tools\measure_recording.py Saved\AudioRecordings\Dev\levels.wav Saved\Logs\dev_verify_audio_levels.log "AshenDev: > as\.dev\.weapon"
+# Each weapon holds attack for 2 s on a frozen, tough grunt 150 cm away, with a 3 s gap between them (the log marks the start of each).
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.aimlock 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.freeze 0
+as.dev.killall
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.weapon 0
+wait 1.0
+as.dev.spawn 0 1 150 40
+wait 0.6
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.record start 40
+wait 1.0
+as.dev.weapon 0
+as.dev.input attack 2.0
+wait 4.0
+as.dev.weapon 1
+as.dev.input attack 2.0
+wait 4.0
+as.dev.weapon 9
+as.dev.input attack 2.0
+wait 4.0
+as.dev.record stop levels
+quit

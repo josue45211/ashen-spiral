@@ -1,5 +1,6 @@
 #include "ASPlayerController.h"
 #include "ASCharacter.h"
+#include "ASEnemy.h"
 #include "ASMovementComponent.h"
 #include "ASGameInstance.h"
 #include "ASGameMode.h"
@@ -513,7 +514,7 @@ void AASPlayerController::ApplyCameraSettings() {
     H->Boom->SocketOffset.Y=GI->CameraShoulder;
     H->Camera->SetRelativeRotation(FRotator(GI->CameraPitch,0.f,0.f));
     CeremonyAmount=GI->bReduceMotion?0.f:(bCeremony?ASPartC::CeremonyPush(GetWorld()->GetRealTimeSeconds()-CeremonyStartReal):FMath::FInterpTo(CeremonyAmount,0.f,GetWorld()->GetDeltaSeconds(),6.f));
-    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion)+ASPartC::CeremonyPushFov*CeremonyAmount);}
+    {const auto* IntroState=AS::State(this);const float IntroAge=IntroState?IntroState->BossIntroAge():-1.f;H->Camera->SetFieldOfView(GI->CameraFOV-ASPresentation::BossIntroAt(IntroAge,GI->bReduceMotion).FovPush+ASPresentation::PortalKickFov(PortalAge(),GI->bReduceMotion)+ASPartC::CeremonyPushFov*CeremonyAmount+H->ClawFovNow);}
     // Character animation is suspended during a party pause; settings still apply.
     if(auto* S=AS::State(this)) if(S->Frozen()) H->Boom->TargetArmLength=GI->CameraDistance;
 }
@@ -573,8 +574,24 @@ void AASPlayerController::Zoom(float V) {
     if(MenuOpen()||FMath::IsNearlyZero(V)) return;
     if(auto* GI=GetGameInstance<UASGameInstance>()) GI->CameraDistance=ASAdventure::CameraDistance(GI->CameraDistance,V);
 }
+#if !UE_BUILD_SHIPPING
+// Dev (0.26): with a photo camera as the view (as.dev.follow / cam) the screen-centre ray is the PHOTO camera's, so a scripted swing or pounce would aim wherever that camera looks. as.dev.aimlock 1
+// aims the crosshair at the nearest living enemy's chest instead, from where the player's own camera would be, whatever the view.
+static TAutoConsoleVariable<int32> CVarASAimLock(TEXT("as.dev.aimlock"),0,TEXT("Dev: 1 aims the crosshair (swings, the claws' pounce) at the nearest living enemy whatever camera is the view; 0 the real crosshair."),ECVF_Default);
+#endif
 void AASPlayerController::UpdateAim(bool Send) {
     auto* H=Cast<AASCharacter>(GetPawn());auto* S=AS::State(this);if(!H||!S) return;
+#if !UE_BUILD_SHIPPING
+    if(CVarASAimLock.GetValueOnGameThread()!=0) {
+        const AASEnemy* Nearest=nullptr;double Best=TNumericLimits<double>::Max();
+        for(auto Weak:S->Enemies) if(const AASEnemy* E=Weak.Get()) if(E->Health>0) {const double D=FVector::DistSquared(H->GetActorLocation(),E->GetActorLocation());if(D<Best) {Best=D;Nearest=E;}}
+        if(Nearest) {
+            AimTarget=Nearest->GetActorLocation();AimRayStart=H->GetActorLocation()+FVector(0,0,100)-H->GetActorForwardVector()*420.f+H->GetActorRightVector()*155.f;AimRayDirection=(AimTarget-AimRayStart).GetSafeNormal();
+            if(Send) H->SetAim(AimTarget);
+            return;
+        }
+    }
+#endif
     int32 W=0,Height=0;GetViewportSize(W,Height);FVector Start,Direction;
     if(!DeprojectScreenPositionToWorld(W*.5f,Height*.5f,Start,Direction)) return;
     AimRayStart=Start;AimRayDirection=Direction;

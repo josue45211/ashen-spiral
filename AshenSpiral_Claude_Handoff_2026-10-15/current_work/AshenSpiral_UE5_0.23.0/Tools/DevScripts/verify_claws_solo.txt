@@ -1,14 +1,17 @@
 # 0.26 Twin Claws, solo: the claws in the hands, a swing that shreds ONE enemy, and the pounce (leap, latch, release) against a still target, a runner and a flier. Test profile 95:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_claws_solo
 # The log's "AshenTrace:" lines carry the pounce state, the gap to the target's surface (the latch holds ASClaws::RingGap = 14) and the capsule's clearance above the floor (0 when grounded);
-# "AshenPounce:" lines (as.pounce.log 1) say what the server decided. Screenshots: Saved\Screenshots\Dev\c*_*.png.
+# "AshenPounce:" lines (as.pounce.log 1) say what the server decided. as.dev.aimlock 1 aims the crosshair at the nearest enemy whatever camera films (a photo camera's ray would be its own).
+# Every test clears the field first (enemies run again so as.dev.killall can reach them) and waits out the pounce's 6 s cooldown. Screenshots: Saved\Screenshots\Dev\c*_*.png.
 waitfor ready 60
 wait 3
 as.dev.god 1
 as.pounce.log 1
+as.dev.aimlock 1
 as.dev.endless 4242
 waitfor combat 30
 wait 1
+as.dev.freeze 0
 as.dev.killall
 as.dev.keeper
 as.dev.freeze 1 3000
@@ -26,68 +29,78 @@ as.dev.shot c1_idle_left 0
 as.dev.follow 300 30 90 55 0
 wait 0.4
 as.dev.shot c1_idle_right 0
-as.dev.follow off
-# ---- 1: a swing shreds ONE enemy: three grunts abreast, 180 cm ahead, health x6 so they survive; the middle one fits the swing best ----
+# ---- 1: a swing shreds ONE enemy: three grunts abreast 180 cm ahead, health x6 so they survive; the middle one fits the swing best ----
 as.dev.spawn 0 3 180 6
-wait 0.5
+wait 0.7
 as.dev.freeze 1 3000
-as.dev.face 0
-as.dev.state
+wait 0.2
 as.dev.follow 380 90 330 60 0
+as.dev.state
 as.dev.input attack 1.2
-wait 0.3
+wait 0.25
 as.dev.shot c2_swing_a 0
 wait 0.25
 as.dev.shot c2_swing_b 0
+wait 0.25
+as.dev.shot c2_swing_c 0
 wait 1.0
 as.dev.state
 as.dev.follow off
-as.dev.killall
-wait 0.5
-# ---- 2: the pounce on a still grunt 800 cm away: crouch, leap, latch, a held attack, a dash that breaks it ----
-as.dev.spawn 0 1 800 20
-wait 0.4
-as.dev.freeze 1 3000
+as.dev.clearing 350 900
 as.dev.face 0
-as.dev.aimat 0
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 0.6
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 5
+# ---- 2: the pounce on a still grunt about 450 cm away: crouch, leap, latch, a held attack, a dash that breaks it ----
+as.dev.spawn 0 1 450 20
+wait 0.8
+as.dev.freeze 1 3000
 wait 0.3
-as.dev.trace 6 pounce_still 0.05
+as.dev.trace 7 pounce_still 0.05
 as.dev.follow 420 60 300 60 0
 as.dev.input spiral 0.1
 wait 0.07
 as.dev.shot c3_crouch 0
-wait 0.08
+wait 0.06
 as.dev.shot c3_leap_a 0
-wait 0.08
+wait 0.06
 as.dev.shot c3_leap_b 0
-wait 0.12
+wait 0.1
 as.dev.shot c3_land 0
-wait 0.4
+wait 0.3
 as.dev.shot c3_latched 0
 as.dev.input attack 1.6
-wait 0.5
+wait 0.4
 as.dev.shot c3_shred_a 0
-wait 0.5
+wait 0.4
 as.dev.shot c3_shred_b 0
-wait 1.2
+wait 0.4
+as.dev.shot c3_shred_c 0
+wait 0.4
 as.dev.input dash
 wait 0.5
 as.dev.shot c3_released 0
 wait 0.8
 as.dev.follow off
 as.dev.state
-as.dev.killall
-wait 0.5
-# ---- 3: the pounce on a RUNNER (a duelist strafes and backs off): the latch follows it ----
-as.dev.spawn 2 1 700 30
-wait 0.5
+as.dev.clearing 350 900
 as.dev.face 0
-as.dev.aimat 0
-wait 0.3
-as.dev.trace 5 pounce_runner 0.1
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 0.6
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 6
+# ---- 3: the pounce on a RUNNER (a duelist strafes and backs off): the latch follows it ----
+as.dev.spawn 2 1 500 30
+wait 0.9
+as.dev.trace 5.5 pounce_runner 0.1
 as.dev.follow 480 120 300 60 0
 as.dev.input spiral 0.1
-wait 0.6
+wait 0.7
 as.dev.shot c4_latch_runner_a 0
 as.dev.input attack 2.4
 wait 1.2
@@ -96,14 +109,17 @@ wait 1.6
 as.dev.shot c4_latch_runner_c 0
 as.dev.follow off
 as.dev.state
-as.dev.killall
-wait 0.5
-# ---- 4: the pounce on a FLIER (a gloomwing hovers): the wielder lands on the floor beneath it ----
-as.dev.spawn 10 1 700 30
-wait 0.5
+as.dev.clearing 350 900
 as.dev.face 0
-as.dev.aimat 0
-wait 0.3
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 0.6
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 6
+# ---- 4: the pounce on a FLIER (a gloomwing hovers): the wielder lands on the floor beneath it ----
+as.dev.spawn 10 1 500 30
+wait 1.4
 as.dev.trace 4 pounce_flier 0.1
 as.dev.follow 480 120 300 60 0
 as.dev.input spiral 0.1
@@ -115,9 +131,15 @@ as.dev.shot c5_flier_shred 0
 wait 1.0
 as.dev.follow off
 as.dev.state
-# ---- 5: a pounce at nothing is a lunge, with a short cooldown ----
-as.dev.killall
+as.dev.clearing 350 900
+as.dev.freeze 0 900
+as.dev.killall 900
 wait 0.6
+as.dev.freeze 0 900
+as.dev.killall 900
+wait 6
+# ---- 5: a pounce at nothing is a lunge, with a short cooldown ----
+as.dev.aimlock 0
 as.dev.face 90 -10
 wait 0.3
 as.dev.trace 2.5 pounce_whiff 0.1

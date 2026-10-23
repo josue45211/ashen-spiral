@@ -195,8 +195,9 @@ void AASHUD::DrawHUD() {
         const bool Claws=H->Build.Weapon==ASRules::Claws;
         const float Leap=FMath::Max(0.f,H->NextHammerLeap-S->SimTime),Cooldown=Claws?ASClaws::PounceCooldown:ASHammer::Cooldown;
         Group(Width-24-384*UI,Height-24-112*UI,UI);
-        Text(FString::Printf(TEXT("%s  %s  %s"),*Key("Spiral"),Claws?TEXT("POUNCE"):TEXT("LEAP"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Leap<=.02f?ASHudGold:ASHudMuted,.62f);
-        Bar(12,24,358,2,1.f-Leap/Cooldown,ASHudGold);Group();
+        const bool Latched=Claws&&H->PounceLatched();const float Held=Latched?FMath::Clamp(1.f-(S->SimTime-H->PounceStateAt)/ASClaws::GlueSeconds,0.f,1.f):0.f; // a latched pounce shows how long it still holds
+        Text(Latched?FString::Printf(TEXT("%s  LATCHED  %.1fs  /  DASH TO BREAK"),*Key("Spiral"),Held*ASClaws::GlueSeconds):FString::Printf(TEXT("%s  %s  %s"),*Key("Spiral"),Claws?TEXT("POUNCE"):TEXT("LEAP"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Latched?ASHudRed:(Leap<=.02f?ASHudGold:ASHudMuted),.62f);
+        Bar(12,24,358,2,Latched?Held:1.f-Leap/Cooldown,Latched?ASHudRed:ASHudGold);Group();
     }
     Group(Width-24-384*UI,Height-24-76*UI,UI);
     for(int32 I=1;I<3;++I) Box(I*128,12,1,52,FLinearColor(.22f,.31f,.34f,.65f));
@@ -257,6 +258,39 @@ void AASHUD::DrawHUD() {
     if(Shape==2) for(int32 I=0;I<32;++I) {
         const float A=float(I)*UE_TWO_PI/32.f,B=float(I+1)*UE_TWO_PI/32.f;
         AimLine(CX+FMath::Cos(A)*R,CY+FMath::Sin(A)*R,CX+FMath::Cos(B)*R,CY+FMath::Sin(B)*R);
+    }
+    // 0.26 Twin Claws: the enemy a pounce would take, as the crosshair's ray picks it (ASClaws::PickTarget: the rule the server runs), in four gold corner brackets that breathe; open and dim when it
+    // is beyond the pounce's reach. Nothing while the pounce recharges or while the wielder is already on something.
+    if(H->Build.Weapon==ASRules::Claws&&H->CanUseWeapons()&&!H->PounceBusy()&&S->SimTime>=H->NextHammerLeap-.02f) {
+        std::vector<ASClaws::Candidate> List;std::vector<const AASEnemy*> Who;
+        for(auto W:S->Enemies) if(const AASEnemy* E=W.Get()) if(E->Health>0&&H->CanDamage(E)) {
+            const FVector P=E->GetActorLocation();ASClaws::Candidate C;C.X=float(P.X);C.Y=float(P.Y);C.Z=float(P.Z);C.Radius=E->GetCapsuleComponent()->GetScaledCapsuleRadius()+(E->Flies()?30.f:0.f);List.push_back(C);Who.push_back(E);
+        }
+        const FVector Me=H->GetActorLocation();
+        const float Ray[3]={float(PC->AimRayStart.X),float(PC->AimRayStart.Y),float(PC->AimRayStart.Z)},Dir[3]={float(PC->AimRayDirection.X),float(PC->AimRayDirection.Y),float(PC->AimRayDirection.Z)},Here[3]={float(Me.X),float(Me.Y),float(Me.Z)};
+        int32 Pick=-1;
+        for(int32 Try=0;Try<3;++Try) { // the nearest to the ray that the wielder can see
+            Pick=ASClaws::PickTarget(Ray,Dir,Here,List,100000.f);
+            if(Pick<0||AS::ClearSight(GetWorld(),Me+FVector(0,0,40),Who[size_t(Pick)]->GetActorLocation())) break;
+            List[size_t(Pick)].Valid=false;Pick=-1;
+        }
+        FVector2D Top,Bottom;
+        if(Pick>=0) {
+            const AASEnemy* E=Who[size_t(Pick)];const FVector P=E->GetActorLocation();const float HalfHeight=E->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(),Radius=E->GetCapsuleComponent()->GetScaledCapsuleRadius();
+            if(PC->ProjectWorldLocationToScreen(P+FVector(0,0,HalfHeight*.8f),Top)&&PC->ProjectWorldLocationToScreen(P-FVector(0,0,HalfHeight*.8f),Bottom)) {
+                const bool InRange=FVector::Dist2D(Me,P)<=ASClaws::PounceRange+Radius;
+                const float Mid_X=(Top.X+Bottom.X)*.5f/Scale,Mid_Y=(Top.Y+Bottom.Y)*.5f/Scale,HalfH=FMath::Clamp(FMath::Abs(Bottom.Y-Top.Y)*.5f/Scale+10.f,26.f,230.f),HalfW=HalfH*.72f+4.f;
+                const float Breath=.72f+.28f*FMath::Sin(S->SimTime*7.f),Arm=FMath::Min(HalfW,HalfH)*.42f;
+                const FLinearColor C=InRange?FLinearColor(1.f,.78f,.22f,Breath):FLinearColor(.75f,.70f,.62f,.38f);
+                const auto Corner=[&](float SX,float SY) {
+                    const float X=Mid_X+SX*HalfW,Y=Mid_Y+SY*HalfH;
+                    Line(X,Y,X-SX*Arm,Y,FLinearColor::Black,5.f);Line(X,Y,X,Y-SY*Arm,FLinearColor::Black,5.f);
+                    Line(X,Y,X-SX*Arm,Y,C,2.5f);Line(X,Y,X,Y-SY*Arm,C,2.5f);
+                };
+                Corner(-1,-1);Corner(1,-1);Corner(-1,1);Corner(1,1);
+                if(InRange) Text(Key("Spiral"),Mid_X-float(Key("Spiral").Len())*5.5f,Mid_Y+HalfH+6.f,FLinearColor(1.f,.78f,.22f,Breath),.62f);
+            }
+        }
     }
     FString Objective;
     if(S->Phase==EASPhase::Countdown) Objective=FString::Printf(TEXT("WAVE IN %.0f / WATCH RED MARKERS"),FMath::CeilToFloat(S->CountdownEnd-S->SimTime));

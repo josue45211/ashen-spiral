@@ -1,0 +1,88 @@
+# 0.26 Twin Claws, the show: the rake and sparks of a held attack, the pounce's coil, leap, strike and the bond ring while latched, and the HUD (the target brackets, the latched row), with the
+# game's audio recorded so the sounds can be measured in the mix (Tools/measure_recording.py). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_claws_feel
+# Screenshots: Saved\Screenshots\Dev\cf_*.png (cf_ui_* carry the HUD); recording: Saved\AudioRecordings\Dev\claws_feel.wav
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.pounce.log 1
+as.dev.aimlock 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.freeze 0
+as.dev.killall
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.weapon 9
+wait 1.5
+# ---- 1: a held attack on a grunt 150 cm away: rakes and sparks, from the side ----
+as.dev.spawn 0 1 150 12
+wait 0.6
+as.dev.freeze 1 3000
+wait 0.2
+as.dev.state
+as.dev.record start 40
+as.dev.follow 430 90 90 58 0
+as.dev.input attack 2.0
+wait 0.15
+as.dev.shot cf_hit_a 0
+wait 0.1
+as.dev.shot cf_hit_b 0
+wait 0.1
+as.dev.shot cf_hit_c 0
+wait 0.1
+as.dev.shot cf_hit_d 0
+wait 0.1
+as.dev.shot cf_hit_e 0
+wait 1.2
+as.dev.follow off
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.state
+as.dev.freeze 0 900
+as.dev.killall 900
+as.dev.freeze 1 3000
+wait 7
+# ---- 2: the pounce on a grunt about 450 cm away, filmed from the side, then from the player's own camera with the HUD ----
+as.dev.spawn 0 1 450 25
+wait 0.8
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.state
+as.dev.aimat 0
+wait 0.3
+as.dev.shot cf_ui_marker 1
+as.dev.follow 440 70 300 58 0
+as.dev.input spiral 0.1
+wait 0.05
+as.dev.shot cf_pounce_coil 0
+wait 0.05
+as.dev.shot cf_pounce_leap_a 0
+wait 0.05
+as.dev.shot cf_pounce_leap_b 0
+wait 0.08
+as.dev.shot cf_pounce_strike_a 0
+wait 0.08
+as.dev.shot cf_pounce_strike_b 0
+wait 0.15
+as.dev.shot cf_pounce_strike_c 0
+wait 0.4
+as.dev.shot cf_pounce_latched 0
+as.dev.input attack 2.5
+wait 0.3
+as.dev.shot cf_latched_hit_a 0
+wait 0.12
+as.dev.shot cf_latched_hit_b 0
+wait 0.12
+as.dev.shot cf_latched_hit_c 0
+as.dev.follow off
+wait 0.2
+as.dev.shot cf_ui_latched 1
+wait 2.0
+as.dev.input dash
+wait 1.0
+as.dev.record stop claws_feel
+quit

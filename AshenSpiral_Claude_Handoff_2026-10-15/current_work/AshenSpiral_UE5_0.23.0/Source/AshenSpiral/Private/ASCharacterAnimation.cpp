@@ -30,7 +30,7 @@ void AASCharacter::Animate(float Delta) {
     // Trails come only from an explicit dash (predicted locally, or the server-replicated flag on other machines) or hammer leap flight.
     // They never depend on measured speed, so walking and running cannot spawn one on any machine.
     {
-        const bool TrailActive=!bDowned&&(Dashing||bDashActive||(Build.Weapon==1&&HammerLeapState==2));
+        const bool TrailActive=!bDowned&&(Dashing||bDashActive||(Build.Weapon==1&&HammerLeapState==2)||(Build.Weapon==ASRules::Claws&&PounceState==2)); // the claws' leap leaves the same afterimages
         if(ASPresentation::DashGhostDue(TrailActive,Now,NextDashGhost)) {
             NextDashGhost=Now+ASPresentation::DashGhostSpacing;
             if(auto* World=GetWorld()) if(auto* Ghost=World->SpawnActor<AASDashGhost>()) Ghost->SetupFromCharacter(this,OwnColor());
@@ -171,7 +171,8 @@ void AASCharacter::Animate(float Delta) {
     DamageReactionAge+=Delta;AbilityGestureAge+=Delta;
     HammerShakeAge+=Delta;
     if(IsLocallyControlled()) if(auto* GI=GetGameInstance<UASGameInstance>()) {
-        const bool Shake=Build.Weapon==1&&!GI->bReduceMotion&&HammerShakeAge<.28f;
+        const bool Shake=(Build.Weapon==1||Build.Weapon==ASRules::Claws)&&!GI->bReduceMotion&&HammerShakeAge<.28f; // the maul's and the claws' blows share the camera shake
+        ClawFovNow=FMath::FInterpTo(ClawFovNow,ClawFovTarget(Now),Delta,18.f);                                    // the pounce's field-of-view push (ASPlayerController adds it)
         const float Envelope=Shake?HammerShakeStrength*FMath::Square(1.f-HammerShakeAge/.28f):0.f;
         Camera->SetRelativeLocation(FVector(0,FMath::Sin(HammerShakeAge*83.f)*Envelope,FMath::Sin(HammerShakeAge*107.f)*Envelope*.6f));
     }
@@ -182,7 +183,7 @@ void AASCharacter::Animate(float Delta) {
     const bool HideSelf=IsLocallyControlled()&&FVector::DistSquared(Camera->GetComponentLocation(),GetActorLocation()+FVector(0,0,45))<190.f*190.f;
     for(auto Part:Parts) Part->SetOwnerNoSee(HideSelf);
     GetMesh()->SetOwnerNoSee(HideSelf);
-    WeaponMesh->SetOwnerNoSee(HideSelf);ArrowMesh->SetOwnerNoSee(HideSelf);ChargeMesh->SetOwnerNoSee(HideSelf);
+    WeaponMesh->SetOwnerNoSee(HideSelf);OffhandMesh->SetOwnerNoSee(HideSelf);ArrowMesh->SetOwnerNoSee(HideSelf);ChargeMesh->SetOwnerNoSee(HideSelf);
     for(auto Part:BowStrings) Part->SetOwnerNoSee(HideSelf);for(auto Part:Wisps) Part->SetOwnerNoSee(HideSelf);
 }
 

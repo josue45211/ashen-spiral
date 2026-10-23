@@ -50,9 +50,15 @@ const Attack& AttackFor(int32 Weapon) {
         {{TEXT("Murdock_Fire_Fast"),TEXT("Murdock_Fire_Fast"),TEXT("Murdock_Fire_Fast")},{false,false,false}},                                 // Cinder Scattergun
         {{TEXT("TwinBlast_DoubleShot_Fire_Rt_Fast"),TEXT("TwinBlast_DoubleShot_Fire_Rt_Fast"),TEXT("TwinBlast_DoubleShot_Fire_Rt_Fast")},{false,false,false}}, // Tempest Rotary
         {{TEXT("Wraith_Ability_Q_Fire"),TEXT("Wraith_Ability_Q_Fire"),TEXT("Wraith_Ability_Q_Fire")},{false,false,false}},                     // Rift Mortar
-        {{TEXT("Aurora_Primary_Attack_Fast_A"),TEXT("Aurora_Primary_Attack_Fast_B"),TEXT("Aurora_Primary_Attack_Fast_A")},{false,false,false}}, // Twin Claws (two steps; the blade's clips until the claw clips are chosen)
+        {{TEXT("Khaimera_Melee_A_Fast"),TEXT("Khaimera_Melee_B_Fast"),TEXT("Khaimera_Melee_A_Fast")},{false,false,false}},                       // Twin Claws (two steps; Khaimera's fast claw chain)
     };
     return Table[FMath::Clamp(Weapon,0,ASRules::WeaponCount-1)];
+}
+// The part of a step's clip that plays (seconds of the clip; To 0 = to its end). The claws cut Khaimera's chain before it bends the wielder double (look_claw_poses.txt: A and B are
+// hunched from about .28 s on; the strike is the sweep at .07-.14 s, which the stretch lands on the swing's impact).
+void AttackSpan(int32 Weapon,int32 Step,float& From,float& To) {
+    From=To=0.f;
+    if(Weapon==ASRules::Claws) {if(Step==0) {From=0.f;To=.30f;} else {From=.02f;To=.32f;}}
 }
 // The stance each weapon is carried in between moves, looped on the upper body (the legs keep their own walk, run and jump). TUNABLE: swap a clip by name.
 const TCHAR* StanceFor(int32 Weapon) {
@@ -61,7 +67,7 @@ const TCHAR* StanceFor(int32 Weapon) {
     // were bent over at the waist with the head down; TwinBlast_Idle is an upright guard with the sword forward, and Steel's combat idle an upright two-handed carry, the hammer (or scythe)
     // shouldered with both hands on the shaft. The others were already upright and stay.
     static const TCHAR* Table[ASRules::WeaponCount]={TEXT("TwinBlast_Idle"),TEXT("steel_Steel_Idle_Combat"),TEXT("Sparrow_idle"),TEXT("Yin_Idle_Combat"),TEXT("Yin_Idle_Combat"),TEXT("steel_Steel_Idle_Combat"),
-        TEXT("Murdock_Idle"),TEXT("Murdock_Idle"),TEXT("Wraith_Idle_Combat"),TEXT("TwinBlast_Idle")};
+        TEXT("Murdock_Idle"),TEXT("Murdock_Idle"),TEXT("Wraith_Idle_Combat"),TEXT("Kallari_Idle_Combat")}; // the claws: Kallari's stalking guard, the most upright of the claw-bearing idles tried (look_claw_stances.txt)
     return Table[FMath::Clamp(Weapon,0,ASRules::WeaponCount-1)];
 }
 FString StanceName(int32 Weapon) {
@@ -158,13 +164,29 @@ bool AASCharacter::SkeletalMovePlaying() const {
     return Active&&Active!=SkelStance.Get();
 }
 
-UAnimMontage* AASCharacter::PlayHeroClip(const TCHAR* Name,FName Slot,float Seconds,float BlendIn,float BlendOut) {
+// Seconds: how long the whole clip is stretched over (0: its own length); the part from StartAt to StopAt (clip seconds; StopAt<=0: the end) is what plays, over Seconds*(that part / the clip).
+UAnimMontage* AASCharacter::PlayHeroClip(const TCHAR* Name,FName Slot,float Seconds,float BlendIn,float BlendOut,float StartAt,float StopAt) {
     if(!bSkeletalHero||GetNetMode()==NM_DedicatedServer) return nullptr;
     UAnimInstance* Anim=GetMesh()?GetMesh()->GetAnimInstance():nullptr;UAnimSequenceBase* Clip=ASHeroLook::Clip(Name);
     if(!Anim||!Clip) return nullptr;
     const float Length=FMath::Max(.05f,Clip->GetPlayLength());
-    const float Rate=FMath::Clamp(Seconds>0.f?Length/Seconds:1.f,.35f,4.f);
-    return Anim->PlaySlotAnimationAsDynamicMontage(Clip,Slot,BlendIn,BlendOut,Rate,1,-1.f,0.f);
+    const float From=FMath::Clamp(StartAt,0.f,Length-.02f),To=StopAt>From+.02f?FMath::Min(StopAt,Length):Length;
+    const float Rate=FMath::Clamp(Seconds>0.f?(To-From)/Seconds:1.f,.35f,4.f); // Seconds is the time the played part takes
+    UAnimMontage* Played=Anim->PlaySlotAnimationAsDynamicMontage(Clip,Slot,BlendIn,BlendOut,Rate,1,-1.f,From);
+    if(Played&&To<Length-.001f) { // a part of the clip: its blend out starts when the part ends
+        FTimerHandle Cut;const TWeakObjectPtr<UAnimMontage> Weak=Played;
+        GetWorldTimerManager().SetTimer(Cut,FTimerDelegate::CreateWeakLambda(this,[this,Weak,BlendOut]{
+            UAnimInstance* A=GetMesh()?GetMesh()->GetAnimInstance():nullptr;if(A&&Weak.IsValid()) A->Montage_Stop(BlendOut,Weak.Get());}),FMath::Max(.02f,(To-From)/Rate-BlendOut),false);
+    }
+    return Played;
+}
+
+void AASCharacter::DevPlayClip(const FString& Name,bool bFullBody,float Seconds,float HoldAt) {
+    if(HoldAt<0.f) {PlayHeroClip(*Name,bFullBody?ASHeroLook::FullBody:ASHeroLook::UpperBody,Seconds,.05f,.1f);return;}
+    // the pose at HoldAt seconds into the clip, held (a play rate of nearly nothing) for Seconds: a still of an exact moment of a clip
+    UAnimInstance* Anim=GetMesh()?GetMesh()->GetAnimInstance():nullptr;UAnimSequenceBase* Clip=ASHeroLook::Clip(*Name);if(!Anim||!Clip) return;
+    if(UAnimMontage* M=Anim->PlaySlotAnimationAsDynamicMontage(Clip,bFullBody?ASHeroLook::FullBody:ASHeroLook::UpperBody,.02f,.1f,.0001f,1,-1.f,FMath::Clamp(HoldAt,0.f,Clip->GetPlayLength()-.01f))) M->bEnableAutoBlendOut=false;
+    FTimerHandle Release;GetWorldTimerManager().SetTimer(Release,FTimerDelegate::CreateWeakLambda(this,[this]{if(UAnimInstance* A=GetMesh()?GetMesh()->GetAnimInstance():nullptr) A->StopAllMontages(.1f);}),FMath::Max(.2f,Seconds),false);
 }
 
 void AASCharacter::PlayAttackClip() {
@@ -172,8 +194,10 @@ void AASCharacter::PlayAttackClip() {
     const auto& Set=ASHeroLook::AttackFor(Build.Weapon);
     const int32 Step=ASMelee::IsMelee(Build.Weapon)?FMath::Clamp(MeleeStep,0,2):int32(AttackSequence%3);
     // a melee clip is stretched over the whole swing (its blow then lands about where the swing's does); a shot is a quick kick, never shorter than the clip wants to be
-    const float Seconds=ASMelee::IsMelee(Build.Weapon)?FMath::Max(.18f,AttackPoseDuration*1.35f):FMath::Max(.16f,AttackPoseDuration*2.2f);
-    PlayHeroClip(Set.Clip[Step],Set.FullBody[Step]?ASHeroLook::FullBody:ASHeroLook::UpperBody,Seconds,.05f,ASMelee::IsMelee(Build.Weapon)?.18f:.10f);
+    float Seconds=ASMelee::IsMelee(Build.Weapon)?FMath::Max(.18f,AttackPoseDuration*1.35f):FMath::Max(.16f,AttackPoseDuration*2.2f);
+    float From=0.f,To=0.f;ASHeroLook::AttackSpan(Build.Weapon,Step,From,To);
+    if(To>From) Seconds=FMath::Max(.12f,AttackPoseDuration*1.1f); // a cut clip is stretched over the swing itself (its blow near the swing's impact), not over the swing and its follow-through
+    PlayHeroClip(Set.Clip[Step],Set.FullBody[Step]?ASHeroLook::FullBody:ASHeroLook::UpperBody,Seconds,.05f,ASMelee::IsMelee(Build.Weapon)?.18f:.10f,From,To);
 }
 
 #if !UE_BUILD_SHIPPING
@@ -235,6 +259,15 @@ void AASCharacter::AnimateSkeletal(float Delta,bool Dashing,bool Airborne) {
         else if(HammerLeapState==3) PlayHeroClip(TEXT("steel_Steel_Ability_GroundSmash_End"),ASHeroLook::FullBody,.55f,.03f,.2f);
         SkelLeapSeen=HammerLeapState;
     }
+    // Twin Claws' pounce: the coil, the leap, the rake. Khaimera's clips, cut to the part each moment wants (look_claw_poses.txt): Jump_Start's first .22 s is a deep crouch with the claws low and forward;
+    // R_Ability from .08 to .52 s is arms up, then a dive into a crouch on the ground (the leap lands in it); from .85 to 1.45 s the crouch rises into a wide claw sweep (the arrival strike).
+    if(Build.Weapon==ASRules::Claws&&PounceState!=SkelPounceSeen) {
+        if(PounceState==1) PlayHeroClip(TEXT("Khaimera_Jump_Start"),ASHeroLook::FullBody,ASClaws::Windup,.03f,.02f,0.f,.22f);
+        else if(PounceState==2) PlayHeroClip(TEXT("Khaimera_R_Ability"),ASHeroLook::FullBody,FMath::Max(.12f,PounceFlight),.03f,.02f,.08f,.52f);
+        else if(PounceState==3) PlayHeroClip(TEXT("Khaimera_R_Ability"),ASHeroLook::FullBody,.30f,.02f,.18f,.85f,1.45f);
+        else if(SkelPounceSeen==2&&!DashNow&&!bDowned) PlayHeroClip(TEXT("Khaimera_Jump_Recovery"),ASHeroLook::FullBody,.4f,.03f,.2f,.0f,.6f); // a lunge that landed on nothing: the crouching landing
+        SkelPounceSeen=PounceState;
+    } else if(Build.Weapon!=ASRules::Claws) SkelPounceSeen=0;
     // downed: the Mannequin's own death fall, held at its last frame until revived
     if(bDowned!=bSkelDownedSeen) {
         bSkelDownedSeen=bDowned;

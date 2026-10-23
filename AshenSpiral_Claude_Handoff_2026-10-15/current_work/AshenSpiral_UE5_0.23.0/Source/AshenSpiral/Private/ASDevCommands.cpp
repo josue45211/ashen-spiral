@@ -82,8 +82,13 @@ void Run(const TArray<FString>& Args,UWorld* W) {
 }
 void Room(const TArray<FString>& Args,UWorld* W) {if(auto* GM=Mode(W)) {GM->EnterRoom(FMath::Clamp(ArgInt(Args,0,0),0,31));UE_LOG(LogTemp,Display,TEXT("AshenDev: room %d entered"),ArgInt(Args,0,0));}}
 // as.dev.spawn <kind> [count] [distance cm] [health scale]: enemies in a row in front of the hero (combat phase only, like every minion).
+// The first hero that is not this machine's own player's (on the host: the guest's; the authority paths need the host), for the dev commands that take [other=1].
+AASCharacter* OtherHero(UWorld* W) {
+    if(auto* S=AS::State(W)) for(auto Weak:S->Heroes) if(AASCharacter* H=Weak.Get()) if(!H->IsLocallyControlled()) return H;
+    return nullptr;
+}
 void Spawn(const TArray<FString>& Args,UWorld* W) {
-    auto* GM=Mode(W);auto* H=HostHero(W);if(!GM||!H) return;
+    auto* GM=Mode(W);auto* H=ArgInt(Args,4,0)!=0?OtherHero(W):HostHero(W);if(!GM||!H) return; // [other=1]: in front of the other player's hero
     const int32 Kind=ArgInt(Args,0,0),Count=FMath::Clamp(ArgInt(Args,1,1),1,20);const float Distance=ArgFloat(Args,2,500.f),Health=ArgFloat(Args,3,1.f);
     const FVector Forward=H->GetActorForwardVector().GetSafeNormal2D(),Right(-Forward.Y,Forward.X,0.f);int32 Made=0;
     for(int32 I=0;I<Count;++I) if(AASEnemy* E=GM->SpawnMinion(H->GetActorLocation()+Forward*Distance+Right*(float(I)-(Count-1)*.5f)*160.f,nullptr,Kind,Health,false)) {++Made;E->RefreshLook();}
@@ -265,6 +270,21 @@ void Cam(const TArray<FString>& Args,UWorld* W) {
     PC->SetViewTarget(PhotoCamera.Get());
 }
 void Face(const TArray<FString>& Args,UWorld* W) {if(auto* PC=HostController(W)) PC->SetControlRotation(FRotator(ArgFloat(Args,1,-15.f),ArgFloat(Args,0,0.f),0.f));}
+// as.dev.menu <page> [shop weapon]: opens the in-game menu on that page (0 closes it; 2 the armory, 14 a weapon's page for [shop weapon], 11 the controls), for photographing it. The hub opens page 1 by itself
+// a moment after the start, which swallows scripted input until it is closed (as.dev.menu 0).
+void MenuPage(const TArray<FString>& Args,UWorld* W) {
+    auto* PC=HostController(W);if(!PC) return;const int32 Page=ArgInt(Args,0,0);
+    if(Args.IsValidIndex(1)) PC->ShopWeapon=FMath::Clamp(ArgInt(Args,1,0),0,ASRules::WeaponCount-1);
+    if(Page<=0) {if(PC->MenuOpen()) PC->CloseMenu();} else PC->OpenMenu(Page);
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: menu page %d (open %d)"),Page,PC->MenuOpen()?1:0);
+}
+// as.dev.clip <name> [full|upper=full] [seconds=0]: plays a hero clip (a name under /Game/Characters/Hero/Anims) on the host hero's body, stretched over <seconds> (0: its own length), for judging a clip
+// in motion with a few screenshots taken during a slowed playback.
+void Clip(const TArray<FString>& Args,UWorld* W) {
+    auto* H=HostHero(W);if(!H||!Args.IsValidIndex(0)) return;
+    const bool Full=!Args.IsValidIndex(1)||Args[1]!=TEXT("upper");H->DevPlayClip(Args[0],Full,ArgFloat(Args,2,0.f),ArgFloat(Args,3,-1.f));
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: clip %s on the %s body over %.2f s%s"),*Args[0],Full?TEXT("full"):TEXT("upper"),ArgFloat(Args,2,0.f),Args.IsValidIndex(3)?*FString::Printf(TEXT(", held at %.2f s of the clip"),ArgFloat(Args,3,0.f)):TEXT(""));
+}
 // as.dev.aimat [nth=0]: turns the camera so the crosshair's ray (the one the claws' pounce reads, ASPlayerController::UpdateAim) runs through the nth nearest living enemy's body. The camera sits
 // on a boom to the hero's right, so a plain "face the enemy" misses it by the boom's offset; this solves for the camera's own position (a few rounds of the same boom arithmetic).
 void AimAt(const TArray<FString>& Args,UWorld* W) {
@@ -477,11 +497,11 @@ void Heroes(const TArray<FString>& Args,UWorld* W) {
 // is committed to its third swing, the leap state, how far each foot moves against the mesh (a planted foot reads 0 while the body travels), and the montage playing. For judging how the
 // body travels against what the animation shows (0.26 G3: the third hammer swing's moonwalk).
 void Trace(const TArray<FString>& Args,UWorld* W) {
-    struct FRun {double Began=0.0,Until=0.0,Next=0.0;float Interval=.1f;FString Label;FVector FootL=FVector::ZeroVector,FootR=FVector::ZeroVector;double LastAt=0.0;bool bHave=false;};
-    auto State=MakeShared<FRun>();State->Label=Args.IsValidIndex(1)?Args[1]:TEXT("run");State->Interval=FMath::Max(.02f,ArgFloat(Args,2,.1f));State->Began=FPlatformTime::Seconds();State->Until=State->Began+FMath::Max(.5f,ArgFloat(Args,0,5.f));
+    struct FRun {double Began=0.0,Until=0.0,Next=0.0;float Interval=.1f;FString Label;FVector FootL=FVector::ZeroVector,FootR=FVector::ZeroVector;double LastAt=0.0;bool bHave=false,bOther=false;};
+    auto State=MakeShared<FRun>();State->Label=Args.IsValidIndex(1)?Args[1]:TEXT("run");State->Interval=FMath::Max(.02f,ArgFloat(Args,2,.1f));State->Began=FPlatformTime::Seconds();State->Until=State->Began+FMath::Max(.5f,ArgFloat(Args,0,5.f));State->bOther=ArgInt(Args,3,0)!=0;
     TWeakObjectPtr<UWorld> World=W;
     FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([State,World](float) {
-        const double Now=FPlatformTime::Seconds();const AASCharacter* H=ASDev::HostHero(World.Get());
+        const double Now=FPlatformTime::Seconds();const AASCharacter* H=State->bOther?ASDev::OtherHero(World.Get()):ASDev::HostHero(World.Get()); // [other=1]: the other player's hero as this machine has it
         if(H&&Now>=State->Next) {
             State->Next=Now+State->Interval;
             const USkeletalMeshComponent* Body=H->GetMesh();const UAnimInstance* Anim=Body?Body->GetAnimInstance():nullptr;const UAnimMontage* Playing=Anim?Anim->GetCurrentActiveMontage():nullptr;
@@ -597,7 +617,7 @@ void Script(const TArray<FString>& Args,UWorld*) {
 AS_DEV_COMMAND("as.dev.endless",Endless,"Starts an Endless run as the host (unlocks it on this profile first). Optional seed.");
 AS_DEV_COMMAND("as.dev.run",Run,"Starts a story run as the host. Optional seed.");
 AS_DEV_COMMAND("as.dev.room",Room,"Enters story room N.");
-AS_DEV_COMMAND("as.dev.spawn",Spawn,"Spawns <kind> [count] [distance] [health scale] enemies in front of the hero (combat only).");
+AS_DEV_COMMAND("as.dev.spawn",Spawn,"Spawns <kind> [count] [distance] [health scale] [other=1: in front of the other player's hero] enemies in front of the hero (combat only).");
 AS_DEV_COMMAND("as.dev.elite",Elite,"Elite brutes in front of the hero: <mutation 0-4> [count=1] [distance=900] [side offset=0].");
 AS_DEV_COMMAND("as.dev.boss",Boss,"A ward boss in front of the hero: <ward 0-3> [airborne=0] [distance=1000].");
 AS_DEV_COMMAND("as.dev.wound",Wound,"Hits every enemy near the hero down to <fraction> of its health [radius=3000].");
@@ -623,6 +643,8 @@ AS_DEV_COMMAND("as.dev.hurt",HurtHero,"A blow of <amount> to the host hero from 
 AS_DEV_COMMAND("as.dev.place",Place,"Moves the host hero to <x> <y> [yaw].");
 AS_DEV_COMMAND("as.dev.cam",Cam,"A fixed photo camera: <x> <y> <z> <pitch> <yaw> [fov=80], or off.");
 AS_DEV_COMMAND("as.dev.face",Face,"Turns the camera to <yaw> [pitch].");
+AS_DEV_COMMAND("as.dev.menu",MenuPage,"Opens the menu on page <n> (0 closes it; 2 armory, 14 a weapon's page for [shop weapon], 11 controls).");
+AS_DEV_COMMAND("as.dev.clip",Clip,"Plays a hero clip on the host hero: <name> [full|upper=full] [seconds=0 (its own length)] [hold at clip time: holds that pose for <seconds>].");
 AS_DEV_COMMAND("as.dev.aimat",AimAt,"Turns the camera so the crosshair's ray runs through the [nth=0] nearest living enemy (what a pounce picks).");
 AS_DEV_COMMAND("as.dev.follow",Follow,"A photo camera riding with the hero: <distance> <height> <angle from its facing> [fov=55] [look-ahead cm=0] [other=1: the other player's hero], or off.");
 AS_DEV_COMMAND("as.dev.heroes",Heroes,"Logs per hero how THIS machine draws it: role, mesh offset against the capsule, the foot bone's height above the capsule bottom, the engine's cached mesh offset ('AshenHeroes:' lines); [label].");
@@ -635,7 +657,7 @@ AS_DEV_COMMAND("as.dev.lookat",LookAt,"Photo camera on the nearest ruin piece wh
 AS_DEV_COMMAND("as.dev.record",Record,"Records the game's audio: start [seconds=30] | stop <name> (Saved/AudioRecordings/Dev/<name>.wav).");
 AS_DEV_COMMAND("as.dev.perf",Perf,"Logs the frame time over [seconds=10]: avg, p95, p99, worst, fps and the game, render and GPU thread times; [label].");
 AS_DEV_COMMAND("as.dev.motion",Motion,"Counts frames in which moving enemies and other heroes hold still on screen over [seconds=10] ('AshenMotion:' line): a client skipping proxy simulation shows many; [label].");
-AS_DEV_COMMAND("as.dev.trace",Trace,"Logs the host hero every [interval=.1] s for <seconds>: ground speed, combo step, hammer committed, leap, foot travel in the mesh frame, montage ('AshenTrace:' lines); [label].");
+AS_DEV_COMMAND("as.dev.trace",Trace,"Logs the host hero every [interval=.1] s for <seconds>: ground speed, combo step, hammer committed, leap, the claws' pounce, foot travel in the mesh frame, montage ('AshenTrace:' lines); <seconds> [label] [interval] [other=1: the other player's hero].");
 AS_DEV_COMMAND("as.dev.wave",Wave,"Sets the Endless wave number <n>.");
 AS_DEV_COMMAND("as.dev.state",State,"Logs the phase, wave, hero and every enemy.");
 AS_DEV_COMMAND("as.dev.script",Script,"Plays a script file: one console command per line, plus wait <s> and waitfor ready|combat|hub [timeout].");

@@ -1,0 +1,77 @@
+# 0.26 Twin Claws: judging candidate clips for the pounce in motion (as.dev.clip stretches a clip over a few seconds; a screenshot every ~.45 s catches its phases). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_claw_clips
+# Screenshots: Saved\Screenshots\Dev\cc_<clip>_<n>.png
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.weapon 9
+wait 1.2
+as.dev.follow 380 40 320 58 0
+wait 0.4
+as.dev.clip Khaimera_Jump_Start full 3
+wait 0.3
+as.dev.shot cc_Jump_Start_1 0
+wait 0.45
+as.dev.shot cc_Jump_Start_2 0
+wait 0.45
+as.dev.shot cc_Jump_Start_3 0
+wait 0.45
+as.dev.shot cc_Jump_Start_4 0
+wait 0.45
+as.dev.shot cc_Jump_Start_5 0
+wait 1.0
+as.dev.clip Khaimera_Jump_Apex full 3
+wait 0.3
+as.dev.shot cc_Jump_Apex_1 0
+wait 0.5
+as.dev.shot cc_Jump_Apex_2 0
+wait 0.5
+as.dev.shot cc_Jump_Apex_3 0
+wait 0.5
+as.dev.shot cc_Jump_Apex_4 0
+wait 1.0
+as.dev.clip Khaimera_Melee_Air_Attack full 5
+wait 0.3
+as.dev.shot cc_Air_Attack_1 0
+wait 0.55
+as.dev.shot cc_Air_Attack_2 0
+wait 0.55
+as.dev.shot cc_Air_Attack_3 0
+wait 0.55
+as.dev.shot cc_Air_Attack_4 0
+wait 0.55
+as.dev.shot cc_Air_Attack_5 0
+wait 0.55
+as.dev.shot cc_Air_Attack_6 0
+wait 1.2
+as.dev.clip Khaimera_R_Ability full 4
+wait 0.3
+as.dev.shot cc_R_Ability_1 0
+wait 0.5
+as.dev.shot cc_R_Ability_2 0
+wait 0.5
+as.dev.shot cc_R_Ability_3 0
+wait 0.5
+as.dev.shot cc_R_Ability_4 0
+wait 0.5
+as.dev.shot cc_R_Ability_5 0
+wait 1.2
+as.dev.clip Khaimera_Jump_Recovery full 3
+wait 0.3
+as.dev.shot cc_Jump_Recovery_1 0
+wait 0.5
+as.dev.shot cc_Jump_Recovery_2 0
+wait 0.5
+as.dev.shot cc_Jump_Recovery_3 0
+wait 0.5
+as.dev.shot cc_Jump_Recovery_4 0
+as.dev.follow off
+quit

@@ -5,6 +5,7 @@ param([Parameter(Mandatory=$true)][string[]]$Files,[string]$Engine='C:\Program F
 $Project=Split-Path -Parent $PSScriptRoot
 $Cmd=Join-Path $Engine 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
 $Log=Join-Path $Project 'Saved\Logs\ImportNewArt.log'
+$Files=@($Files|ForEach-Object{$_ -split ','}|Where-Object{$_.Trim()}) # (powershell -File passes -Files a,b as the one string "a,b")
 $env:ASHEN_IMPORT=($Files -join ';')
 $Script=Join-Path $PSScriptRoot 'import_new_art.py'
 $P=Start-Process -FilePath $Cmd -ArgumentList @("`"$(Join-Path $Project 'AshenSpiral.uproject')`"",'/Engine/Maps/Entry','-run=pythonscript',"-script=`"$Script`"",'-unattended','-nosplash','-NullRHI','-NoSound','-UTF8Output',"-abslog=`"$Log`"") -PassThru -Wait -WindowStyle Hidden

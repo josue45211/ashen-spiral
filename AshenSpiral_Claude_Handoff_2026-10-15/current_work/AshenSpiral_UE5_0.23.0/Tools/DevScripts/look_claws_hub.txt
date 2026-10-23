@@ -1,0 +1,45 @@
+# 0.26 Twin Claws in the hub: the tenth weapon stand (two claws on the plinth, at the end of the row), the armory and the weapon's page, and the claws against the practice dummy (a pounce on it,
+# a held attack). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_claws_hub
+# Screenshots: Saved\Screenshots\Dev\ch_*.png (ch_ui_* carry the HUD or the menu)
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.pounce.log 1
+as.dev.aimlock 1
+as.dev.menu 0
+as.dev.weapon 9
+wait 1.5
+as.dev.cam 1162 -880 230 -8 -90 55
+wait 1.0
+as.dev.shot ch_stand 0
+as.dev.cam 700 -880 250 -8 -90 85
+wait 0.6
+as.dev.shot ch_row 0
+as.dev.cam off
+as.dev.menu 2
+wait 1.2
+as.dev.shot ch_ui_armory 1
+as.dev.menu 14 9
+wait 1.0
+as.dev.shot ch_ui_weapon_page 1
+as.dev.menu 0
+wait 0.5
+as.dev.place 560 700 40
+wait 1.0
+as.dev.state
+as.dev.aimat 0
+wait 0.3
+as.dev.shot ch_ui_marker 1
+as.dev.trace 6 hub_dummy 0.1
+as.dev.input spiral 0.1
+wait 0.6
+as.dev.shot ch_ui_latched 1
+as.dev.input attack 2.0
+wait 1.0
+as.dev.shot ch_ui_hit 1
+wait 2.0
+as.dev.input dash
+wait 1.0
+as.dev.state
+quit

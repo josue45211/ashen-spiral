@@ -5,6 +5,10 @@
 #include "ASEnemy.h"
 #include "ASBreakable.h"
 #include "ASPlayerController.h"
+#include "ASGameMode.h"
+#include "ASGameInstance.h"
+#include "ASSpell.h"
+#include "Math/RotationMatrix.h"
 #include "GameFramework/RootMotionSource.h"
 #include "Components/CapsuleComponent.h"
 #include "Curves/CurveVector.h"
@@ -91,7 +95,9 @@ void AASCharacter::RequestPounce_Implementation(FVector_NetQuantize Origin,FVect
     if(Origin.ContainsNaN()||Direction.ContainsNaN()||Direction.IsNearlyZero()) return;
     AASEnemy* Target=PickPounceTarget(Origin,Direction);
     FVector Landing=GetActorLocation(),Outward=GetActorForwardVector();bool Whiff=false;
-    if(Target&&FindPounceLanding(Target,GetActorLocation(),Landing,Outward)) {}
+    const bool Picked=Target!=nullptr,Landable=Picked&&FindPounceLanding(Target,GetActorLocation(),Landing,Outward);
+    if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: crosshair ray from %s along %s picked %s (%.0f cm from the wielder, kind %d); a spot beside it: %s"),*FVector(Origin).ToCompactString(),*FVector(Direction).ToCompactString(),*GetNameSafe(Target),Picked?float(FVector::Dist(GetActorLocation(),Target->GetActorLocation())):0.f,Picked?int32(Target->Kind):-1,Picked?(Landable?TEXT("found"):TEXT("NONE (a wall, a pit or a crowd all round)")):TEXT("-"));
+    if(Landable) {}
     else {
         // nothing under the crosshair (or nowhere to stand beside it): a lunge along the aim, short of walls, onto the floor
         Target=nullptr;Whiff=true;
@@ -165,8 +171,8 @@ void AASCharacter::BeginLatch(float Now) {
     const FVector Toward=(T->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
     const bool Critical=(CombatBenefits()&&bNextCritical)||FMath::FRand()<ASRules::CriticalChance(Rank(19),RunRank(5));if(CombatBenefits()) bNextCritical=false;
     PounceCue(2,T->GetActorLocation(),Toward);
+    if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: %s latched onto %s (hero %s, target %s)"),*GetName(),*GetNameSafe(T),*GetActorLocation().ToString(),*T->GetActorLocation().ToString()); // before the blow: it may kill the target
     HitEnemy(T,ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASClaws::StrikeDamageScale,Critical,ASData::WeaponElement(Build.Weapon),true); // the arrival strike
-    if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: %s latched onto %s (hero %s, target %s)"),*GetName(),*GetNameSafe(T),*GetActorLocation().ToString(),*T->GetActorLocation().ToString());
     ForceNetUpdate();
 }
 void AASCharacter::TickPounce(float Now,float Delta) {
@@ -183,7 +189,7 @@ void AASCharacter::TickPounce(float Now,float Delta) {
         PounceTarget=T;PounceOutward=Outward;PounceLanding=Landing;
         const FVector From=GetActorLocation();const float Distance=float(FVector::Dist(From,Landing));
         const float Seconds=ASClaws::FlightSeconds(Distance),Arc=ASClaws::ArcHeight(Distance)+FMath::Max(0.f,float(Landing.Z-From.Z)); // clear a lip as high as the landing
-        PounceState=2;PounceStateAt=Now;PounceFlightSeconds=Seconds;
+        PounceState=2;PounceStateAt=Now;PounceFlightSeconds=PounceFlight=Seconds;
         InvulnerableUntil=FMath::Max(InvulnerableUntil,Now+Seconds+ASClaws::FlightProtection);
         PounceMotion(true,Landing,Outward,Seconds,Arc);PounceCue(1,From,(Landing-From).GetSafeNormal());
         if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: %s leaps %.0f cm in %.2fs (arc %.0f) to %s"),*GetName(),Distance,Seconds,Arc,*Landing.ToString());
@@ -209,10 +215,51 @@ void AASCharacter::TickPounce(float Now,float Delta) {
     const auto Why=ASClaws::ReleaseReason(F);
     if(Why!=ASClaws::Release::None) CancelPounce(Why);
 }
+// The pounce's show, on every machine from the server's cue: 0 the crouch, 1 the launch, 2 the strike on the target (At is the target), 3 landed on nothing, 4 let go, 5 let go by a dash, 6 the
+// target died under the claws. Sounds are the claw set (Tools/generate_claw_audio.py); the camera pieces belong to the wielder's own machine only.
 void AASCharacter::PounceCue_Implementation(uint8 Kind,FVector_NetQuantize At,FVector_NetQuantizeNormal Direction) {
     if(GetNetMode()==NM_DedicatedServer) return;
-    // 0 crouch, 1 launch, 2 strike on the target, 3 landed on nothing, 4 let go, 5 let go by a dash, 6 the target died. The presentation (sounds, slashes, camera) is added in the feel pass.
-    auto* S=AS::State(this);if(!S) return;
-    if(Kind==2) {S->Effect(8,At+FVector(0,0,20),FVector::UpVector,ASData::HitColor(EASHitKind::Bleed),150.f);}
-    if(Kind==1) {S->Effect(4,At-FVector(0,0,60),Direction,BodyColor(),90.f);}
+    UWorld* World=GetWorld();auto* S=AS::State(this);if(!World||!S) return;
+    const FLinearColor Blood=ASData::HitColor(EASHitKind::Bleed);const FVector Point(At),Feet=GetActorLocation()-FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-3.f);
+    const auto Spawn=[World]()->AASClawFx* {return World->SpawnActor<AASClawFx>();};
+    const bool Mine=IsLocallyControlled()&&!bDowned;
+    if(Kind==0) {
+        ASClawFx::Sound(this,TEXT("S_PounceCoil"),1,GetActorLocation(),.6f,.96f,1.04f);
+        if(auto* Dust=Spawn()) Dust->SetupDust(Feet,70.f,.2f);
+    } else if(Kind==1) {
+        ASClawFx::Sound(this,TEXT("S_PounceLaunch"),1,GetActorLocation(),.8f,.96f,1.05f);
+        if(auto* Dust=Spawn()) Dust->SetupDust(Feet,130.f,.9f);
+        if(auto* Ring=Spawn()) Ring->SetupRing(Feet,FLinearColor(.9f,.8f,.65f),190.f,.34f);
+        if(Mine) {HammerShakeAge=0;HammerShakeStrength=.8f;}
+    } else if(Kind==2) {
+        // the arrival: both diagonals of the rake across the body, a big spray of sparks, a ring on the floor, the heaviest sound, and for the wielder a hard shake and a hit-stop
+        ASClawFx::Sound(this,TEXT("S_PounceStrike"),1,Point,.95f,.97f,1.04f);
+        const FVector Chest=Point+FVector(0,0,18),From=GetActorLocation()+FVector(0,0,40);
+        for(int32 Step=0;Step<2;++Step) if(auto* Rake=Spawn()) Rake->SetupRake(Chest,From,Blood,Step,1.f);
+        if(auto* Sparks=Spawn()) Sparks->SetupSparks(Chest,From,Blood,1.f);
+        if(auto* Ring=Spawn()) Ring->SetupRing(Point-FVector(0,0,60),Blood,230.f,.4f);
+        if(auto* Dust=Spawn()) Dust->SetupDust(Feet,110.f,.6f);
+        if(auto* Bond=Spawn()) Bond->SetupBond(this,Blood); // lives while this hero holds on
+        if(Mine) {HammerShakeAge=0;HammerShakeStrength=2.6f;}
+        if(HasAuthority()) if(auto* GM=World->GetAuthGameMode<AASGameMode>()) GM->ClearBeat(.06f,ASClaws::HitStop*1.3f); // the host's hit-stop: a blink of stillness on the arrival
+    } else if(Kind==3) {
+        ASClawFx::Sound(this,TEXT("S_PounceLand"),1,GetActorLocation(),.7f,.97f,1.04f);
+        if(auto* Dust=Spawn()) Dust->SetupDust(Feet,120.f,.8f);
+        if(auto* Ring=Spawn()) Ring->SetupRing(Feet,FLinearColor(.9f,.8f,.65f),150.f,.3f);
+        if(Mine) {HammerShakeAge=0;HammerShakeStrength=.9f;}
+    } else {
+        ASClawFx::Sound(this,TEXT("S_PounceRelease"),1,GetActorLocation(),Kind==6?.35f:.5f,Kind==6?1.12f:.96f,Kind==6?1.2f:1.04f);
+        if(auto* Dust=Spawn()) Dust->SetupDust(Feet,60.f,.15f);
+    }
+}
+// How far the pounce pushes this camera's field of view (degrees; the controller adds it): a small push in on the crouch, a rush wider in flight, a hard punch in on the arrival that settles to
+// a held push while latched. Eased on the way (ClawFovNow); nothing for a player who asked for reduced motion.
+float AASCharacter::ClawFovTarget(float Now) const {
+    if(Build.Weapon!=ASRules::Claws||bDowned||!IsLocallyControlled()) return 0.f;
+    if(const auto* GI=GetGameInstance<UASGameInstance>()) if(GI->bReduceMotion) return 0.f;
+    const auto Ease=[](float T) {T=FMath::Clamp(T,0.f,1.f);return T*T*(3.f-2.f*T);};
+    if(PounceState==1) return -3.5f*Ease((Now-PounceStateAt)/ASClaws::Windup);
+    if(PounceState==2) return 7.f*Ease((Now-PounceStateAt)/FMath::Max(.08f,PounceFlight*.5f));
+    if(PounceState==3) return -2.5f-9.f*FMath::Exp(-(Now-PounceStateAt)/.10f);
+    return 0.f;
 }

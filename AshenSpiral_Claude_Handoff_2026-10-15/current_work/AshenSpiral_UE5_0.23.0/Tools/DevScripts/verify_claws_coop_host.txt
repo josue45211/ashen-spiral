@@ -1,0 +1,63 @@
+# 0.26 Twin Claws in co-op: the GUEST pounces (its own input path: RequestPounce from a client, the leap's root motion on the owner, the server trusting the owner's position) and the host
+# watches. Pairs with verify_claws_coop_client.txt:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunCoopCheck.ps1 -HostScript verify_claws_coop_host -GuestScript verify_claws_coop_client
+# Host: sets the scene, spawns the guest's targets (a still grunt, then a strafing duelist), emulates 100 ms of round trip, and traces the guest's hero as the SERVER has it ("AshenTrace:
+# host_sees_guest_*": pounce state, gap to the target, floor clearance); the guest's log carries AshenCorrect: lines for every server correction it suffered. Screenshots: gc_host_*.png.
+t.MaxFPS 60
+waitfor players 150
+wait 4
+as.dev.god 1
+as.pounce.log 1
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.freeze 0
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.weapon 9
+as.dev.weapon 9 1
+Net PktLag=50
+wait 3.5
+# ---- scene 1: a still grunt 450 cm in front of the guest ----
+as.dev.spawn 0 1 450 20 1
+wait 0.8
+as.dev.freeze 1 3000
+wait 0.2
+as.dev.trace 9.5 host_sees_guest_still 0.1 1
+as.dev.heroes coop_host_before
+as.dev.follow 450 80 300 58 0 1
+wait 5.2
+as.dev.shot gc_host_pounce_a 0
+wait 0.5
+as.dev.shot gc_host_pounce_b 0
+wait 0.7
+as.dev.shot gc_host_latched_a 0
+wait 1.5
+as.dev.shot gc_host_latched_b 0
+wait 2.2
+as.dev.follow off
+as.dev.state
+as.dev.freeze 0 2000
+as.dev.killall 2000
+wait 1.0
+as.dev.freeze 0 2000
+as.dev.killall 2000
+wait 4
+# ---- scene 2: a duelist (it strafes and backs off) 500 cm in front of the guest, not frozen ----
+as.dev.spawn 2 1 500 30 1
+wait 0.9
+as.dev.trace 7 host_sees_guest_runner 0.1 1
+as.dev.follow 480 120 300 58 0 1
+wait 3.0
+as.dev.shot gc_host_runner_a 0
+wait 2.0
+as.dev.shot gc_host_runner_b 0
+wait 2.5
+as.dev.follow off
+as.dev.state
+as.dev.heroes coop_host_after
+wait 2
+quit

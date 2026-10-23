@@ -1,0 +1,47 @@
+# 0.26 Twin Claws on the 21-part armour rig (as.hero.skeletal 0: the fallback look when the Mannequin assets are missing): a claw in each hand, a held attack, and a pounce. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_claws_rig
+# Screenshots: Saved\Screenshots\Dev\cr_*.png
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.pounce.log 1
+as.dev.aimlock 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.freeze 0
+as.dev.killall
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.keeper
+as.dev.freeze 1 3000
+as.hero.skeletal 0
+as.dev.weapon 9
+wait 1.5
+as.dev.follow 330 40 330 55 0
+wait 0.4
+as.dev.shot cr_idle_fl 0
+as.dev.follow 300 30 90 55 0
+wait 0.4
+as.dev.shot cr_idle_right 0
+as.dev.spawn 0 1 450 25
+wait 0.8
+as.dev.freeze 1 3000
+wait 0.3
+as.dev.follow 440 70 300 58 0
+as.dev.input spiral 0.1
+wait 0.07
+as.dev.shot cr_pounce_a 0
+wait 0.1
+as.dev.shot cr_pounce_b 0
+wait 0.4
+as.dev.shot cr_latched 0
+as.dev.input attack 1.6
+wait 0.3
+as.dev.shot cr_hit_a 0
+wait 0.15
+as.dev.shot cr_hit_b 0
+wait 1.5
+as.hero.skeletal 1
+as.dev.follow off
+quit

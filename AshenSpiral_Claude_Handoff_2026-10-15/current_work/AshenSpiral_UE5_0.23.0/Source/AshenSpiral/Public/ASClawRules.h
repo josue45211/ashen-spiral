@@ -27,7 +27,7 @@ constexpr float GlueGain=14.f;                                // 1/s: how hard t
 constexpr float GlueMaxSpeed=1400.f;                          // cm/s, the fastest a latched wielder is carried after a target (a charging brute runs at about 700)
 constexpr float GlueLoseDistance=420.f,GlueLoseSeconds=.5f;   // farther than this from the ring point for this long: the latch lets go (a wall, a ledge)
 constexpr float TeleportJump=650.f;                           // a target that moves this far in one frame has teleported or phased: the latch lets go
-constexpr float AirborneLoseSeconds=.6f;                      // off the ground this long while latched: let go
+constexpr float AirborneLoseSeconds=.9f;                      // off the ground this long while latched: let go (a guest's leap lands on the server a round trip after the server's own latch began)
 
 inline float FlightSeconds(float Distance) {return std::clamp(std::isfinite(Distance)?Distance/FlightSpeed:FlightMax,FlightMin,FlightMax);}
 inline float ArcHeight(float Distance) {return std::clamp(std::isfinite(Distance)?Distance*ArcPerDistance:ArcMin,ArcMin,ArcMax);}

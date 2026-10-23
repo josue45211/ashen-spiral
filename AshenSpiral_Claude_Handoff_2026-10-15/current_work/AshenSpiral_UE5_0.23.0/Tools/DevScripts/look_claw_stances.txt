@@ -1,0 +1,67 @@
+# 0.26 Twin Claws: judging the stance clip (looped on the upper body between moves; it is also how the hero looks while running). Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_claw_stances
+# Every candidate on the claws from the front-left and from the left. Screenshots: Saved\Screenshots\Dev\cs_<clip>_{fl,l}.png
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.freeze 1 3000
+as.dev.clearing 350 900
+as.dev.face 0
+as.dev.weapon 9
+wait 1.2
+as.hero.stance TwinBlast_Idle
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_TwinBlast_Idle_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_TwinBlast_Idle_l 0
+as.hero.stance Khaimera_Idle
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_Khaimera_Idle_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_Khaimera_Idle_l 0
+as.hero.stance Khaimera_HS_Idle
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_Khaimera_HS_Idle_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_Khaimera_HS_Idle_l 0
+as.hero.stance Khaimera_TravelMode_Idle
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_Khaimera_TravelMode_Idle_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_Khaimera_TravelMode_Idle_l 0
+as.hero.stance Khaimera_Idle_Relaxed_A
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_Khaimera_Idle_Relaxed_A_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_Khaimera_Idle_Relaxed_A_l 0
+as.hero.stance Kallari_Idle_Combat
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_Kallari_Idle_Combat_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_Kallari_Idle_Combat_l 0
+as.hero.stance Phase_Idle
+wait 0.9
+as.dev.follow 330 40 325 55 0
+as.dev.shot cs_Phase_Idle_fl 0
+as.dev.follow 330 40 270 55 0
+wait 0.3
+as.dev.shot cs_Phase_Idle_l 0
+as.dev.follow off
+quit

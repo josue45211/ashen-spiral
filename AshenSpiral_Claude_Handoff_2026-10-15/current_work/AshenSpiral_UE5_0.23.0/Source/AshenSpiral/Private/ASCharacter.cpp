@@ -76,7 +76,7 @@ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AASCharacter,bHammerContact);DOREPLIFETIME(AASCharacter,HammerLeapState);
     DOREPLIFETIME(AASCharacter,HammerLeapStarted);DOREPLIFETIME(AASCharacter,HammerLandedAt);DOREPLIFETIME(AASCharacter,NextHammerLeap);
     DOREPLIFETIME(AASCharacter,AttackPoseStarted);DOREPLIFETIME(AASCharacter,MeleeStep);
-    DOREPLIFETIME(AASCharacter,PounceState);DOREPLIFETIME(AASCharacter,PounceStateAt);DOREPLIFETIME(AASCharacter,PounceTarget); // 0.26 Twin Claws
+    DOREPLIFETIME(AASCharacter,PounceState);DOREPLIFETIME(AASCharacter,PounceStateAt);DOREPLIFETIME(AASCharacter,PounceFlight);DOREPLIFETIME(AASCharacter,PounceTarget); // 0.26 Twin Claws
 }
 void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
     if(!HasAuthority()) return;Build=V;Build.Sanitize();
@@ -126,7 +126,10 @@ void AASCharacter::RefreshLook() {
     ASAssets::Style(ChargeMesh,TEXT("Sphere"),Fire,0,9);ChargeMesh->SetRelativeLocation(FVector(12,0,0));ChargeMesh->SetRelativeScale3D(FVector(.22f));
     SetupSkeletalHero(); // 0.24.2 Phase F: the Mannequin takes over the look when its assets are here (the rig above stays as the fallback)
 }
-void AASCharacter::OnAttackPose() {PoseAge=0;if(bSkeletalHero&&GetNetMode()!=NM_DedicatedServer) PlayAttackClip();} // 0.24.2 Phase F: the Mannequin's attack clip
+void AASCharacter::OnAttackPose() {
+    PoseAge=0;if(bSkeletalHero&&GetNetMode()!=NM_DedicatedServer) PlayAttackClip(); // 0.24.2 Phase F: the Mannequin's attack clip
+    if(Build.Weapon==ASRules::Claws&&GetNetMode()!=NM_DedicatedServer&&!bDowned) ASClawFx::Sound(this,TEXT("S_ClawSwing"),3,GetActorLocation(),.30f,.95f,1.07f); // 0.26: a rake through the air, on every machine the swing reaches
+}
 float AASCharacter::ReloadProgress() const {return ASArsenal::ReloadProgress(ReloadStart,ReloadEnd,AS::Time(this));}
 void AASCharacter::ResetMagazine() {if(HasAuthority()) {Ammo=MagazineCapacity();ReloadStart=ReloadEnd=0;RotaryHeat=0;}}
 void AASCharacter::RequestReload_Implementation() {

@@ -79,10 +79,14 @@ public:
     // 0 none, 1 windup (the crouch), 2 flight, 3 latched. The cooldown clock is NextHammerLeap (a hero wields one weapon, so the maul's leap and the claws' pounce share it).
     UPROPERTY(Replicated) uint8 PounceState=0;
     UPROPERTY(Replicated) float PounceStateAt=-10;                // SimTime the state began
+    UPROPERTY(Replicated) float PounceFlight=0;                   // the leap's length in seconds (every machine times the flight's clip by it)
     UPROPERTY(Replicated) TObjectPtr<AASEnemy> PounceTarget=nullptr;
     UFUNCTION(Server,Reliable) void RequestPounce(FVector_NetQuantize Origin,FVector_NetQuantizeNormal Direction);   // the crosshair's ray; the server picks the enemy along it
     UFUNCTION(NetMulticast,Reliable) void PounceMotion(bool Launch,FVector_NetQuantize Destination,FVector_NetQuantizeNormal Outward,float Seconds,float Arc); // Outward: the side of the target the latch holds
     UFUNCTION(NetMulticast,Reliable) void PounceCue(uint8 Kind,FVector_NetQuantize At,FVector_NetQuantizeNormal Direction);
+    UFUNCTION(NetMulticast,Unreliable) void ClawHit(FVector_NetQuantize At,float Power,uint8 Step); // a claw landed (every machine): the rake across the body, sparks, the sound, a shake for its wielder
+    float ClawFovNow=0.f;                                          // degrees the pounce adds to this camera's field of view (eased; read by ASPlayerController)
+    float ClawFovTarget(float Now) const;
     bool PounceBusy() const {return Build.Weapon==ASRules::Claws&&PounceState!=0&&!bDowned;}
     bool PounceInFlight() const {return Build.Weapon==ASRules::Claws&&(PounceState==1||PounceState==2)&&!bDowned;}  // the crouch and the leap: no swings, no spells, no walking, and the leap passes through enemies
     bool PounceLatched() const;
@@ -185,16 +189,17 @@ public:
     // Meshes that make up this character right now (body parts, cape, weapon); the dash trail copies them as afterimages.
     void CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const;
     bool IsSkeletalHero() const {return bSkeletalHero;} // 0.24.2 Phase F: drawn as the Unreal Mannequin (ASCharacterSkeletal.cpp)
+    void DevPlayClip(const FString& Name,bool bFullBody,float Seconds,float HoldAt=-1.f); // dev (as.dev.clip): any clip under /Game/Characters/Hero/Anims on the full body or the upper body, stretched over Seconds (HoldAt>=0: the pose at that time of the clip, held for Seconds)
 private:
     // 0.24.2 Phase F: the hero as the Unreal Mannequin; the 21-part rig stays as the fallback (as.hero.skeletal 0, or the assets missing on this machine).
-    bool bSkeletalHero=false,bSkelDashSeen=false,bSkelDownedSeen=false;uint8 SkelLeapSeen=0;float SkelReloadSeen=0.f;
+    bool bSkeletalHero=false,bSkelDashSeen=false,bSkelDownedSeen=false;uint8 SkelLeapSeen=0,SkelPounceSeen=0;float SkelReloadSeen=0.f;
     TWeakObjectPtr<UAnimMontage> SkelStance;int32 SkelStanceWeapon=-1;FString SkelStanceClip; // the weapon's stance looping on the upper body between moves, the weapon it is for, and the clip
     void SetupSkeletalHero();
     ASFoley::FootState SkelFeet[2];void SkeletalFootsteps(bool Dashing,bool Airborne); // 0.26 G6: a step sounds when a foot bone of the Mannequin comes down (ASFoley::FootStruck)
     bool SkeletalMovePlaying() const; // a move (an attack, a dash, a flinch, a cast, the fall) holds the slots, not the stance
     void AnimateSkeletal(float Delta,bool Dashing,bool Airborne);
     float SkelTwoHand=0.f;void DriveTwoHandGrip(float Delta);  // 0.26 G4: how much the left hand is held on a two-handed weapon (ABP_AshenHero's IK), and where
-    UAnimMontage* PlayHeroClip(const TCHAR* Clip,FName Slot,float Seconds,float BlendIn=.06f,float BlendOut=.14f); // the clip as a one-off montage on that slot, stretched over Seconds
+    UAnimMontage* PlayHeroClip(const TCHAR* Clip,FName Slot,float Seconds,float BlendIn=.06f,float BlendOut=.14f,float StartAt=0.f,float StopAt=0.f); // the clip as a one-off montage on that slot: the part from StartAt to StopAt (clip seconds; 0: to the end) played over Seconds
     void PlayAttackClip();
     void PlayHitClip(const FVector& Direction,float Strength);
     UPROPERTY() TObjectPtr<USceneComponent> Figure;
