@@ -162,10 +162,31 @@ void AASCharacter::PlayAttackClip() {
     PlayHeroClip(Set.Clip[Step],Set.FullBody[Step]?ASHeroLook::FullBody:ASHeroLook::UpperBody,Seconds,.05f,ASMelee::IsMelee(Build.Weapon)?.18f:.10f);
 }
 
+#if !UE_BUILD_SHIPPING
+static TAutoConsoleVariable<int32> CVarASFoleyLog(TEXT("as.foley.log"),0,TEXT("Dev: 1 logs every footstep a hero's feet make (\"AshenStep:\": which foot, when, how high the bone was)."),ECVF_Default);
+#endif
+// 0.26 G6: the steps follow the Mannequin's own feet. The 0.25 steps were timed from the old part rig's gait phase, which since Phase F has nothing to do with where the feet are, so
+// they drifted against the stride ("they do not match the steps"). Every machine reads every hero's foot bones itself, so the steps still cost no network traffic.
+void AASCharacter::SkeletalFootsteps(bool Dashing,bool Airborne) {
+    USkeletalMeshComponent* Body=GetMesh();if(!Body||GetNetMode()==NM_DedicatedServer) return;
+    static const FName Bones[2]={FName(TEXT("foot_l")),FName(TEXT("foot_r"))};
+    const float Now=AS::Time(this),Speed=GetVelocity().Size2D(),Bottom=GetActorLocation().Z-GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    for(int32 Side=0;Side<2;++Side) {
+        if(!Body->DoesSocketExist(Bones[Side])) continue;
+        const float Height=Body->GetSocketLocation(Bones[Side]).Z-Bottom;
+        if(!ASFoley::FootStruck(SkelFeet[Side],Height,Now)) continue;
+        if(!ASFoley::Audible(Airborne,Dashing,bDowned,Speed)||LandingAge<ASFoley::LandingQuiet) continue;
+        PlayFootstep(Speed);
+#if !UE_BUILD_SHIPPING
+        if(CVarASFoleyLog.GetValueOnGameThread()!=0) UE_LOG(LogTemp,Display,TEXT("AshenStep: %s foot at %.2f, bone %.1f cm above the capsule bottom, speed %.0f cm/s, %s"),Side?TEXT("right"):TEXT("left"),Now,Height,Speed,IsLocallyControlled()?TEXT("this machine's own hero"):TEXT("the other player's hero"));
+#endif
+    }
+}
+
 void AASCharacter::AnimateSkeletal(float Delta,bool Dashing,bool Airborne) {
-    (void)Airborne;
     USkeletalMeshComponent* Body=GetMesh();if(!Body) return;
     PoseAge+=Delta;
+    SkeletalFootsteps(Dashing,Airborne);
     // a dash: a directional evade over the dash, on the whole body
     const bool DashNow=!bDowned&&(Dashing||bDashActive);
     if(DashNow&&!bSkelDashSeen) {

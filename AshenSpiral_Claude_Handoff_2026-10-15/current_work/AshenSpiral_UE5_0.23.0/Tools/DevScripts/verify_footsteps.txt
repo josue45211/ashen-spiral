@@ -1,0 +1,34 @@
+# 0.26 G6: footsteps follow the Mannequin's feet and sit quietly in the mix. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_footsteps
+# The hero runs, jogs, walks and strafes in open ground with nothing else going on. "AshenTrace:" lines (every 30 ms) give each foot bone's height above the capsule bottom;
+# "AshenStep:" lines are the steps the feet made; the game's audio output is recorded to Saved\AudioRecordings\Dev\footsteps_<label>.wav (python Tools\measure_recording.py <wav> <log> "AshenStep:").
+# Pass: one step per foot strike (the trace shows the bone coming down to <= 10 cm at each "AshenStep:" time) at every gait, none while standing, and a level well under the game's usual sounds.
+waitfor ready 60
+wait 3
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 30
+wait 1
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+as.dev.weapon 0
+as.foley.log 1
+wait 1.5
+as.dev.follow 380 40 90 55 0
+as.dev.trace 12.5 feet .03
+as.dev.record start 30
+wait 1.0
+as.dev.walk 0 2.2 1
+wait 2.6
+as.dev.walk 180 2.2 .5
+wait 2.6
+as.dev.walk 0 2.2 .25
+wait 2.6
+as.dev.walk 90 2.2 .5
+wait 2.6
+as.dev.record stop footsteps_run
+wait 0.5
+as.dev.state
+quit

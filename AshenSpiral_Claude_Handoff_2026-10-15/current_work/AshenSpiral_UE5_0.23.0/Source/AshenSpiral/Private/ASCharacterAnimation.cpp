@@ -45,7 +45,7 @@ void AASCharacter::Animate(float Delta) {
     const float Landing=FMath::Exp(-LandingAge*9.f)*FMath::Sin(FMath::Min(LandingAge*18.f,UE_PI));
     const float PreviousWalkPhase=WalkPhase;
     if(!Airborne&&!Dashing&&Speed>8.f) WalkPhase+=Delta*Speed/ASAnimation::StrideDistance(LocomotionWeight)*UE_TWO_PI;
-    if(ASFoley::StepsCrossed(PreviousWalkPhase,WalkPhase)>0&&ASFoley::Audible(Airborne,Dashing,bDowned,Speed)) PlayFootstep(Speed); // a step each time the gait passes a half stride
+    if(!bSkeletalHero&&ASFoley::StepsCrossed(PreviousWalkPhase,WalkPhase)>0&&ASFoley::Audible(Airborne,Dashing,bDowned,Speed)) PlayFootstep(Speed); // the part rig: a step each time its gait passes a half stride (the Mannequin's feet make their own: SkeletalFootsteps)
     // Visual-only acceleration lean from smoothed velocity; never feeds back into movement.
     const FVector Velocity=GetVelocity();
     if(!bVisualInitialized||(Velocity-AnimationVelocity).SizeSquared2D()>2200.f*2200.f) {AnimationVelocity=Velocity;PreviousVisualVelocity=Velocity;bVisualInitialized=true;}
@@ -249,6 +249,8 @@ void AASCharacter::CollectTrailMeshes(TArray<UStaticMeshComponent*>& Out) const 
     if(WeaponMesh&&WeaponMesh->GetStaticMesh()&&WeaponMesh->IsVisible()) Out.Add(WeaponMesh.Get());
 }
 
+// 0.26 G6: a multiplier on every footstep's volume, for judging the level in a recording of the mix (as.dev.record) without a rebuild; the shipped level is ASFoley::StepVolume / WalkVolume.
+static TAutoConsoleVariable<float> CVarASFoleyGain(TEXT("as.foley.gain"),1.f,TEXT("Multiplier on the heroes' footstep volume (1: as shipped)."),ECVF_Default);
 // 0.25 phase E: footsteps. The sounds are 12 concrete running steps imported locally (/Game/Audio/Imported/Foley/S_Step01..12, Tools/import_vault_assets.py); a machine without them is silent, as it
 // always was. Every machine plays the steps of every hero itself from the replicated velocity, so they cost no network traffic; dedicated servers have no ears.
 void AASCharacter::PlayFootstep(float Speed) {
@@ -269,8 +271,8 @@ void AASCharacter::PlayFootstep(float Speed) {
         const APlayerController* Local=UGameplayStatics::GetPlayerController(this,0);const APawn* Pawn=Local?Local->GetPawn():nullptr;
         Distance=Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f;
     }
-    const float Volume=ASFoley::SetVolume(Set)*ASFoley::StepGain(Distance,Speed);
-    if(Volume<.01f) return;
+    const float Volume=ASFoley::SetVolume(Set)*ASFoley::StepGain(Distance,Speed)*CVarASFoleyGain.GetValueOnGameThread();
+    if(Volume<.005f) return;
     UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Volume,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
 }
 void AASCharacter::PlayFoley(const TCHAR* Prefix,int32 Count,float Volume) {

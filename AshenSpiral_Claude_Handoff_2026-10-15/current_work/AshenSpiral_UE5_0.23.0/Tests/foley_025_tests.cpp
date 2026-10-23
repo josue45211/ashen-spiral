@@ -47,5 +47,22 @@ int main() {
         for(int I=0;I<4000;++I) {R=R*1664525u+1013904223u;const int V=NextVariantOf(SetVariants[S],Last,R>>8);Check(V>=0&&V<SetVariants[S]&&V!=Last,"a set's variants rotate without repeats");Last=V;}
     }
     Check(LandGain(100.f)==0.f&&LandGain(LandMinFall)>0.f&&LandGain(2000.f)==1.f&&LandGain(900.f)>LandGain(500.f)&&LandGain(Nan)==0.f,"landings are silent when soft, louder from higher, capped");
+    // ---- 0.26 G6: steps from the feet. A foot bone's height above the capsule bottom: a standing foot is 6-9 cm up, a stride lifts it to 20-35 cm. ----
+    Check(LiftHeight>9.f&&StrikeHeight>=9.f&&StrikeHeight<LiftHeight&&LiftHeight<20.f&&FootCooldown>0.f&&FootCooldown<.4f&&LandingQuiet>0.f,"the strike thresholds sit between a standing foot and a stride's lift, with a hysteresis");
+    {FootState Foot;int Steps=0;for(float Height:{7.f,8.f,6.f,9.f,7.f}) Steps+=FootStruck(Foot,Height,float(Steps));Check(Steps==0,"a foot that stays planted never steps (standing, idle shifts)");}
+    {FootState Foot;Check(!FootStruck(Foot,20.f,1.f)&&!FootStruck(Foot,25.f,1.1f)&&FootStruck(Foot,8.f,1.4f),"a foot that lifts and comes down steps once, when it lands");
+     Check(!FootStruck(Foot,8.f,1.5f)&&!FootStruck(Foot,9.f,1.6f),"and not again while it stays down");}
+    {FootState Foot;FootStruck(Foot,20.f,1.f);Check(!FootStruck(Foot,12.f,1.1f)&&FootStruck(Foot,9.5f,1.2f),"it steps when the bone falls to the strike height, not before");}
+    {FootState Foot;FootStruck(Foot,20.f,1.f);int Steps=0;for(int I=0;I<200;++I) {const float H=11.f+(I%2?1.5f:-1.5f);Steps+=FootStruck(Foot,H,1.f+I*.002f);}Check(Steps<=1,"jitter round the strike height is one step, not a burst");}
+    {FootState Foot;FootStruck(Foot,20.f,1.f);Check(FootStruck(Foot,8.f,1.f),"the first step after a lift sounds");FootStruck(Foot,20.f,1.05f);Check(!FootStruck(Foot,8.f,1.05f+FootCooldown*.5f),"a second landing inside the cooldown is silent");FootStruck(Foot,20.f,1.5f);Check(FootStruck(Foot,8.f,1.5f+FootCooldown),"and sounds once the cooldown is over");}
+    {FootState Foot;Check(!FootStruck(Foot,Nan,1.f)&&!FootStruck(Foot,Inf,1.f)&&!FootStruck(Foot,5.f,Nan)&&!FootStruck(Foot,-Inf,1.f),"bad heights and times make no step");}
+    {   // a simulated run: each foot's bone height is a lifted arc once per stride (0.36 s), the feet half a stride apart; every stride gives each foot exactly one step
+        FootState Left,Right;int StepsLeft=0,StepsRight=0;const float Stride=.36f,Dt=1.f/60.f;
+        for(int I=0;I<60*20;++I) {
+            const float T=I*Dt;const auto Arc=[&](float Phase) {const float P=std::fmod(Phase,Stride)/Stride;return P<.5f?7.f+30.f*std::sin(P*2.f*Pi):7.f;}; // up and back down in the first half stride, planted in the second
+            StepsLeft+=FootStruck(Left,Arc(T),T);StepsRight+=FootStruck(Right,Arc(T+Stride*.5f),T);
+        }
+        Check(StepsLeft>=54&&StepsLeft<=56&&StepsRight>=54&&StepsRight<=56,"over twenty seconds of running each foot steps once per stride (55 of 55.5)");
+    }
     std::cout<<"PASS: "<<Checks<<" footstep checks; one step per half stride, audibility, variant rotation, distance gain, walk/run/strafe/backpedal sets, landings.\nShared rules only; the imported sounds, their level and how they sit in the mix are unverified.\n";
 }

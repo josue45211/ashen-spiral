@@ -7,6 +7,7 @@
 #include "ASExpeditionRules.h"
 #include "ASAnimationRules.h"
 #include "ASPartCRules.h"
+#include "ASFoleyRules.h"
 #include "ASCharacter.generated.h"
 class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;class UAnimMontage;
 UCLASS() class ASHENSPIRAL_API AASCharacter : public ACharacter {
@@ -19,8 +20,8 @@ public:
     virtual void Landed(const FHitResult& Hit) override;
     virtual bool CanJumpInternal_Implementation() const override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-    UPROPERTY(VisibleAnywhere) TObjectPtr<USpringArmComponent> Boom;
     virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override; // drops a movement base no client can resolve (ASNetBase.h)
+    UPROPERTY(VisibleAnywhere) TObjectPtr<USpringArmComponent> Boom;
     UPROPERTY(VisibleAnywhere) TObjectPtr<UCameraComponent> Camera;
     UPROPERTY(ReplicatedUsing=RefreshLook) FASBuild Build;
     UPROPERTY(Replicated) int32 RelicMask=0;
@@ -173,6 +174,7 @@ private:
     bool bSkeletalHero=false,bSkelDashSeen=false,bSkelDownedSeen=false;uint8 SkelLeapSeen=0;float SkelReloadSeen=0.f;
     TWeakObjectPtr<UAnimMontage> SkelStance;int32 SkelStanceWeapon=-1;FString SkelStanceClip; // the weapon's stance looping on the upper body between moves, the weapon it is for, and the clip
     void SetupSkeletalHero();
+    ASFoley::FootState SkelFeet[2];void SkeletalFootsteps(bool Dashing,bool Airborne); // 0.26 G6: a step sounds when a foot bone of the Mannequin comes down (ASFoley::FootStruck)
     bool SkeletalMovePlaying() const; // a move (an attack, a dash, a flinch, a cast, the fall) holds the slots, not the stance
     void AnimateSkeletal(float Delta,bool Dashing,bool Airborne);
     UAnimMontage* PlayHeroClip(const TCHAR* Clip,FName Slot,float Seconds,float BlendIn=.06f,float BlendOut=.14f); // the clip as a one-off montage on that slot, stretched over Seconds

@@ -16,8 +16,10 @@ constexpr int StepVariants=12;
 enum StepSet : int {SetRun=0,SetWalk,SetStrafe,SetBack,SetCount};
 constexpr int SetVariants[SetCount]={12,12,8,8};
 constexpr const char* SetPrefix[SetCount]={"S_Step","S_StepWalk","S_StepStrafe","S_StepBack"}; // /Game/Audio/Imported/Foley/<prefix>NN (Tools/import_vault_assets.py)
-constexpr float StepVolume=.10f;                 // the hero's own running steps (was .16); other heroes' are quieter with distance
-constexpr float WalkVolume=.065f,LandVolume=.16f,JumpVolume=.07f;
+// 0.26 G6: .10 -> .07 and .065 -> .045 (3 dB down again: "still too loud"). Measured in-engine (Tools/DevScripts/verify_footsteps.txt, as.dev.record): at .10 a full-speed step peaked at about -43 dBFS
+// in a 100 ms window, 13 dB over the arena's quiet median; the steps now come once per foot strike, not from the old gait phase, so they also stop doubling up between feet.
+constexpr float StepVolume=.07f;                 // the hero's own running steps (was .16, then .10); other heroes' are quieter with distance
+constexpr float WalkVolume=.045f,LandVolume=.16f,JumpVolume=.07f;
 constexpr float StepPitchLow=.95f,StepPitchHigh=1.04f; // as recorded, with a little variety
 constexpr float MinStepSpeed=140.f;              // cm/s: slower than this is shuffling, not running
 constexpr float WalkBelow=360.f;                 // cm/s: below this a step is a walking one
@@ -53,6 +55,21 @@ inline int NextVariantOf(int Count,int Last,std::uint32_t Roll) {
     if(Count<2) return 0;
     const int Pick=int(Roll%std::uint32_t(Count-1));
     return Last<0||Last>=Count?int(Roll%std::uint32_t(Count)):(Pick>=Last?Pick+1:Pick);
+}
+// ---- Foot strikes (0.26 G6: "footsteps still too loud and they do not match the steps"). The steps above were timed from the old part rig's gait phase; since Phase F the hero is the
+// Mannequin, whose feet follow Unreal's own locomotion, so those steps drifted against what the feet do. A step now sounds when a foot bone actually comes down: its height above the
+// capsule's bottom falls to StrikeHeight or less after having been above LiftHeight (a hysteresis, so jitter round one threshold is one step), and never twice within FootCooldown for
+// one foot. TUNABLE; the heights come from the foot bones measured in-engine (as.dev.trace): a standing foot bone sits 6-9 cm above the capsule's bottom, a stride lifts it far above that.
+constexpr float LiftHeight=14.f,StrikeHeight=10.f,FootCooldown=.16f;
+constexpr float LandingQuiet=.20f; // seconds after a landing in which feet make no step of their own: the landing sound covers them
+struct FootState {bool Down=true;float LastStepAt=-100.f;};
+inline bool FootStruck(FootState& Foot,float Height,float Now) {
+    if(!std::isfinite(Height)||!std::isfinite(Now)) return false;
+    if(Foot.Down) {if(Height>LiftHeight) Foot.Down=false;return false;}          // planted: wait for it to lift
+    if(Height>StrikeHeight) return false;                                        // still in the air
+    Foot.Down=true;                                                              // it has come down
+    if(Now-Foot.LastStepAt<FootCooldown) return false;
+    Foot.LastStepAt=Now;return true;
 }
 // Volume of a step for a hero this far from the local player's hero (the local hero is 0 away): full inside 6 m, silent beyond 32 m, as the enemy cues are.
 inline float StepGain(float Distance,float Speed) {
