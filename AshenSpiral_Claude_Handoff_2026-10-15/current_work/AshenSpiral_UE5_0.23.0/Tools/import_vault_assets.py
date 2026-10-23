@@ -630,15 +630,27 @@ def create_ground_material(t):
     alpha = node(unreal.MaterialExpressionSaturate, -400, 950)
     wire(steep, "", alpha, "")
 
-    def mix(a, b, x, y):
+    def mix(a, b, x, y, a_out="RGB"):
         lerp = node(unreal.MaterialExpressionLinearInterpolate, x, y)
-        wire(a, "RGB", lerp, "A")
+        wire(a, a_out, lerp, "A")
         wire(b, "RGB", lerp, "B")
         wire(alpha, "", lerp, "Alpha")
         return lerp
 
+    # The pack's debris normal map was baked for a debris MESH: between its stones it is full of high-contrast triangular facets, which on a floor catch the light as shards and fans
+    # round points (seen in-engine on the whole Endless floor). The rubble's look is in its colour and ambient occlusion, so the dirt's normal is pulled toward flat by DirtRelief
+    # (0 flat, 1 the pack's); the paving's own normal map is clean and untouched.
+    dirt_relief = node(unreal.MaterialExpressionScalarParameter, -1300, -950, parameter_name="DirtRelief", default_value=0.25)
+    neutral = node(unreal.MaterialExpressionConstant3Vector, -1300, -850, constant=unreal.LinearColor(0, 0, 1, 1))
+    calmer = node(unreal.MaterialExpressionLinearInterpolate, -1050, -600)
+    wire(neutral, "", calmer, "A")
+    wire(dirt_n, "RGB", calmer, "B")
+    wire(dirt_relief, "", calmer, "Alpha")
+    calm_normal = node(unreal.MaterialExpressionNormalize, -900, -600)
+    wire(calmer, "", calm_normal, "")
+
     colour = mix(dirt_bc, slab_bc, -300, -400)
-    normal = mix(dirt_n, slab_n, -300, 0)
+    normal = mix(calm_normal, slab_n, -300, 0, a_out="")
     masks = mix(dirt_orm, slab_orm, -300, 400)
     tint = node(unreal.MaterialExpressionVectorParameter, -300, -650, parameter_name="Tint", default_value=unreal.LinearColor(1, 1, 1, 1))
     # Ash: how far the pack's warm brown earth is drained toward grey (an ashen land); 0 keeps the pack's colour
@@ -1130,7 +1142,9 @@ def roar_phase():
     ROAR_STAGE.mkdir(parents=True, exist_ok=True)
     cuts = [ROAR_STAGE / (name + ".wav") for name in ROAR_CUES]
     if all(c.is_file() for c in cuts):
-        for cut in cuts:
+        # 0.26 G5: the 0.24.2 cuts (Tools/make_boss_roars.py keeps them beside the new files as E_*_0242.wav) are imported as E_*_0242 too, so the game can play either (as.roar.old 1)
+        extra = [ROAR_STAGE / (name + "_0242.wav") for name in ROAR_CUES if (ROAR_STAGE / (name + "_0242.wav")).is_file()]
+        for cut in cuts + extra:
             task = unreal.AssetImportTask()
             task.set_editor_property("filename", str(cut))
             task.set_editor_property("destination_path", "/Game/Audio")
@@ -1142,7 +1156,7 @@ def roar_phase():
             sound = unreal.load_asset("/Game/Audio/" + cut.stem)
             require(isinstance(sound, unreal.SoundWave), "Roar import failed: " + cut.name)
             report["imported"].append(sound.get_path_name())
-        report["notes"].append("phase L: imported %s" % ", ".join(ROAR_CUES))
+        report["notes"].append("phase L: imported %s" % ", ".join(c.stem for c in cuts + extra))
         return
     require(HORROR_ROAR.is_file(), "No Horror Template monster sound at " + str(HORROR_ROAR))
     staging = ROOT / "Content" / "HorrorTemplate" / "Audio"

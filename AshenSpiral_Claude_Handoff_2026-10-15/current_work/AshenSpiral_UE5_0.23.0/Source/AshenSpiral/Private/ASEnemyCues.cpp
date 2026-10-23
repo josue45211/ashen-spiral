@@ -10,21 +10,27 @@
 // Enemy sound cues (0.24). Every telegraph and every release has a cue (ASEnemyRules::Cue*). Each machine plays them itself from the replicated AIState / Ability /
 // AttackReleaseTime, so they cost no network traffic. A cue plays the file named by its Stem when that file has been delivered (SourceArt/Audio, imported to /Game/Audio) and
 // otherwise an existing sound at the cue's own pitch and volume (its Fallback). Nothing here changes gameplay.
-static USoundBase* LoadAudio(const char* Stem) {
-    if(!Stem||!Stem[0]) return nullptr;
+static USoundBase* LoadAudioNamed(const FString& Name) {
     static TMap<FString,TWeakObjectPtr<USoundBase>> Loaded;
     static TSet<FString> Absent; // a stem that is not imported on this machine is looked up once
-    const FString Name(ANSI_TO_TCHAR(Stem));
     if(Absent.Contains(Name)) return nullptr;
     if(const TWeakObjectPtr<USoundBase>* Found=Loaded.Find(Name)) if(Found->IsValid()) return Found->Get();
     USoundBase* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),*Name,*Name));
     if(Sound) Loaded.Add(Name,Sound);else Absent.Add(Name);
     return Sound;
 }
+static USoundBase* LoadAudio(const char* Stem) {
+    if(!Stem||!Stem[0]) return nullptr;
+    return LoadAudioNamed(FString(ANSI_TO_TCHAR(Stem)));
+}
+// 0.26 G5: the boss and elite roars were rebuilt (Tools/make_boss_roars.py: very low, harsh, a sudden onset). The 0.24.2 roars stay imported as E_*_0242 for comparing by ear.
+static TAutoConsoleVariable<int32> CVarASRoarOld(TEXT("as.roar.old"),0,TEXT("1: the boss and elite roars play the 0.24.2 sounds (cut from the Horror Template's monster, E_*_0242) instead of the 0.26 ones, to compare them by ear."),ECVF_Default);
 USoundBase* AASEnemy::ResolveCue(int32 CueId,float& Volume,float& Pitch) {
     const ASEnemyRules::CueSpec& Cue=ASEnemyRules::CueFor(CueId);
     Volume=Cue.Volume;Pitch=Cue.Pitch;
     if(CueId<=ASEnemyRules::CueNone) return nullptr;
+    if((ASEnemyRules::IsRoarCue(CueId)||CueId==ASEnemyRules::CueEnrageRoar)&&CVarASRoarOld.GetValueOnGameThread()!=0&&Cue.Stem&&Cue.Stem[0])
+        if(USoundBase* Old=LoadAudioNamed(FString(ANSI_TO_TCHAR(Cue.Stem))+TEXT("_0242"))) {Pitch=1.f;return Old;}
     if(USoundBase* Delivered=LoadAudio(Cue.Stem)) {Pitch=1.f;return Delivered;} // a delivered file plays at its natural pitch
     return LoadAudio(Cue.Fallback);
 }
