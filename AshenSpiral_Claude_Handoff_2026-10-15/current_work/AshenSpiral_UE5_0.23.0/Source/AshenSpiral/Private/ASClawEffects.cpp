@@ -1,4 +1,5 @@
 #include "ASSpell.h"
+#include "ASAudio.h"
 #include "ASCharacter.h"
 #include "ASEnemy.h"
 #include "ASGameState.h"
@@ -22,7 +23,7 @@ void Sound(const UObject* Context,const TCHAR* Name,int32 Variants,const FVector
     const APawn* Local=UGameplayStatics::GetPlayerPawn(Context,0);
     const float Gain=Local?ASEnemyRules::CueDistanceGain(float(FVector::Dist(Local->GetActorLocation(),At))):1.f; // a partner's blows across the arena are quieter than your own
     if(Gain*Volume<.015f) return;
-    UGameplayStatics::PlaySoundAtLocation(Context,Cue,At,Volume*Gain,FMath::FRandRange(PitchMin,FMath::Max(PitchMin,PitchMax)));
+    ASAudio::At(ASAudio::Bus::Combat,Context,Cue,At,Volume*Gain,FMath::FRandRange(PitchMin,FMath::Max(PitchMin,PitchMax)));
 }
 }
 

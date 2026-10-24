@@ -1,0 +1,2 @@
+PASS: 101 loudness checks (levels 0-200% in 5% steps, bad numbers, master x bus, silent sounds).
+Shared rules only; the sliders, the settings file and the routing of the sounds are not executed here.

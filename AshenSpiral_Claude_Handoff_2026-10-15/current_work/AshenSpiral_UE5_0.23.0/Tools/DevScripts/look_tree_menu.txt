@@ -1,0 +1,68 @@
+# 0.26 Phase 3, the skill tree page in the hub: its states, a node's purchase and a capstone's. Test profile 95 (the hub, no run):
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script look_tree_menu
+# Screenshots: Saved\Screenshots\Dev\tm_*.png (the page is long: the script scrolls it in pieces). The 'AshenTree: buy node' lines carry each purchase's message.
+waitfor ready 60
+wait 3
+as.tree.log 1
+as.dev.tree set none
+as.dev.tree ash 15
+as.dev.menu 24
+wait 1.5
+as.dev.shot tm_01_top 1
+as.dev.scroll 780
+wait 0.4
+as.dev.shot tm_02_ranged 1
+as.dev.scroll 1560
+wait 0.4
+as.dev.shot tm_03_team 1
+# ---- a node: buy the opener of the melee lane (Ash 15) ----
+as.dev.scroll 0
+as.dev.tree buy 0
+wait 0.12
+as.dev.shot tm_04_buy_a 1
+wait 0.30
+as.dev.shot tm_05_buy_b 1
+wait 1.6
+as.dev.shot tm_06_owned 1
+# ---- not enough Ash, and a locked node ----
+as.dev.tree buy 1
+as.dev.tree buy 5
+wait 0.3
+as.dev.shot tm_07_refused 1
+# ---- the whole melee lane, then its capstone ----
+as.dev.tree ash 400
+as.dev.tree buy 1
+as.dev.tree buy 2
+as.dev.tree buy 3
+as.dev.tree buy 4
+as.dev.tree buy 5
+as.dev.tree buy 6
+wait 0.8
+as.dev.shot tm_08_lane_before_capstone 1
+as.dev.tree buy 7
+wait 0.10
+as.dev.shot tm_09_capstone_a 1
+wait 0.30
+as.dev.shot tm_10_capstone_b 1
+wait 0.70
+as.dev.shot tm_11_capstone_c 1
+wait 2.6
+as.dev.shot tm_12_lane_done 1
+# ---- the other states: Ash 60 left, then none ----
+as.dev.scroll 780
+wait 0.3
+as.dev.shot tm_13_ranged_with_ash 1
+as.dev.tree ash 0
+as.dev.menu 24
+as.dev.scroll 780
+wait 0.5
+as.dev.shot tm_14_ranged_no_ash 1
+as.dev.tree set all
+as.dev.menu 24
+wait 0.5
+as.dev.shot tm_15_all_top 1
+as.dev.scroll 1560
+wait 0.4
+as.dev.shot tm_16_all_team 1
+wait 1
+quit

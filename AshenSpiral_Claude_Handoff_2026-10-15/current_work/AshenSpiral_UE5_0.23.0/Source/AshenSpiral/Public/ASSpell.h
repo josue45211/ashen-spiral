@@ -20,6 +20,7 @@ public:
     UPROPERTY(Replicated) bool bCosmetic=false;
     UPROPERTY(Replicated) bool bPractice=false;
     UPROPERTY(Replicated) bool bSecondary=false;
+    UPROPERTY(Replicated) bool bPiercing=false;   // 0.26 Phase 3, Piercing Rounds: fired inside the window a perfect dash opened; it passes through enemies and looks it (a long pale-blue trail)
     // Endless wave 50+: slow, large, homing and lethal; only a well-timed dash avoids it.
     UPROPERTY(Replicated) bool bHoming=false;
     TWeakObjectPtr<AASCharacter> HomingTarget;

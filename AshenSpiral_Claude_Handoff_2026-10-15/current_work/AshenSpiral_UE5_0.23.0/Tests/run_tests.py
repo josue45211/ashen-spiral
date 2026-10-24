@@ -198,6 +198,8 @@ def validate():
     foley_025=reload_navigation
     claws_026=reload_navigation
     team_026=reload_navigation
+    tree_026=reload_navigation
+    audio_026=reload_navigation
     if compiler:
         with tempfile.TemporaryDirectory(prefix='ashen_native_') as d:
             exe=Path(d)/('rules_tests.exe' if sys.platform=='win32' else 'rules_tests')
@@ -334,6 +336,8 @@ def validate():
             foley_025=native_suite('foley_025_tests','0.25 hero footsteps (one per half stride, audibility, variant rotation, distance gain) passed')
             claws_026=native_suite('claws_026_tests','0.26 Twin Claws (weapon plumbing and masks, cadence and damage, the pounce leap and arc, the latch against a runner, the crosshair pick, every release reason) passed')
             team_026=native_suite('team_026_tests','0.26 team abilities (the nine-skill tables, brand need/charge/burst/splash/death, tether lash geometry/buff/snap, twin collapse window/separation/oversize, every lone-hero form weaker) passed')
+            tree_026=native_suite('tree_026_tests','0.26 skill tree (three lanes of eight and their prices, walking, spreading and refusing, the rank list''s old and short forms, every node''s bounded effect) passed')
+            audio_026=native_suite('audio_026_tests','0.26 loudness settings (the 0 to 200% levels in 5% steps, a bad number is the default, a sound plays at its volume x master x bus and a silent one is not played) passed')
             element_0242=native_suite('element_0242_tests','0.24.2 element rework (hit-scaled pools delivered exactly, flat parts unchanged, frost brittleness, element parity with Chain Lightning and Impact Bloom on every weapon) passed')
             trig=subprocess.run([sys.executable,str(ROOT/'Tests/check_trig_overloads.py')],check=True,text=True,capture_output=True).stdout.strip()
             check(trig.startswith('PASS:'),'Actual fern expressions compile against the float/double overloads from the reported C2668 diagnostic')
@@ -342,7 +346,7 @@ def validate():
         'mesh_count':len(meshes),'mesh_vertex_count':vertices,'mesh_triangle_count':triangles,
         'degenerate_triangles':degenerates,'texture_count':len(textures),'audio_count':len(sounds),
         'rpc_implementation_presence_checks':rpcs,'native_tests':native,'gameplay_tests':gameplay,'buildcraft_tests':buildcraft,'adventure_tests':adventure,'career_tests':career,
-        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'partc_024_tests':partc_024,'maul_025_tests':maul_025,'decor_025_tests':decor_025,'clip_025_tests':clip_025,'foley_025_tests':foley_025,'element_0242_tests':element_0242,'claws_026_tests':claws_026,'team_026_tests':team_026,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
+        'hammer_022_tests':hammer_022,'enemy_024_tests':enemy_024,'arena_024_tests':arena_024,'arsenal_024_tests':arsenal_024,'enemy_ai_024_tests':ai_024,'enemy_pose_024_tests':pose_024,'enemy_ability_024_tests':ability_024,'partc_024_tests':partc_024,'maul_025_tests':maul_025,'decor_025_tests':decor_025,'clip_025_tests':clip_025,'foley_025_tests':foley_025,'element_0242_tests':element_0242,'claws_026_tests':claws_026,'team_026_tests':team_026,'tree_026_tests':tree_026,'audio_026_tests':audio_026,'melee_021_tests':melee_021,'bugfix_020_tests':bugfix_020,'reload_navigation_tests':reload_navigation,'trig_overload_regression':trig,'interface_arsenal_tests':interface_arsenal,
         'unreal_module_compile':'NOT RUN - Unreal Engine unavailable',
         'unreal_import_and_material_compile':'NOT RUN',
         'unreal_visual_physics_network_performance_tests':'NOT RUN',

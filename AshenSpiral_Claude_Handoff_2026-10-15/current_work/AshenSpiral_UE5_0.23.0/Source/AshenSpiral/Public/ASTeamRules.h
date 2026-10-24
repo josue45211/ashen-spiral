@@ -12,7 +12,9 @@ constexpr int Brand=6,Tether=7,Twin=8,FirstAbility=6;           // ASAdventure a
 constexpr int SynergyBrand=3,SynergyTether=4,SynergyTwin=5;    // the SynergyCue triggers these raise (0-2 are Lightning Blast, Stormbreak, Wildfire)
 inline bool AbilityIsTeam(int Ability) {return Ability>=FirstAbility&&Ability<FirstAbility+3;}
 // The cues the server sends every machine (AASCharacter::TeamCue): what to show and play.
-enum Cue : int {CueBrandSet=0,CueBrandTick,CueBrandPop,CueBrandDeathPop,CueBrandFizzle,CueTetherOn,CueTetherZap,CueTetherEnd,CueTwinCall,CueTwinLesser,CueTwinConverge,CueTwinBlast,CueTwinTooFar};
+enum Cue : int {CueBrandSet=0,CueBrandTick,CueBrandPop,CueBrandDeathPop,CueBrandFizzle,CueTetherOn,CueTetherZap,CueTetherEnd,CueTwinCall,CueTwinLesser,CueTwinConverge,CueTwinBlast,CueTwinTooFar,
+    CueWard,CuePredator,CuePierce,CueEcho};                         // 0.26 Phase 3 (the skill tree): Shared Ward, Predator's refund, Piercing Rounds opening, a Synergy Echo
+constexpr int EchoLesser=6;                                    // Synergy Echo's trigger number for the small collapse (0-5 are the SynergyCue numbers)
 
 // ---- Ashen Brand ----
 constexpr float BrandSeconds=8.f;                              // how long a brand holds

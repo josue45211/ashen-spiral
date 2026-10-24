@@ -11,6 +11,12 @@ inline float NumberScale(float Value) {
     return .8f+.2f*std::clamp(int(std::lround((std::clamp(Value,.8f,1.6f)-.8f)/.2f)),0,4);
 }
 inline float CrosshairScale(float Value) {return std::isfinite(Value)?std::clamp(Value,.5f,2.f):1.f;}
+// ---- 0.26: the player's loudness settings (Settings > SOUND), each machine's own. A level is a multiplier from 0 (off) to 2 (double) in steps of 5%; a bad number is the default, 1.
+// A sound plays at its own volume x the master level x the level of the bus it is sent through (Combat & effects, Enemies & world, Interface): never negative, never not-a-number, and one that
+// comes out silent is not played at all.
+constexpr float VolumeMax=2.f,VolumeStep=.05f;
+inline float VolumeLevel(float Value) {return std::isfinite(Value)?float(std::lround(std::clamp(Value,0.f,VolumeMax)/VolumeStep))*VolumeStep:1.f;}
+inline float PlayVolume(float Volume,float Master,float Bus) {const float V=Volume*VolumeLevel(Master)*VolumeLevel(Bus);return (std::isfinite(V)&&V>0.f)?V:0.f;}
 // Includes the larger critical-hit flash, so text never covers the aim point.
 inline float CrosshairClearance(float Scale) {return 24.f*CrosshairScale(Scale)+16.f;}
 inline float DamageTop(float CenterY,float Scale,float TextHeight,float Age,int Lane,bool Incoming) {

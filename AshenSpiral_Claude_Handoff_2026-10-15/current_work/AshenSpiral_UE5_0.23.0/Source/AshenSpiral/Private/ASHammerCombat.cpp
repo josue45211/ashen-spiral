@@ -1,4 +1,5 @@
 #include "ASCharacter.h"
+#include "ASAudio.h"
 #include "ASMovementComponent.h"
 #include "ASGameState.h"
 #include "ASWorld.h"
@@ -45,7 +46,7 @@ void AASCharacter::RequestHammerLeap_Implementation() {
         const auto Shot=ASHammer::PlanLeap(FVector::Dist2D(GetActorLocation(),AimPoint),AimPoint.Z+Half-GetActorLocation().Z,RunningSpeed(),DashDuration(),FMath::Abs(M->GetGravityZ()));
         HammerLeapPlan=FVector2D(Shot.Distance,Shot.Height);
     }
-    HammerLeapState=1;HammerLeapStarted=S->SimTime;HammerLandedAt=-10;NextHammerLeap=S->SimTime+ASHammer::Cooldown;
+    HammerLeapState=1;HammerLeapStarted=S->SimTime;HammerLandedAt=-10;NextHammerLeap=S->SimTime+ASHammer::Cooldown*ASTree::LeapScale(TreeMask()); // 0.26 Phase 3: Leap Master
     PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Epoch:-1;
     M->StopMovementImmediately();ForceNetUpdate();
 }
@@ -117,6 +118,6 @@ void AASCharacter::HammerCue_Implementation(uint8 Kind,bool Contact,FVector_NetQ
     if(Kind<4&&IsLocallyControlled()&&(Contact||Kind>=2)) {HammerShakeAge=0;HammerShakeStrength=Kind>=2?3.2f:.9f;}
     const TCHAR* Name=Kind==4?TEXT("S_HammerLeap"):(Kind>=2?TEXT("S_HammerSmash"):(Contact?TEXT("S_HammerHit"):TEXT("S_HammerSwing")));
     if(auto* Sound=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Name,Name)))
-        UGameplayStatics::PlaySoundAtLocation(this,Sound,At,Kind>=2?.65f:.42f,Kind==1?.94f:1.f);
+        ASAudio::At(ASAudio::Bus::Combat,this,Sound,At,Kind>=2?.65f:.42f,Kind==1?.94f:1.f);
     if(Kind==2||Kind==3) if(auto* FX=GetWorld()->SpawnActor<AASHammerDebris>()) FX->Setup(At,Direction,BodyColor(),Kind==3);
 }

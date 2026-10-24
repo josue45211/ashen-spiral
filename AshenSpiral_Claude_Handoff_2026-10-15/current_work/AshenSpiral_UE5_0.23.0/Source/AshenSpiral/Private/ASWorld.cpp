@@ -1,4 +1,5 @@
 #include "ASWorld.h"
+#include "ASAudio.h"
 #include "ASEnemyRules.h"
 #include "Engine/Texture.h"
 #include "ASNavigationRules.h"
@@ -309,7 +310,7 @@ void AASWorld::AnimateShift(AASGameState* S) {
     const auto Cue=[&](float& Last,float At,const TCHAR* Path,float Volume,float Pitch) {
         if(Now<At||Now>=At+.6f||FMath::IsNearlyEqual(Last,S->ShiftAt)) return;
         Last=S->ShiftAt;
-        if(auto* Sound=LoadObject<USoundBase>(nullptr,Path)) UGameplayStatics::PlaySound2D(this,Sound,Volume,Pitch);
+        if(auto* Sound=LoadObject<USoundBase>(nullptr,Path)) ASAudio::Flat(ASAudio::Bus::World,this,Sound,Volume,Pitch);
     };
     Cue(SinkSoundAt,S->ShiftAt-ASExpedition::ShiftSinkSeconds,TEXT("/Game/Audio/S_Collapse.S_Collapse"),.7f,.4f);
     Cue(ThudDownAt,S->ShiftAt,TEXT("/Game/Audio/S_HammerHit.S_HammerHit"),.65f,.55f);

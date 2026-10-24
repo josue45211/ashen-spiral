@@ -12,6 +12,13 @@
 #include "ASFoleyRules.h"
 #include "ASCharacter.generated.h"
 class USpringArmComponent;class UCameraComponent;class UStaticMeshComponent;class UASMovementComponent;class AASEnemy;class UAnimMontage;
+class AASCharacter;
+// 0.26 Phase 3, Synergy Echo (the TEAM capstone): a synergy burst that will repeat. Trigger is the SynergyCue number (0 Lightning Blast, 1 Stormbreak, 2 Wildfire, 3 Ashen Brand, 5 Twin Collapse) or
+// ASTeam::EchoLesser (the small collapse every Twin Collapse cast makes). The numbers are what the repeat needs to deal half of what the burst did (ASTree::EchoDamage).
+struct FSynergyEcho {
+    int32 Trigger=0;FVector At=FVector::ZeroVector;float Due=0.f,Power=0.f,Multiplier=1.f,Direct=0.f,Splash=0.f;
+    TWeakObjectPtr<AASEnemy> Target;TWeakObjectPtr<AASCharacter> Other;
+};
 UCLASS() class ASHENSPIRAL_API AASCharacter : public ACharacter {
     GENERATED_BODY()
 public:
@@ -47,8 +54,8 @@ public:
     UFUNCTION(NetMulticast,Unreliable) void DamageReaction(FVector_NetQuantizeNormal Direction,float Strength);
     UFUNCTION(NetMulticast,Unreliable) void AbilityGesture();
     UFUNCTION(NetMulticast,Reliable) void MeleeTravel(bool Slam,FVector_NetQuantize Destination,float Duration);
-    int32 MagazineCapacity() const {return ASArsenal::Capacity(Build.Weapon,TraitRank(ASBuild::Trait::Magazine));}
-    float ReloadDuration() const {return ASArsenal::ReloadSeconds(Build.Weapon,TraitRank(ASBuild::Trait::Reload));}
+    int32 MagazineCapacity() const {return ASTree::MagazineWith(TreeMask(),ASArsenal::Capacity(Build.Weapon,TraitRank(ASBuild::Trait::Magazine)));}
+    float ReloadDuration() const {return ASArsenal::ReloadSeconds(Build.Weapon,TraitRank(ASBuild::Trait::Reload))*ASTree::ReloadScale(TreeMask());}
     float SpreadScale() const {return ASArsenal::SpreadScale(TraitRank(ASBuild::Trait::Precision));}
     bool IsReloading() const {return ReloadEnd>0;}
     float ReloadProgress() const;
@@ -108,6 +115,18 @@ public:
     float TeamFovNow=0.f;bool bTeamShake=false;                             // degrees a team moment adds to this camera's field of view (decays; read by ASPlayerController); the shake in progress is a team moment's
     void TeamPunch(float FovDegrees,float Shake);                           // a camera punch for this machine's player: a push in (negative) or out, and a shake
     void ClearTeamState();                                                  // a fresh run, or a hero that is out: no tether, no open call
+    // ---- 0.26 Phase 3: the skill tree (rules and numbers in ASTreeRules.h; each node acts where its thing already happens, the capstones and their show in ASTeamAbilities.cpp / ASTeamEffects.cpp) ----
+    ASTree::Owned TreeMask() const {return ASTree::FromRankData(Build.Ranks.GetData(),Build.Ranks.Num());} // the nodes this hero owns: the profile's ranks past the hearth upgrades (they replicate with the build)
+    bool HasNode(int32 Node) const {return ASTree::Owns(TreeMask(),Node);}
+    UPROPERTY(Replicated) float PierceUntil=0;                              // Piercing Rounds (capstone): a perfect dash opens this window (SimTime); the HUD reads it and the rounds fired in it pierce
+    float NextPredator=0;bool bBlowIsMelee=false;                           // Predator (capstone): the lockout's end (server); whether the blow being resolved is a melee weapon's (set around AASCharacter::HitEnemy)
+    UFUNCTION(Client,Reliable) void DashRefund(int32 Count);                // Predator for a guest: its dash charges are predicted on its own machine, so the server asks the owner to give one back
+    const AASCharacter* LinkHolder() const;                                 // the hero whose paired, close tether buffs this one (this one or its partner), null when none does
+    float LinkBonus() const;                                                // the damage bonus that tether gives this hero (Tether Warden's included), 0 when none holds
+    float CriticalChanceNow() const;                                        // the hero's critical chance: the hearth's and the run's, and Eagle Eye's four points with a ranged weapon
+    static bool TreeLog();                                                  // as.tree.log 1: the nodes' effects at work are logged as 'AshenTree:' lines
+    static void QueueEcho(AASCharacter* Source,const AASCharacter* Partner,const FSynergyEcho& Echo); // a synergy burst happened: if either hero holds Synergy Echo, it repeats Echo.Due later (server)
+    TArray<FSynergyEcho> Echoes;                                            // the repeats waiting their turn (server)
     UPROPERTY(ReplicatedUsing=OnAttackPose) int32 AttackSequence=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorIndex=0;
     UPROPERTY(ReplicatedUsing=RefreshLook) int32 ColorChoice=-1;
@@ -160,10 +179,10 @@ public:
     void HitProcs(AASEnemy* Enemy,const FVector& At,float Dealt);
     float DamageScale(bool WeaponHit) const;
     float AreaScale() const {return 1.f+.15f*TraitValue(ASBuild::Trait::Area);}
-    float MaxFocus() const {return 60.f+10.f*TraitValue(ASBuild::Trait::ManaReserve);}
+    float MaxFocus() const {return 60.f+10.f*TraitValue(ASBuild::Trait::ManaReserve)+ASTree::FocusBonus(TreeMask());}
     float CriticalPower() const {return ASBuild::CriticalMultiplier(TraitValue(ASBuild::Trait::Deadeye));}
     float ElementalDamageMultiplier() const {return ASBuild::ElementalDamageMultiplier(TraitValue(ASBuild::Trait::Attunement));}
-    float MeleeReachMultiplier() const {return ASBuild::MeleeReachMultiplier(TraitValue(ASBuild::Trait::WideArc));}
+    float MeleeReachMultiplier() const {return ASBuild::MeleeReachMultiplier(TraitValue(ASBuild::Trait::WideArc))*ASTree::MeleeReachScale(TreeMask());}
     float OnHitScale() const; // 0.24: the equipped weapon's on-hit reward scale (its BASE swing/shot interval against a reference; see ASArsenal::OnHitScale)
     int32 TeamworkRank() const {return TraitValue(ASBuild::Trait::Teamwork);}
     float PrimaryDamageBonus() const {return 4.f*TraitValue(ASBuild::Trait::Sharpened);}
@@ -187,7 +206,7 @@ public:
     int32 Rank(int32 I) const {return Build.Rank(I);}
     int32 RunRank(int32 I) const {return RunRanks.IsValidIndex(I)?ASRules::UpgradeRank(RunRanks[I]):0;}
     float SpiralCooldown() const {return ASRules::SpiralCooldown(Rank(14),RunRank(0));}
-    float RunningSpeed() const {return ASRules::MoveSpeed(Rank(18),RunRank(4));}
+    float RunningSpeed() const {return ASRules::MoveSpeed(Rank(18),RunRank(4))*(ASMelee::IsMelee(Build.Weapon)?1.f:ASTree::RunSpeedScale(TreeMask()));}
     bool CanApplyRunUpgrade(int32 I) const {return ASRules::CanUpgradeRunStat(I,RunRank(I),I==0?Rank(14):(I==5?Rank(19):0));}
     bool ApplyRunUpgrade(int32 I);
     bool CanRevive(const AASCharacter* Target) const;
@@ -251,6 +270,8 @@ private:
     void LesserCollapse();                                         // the small collapse every Twin Collapse cast makes
     void BeginTwinCollapse(AASCharacter* Other);                   // two casts joined: a short pull toward the midpoint, then the detonation
     void FireTwinCollapse();
+    void TickEchoes(float Now);                                    // Synergy Echo: the repeats that have come due
+    void FireEcho(const FSynergyEcho& Echo);
     float NextLash=0,TwinFireAt=0,NextTwinPull=0;bool bTwinPending=false;FVector TwinPoint=FVector::ZeroVector;TWeakObjectPtr<AASCharacter> TwinOther;
     void TickPounce(float Now,float Delta);                        // ASPounceCombat.cpp (the server: the state machine)
     void TickPounceHoming();                                       // the server and the owner: the leap's root motion follows its moving target

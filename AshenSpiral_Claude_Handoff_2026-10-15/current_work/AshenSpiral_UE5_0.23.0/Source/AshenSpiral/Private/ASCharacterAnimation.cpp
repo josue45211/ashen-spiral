@@ -1,4 +1,5 @@
 #include "ASCharacter.h"
+#include "ASAudio.h"
 #include "ASAnimationRules.h"
 #include "ASPose.h"
 #include "ASMovementComponent.h"
@@ -279,7 +280,7 @@ void AASCharacter::PlayFootstep(float Speed) {
     }
     const float Volume=ASFoley::SetVolume(Set)*ASFoley::StepGain(Distance,Speed)*CVarASFoleyGain.GetValueOnGameThread();
     if(Volume<.005f) return;
-    UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Volume,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
+    ASAudio::At(ASAudio::Bus::Combat,this,Sound,GetActorLocation(),Volume,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
 }
 void AASCharacter::PlayFoley(const TCHAR* Prefix,int32 Count,float Volume) {
     if(GetNetMode()==NM_DedicatedServer||!GetWorld()||Volume<.01f) return;
@@ -294,5 +295,5 @@ void AASCharacter::PlayFoley(const TCHAR* Prefix,int32 Count,float Volume) {
         Distance=Pawn?float(FVector::Dist(Pawn->GetActorLocation(),GetActorLocation())):0.f;
     }
     const float Gain=Volume*ASFoley::StepGain(Distance,640.f);
-    if(Gain>=.01f) UGameplayStatics::PlaySoundAtLocation(this,Sound,GetActorLocation(),Gain,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
+    if(Gain>=.01f) ASAudio::At(ASAudio::Bus::Combat,this,Sound,GetActorLocation(),Gain,FMath::FRandRange(ASFoley::StepPitchLow,ASFoley::StepPitchHigh));
 }

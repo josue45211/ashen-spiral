@@ -1,4 +1,5 @@
 #include "ASSpell.h"
+#include "ASAudio.h"
 #include "ASCharacter.h"
 #include "ASEnemy.h"
 #include "ASGameState.h"
@@ -183,7 +184,7 @@ void AASCharacter::TeamCue_Implementation(uint8 Kind,FVector_NetQuantize At,FVec
         }
     };
     const auto Hum2D=[this](const TCHAR* Name,float Volume,float Pitch) { // a call, a tether, a collapse: both players hear it wherever they stand
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Name,Name),nullptr,LOAD_NoWarn|LOAD_Quiet)) UGameplayStatics::PlaySound2D(this,Cue,Volume,Pitch);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Name,Name),nullptr,LOAD_NoWarn|LOAD_Quiet)) ASAudio::Flat(ASAudio::Bus::Combat,this,Cue,Volume,Pitch);
     };
     switch(Kind) {
     case ASTeam::CueBrandSet: { // At the enemy, Size its radius, To.X 1 for a boss
@@ -261,6 +262,40 @@ void AASCharacter::TeamCue_Implementation(uint8 Kind,FVector_NetQuantize At,FVec
         if(auto* Dust=Fx()) Dust->SetupDust(Point-FVector(0,0,40),R*.45f,1.f);
         S->Effect_Implementation(8,Point+FVector(0,0,20),FVector::UpVector,TwinViolet,R);S->Effect_Implementation(11,Point+FVector(0,0,50),FVector::UpVector,TwinViolet,2.2f);
         Punch(Point,-9.f,3.4f);
+        break;}
+    // ---- 0.26 Phase 3: the skill tree's moments (the sounds are Tools/generate_tree_audio.py's) ----
+    case ASTeam::CueWard: { // At the hero, Size the shield it was given
+        const FLinearColor Ward=ASData::HitColor(EASHitKind::Shield);const FVector Feet=Point-FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-6.f);
+        ASClawFx::Sound(this,TEXT("S_TreeWard"),1,Point,.8f,.97f,1.03f);
+        if(auto* Ring=Fx()) Ring->SetupRing(Feet,Ward,210.f,.46f,.12f);
+        if(auto* Sparks=Fx()) Sparks->SetupSparks(Feet,Point+FVector(0,0,230),Ward,.6f);
+        Punch(Point,-.8f,.2f);
+        break;}
+    case ASTeam::CuePredator: { // At the wielder, To the kill, Size 1 when a leap or a pounce came back (0: a dash charge)
+        const FLinearColor Ember(1.f,.52f,.30f);const FLinearColor Hot=FLinearColor::LerpUsingHSV(Ember,FLinearColor::White,.35f);
+        ASClawFx::Sound(this,TEXT("S_TreePredator"),1,Point,.9f,.97f,1.04f);
+        if(auto* Ring=Fx()) Ring->SetupRing(Other,Ember,170.f,.30f,.14f);                                                     // where it fell
+        if(auto* Sparks=Fx()) Sparks->SetupSparks(Other+FVector(0,0,40),Point+FVector(0,0,60),Hot,1.f);                      // and its life running back to the hunter
+        if(auto* Ring=Fx()) Ring->SetupRing(Point,Hot,Size>.5f?150.f:110.f,.26f,.12f);
+        Punch(Point,-2.4f,.5f);
+        break;}
+    case ASTeam::CuePierce: { // At the hero, Size the seconds the window stays open
+        const FLinearColor Sky(.45f,.82f,1.f);const FVector Feet=Point-FVector(0,0,GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-6.f);
+        if(IsLocallyControlled()) Hum2D(TEXT("S_TreePierce"),.9f,1.f);else ASClawFx::Sound(this,TEXT("S_TreePierce"),1,Point,.8f,.98f,1.02f);
+        if(auto* Ring=Fx()) Ring->SetupRing(Feet,Sky,270.f,.46f,.10f);
+        if(auto* Ring=Fx()) Ring->SetupRing(Feet,FLinearColor(.9f,.97f,1.f),150.f,.30f,.14f);
+        if(auto* Column=Fx()) Column->SetupColumn(Feet,Sky,64.f,560.f,.5f);
+        for(int32 I=0;I<2;++I) if(auto* Sparks=Fx()) Sparks->SetupSparks(Point,Point+FVector(FMath::FRandRange(-110.f,110.f),FMath::FRandRange(-110.f,110.f),250.f),FLinearColor::LerpUsingHSV(Sky,FLinearColor::White,.4f),.9f);
+        Punch(Point,-3.f,.8f);
+        break;}
+    case ASTeam::CueEcho: { // At the burst, To.X the synergy (its colour), Size the burst's radius
+        static const FLinearColor Tints[]={FLinearColor(.86f,.74f,1.f),FLinearColor(.12f,1.f,1.f),FLinearColor(1.f,.35f,.05f),BrandGold,EmberOrange,TwinViolet};
+        const FLinearColor Tint=Tints[FMath::Clamp(int32(Other.X),0,5)];const float R=FMath::Max(150.f,Size);
+        ASClawFx::Sound(this,TEXT("S_TreeEcho"),1,Point,.85f,.98f,1.04f);
+        if(auto* Ring=Fx()) Ring->SetupRing(Point,Tint,R,.40f,.06f);                                                          // a thin ring, quick: the burst said again
+        if(auto* Ring=Fx()) Ring->SetupRing(Point,FLinearColor::LerpUsingHSV(Tint,FLinearColor::White,.5f),R*.55f,.28f,.10f);
+        for(int32 I=0;I<2;++I) if(auto* Sparks=Fx()) Sparks->SetupSparks(Point+FVector(0,0,30),Point+FVector(FMath::FRandRange(-120.f,120.f),FMath::FRandRange(-120.f,120.f),250.f),Tint,.7f);
+        Punch(Point,-2.f,1.f);
         break;}
     default:break;
     }

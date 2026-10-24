@@ -1,4 +1,5 @@
 #include "SASMenu.h"
+#include "ASAudio.h"
 #include "ASUITheme.h"
 #include "SASEffectIcon.h"
 #include "Widgets/Layout/SWrapBox.h"
@@ -65,6 +66,43 @@ FString BuildSummary(const FASBuild& Build,const TArray<int32>& Run,const AASCha
         *StatValue(0,Build,Run),*StatValue(1,Build,Run),*StatValue(2,Build,Run),*(Hero?FString::Printf(TEXT("%.0f HP"),Hero->MaxHealth):StatValue(3,Build,Run)),*StatValue(4,Build,Run),*StatValue(5,Build,Run));
 }
 }
+// 0.26 Phase 3: the burst on a skill tree tile the moment its node is bought: rings thrown out of the tile and rays, in the lane's colour, for about a second and a half (a capstone's is wider,
+// brighter and longer). A leaf widget that repaints itself every frame until it is over.
+namespace {
+class SASNodeBurst : public SLeafWidget {
+public:
+    SLATE_BEGIN_ARGS(SASNodeBurst):_Color(FLinearColor::White),_Capstone(false),_Born(0.0) {}
+        SLATE_ARGUMENT(FLinearColor,Color) SLATE_ARGUMENT(bool,Capstone) SLATE_ARGUMENT(double,Born)
+    SLATE_END_ARGS()
+    void Construct(const FArguments& Args) {
+        Color=Args._Color;bCapstone=Args._Capstone;Born=Args._Born;SetVisibility(EVisibility::HitTestInvisible);
+        RegisterActiveTimer(0.f,FWidgetActiveTimerDelegate::CreateSP(this,&SASNodeBurst::Keep));
+    }
+    virtual FVector2D ComputeDesiredSize(float) const override {return FVector2D(8,8);}
+    virtual int32 OnPaint(const FPaintArgs&,const FGeometry& Geometry,const FSlateRect&,FSlateWindowElementList& Out,int32 Layer,const FWidgetStyle&,bool) const override {
+        const double Age=FPlatformTime::Seconds()-Born,Life=bCapstone?2.0:1.4;
+        if(Age<0.0||Age>Life) return Layer;
+        const float T=float(Age/Life);const FVector2D Size=Geometry.GetLocalSize(),Centre=Size*.5f;const float Reach=float(FMath::Max(Size.X,Size.Y))*(bCapstone?1.35f:.95f);
+        for(int32 Ring=0;Ring<(bCapstone?4:3);++Ring) {
+            const float U=FMath::Clamp((T-Ring*.08f)/(1.f-Ring*.08f),0.f,1.f);if(U<=0.f||U>=1.f) continue;
+            const float R=Reach*(1.f-FMath::Square(1.f-U))*(1.f-Ring*.16f)*.7f,Alpha=(1.f-U)*(.95f-Ring*.12f);
+            TArray<FVector2f> Points;constexpr int32 Segments=40;
+            for(int32 I=0;I<=Segments;++I) {const float Angle=I*UE_TWO_PI/Segments;Points.Add(FVector2f(float(Centre.X)+FMath::Cos(Angle)*R,float(Centre.Y)+FMath::Sin(Angle)*R*.66f));}
+            FLinearColor Tint=Color;Tint.A=Alpha;FSlateDrawElement::MakeLines(Out,Layer,Geometry.ToPaintGeometry(),Points,ESlateDrawEffect::None,Tint,true,(bCapstone?5.f:3.5f)*(1.f-U)+1.f);
+        }
+        const int32 Rays=bCapstone?26:16;
+        for(int32 I=0;I<Rays;++I) {
+            const float Angle=I*UE_TWO_PI/Rays+.2f,Inner=Reach*(.12f+.46f*T),Outer=Inner+Reach*.20f*(1.f-T)+6.f;
+            TArray<FVector2f> Points;Points.Add(FVector2f(float(Centre.X)+FMath::Cos(Angle)*Inner,float(Centre.Y)+FMath::Sin(Angle)*Inner*.66f));Points.Add(FVector2f(float(Centre.X)+FMath::Cos(Angle)*Outer,float(Centre.Y)+FMath::Sin(Angle)*Outer*.66f));
+            FLinearColor Tint=FMath::Lerp(Color,FLinearColor::White,.5f);Tint.A=(1.f-T)*.9f;FSlateDrawElement::MakeLines(Out,Layer,Geometry.ToPaintGeometry(),Points,ESlateDrawEffect::None,Tint,true,2.f);
+        }
+        return Layer+1;
+    }
+private:
+    EActiveTimerReturnType Keep(double,float) {Invalidate(EInvalidateWidgetReason::Paint);return FPlatformTime::Seconds()-Born<(bCapstone?2.1:1.5)?EActiveTimerReturnType::Continue:EActiveTimerReturnType::Stop;}
+    FLinearColor Color=FLinearColor::White;bool bCapstone=false;double Born=0.0;
+};
+}
 float SASMenu::ScrollOffset() const {return Scroll.IsValid()?Scroll->GetScrollOffset():0.f;}
 void SASMenu::SetScrollOffset(float Value) {if(Scroll.IsValid()) Scroll->SetScrollOffset(Value);}
 FReply SASMenu::OnKeyDown(const FGeometry& G,const FKeyEvent& Event) {
@@ -93,7 +131,7 @@ TSharedRef<SWidget> SASMenu::Button(const FString& Title,int32 Code,int32 Index)
         .OnHovered_Lambda([Weak,Juice](){
             ButtonJuiceSet(*Juice,true,Juice->Press);
             // Placeholder hover tick: quiet, high-pitched existing sound.
-            if(auto* C=Weak.Get()) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySound2D(C,Cue,.12f,1.9f);
+            if(auto* C=Weak.Get()) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) ASAudio::Flat(ASAudio::Bus::Interface,C,Cue,.12f,1.9f);
         })
         .OnUnhovered_Lambda([Juice](){ButtonJuiceSet(*Juice,false,false);})
         .OnPressed_Lambda([Juice](){ButtonJuiceSet(*Juice,Juice->Hover,true);})
@@ -165,12 +203,28 @@ void SASMenu::CameraSlider(const FString& Label,float UASGameInstance::* Setting
                         }
                     }).OnMouseCaptureEnd_Lambda(Save).OnControllerCaptureEnd_Lambda(Save)]];
 }
+void SASMenu::AudioSlider(const FString& Label,float UASGameInstance::* Setting,int32 SampleKind) {
+    const auto Weak=PC;
+    const auto Value=[Weak,Setting]() {auto* C=Weak.Get();auto* GI=C?C->GetGameInstance<UASGameInstance>():nullptr;return GI?GI->*Setting:1.f;};
+    const auto Save=[Weak,SampleKind]() {if(auto* C=Weak.Get()) if(auto* GI=C->GetGameInstance<UASGameInstance>()) {GI->SaveHUDSettings();ASAudio::Sample(C,SampleKind);}};
+    Body->AddSlot().AutoHeight().Padding(4,6)
+        [SNew(SVerticalBox)
+            +SVerticalBox::Slot().AutoHeight().Padding(0,0,0,7)
+                [SNew(STextBlock).Font(Font(16)).ColorAndOpacity(ASMenuMuted).WrapTextAt(BodyTextWidth)
+                    .Text_Lambda([Label,Value](){const float V=Value();return Txt(FString::Printf(TEXT("%s   %.0f%%%s"),*Label,V*100.f,V<=0.f?TEXT("   /   OFF"):TEXT("")));})]
+            +SVerticalBox::Slot().AutoHeight()
+                [SNew(SSlider).MinValue(0.f).MaxValue(ASPresentation::VolumeMax).StepSize(ASPresentation::VolumeStep).MouseUsesStep(true)
+                    .Value_Lambda(Value).SliderHandleColor(ASMenuGold)
+                    .OnValueChanged_Lambda([Weak,Setting](float V) {
+                        if(auto* C=Weak.Get()) if(auto* GI=C->GetGameInstance<UASGameInstance>()) {GI->*Setting=ASPresentation::VolumeLevel(V);GI->ApplyAudio();}
+                    }).OnMouseCaptureEnd_Lambda(Save).OnControllerCaptureEnd_Lambda(Save)]];
+}
 void SASMenu::Construct(const FArguments& Args) {
     PC=Args._Controller;Page=Args._Page;auto* C=PC.Get();auto* GI=C?C->GetGameInstance<UASGameInstance>():nullptr;
     auto* S=C?AS::State(C):nullptr;auto* PS=C?C->GetPlayerState<AASPlayerState>():nullptr;
     const bool Hub=S&&S->Phase==EASPhase::Hub;
     const TCHAR* Titles[]={TEXT("THE EMBER NEXUS"),TEXT("ENTER THE SPIRAL"),TEXT("THE ARMORY"),TEXT("ABILITY SANCTUM"),TEXT("ASHEN HEARTH"),TEXT("IONE'S WORKBENCH"),TEXT("CONSTELLATIONS"),TEXT("TWO SOULS, ONE SPIRAL"),TEXT("SETTINGS"),TEXT("CLAIM YOUR REWARD"),TEXT("EXPEDITION COMPLETE"),TEXT("CONTROLS"),TEXT("RETURN TO THE HUB?"),TEXT("LEAVE THIS SESSION?"),TEXT("WEAPON SHOWROOM"),TEXT("YOUR PROGRESS"),TEXT("RESTORE PROGRESS?"),TEXT("YOUR RUN BUILD"),TEXT("EMBER BARGAIN"),TEXT("CHARACTER & ACHIEVEMENTS"),
-        TEXT("ASHEN SPIRAL"),TEXT("THE WISHING WELL"),TEXT("THE ENDLESS PORTAL"),TEXT("THE LUCKY SHOP")}; // 0.24: pages 21-23 used to fall back to the last title above (the array stopped at 19)
+        TEXT("ASHEN SPIRAL"),TEXT("THE WISHING WELL"),TEXT("THE ENDLESS PORTAL"),TEXT("THE LUCKY SHOP"),TEXT("THE SKILL TREE")}; // 0.24: pages 21-23 used to fall back to the last title above (the array stopped at 19)
     const FString Title=Titles[FMath::Clamp(Page,0,int32(UE_ARRAY_COUNT(Titles))-1)];const auto Weak=PC;
     if(Page==9&&GI&&S) {RewardScreen();return;}
     ChildSlot
@@ -227,6 +281,7 @@ void SASMenu::Construct(const FArguments& Args) {
         if(Hub) Input(TEXT("Deterministic expedition seed (the host's seed is used at the story archways)"),2); // 0.24: the seed is entered here only
         if(Hub) {Card(TEXT("Armory and Sanctum"),TEXT("Walk to a displayed weapon and press E to try or buy it. Test weapons and Spiral on the practice target. Purchases save immediately."),TEXT("LOADOUT"),10,2);
             Card(TEXT("Permanent upgrades"),TEXT("Ability cooldown, attack speed, damage, health, movement speed, critical chance, and more."),TEXT("UPGRADES"),10,4);
+            Card(TEXT("The Skill Tree"),TEXT("Three lanes of permanent nodes bought with Ash: Melee, Ranged and Team. Each lane ends in a capstone that changes how you play."),TEXT("SKILL TREE"),10,24);
             Card(TEXT("Ione and the Constellations"),TEXT("Craft permanent skill points, spend materials, and strengthen your next expedition."),TEXT("WORKBENCH"),10,5);}
         Card(TEXT("Run traits and synergies"),TEXT("Inspect every trait, its stacking limit, owned ranks and evolutions. Rune Lance uses Focus; primary hits can recharge skills with Battle Conduit."),TEXT("YOUR BUILD"),10,17);
         Card(TEXT("Character and achievements"),TEXT("Cosmetic levels, lifetime kills, clean clears, co-op rescues and 36 achievement milestones."),TEXT("ACHIEVEMENTS"),10,19);
@@ -386,6 +441,7 @@ void SASMenu::Construct(const FArguments& Args) {
             const int32 Rank=P.Build.Rank(I),Cost=ASRules::Cost(N.Cost,Rank,N.MaxRank);
             Card(FString::Printf(TEXT("%s   %d / %d"),N.Name,Rank,N.MaxRank),N.Desc,Cost<0?TEXT("MAX RANK"):FString::Printf(TEXT("%d ASH"),Cost),22,I,Hub&&Cost>=0&&P.Ash>=Cost);
         }
+        Card(TEXT("The Skill Tree"),TEXT("Melee, Ranged and Team lanes of permanent nodes, each ending in a capstone. Bought with Ash."),TEXT("SKILL TREE"),10,24);
         Card(TEXT("Constellations"),TEXT("Spend permanent skill points on Survivor, Tactician, and Scavenger talents."),TEXT("OPEN TREE"),10,6);
     } else if(Page==5) {
         FString Materials;for(int32 I:{0,1,4}) Materials+=FString::Printf(TEXT("%s: %d%s"),ASData::Materials[I],P.Materials[I],I==4?TEXT(""):TEXT("    "));Text(Materials,15,ASMenuGold);
@@ -404,6 +460,37 @@ void SASMenu::Construct(const FArguments& Args) {
                 Card(T.Name,FString(T.Desc)+FString::Printf(TEXT(" Requires %d points invested in this branch."),T.Required),Bought?TEXT("ACQUIRED"):FString::Printf(TEXT("%d SKILL POINTS"),T.Cost),27,I,Hub&&!Bought&&P.SkillPoints>=T.Cost&&Spent>=T.Required);
             }
         }
+    } else if(Page==24) {
+        const std::vector<int> RankList(P.Build.Ranks.GetData(),P.Build.Ranks.GetData()+P.Build.Ranks.Num());
+        const uint32 Mask=ASTree::FromRanks(RankList);int32 Total=0;for(int32 L=0;L<ASTree::Lanes;++L) Total+=ASTree::CountInLane(Mask,L);
+        const FLinearColor LaneColors[3]={FLinearColor(1.f,.52f,.30f),FLinearColor(.45f,.82f,1.f),FLinearColor(.80f,.62f,1.f)};
+        const TCHAR* LaneNames[3]={TEXT("MELEE"),TEXT("RANGED"),TEXT("TEAM")};
+        const TCHAR* Blurbs[3]={TEXT("Blade, maul, scythe and claws. Reach, speed, mending and the finish; the capstone refunds your leap or pounce on a kill."),
+            TEXT("Bow, glaive, staff, scattergun, rotary and mortar. Damage, magazine, aim and speed of shot; the capstone makes your rounds pierce after a perfect dash."),
+            TEXT("Your partner, your team skills and every synergy. Works alone, stronger together; the capstone echoes every synergy burst.")};
+        Text(FString::Printf(TEXT("%d ASH   /   %d of %d NODES"),P.Ash,Total,ASTree::Nodes),24,ASMenuGold);
+        Text(TEXT("Permanent, bought with Ash in the hub and kept on this character. A node needs a few of its own lane's nodes first (its tile says how many); the last of each lane is a capstone that changes how you play. Small bonuses that never stack with themselves."));
+        if(C&&C->TreeEventNode>=0&&FPlatformTime::Seconds()-C->TreeEventAt<3.4) { // the event of a purchase: the page's own banner, popping in and fading
+            const int32 Node=C->TreeEventNode;const bool Capstone=ASTree::IsCapstone(Node);const FLinearColor Tint=LaneColors[ASTree::LaneOf(Node)];
+            const FString Words=FString::Printf(TEXT("%s  /  %s"),Capstone?TEXT("CAPSTONE UNLOCKED"):TEXT("NODE UNLOCKED"),*FString(ASData::Hearth[ASTree::FirstRank+Node].Name).ToUpper());
+            Body->AddSlot().AutoHeight().HAlign(HAlign_Center).Padding(0,4,0,12)
+                [SNew(SBox).RenderTransformPivot(FVector2D(.5f,.5f))
+                    .RenderTransform_Lambda([Weak](){const auto* Controller=Weak.Get();const double Age=Controller?FPlatformTime::Seconds()-Controller->TreeEventAt:99.0;const float Pop=1.f+.35f*FMath::Exp(-float(Age)/.14f);return TOptional<FSlateRenderTransform>(FSlateRenderTransform(FScale2D(Pop)));})
+                    [SNew(STextBlock).Text(Txt(Words)).Font(Font(Capstone?30:28,true)).Justification(ETextJustify::Center)
+                        .ColorAndOpacity_Lambda([Weak,Tint](){
+                            const auto* Controller=Weak.Get();const double Age=Controller?FPlatformTime::Seconds()-Controller->TreeEventAt:99.0;
+                            FLinearColor Color=FMath::Lerp(FLinearColor::White,Tint,FMath::Clamp(float(Age)/.3f,0.f,1.f));Color.A=FMath::Clamp((3.4f-float(Age))/.6f,0.f,1.f);return FSlateColor(Color);})]];
+        }
+        for(int32 L=0;L<ASTree::Lanes;++L) {
+            Text(FString::Printf(TEXT("%s   /   %d of %d%s"),LaneNames[L],ASTree::CountInLane(Mask,L),ASTree::PerLane,ASTree::LaneComplete(Mask,L)?TEXT("   /   COMPLETE"):TEXT("")),24,LaneColors[L]);
+            Text(Blurbs[L],14);
+            const int32 First=L*ASTree::PerLane;
+            const auto Row=[&](std::initializer_list<int32> Slots) {
+                TSharedPtr<SHorizontalBox> Line;Body->AddSlot().AutoHeight().Padding(0,0,0,10)[SAssignNew(Line,SHorizontalBox)];
+                for(const int32 Slot:Slots) Line->AddSlot().AutoWidth().Padding(0,0,10,0)[TreeTile(First+Slot,Mask,P.Ash,Hub)];
+            };
+            Row({0,1});Row({2,3,4});Row({5,6,7});
+        }
     } else if(Page==7) {
         Text(TEXT("This is direct-IP co-op, not a matchmaking service. Both PCs need the same build. On different networks, use a trusted private VPN or a deliberately configured UDP 24567 route. The host must stay in the game."));
         Text(FString::Printf(TEXT("Mode: %s     Session code: %s"),C->GetNetMode()==NM_ListenServer?TEXT("HOSTING"):(C->GetNetMode()==NM_Client?TEXT("CLIENT"):TEXT("OFFLINE")),*S->SessionCode),20,ASMenuGold);
@@ -412,6 +499,13 @@ void SASMenu::Construct(const FArguments& Args) {
         Card(TEXT("Join the host"),TEXT("Use your existing profile. A partner can rejoin a held expedition with the same profile within 90 seconds."),TEXT("JOIN"),36,0,Hub&&C->GetNetMode()!=NM_ListenServer);
         Card(TEXT("Local two-window test"),TEXT("Use Test_Two_Players.bat. It assigns different profile slots and joins over 127.0.0.1; no VPN or router changes are required."),TEXT("CLOSE"),0);
     } else if(Page==8) {
+        Text(TEXT("SOUND"),22,ASMenuGold);
+        Text(TEXT("How loud the game is for you; your partner sets theirs. Drag a slider and let go: it plays a short sample at the new level. 100% is the game's own mix, 0% turns that sound off, 200% is double."),14);
+        AudioSlider(TEXT("Master volume"),&UASGameInstance::MasterVolume,0);
+        AudioSlider(TEXT("Combat & effects (weapons, abilities, hits, footsteps, team skills)"),&UASGameInstance::CombatVolume,1);
+        AudioSlider(TEXT("Enemies & world (enemy voices and attacks, lightning, the arena)"),&UASGameInstance::WorldVolume,2);
+        AudioSlider(TEXT("Interface (menu clicks, reward and synergy chimes)"),&UASGameInstance::InterfaceVolume,3);
+        Card(TEXT("Reset sound"),TEXT("Every level back to 100%."),TEXT("RESET SOUND"),78);
         Text(TEXT("INTERFACE SIZE"),22,ASMenuGold);
         Text(FString::Printf(TEXT("HUD: %.0f%%. Corner panels and interaction prompts scale together; aiming and damage numbers have their own controls."),GI->HUDScale*100.f),14);
         Body->AddSlot().AutoHeight().Padding(0,5,0,16)
@@ -576,6 +670,56 @@ TSharedRef<SWidget> SASMenu::ChoiceTile(const FString& Title,const FString& Brie
                 .OnUnhovered_Lambda([this,Surface,Base](){HoverDetails.Empty();Surface->SetBorderBackgroundColor(TAttribute<FSlateColor>(FSlateColor(Base)));})
                 .OnClicked_Lambda([Weak,Code,Index,Enabled](){if(Enabled) if(auto* Controller=Weak.Get()) Controller->Action(Code,Index);return FReply::Handled();})
                 [Surface]]];
+}
+// 0.26 Phase 3: one node of the skill tree page. An owned node is filled with its lane's colour; an open node you can afford glows and buys on a click; an open node you cannot afford is dim and shows its
+// price; a locked node says how many more of its lane it needs. A node bought a moment ago wears the burst (SASNodeBurst) and a rim that pulses for a few seconds.
+TSharedRef<SWidget> SASMenu::TreeTile(int32 Node,uint32 OwnedMask,int32 Ash,bool Hub) {
+    const auto Weak=PC;const ASTree::Owned Mask=OwnedMask;
+    const int32 Lane=ASTree::LaneOf(Node),Slot=ASTree::SlotOf(Node),Cost=ASTree::Cost(Node);
+    const auto& Data=ASData::Hearth[ASTree::FirstRank+Node];
+    const FLinearColor LaneColors[3]={FLinearColor(1.f,.52f,.30f),FLinearColor(.45f,.82f,1.f),FLinearColor(.80f,.62f,1.f)};
+    const FLinearColor LaneColor=LaneColors[Lane];
+    const bool Owned=ASTree::Owns(Mask,Node),Open=ASTree::Available(Mask,Node),Afford=Ash>=Cost,Capstone=ASTree::IsCapstone(Node),Buyable=Hub&&Open&&Afford;
+    FString State;
+    if(Owned) State=TEXT("OWNED");
+    else if(!Open) State=FString::Printf(TEXT("LOCKED  /  %d MORE IN THIS LANE"),ASTree::Required[Slot]-ASTree::CountInLane(Mask,Lane));
+    else if(!Hub) State=FString::Printf(TEXT("%d ASH  /  BUY IN THE HUB"),Cost);
+    else if(!Afford) State=FString::Printf(TEXT("NEED %d ASH"),Cost);
+    else State=FString::Printf(TEXT("BUY  /  %d ASH"),Cost);
+    const FString TierWord=Capstone?FString(TEXT("CAPSTONE")):FString::Printf(TEXT("TIER %d"),ASTree::Tier(Node));
+    FLinearColor Rim=Owned?LaneColor:(Open?(Afford?LaneColor:LaneColor*.5f):FLinearColor(.30f,.34f,.38f));Rim.A=1.f;
+    const FLinearColor Face=Owned?FLinearColor(LaneColor.R*.17f,LaneColor.G*.17f,LaneColor.B*.17f,.98f):FLinearColor(.018f,.027f,.043f,.98f);
+    const FLinearColor TitleColor=(Owned||Open)?FLinearColor::White:FLinearColor(.58f,.62f,.67f);
+    const FLinearColor PillColor=(Owned||Buyable)?LaneColor:ASMenuMuted*(Open?.9f:.6f);
+    const int32 Icons[ASTree::Nodes]={ASEffectArt::Blade,ASEffectArt::Dash,ASEffectArt::Bolt,ASEffectArt::Shield,ASEffectArt::Heart,ASEffectArt::Vortex,ASEffectArt::Precision,ASEffectArt::Flame,
+        ASEffectArt::Bow,ASEffectArt::Magazine,ASEffectArt::Reload,ASEffectArt::Precision,ASEffectArt::Dash,ASEffectArt::Fork,ASEffectArt::Star,ASEffectArt::Bolt,
+        ASEffectArt::Shield,ASEffectArt::Star,ASEffectArt::Twin,ASEffectArt::Heart,ASEffectArt::Brand,ASEffectArt::Tether,ASEffectArt::Vortex,ASEffectArt::Dice};
+    const double Born=(PC.IsValid()&&PC->TreeEventNode==Node)?PC->TreeEventAt:-100.0;
+    const bool Fresh=FPlatformTime::Seconds()-Born<(Capstone?2.1:1.5);
+    const TSharedRef<SOverlay> Overlay=SNew(SOverlay);
+    Overlay->AddSlot()
+        [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(Face).Padding(10)
+            [SNew(SVerticalBox)
+                +SVerticalBox::Slot().AutoHeight()[SNew(STextBlock).Text(Txt(TierWord)).Font(Font(12,true)).ColorAndOpacity(Rim)]
+                +SVerticalBox::Slot().AutoHeight().Padding(0,6,0,6)
+                    [SNew(SHorizontalBox)
+                        +SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)[SNew(SBox).WidthOverride(52).HeightOverride(52)[SNew(SASEffectIcon).Kind(Icons[Node]).Color(Owned?LaneColor:Rim).Size(52)]]
+                        +SHorizontalBox::Slot().FillWidth(1).VAlign(VAlign_Center).Padding(10,0,0,0)
+                            [SNew(STextBlock).Text(Txt(Data.Name)).Font(Font(19,true)).ColorAndOpacity(TitleColor).WrapTextAt(150.f)]]
+                +SVerticalBox::Slot().AutoHeight().Padding(0,0,0,8)[SNew(STextBlock).Text(Txt(FString(Data.Desc).Replace(TEXT("CAPSTONE. "),TEXT("")))).Font(Font(14)).ColorAndOpacity(ASMenuMuted*((Open||Owned)?1.f:.7f)).WrapTextAt(216.f)]
+                +SVerticalBox::Slot().FillHeight(1).VAlign(VAlign_Bottom).HAlign(HAlign_Center)
+                    [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(PillColor.R,PillColor.G,PillColor.B,.22f)).Padding(FMargin(12.f,5.f))
+                        [SNew(STextBlock).Text(Txt(State)).Font(Font(13,true)).ColorAndOpacity(PillColor).Justification(ETextJustify::Center).WrapTextAt(210.f)]]]];
+    if(Fresh) Overlay->AddSlot()[SNew(SASNodeBurst).Color(LaneColor).Capstone(Capstone).Born(Born)];
+    return SNew(SBox).WidthOverride(246).MinDesiredHeight(Capstone?272.f:244.f)
+        [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+            .BorderBackgroundColor_Lambda([Rim,Born](){
+                const double Age=FPlatformTime::Seconds()-Born;if(Age>3.0) return FSlateColor(Rim);
+                const float Pulse=.5f+.5f*FMath::Sin(float(Age)*14.f),Strength=FMath::Clamp(1.f-float(Age)/3.f,0.f,1.f);return FSlateColor(FMath::Lerp(Rim,FLinearColor::White,Pulse*Strength));})
+            .Padding(Capstone?4.f:2.f)
+            [SNew(SButton).ButtonStyle(&FCoreStyle::Get().GetWidgetStyle<FButtonStyle>("NoBorder")).ContentPadding(0).HAlign(HAlign_Fill).VAlign(VAlign_Fill)
+                .OnClicked_Lambda([Weak,Node,Buyable](){if(Buyable) if(auto* Controller=Weak.Get()) Controller->Action(30,Node);return FReply::Handled();})
+                [Overlay]]];
 }
 void SASMenu::RewardScreen() {
     auto* Controller=PC.Get();auto* State=Controller?AS::State(Controller):nullptr;

@@ -8,7 +8,10 @@
 #include "ASWorld.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
+#include "HAL/IConsoleManager.h"
 
+static TAutoConsoleVariable<int32> CVarASTreeLog(TEXT("as.tree.log"),0,TEXT("1: log the skill tree nodes' effects at work (Predator's refund, Blood Rush, Executioner, Marksman, Shared Ward, Piercing Rounds, Long Shot) as AshenTree lines."),ECVF_Default);
+bool AASCharacter::TreeLog() {return CVarASTreeLog.GetValueOnGameThread()!=0;}
 using ASBuild::Trait;
 int32 AASCharacter::TraitRank(Trait T) const {
     const int32 I=int32(T);return I>=0&&I<ASBuild::Count&&TraitRanks.IsValidIndex(I)?FMath::Clamp(TraitRanks[I],0,ASBuild::Catalog[I].Max):0;
@@ -90,16 +93,29 @@ void AASCharacter::ProcEcho(AASEnemy* From,EASHitKind Kind,float Power,float Poo
     ProcEcho(Best,Kind,Power,Pool,Depth+1,Visited);
 }
 void AASCharacter::ResetTraits() {
-    TraitRanks.Init(0,ASBuild::Count);EvolutionMask=0;LastUpgrade=-1;Rerolls=1;CurseStacks=0;Focus=60;NextRune=0;
+    TraitRanks.Init(0,ASBuild::Count);EvolutionMask=0;LastUpgrade=-1;Rerolls=1;CurseStacks=0;Focus=MaxFocus();NextRune=0;
     ConduitHits=0;bPhoenixUsed=false;WarCryUntil=0;LastDamageAt=-100;RoomBuffUntil=KillBuffUntil=StillSince=GoldRemainder=0;
     NextSplashFx=NextChainFx=NextAura=NextOrbit=NextThorns=0;
     DashInvulEnd=0;LastPerfectDashAt=-100.f;NextProcChain=0;PerfectBoostUntil=0;MetamorphosisAnnounced=0;WildfireDepth=0;
     DashVictims.Empty();bDashTraceActive=false;Movement()->DashCharges=1;Movement()->KnownDashCapacity=1;Movement()->DashRecharge=0;
     ClearTeamState(); // 0.26 Phase 2: no tether, no open Twin Collapse call into a fresh run
+    PierceUntil=0;NextPredator=0;bBlowIsMelee=false;Echoes.Reset(); // 0.26 Phase 3: no open Piercing Rounds window, no lockout, no echo waiting from the last run
 }
-void AASCharacter::EnterRoomTraits(float CombatStarts) {RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();}
+void AASCharacter::EnterRoomTraits(float CombatStarts) {
+    RoomBuffUntil=CombatStarts+ASBuild::VanguardSeconds;StillSince=CombatStarts;DashVictims.Empty();
+    // 0.26 Phase 3, Shared Ward: every fight begins with a shield, a bigger one while the partner stands beside you.
+    if(HasAuthority()&&!bDowned) {
+        const float Ward=ASTree::WardShield(TreeMask(),FindPartner()!=nullptr);
+        if(Ward>0.f) {
+            if(TreeLog()) UE_LOG(LogTemp,Display,TEXT("AshenTree: %s's Shared Ward gives %.0f shield (partner up: %d)"),*GetName(),Ward,FindPartner()!=nullptr?1:0);
+            Shield=ASRules::GrantShield(Shield,Ward,MaxHealth);TeamCue(ASTeam::CueWard,GetActorLocation(),FVector::ZeroVector,Ward);ForceNetUpdate();
+            if(auto* PC=Cast<AASPlayerController>(GetController())) PC->RewardText(FString::Printf(TEXT("+%.0f SHIELD"),Ward),ASData::HitColor(EASHitKind::Shield),false);
+        }
+    }
+}
 float AASCharacter::DamageScale(bool WeaponHit) const {
     const float Now=AS::Time(this);float Bonus=0;
+    if(WeaponHit) Bonus+=ASMelee::IsMelee(Build.Weapon)?ASTree::MeleeDamageBonus(TreeMask()):ASTree::RangedDamageBonus(TreeMask()); // 0.26 Phase 3: Honed Edge (melee) and Steady Hand (anything else)
     if(WeaponHit&&ASMelee::IsMelee(Build.Weapon)) Bonus+=.12f*TraitValue(Trait::Melee);
     if(WeaponHit&&(Build.Weapon==2||Build.Weapon==3||ASRules::IsGun(Build.Weapon))) Bonus+=.12f*TraitValue(Trait::Ranged);
     if(!WeaponHit||Build.Weapon==4) Bonus+=.12f*TraitValue(Trait::Magic);
@@ -107,7 +123,7 @@ float AASCharacter::DamageScale(bool WeaponHit) const {
     if(WeaponHit) Bonus+=.08f*EndlessValue(3); // Unbound Fury (Endless exclusive): 8% primary damage per effective rank
     const auto* State=AS::State(this);
     if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&WeaponHit&&Now<WarCryUntil&&ASMelee::IsMelee(Build.Weapon)) Bonus+=.20f;
-    if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())&&LinkBuffActive()) Bonus+=ASTeam::TetherDamageBonus; // 0.26 Phase 2: an Ember Tether holding this hero and its partner close together
+    if(State&&(State->Phase==EASPhase::Hub||CombatBenefits())) Bonus+=LinkBonus(); // 0.26 Phase 2: an Ember Tether holding this hero and its partner close together (Tether Warden makes it +20%)
     if(CombatBenefits()) {
         if(Now<RoomBuffUntil) Bonus+=ASBuild::VanguardBonus(TraitValue(Trait::RoomBlessing));
         if(Now<KillBuffUntil) Bonus+=.05f*TraitValue(Trait::KillFlow);
@@ -135,6 +151,22 @@ void AASCharacter::OnKill(const AASEnemy* Killed) {
         ForceNetUpdate();
     }
     Heal(1.5f*TraitValue(Trait::Reaper));
+    // 0.26 Phase 3, the MELEE lane's kill nodes. A melee kill is one a melee weapon's own blow made (bBlowIsMelee is set around HitEnemy): not a burn tick, a burst or a spell.
+    if(bBlowIsMelee) {
+        const ASTree::Owned Tree=TreeMask();const float Now=AS::Time(this);
+        if(const float Mend=ASTree::KillHeal(Tree);Mend>0.f) {if(TreeLog()) UE_LOG(LogTemp,Display,TEXT("AshenTree: %s's Blood Rush mends %.0f (health %.0f of %.0f)"),*GetName(),Mend,Health,MaxHealth);Heal(Mend);} // Blood Rush
+        if(HasAuthority()&&ASTree::PredatorReady(Tree,Now,NextPredator)) {                                                                    // Predator (capstone)
+            bool Refunded=false;const bool Leaps=ASMelee::LeapsOnRmb(Build.Weapon);
+            if(Leaps) {if(NextHammerLeap>Now) {NextHammerLeap=0.f;Refunded=true;}}                                                           // the maul's leap and the claws' pounce: ready at once
+            else if(auto* M=Movement()) if(M->DashCharges<MaxDashCharges()) {M->DashCharges=FMath::Min(MaxDashCharges(),M->DashCharges+1);M->DashCooldown=0.f;Refunded=true;DashRefund(1);} // the blade and the scythe: a dash charge
+            if(TreeLog()) UE_LOG(LogTemp,Display,TEXT("AshenTree: %s's Predator on a melee kill (%s): %s"),*GetName(),Leaps?TEXT("leap or pounce"):TEXT("dash charge"),Refunded?TEXT("REFUNDED"):TEXT("nothing to refund, no lockout"));
+            if(Refunded) {
+                NextPredator=Now+ASTree::PredatorLockout;ForceNetUpdate();
+                TeamCue(ASTeam::CuePredator,GetActorLocation(),Killed?FVector(Killed->GetActorLocation()):GetActorLocation(),Leaps?1.f:0.f);
+                if(auto* PC=Cast<AASPlayerController>(GetController())) PC->RewardText(Leaps?(Build.Weapon==ASRules::Claws?TEXT("PREDATOR / POUNCE READY"):TEXT("PREDATOR / LEAP READY")):TEXT("PREDATOR / DASH BACK"),FLinearColor(1.f,.52f,.30f),false);
+            }
+        }
+    }
     // 0.24 C-6: Wildfire - a burning enemy explodes when it dies; Shatter - a frozen one shatters. Each hurts and re-applies its element to what is near; kills inside can set off more (depth-capped).
     if(HasAuthority()&&Killed&&WildfireDepth<3) {
         const bool Burning=(Killed->StatusBits&1)!=0&&Metamorphosed(ASPartC::Metamorphosis::Wildfire),Frozen=(Killed->StatusBits&8)!=0&&Metamorphosed(ASPartC::Metamorphosis::Shatter);
@@ -162,6 +194,14 @@ void AASCharacter::SecondaryDamage(AASEnemy* E,float Amount,EASHitKind Kind) {
     if(Dealt>0) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At,Dealt,false,Kind);
 }
 float AASCharacter::OnHitScale() const {return ASArsenal::OnHitScale(Build.Weapon);}
+float AASCharacter::CriticalChanceNow() const {
+    const float Base=ASRules::CriticalChance(Rank(19),RunRank(5));
+    return ASMelee::IsMelee(Build.Weapon)?Base:ASTree::CriticalWith(TreeMask(),Base); // 0.26 Phase 3: Eagle Eye's four points belong to the ranged weapons
+}
+void AASCharacter::DashRefund_Implementation(int32 Count) {
+    if(HasAuthority()) return; // the server already gave it back (a host's own hero included)
+    if(auto* M=Movement()) {M->DashCharges=FMath::Min(MaxDashCharges(),M->DashCharges+FMath::Clamp(Count,0,3));M->DashCooldown=0.f;} // a guest's dash charges are predicted here
+}
 void AASCharacter::HitProcs(AASEnemy* E,const FVector& At,float Dealt) {
     if(!CombatBenefits()||Dealt<=0) return;auto* S=AS::State(this);if(!S) return;
     const float Now=S->SimTime;

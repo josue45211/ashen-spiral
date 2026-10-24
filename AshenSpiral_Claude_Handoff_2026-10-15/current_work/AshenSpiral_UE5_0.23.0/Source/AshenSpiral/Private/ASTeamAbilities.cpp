@@ -34,7 +34,7 @@ void AASEnemy::Brand(AASCharacter* Brander) {
     auto* S=AS::State(this);if(!HasAuthority()||!S||!IsValid(Brander)||Health<=0) return;
     for(auto W:S->Enemies) if(auto* E=W.Get()) if(E!=this&&E->BrandUntil>0.f&&E->BrandOwner.Get()==Brander) E->ClearBrand(true); // one brand per hero: the old one fizzles
     if(BrandUntil>0.f) ClearBrand(false);                                                                                       // a new brand on a branded enemy starts it over
-    BrandOwner=Brander;BrandNeed=ASTeam::BrandNeed(MaxHealth,Boss());BrandStored=0.f;BrandFill=0;bBrandQueued=false;BrandUntil=S->SimTime+ASTeam::BrandSeconds;
+    BrandOwner=Brander;BrandNeed=ASTeam::BrandNeed(MaxHealth,Boss())*ASTree::BrandNeedScale(Brander->TreeMask());BrandStored=0.f; // 0.26 Phase 3: Brand Hunter asks 15% less of itBrandFill=0;bBrandQueued=false;BrandUntil=S->SimTime+ASTeam::BrandSeconds;
     if(const auto* PS=Brander->GetPlayerState<AASPlayerState>()) BrandOwnerIndex=uint8(FMath::Clamp(PS->PlayerIndex,0,7));
     ForceNetUpdate();
     AS_TEAM_LOG(TEXT("AshenTeam: %s branded %s (kind %d, %.0f health): it needs %.0f stored, until %.1f"),*Brander->GetName(),*GetName(),Kind,MaxHealth,BrandNeed,BrandUntil);
@@ -73,7 +73,8 @@ void AASEnemy::BrandBurst(bool Died) {
     if(!S||!IsValid(Brander)) return;
     const AASCharacter* Partner=Brander->FindPartner();
     const float Multiplier=ASBuild::SynergyDamageMultiplier(Brander->TeamworkRank(),Partner?Partner->TeamworkRank():0);
-    const float Direct=Died?0.f:ASTeam::BrandBurstDamage(Stored,Max,IsBoss)*Multiplier,Splash=ASTeam::BrandSplashDamage(Stored,Died)*Multiplier;
+    const float Harder=ASTree::BrandBurstScale(Brander->TreeMask()); // 0.26 Phase 3: Brand Hunter bursts 15% harder
+    const float Direct=Died?0.f:ASTeam::BrandBurstDamage(Stored,Max,IsBoss)*Multiplier*Harder,Splash=ASTeam::BrandSplashDamage(Stored,Died)*Multiplier*Harder;
     AS_TEAM_LOG(TEXT("AshenTeam: the brand on %s bursts%s: %.0f stored, %.0f on it, %.0f on each enemy within %.0f cm"),*GetName(),Died?TEXT(" as it dies"):TEXT(""),Stored,Direct,Splash,ASTeam::BrandSplashRadius);
     Brander->TeamCue(Died?ASTeam::CueBrandDeathPop:ASTeam::CueBrandPop,At,FVector::ZeroVector,ASTeam::BrandSplashRadius);
     Announce(S,ASTeam::SynergyBrand,Died?TEXT("SYNERGY: Brand Burst (as it fell)"):TEXT("SYNERGY: Brand Burst"));
@@ -87,6 +88,7 @@ void AASEnemy::BrandBurst(bool Died) {
     if(Direct>0.f) Strike(this,Direct);
     const auto List=S->Enemies;
     for(auto W:List) if(auto* E=W.Get()) if(E!=this&&FVector::DistSquared2D(At,E->GetActorLocation())<FMath::Square(ASTeam::BrandSplashRadius)&&AS::ClearSight(GetWorld(),At+FVector(0,0,45),E->GetActorLocation())) Strike(E,Splash);
+    {FSynergyEcho Echo;Echo.Trigger=ASTeam::SynergyBrand;Echo.At=At;Echo.Direct=Direct;Echo.Splash=Splash;Echo.Target=this;AASCharacter::QueueEcho(Brander,Partner,Echo);} // 0.26 Phase 3: Synergy Echo
 }
 
 // ---------------------------------------------------------------- the casts
@@ -95,16 +97,19 @@ AASCharacter* AASCharacter::FindPartner() const {
     for(auto W:S->Heroes) if(AASCharacter* H=W.Get()) if(H!=this&&!H->bDowned&&!H->bEliminated&&H->Health>0) return H;
     return nullptr;
 }
-bool AASCharacter::LinkBuffActive() const {
-    const auto* S=AS::State(this);if(!S||bDowned) return false;const float Now=S->SimTime;
+const AASCharacter* AASCharacter::LinkHolder() const {
+    const auto* S=AS::State(this);if(!S||bDowned) return nullptr;const float Now=S->SimTime;
     for(auto W:S->Heroes) if(const AASCharacter* H=W.Get()) {
         if(H->LinkMode!=ASTeam::LinkPair||Now>=H->LinkUntil||!IsValid(H->LinkPartner)) continue;
         if(H!=this&&H->LinkPartner.Get()!=this) continue;
         const AASCharacter* Other=H==this?H->LinkPartner.Get():H;
-        if(Other&&!Other->bDowned&&ASTeam::TetherBuff(true,float(FVector::Dist(GetActorLocation(),Other->GetActorLocation())))>0.f) return true;
+        if(Other&&!Other->bDowned&&ASTeam::TetherBuff(true,float(FVector::Dist(GetActorLocation(),Other->GetActorLocation())))>0.f) return H;
     }
-    return false;
+    return nullptr;
 }
+bool AASCharacter::LinkBuffActive() const {return LinkHolder()!=nullptr;}
+// The tether is its holder's: Tether Warden (the holder's node) makes the bonus +20% for both of the pair.
+float AASCharacter::LinkBonus() const {const AASCharacter* Holder=LinkHolder();return Holder?ASTree::TetherBonusFor(Holder->TreeMask(),ASTeam::TetherDamageBonus):0.f;}
 void AASCharacter::ClearTeamState() {
     LinkMode=ASTeam::LinkNone;LinkUntil=0.f;LinkPartner=nullptr;LinkAnchor=FVector::ZeroVector;TwinCallUntil=0.f;NextLash=0.f;bTwinPending=false;TwinOther.Reset();
 }
@@ -118,7 +123,7 @@ void AASCharacter::CastTeam(int32 Ability) {
     bool Cast=false;
     switch(Ability) {case ASTeam::Brand:Cast=CastBrand();break;case ASTeam::Tether:Cast=CastTether();break;default:Cast=CastTwin();break;}
     if(!Cast) return;
-    AbilityGesture();Focus-=Cost;NextRune=S->SimTime+ASAdventure::AbilityCooldown(Ability,SpiralCooldown()/3.3f);ForceNetUpdate();
+    AbilityGesture();Focus-=Cost;NextRune=S->SimTime+ASAdventure::AbilityCooldown(Ability,SpiralCooldown()/3.3f)*ASTree::TeamCooldownScale(TreeMask());ForceNetUpdate(); // 0.26 Phase 3: Rhythm
 }
 bool AASCharacter::CastBrand() {
     auto* S=AS::State(this);auto* PC=Cast<AASPlayerController>(GetController());if(!S) return false;
@@ -156,7 +161,7 @@ bool AASCharacter::CastTether() {
         Stake=Place;
         if(PC) PC->Notify(Partner?TEXT("Ember Tether: your partner is too far, so it holds to an ember stake instead (weaker)."):TEXT("Ember Tether: alone it holds to an ember stake (a softer lash, no damage bonus)."));
     }
-    LinkMode=Pair?ASTeam::LinkPair:ASTeam::LinkAnchor;LinkPartner=Pair?Partner:nullptr;LinkAnchor=Stake;LinkUntil=Now+ASTeam::TetherSeconds;NextLash=Now+.15f;ForceNetUpdate();
+    LinkMode=Pair?ASTeam::LinkPair:ASTeam::LinkAnchor;LinkPartner=Pair?Partner:nullptr;LinkAnchor=Stake;LinkUntil=Now+ASTree::TetherSecondsFor(TreeMask(),ASTeam::TetherSeconds);NextLash=Now+.15f;ForceNetUpdate(); // 0.26 Phase 3: Tether Warden
     AS_TEAM_LOG(TEXT("AshenTeam: %s tethered %s until %.1f"),*GetName(),Pair?*Partner->GetName():*FString::Printf(TEXT("a stake at %s"),*Stake.ToCompactString()),LinkUntil);
     TeamCue(ASTeam::CueTetherOn,GetActorLocation(),Pair?Partner->GetActorLocation():Stake,Pair?1.f:0.f);
     if(Pair) Announce(S,ASTeam::SynergyTether,TEXT("SYNERGY: Ember Tether"));
@@ -182,9 +187,10 @@ bool AASCharacter::CastTwin() {
         return true;
     }
     if(Other->Build.Ability==ASTeam::Twin&&Other->TwinCallUntil>0.f&&Now<=Other->TwinCallUntil&&PC) PC->Notify(TEXT("Twin Collapse: too far apart to join (16 m)."));
-    TwinCallUntil=Now+ASTeam::TwinWindow;ForceNetUpdate();
+    const float Window=ASTree::TwinWindowFor(TreeMask(),ASTeam::TwinWindow); // 0.26 Phase 3: Convergence
+    TwinCallUntil=Now+Window;ForceNetUpdate();
     AS_TEAM_LOG(TEXT("AshenTeam: %s calls a Twin Collapse until %.1f (%.0f cm from %s)"),*GetName(),TwinCallUntil,Separation,*Other->GetName());
-    TeamCue(ASTeam::CueTwinCall,GetActorLocation(),FVector::ZeroVector,ASTeam::TwinWindow);
+    TeamCue(ASTeam::CueTwinCall,GetActorLocation(),FVector::ZeroVector,Window);
     if(Other->Build.Ability==ASTeam::Twin) if(auto* OtherPC=Cast<AASPlayerController>(Other->GetController())) OtherPC->Notify(TEXT("Your partner calls a Twin Collapse: press F now to join!"));
     return true;
 }
@@ -200,6 +206,7 @@ void AASCharacter::LesserCollapse() {
         HitEnemy(E,ASTeam::TwinLesserDamage,false,EASHitKind::Spiral,false,false);
         if(IsValid(E)&&E->Health>0) E->Control(1,E->GetActorLocation()-At,0.f);
     }
+    {FSynergyEcho Echo;Echo.Trigger=ASTeam::EchoLesser;Echo.At=At;QueueEcho(this,FindPartner(),Echo);} // 0.26 Phase 3: Synergy Echo (a lone hero's collapse repeats too)
 }
 void AASCharacter::BeginTwinCollapse(AASCharacter* Other) {
     auto* S=AS::State(this);if(!S||!IsValid(Other)) return;
@@ -211,7 +218,8 @@ void AASCharacter::BeginTwinCollapse(AASCharacter* Other) {
 void AASCharacter::FireTwinCollapse() {
     auto* S=AS::State(this);bTwinPending=false;if(!S) return;
     AASCharacter* Other=TwinOther.Get();TwinOther.Reset();const FVector Mid=TwinPoint;const float Now=S->SimTime;
-    const float Multiplier=ASBuild::SynergyDamageMultiplier(TeamworkRank(),Other?Other->TeamworkRank():0);
+    // 0.26 Phase 3: Convergence (either hero's) makes the detonation 20% harder
+    const float Multiplier=ASBuild::SynergyDamageMultiplier(TeamworkRank(),Other?Other->TeamworkRank():0)*FMath::Max(ASTree::TwinDamageScale(TreeMask()),Other?ASTree::TwinDamageScale(Other->TreeMask()):1.f);
     TeamCue(ASTeam::CueTwinBlast,Mid,FVector::ZeroVector,ASTeam::TwinRadius);
     Announce(S,ASTeam::SynergyTwin,TEXT("SYNERGY: Twin Collapse"));
     HitStop(GetWorld(),.08f,.08f);
@@ -224,12 +232,68 @@ void AASCharacter::FireTwinCollapse() {
         if(Dealt>0.f) ForPlayers(S,[&](AASPlayerController* PC) {PC->SynergyNumber(E->GetActorLocation()+FVector(0,0,80),Dealt,ASTeam::SynergyTwin);});
     }
     for(AASCharacter* H:{this,Other}) if(IsValid(H)&&!H->bDowned) H->Shield=ASRules::GrantShield(H->Shield,ASTeam::TwinShield,H->MaxHealth);
+    {FSynergyEcho Echo;Echo.Trigger=ASTeam::SynergyTwin;Echo.At=Mid;Echo.Multiplier=Multiplier;QueueEcho(this,Other,Echo);} // 0.26 Phase 3: Synergy Echo
     AS_TEAM_LOG(TEXT("AshenTeam: the Twin Collapse detonates at %s: %d enemies within %.0f cm, %.0f damage each (x%.2f), a %.1f s stun, +%.0f shield each"),*Mid.ToCompactString(),Struck,ASTeam::TwinRadius,ASTeam::TwinDamage*Multiplier,Multiplier,ASTeam::TwinStun,ASTeam::TwinShield);
+}
+
+// ---------------------------------------------------------------- 0.26 Phase 3, Synergy Echo (the TEAM capstone)
+// A synergy burst repeats ASTree::EchoDelay later, in the same place, at ASTree::EchoScale of its damage: the elemental synergies (Lightning Blast, Stormbreak, Wildfire), Ashen Brand's burst, Twin
+// Collapse's detonation and the small collapse of every Twin Collapse cast. Either hero of a burst holding the capstone owes it (one echo however many hold it). The echo hits with Hit() directly, as
+// the bursts do, so it feeds no synergy and queues no echo of its own.
+void AASCharacter::QueueEcho(AASCharacter* Source,const AASCharacter* Partner,const FSynergyEcho& Echo) {
+    if(!IsValid(Source)||!Source->HasAuthority()) return;
+    auto* S=AS::State(Source);if(!S) return;
+    if(!ASTree::EchoOwed(Source->TreeMask(),IsValid(Partner)?Partner->TreeMask():0u)) return;
+    AASCharacter* Owner=Source->HasNode(ASTree::SynergyEcho)?Source:const_cast<AASCharacter*>(Partner);
+    if(!IsValid(Owner)||Owner->Echoes.Num()>=8) return; // a few at a time: a burst of bursts never queues an unbounded line
+    FSynergyEcho Copy=Echo;Copy.Due=S->SimTime+ASTree::EchoDelay;Copy.Other=Owner==Source?const_cast<AASCharacter*>(Partner):Source;
+    Owner->Echoes.Add(Copy);
+    AS_TEAM_LOG(TEXT("AshenTeam: %s's Synergy Echo is set for trigger %d at %s, due %.2f"),*Owner->GetName(),Echo.Trigger,*Echo.At.ToCompactString(),Copy.Due);
+}
+void AASCharacter::TickEchoes(float Now) {
+    auto* S=AS::State(this);if(!S) return;
+    if(bDowned||!(S->Phase==EASPhase::Hub||CombatBenefits())) {Echoes.Reset();return;} // a hero that is down, or a fight that is over, repeats nothing
+    TArray<FSynergyEcho> Due;
+    for(int32 I=Echoes.Num()-1;I>=0;--I) if(Now>=Echoes[I].Due) {Due.Insert(Echoes[I],0);Echoes.RemoveAt(I);}
+    for(const FSynergyEcho& Echo:Due) FireEcho(Echo);
+}
+void AASCharacter::FireEcho(const FSynergyEcho& Echo) {
+    auto* S=AS::State(this);if(!S||!FMath::IsFinite(Echo.At.X)||!FMath::IsFinite(Echo.At.Y)||!FMath::IsFinite(Echo.At.Z)) return;
+    const FVector At=Echo.At;const bool Lesser=Echo.Trigger==ASTeam::EchoLesser;const int32 Number=Lesser?ASTeam::SynergyTwin:Echo.Trigger; // the number colour the damage floats in
+    float Radius=470.f;
+    switch(Echo.Trigger) {case ASTeam::SynergyBrand:Radius=ASTeam::BrandSplashRadius;break;case ASTeam::SynergyTwin:Radius=ASTeam::TwinRadius;break;case ASTeam::EchoLesser:Radius=ASTeam::TwinLesserRadius*AreaScale();break;default:break;}
+    TeamCue(ASTeam::CueEcho,At,FVector(float(Number),0.f,0.f),Radius);
+    {static const FLinearColor Tints[]={FLinearColor(.86f,.74f,1.f),FLinearColor(.12f,1.f,1.f),FLinearColor(1.f,.35f,.05f),FLinearColor(1.f,.78f,.22f),FLinearColor(1.f,.52f,.14f),FLinearColor(.72f,.5f,1.f)};
+     ForPlayers(S,[&](AASPlayerController* PC) {PC->RewardText(TEXT("ECHO"),Tints[FMath::Clamp(Number,0,5)],false);});} // the word, small, in the burst's colour
+    int32 Struck=0;const auto List=S->Enemies;
+    for(auto W:List) if(auto* E=W.Get()) {
+        if(!IsValid(E)||E->Health<=0||!CanDamage(E)) continue;
+        const FVector P=E->GetActorLocation();
+        if(FVector::DistSquared2D(At,P)>=FMath::Square(Radius)||FMath::Abs(At.Z-P.Z)>420.f||!AS::ClearSight(GetWorld(),At+FVector(0,0,45),P)) continue;
+        float Amount=0.f;
+        switch(Echo.Trigger) {
+        case 0:case 1:case 2:
+            Amount=ASExpedition::SynergyDamage(Echo.Trigger,E->MaxHealth,Echo.Power,E->Boss())*Echo.Multiplier;
+            if(Echo.Trigger==1) E->SlowUntil=FMath::Max(E->SlowUntil,S->SimTime+2.f);
+            break;
+        case ASTeam::SynergyBrand:Amount=E==Echo.Target.Get()?Echo.Direct:Echo.Splash;break;
+        case ASTeam::SynergyTwin:Amount=ASTeam::TwinBlastDamage(E->MaxHealth,E->Boss())*Echo.Multiplier;break;
+        default:Amount=ASTeam::TwinLesserDamage;break;
+        }
+        Amount=ASTree::EchoDamage(Amount);if(Amount<=0.f) continue;
+        E->BeginHitReaction(At,!Lesser);
+        const float Before=E->Health;const bool Killed=E->Hit(Amount,this,false);const float Dealt=Killed?Before:FMath::Max(0.f,Before-E->Health);++Struck;
+        if(Lesser&&IsValid(E)&&E->Health>0) E->Control(1,P-At,0.f);
+        if(Dealt>0.f) ForPlayers(S,[&](AASPlayerController* PC) {PC->SynergyNumber(P+FVector(0,0,80),Dealt,Number);});
+    }
+    AS_TEAM_LOG(TEXT("AshenTeam: %s's Synergy Echo (trigger %d) repeats at %s: %d enemies within %.0f cm"),*GetName(),Echo.Trigger,*At.ToCompactString(),Struck,Radius);
+    if(Struck>0) HitStop(GetWorld(),.2f,.03f);
 }
 
 // ---------------------------------------------------------------- the server's tick: the tether's lash and snap, the Twin Collapse's pull and detonation
 void AASCharacter::TickTeam(float Now,float Delta) {
     auto* S=AS::State(this);if(!S||!HasAuthority()) return;
+    if(!Echoes.IsEmpty()) TickEchoes(Now);
     if(LinkMode!=ASTeam::LinkNone) {
         AASCharacter* Partner=LinkPartner.Get();const bool Pair=LinkMode==ASTeam::LinkPair;
         if(bDowned||Now>=LinkUntil||(Pair&&(!IsValid(Partner)||Partner->bDowned||Partner->bEliminated))) EndTether(0);

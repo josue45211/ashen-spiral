@@ -1,4 +1,5 @@
 #include "ASGameInstance.h"
+#include "ASAudio.h"
 #include "ASRules.h"
 #include "ASExpeditionRules.h"
 #include "ASGameState.h"
@@ -79,6 +80,11 @@ void UASGameInstance::Init() {
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("HUDTextScale"),HUDTextScale,GGameUserSettingsIni);
     GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("HUDScale"),HUDScale,GGameUserSettingsIni);
     HUDScale=ASPresentation::HUDScale(HUDScale);
+    GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("MasterVolume"),MasterVolume,GGameUserSettingsIni);
+    GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("CombatVolume"),CombatVolume,GGameUserSettingsIni);
+    GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("WorldVolume"),WorldVolume,GGameUserSettingsIni);
+    GConfig->GetFloat(TEXT("AshenSpiral"),TEXT("InterfaceVolume"),InterfaceVolume,GGameUserSettingsIni);
+    ApplyAudio();
     SanitizeCameraSettings();HUDTextScale=FMath::Clamp(HUDTextScale,1.f,1.2f);
     Sensitivity=FMath::Clamp(Sensitivity,.2f,2.f);Quality=FMath::Clamp(Quality,0,3);
     if(GEngine) FailureHandle=GEngine->OnNetworkFailure().AddUObject(this,&UASGameInstance::NetworkFailure);
@@ -104,7 +110,17 @@ void UASGameInstance::SaveHUDSettings() {
     GConfig->SetInt(TEXT("AshenSpiral"),TEXT("CrosshairColor"),CrosshairColorIndex,GGameUserSettingsIni);
     GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("NumberScale"),NumberScale,GGameUserSettingsIni);
     GConfig->SetBool(TEXT("AshenSpiral"),TEXT("DamageNumbers"),bShowNumbers,GGameUserSettingsIni);
+    ApplyAudio();
+    GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("MasterVolume"),MasterVolume,GGameUserSettingsIni);
+    GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("CombatVolume"),CombatVolume,GGameUserSettingsIni);
+    GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("WorldVolume"),WorldVolume,GGameUserSettingsIni);
+    GConfig->SetFloat(TEXT("AshenSpiral"),TEXT("InterfaceVolume"),InterfaceVolume,GGameUserSettingsIni);
     GConfig->Flush(false,GGameUserSettingsIni);
+}
+void UASGameInstance::ApplyAudio() {
+    MasterVolume=ASPresentation::VolumeLevel(MasterVolume);CombatVolume=ASPresentation::VolumeLevel(CombatVolume);
+    WorldVolume=ASPresentation::VolumeLevel(WorldVolume);InterfaceVolume=ASPresentation::VolumeLevel(InterfaceVolume);
+    ASAudio::SetLevels(MasterVolume,CombatVolume,WorldVolume,InterfaceVolume);
 }
 void UASGameInstance::SanitizeCameraSettings() {
     const auto Safe=[](float V,float Default,float Min,float Max) {return FMath::IsFinite(V)?FMath::Clamp(V,Min,Max):Default;};
@@ -196,9 +212,16 @@ bool UASGameInstance::Purchase(int32 Category,int32 I) {
         if(Valid) {C.OwnedWeapons|=1<<I;C.Build.Weapon=I;}
     } else if(Category==1 && I>=0 && I<C.Build.StylePool) {C.Build.Style=I;Valid=true;}
     else if(Category==8 && I>=0 && I<ASAdventure::AbilityCount) {C.Build.Ability=I;Valid=true;}
-    else if(Category==2 && I>=0 && I<ASRules::HearthCount) {
+    else if(Category==2 && I>=0 && I<ASRules::CoreHearthCount) {
         Valid=ASRules::Spend(C.Ash,ASRules::Cost(ASData::Hearth[I].Cost,C.Build.Ranks[I],ASData::Hearth[I].MaxRank));
         if(Valid) ++C.Build.Ranks[I];
+    } else if(Category==10 && ASTree::Valid(I)) { // 0.26 Phase 3: a skill tree node (ASTreeRules.h): not owned, its lane holds enough nodes already, and the Ash for it
+        C.Build.Sanitize();
+        const std::vector<int> RankList(C.Build.Ranks.GetData(),C.Build.Ranks.GetData()+C.Build.Ranks.Num());
+        ASTree::Owned Mask=ASTree::FromRanks(RankList);
+        const int32 Left=ASTree::Buy(Mask,C.Ash,I);
+        if(Left>=0) {C.Ash=Left;C.Build.Ranks[ASTree::FirstRank+I]=1;Valid=true;LastMessage=FString::Printf(TEXT("%s unlocked."),ASData::Hearth[ASTree::FirstRank+I].Name);}
+        else LastMessage=ASTree::Owns(Mask,I)?TEXT("You already own that node."):(ASTree::Available(Mask,I)?TEXT("Not enough Ash for that node."):TEXT("Own more of this lane's nodes first."));
     } else if(Category==3 && C.Build.RelicPool<24 && ASRules::Spend(C.RelicEmbers,4)) {C.Build.RelicPool=FMath::Min(24,C.Build.RelicPool+4);Valid=true;}
     else if(Category==4 && C.Build.StylePool<10 && ASRules::Spend(C.Tablets,1)) {++C.Build.StylePool;Valid=true;}
     else if(Category==5) Valid=ASRules::Refinement(C.Materials[0],C.Materials[1],C.Ash,C.bRefinementBought);
@@ -209,7 +232,7 @@ bool UASGameInstance::Purchase(int32 Category,int32 I) {
     }
     if(Category==9&&I==0&&C.EndlessChoices<2&&ASRules::Spend(C.Ash,ASExpedition::ChoiceCost(C.EndlessChoices))) {++C.EndlessChoices;Valid=true;}
     if(!Valid || !Commit(C)) return false;
-    LastMessage=TEXT("Saved. Your next expedition will use this loadout.");return true;
+    if(Category!=10) LastMessage=TEXT("Saved. Your next expedition will use this loadout.");return true;
 }
 bool UASGameInstance::Receive(const FASReceipt& R) {
     if(R.ProfileId!=Profile.ProfileId||R.Id.IsEmpty() || R.Id.Len()>128 || R.Room<0 || R.Room>32) return false;

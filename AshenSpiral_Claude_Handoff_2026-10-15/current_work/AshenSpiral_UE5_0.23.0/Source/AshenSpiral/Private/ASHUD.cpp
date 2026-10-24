@@ -193,7 +193,7 @@ void AASHUD::DrawHUD() {
     const auto Key=[PC](FName Binding) {const FKey Bound=PC->BoundKey(Binding);if(Bound==EKeys::RightMouseButton) return FString(TEXT("RMB"));if(Bound==EKeys::LeftMouseButton) return FString(TEXT("LMB"));return Bound.GetDisplayName().ToString().Replace(TEXT("Left "),TEXT("")).Replace(TEXT("Right "),TEXT("")).Left(6).ToUpper();};
     if(ASMelee::LeapsOnRmb(H->Build.Weapon)) { // the maul's leap and the claws' pounce share the row and the cooldown clock (NextHammerLeap)
         const bool Claws=H->Build.Weapon==ASRules::Claws;
-        const float Leap=FMath::Max(0.f,H->NextHammerLeap-S->SimTime),Cooldown=Claws?ASClaws::PounceCooldown:ASHammer::Cooldown;
+        const float Leap=FMath::Max(0.f,H->NextHammerLeap-S->SimTime),Cooldown=(Claws?ASClaws::PounceCooldown:ASHammer::Cooldown)*ASTree::LeapScale(H->TreeMask()); // Leap Master shortens the bar's whole length
         Group(Width-24-384*UI,Height-24-112*UI,UI);
         const bool Latched=Claws&&H->PounceLatched();const float Held=Latched?FMath::Clamp(1.f-(S->SimTime-H->PounceStateAt)/ASClaws::GlueSeconds,0.f,1.f):0.f; // a latched pounce shows how long it still holds
         Text(Latched?FString::Printf(TEXT("%s  LATCHED  %.1fs  /  DASH TO BREAK"),*Key("Spiral"),Held*ASClaws::GlueSeconds):FString::Printf(TEXT("%s  %s  %s"),*Key("Spiral"),Claws?TEXT("POUNCE"):TEXT("LEAP"),Leap<=.02f?TEXT("READY"):*FString::Printf(TEXT("%.1fs"),Leap)),12,0,Latched?ASHudRed:(Leap<=.02f?ASHudGold:ASHudMuted),.62f);
@@ -211,15 +211,22 @@ void AASHUD::DrawHUD() {
         if(Linker) {
             const bool Pair=Linker->LinkMode==ASTeam::LinkPair,Close=H->LinkBuffActive();const float Left=FMath::Max(0.f,Linker->LinkUntil-SimNow);
             Group(Width-24-384*UI,RowY,UI);
-            Text(Pair?FString::Printf(TEXT("TETHERED  %.1fs  /  %s"),Left,Close?TEXT("+15% DAMAGE"):TEXT("STAND CLOSER FOR +15%")):FString::Printf(TEXT("ANCHORED  %.1fs  /  WEAKER ALONE"),Left),12,0,Close?FLinearColor(1.f,.52f,.14f):ASHudMuted,.62f);
-            Bar(12,24,358,2,Left/ASTeam::TetherSeconds,FLinearColor(1.f,.52f,.14f));Group();RowY-=36*UI;
+            const int32 Percent=FMath::RoundToInt(ASTree::TetherBonusFor(Linker->TreeMask(),ASTeam::TetherDamageBonus)*100.f); // Tether Warden raises it from 15 to 20
+            Text(Pair?FString::Printf(TEXT("TETHERED  %.1fs  /  %s"),Left,Close?*FString::Printf(TEXT("+%d%% DAMAGE"),Percent):*FString::Printf(TEXT("STAND CLOSER FOR +%d%%"),Percent)):FString::Printf(TEXT("ANCHORED  %.1fs  /  WEAKER ALONE"),Left),12,0,Close?FLinearColor(1.f,.52f,.14f):ASHudMuted,.62f);
+            Bar(12,24,358,2,Left/ASTree::TetherSecondsFor(Linker->TreeMask(),ASTeam::TetherSeconds),FLinearColor(1.f,.52f,.14f));Group();RowY-=36*UI;
         }
         if(Caller) {
             const bool Mine=Caller==H,CanJoin=!Mine&&H->Build.Ability==ASTeam::Twin;const float Left=FMath::Max(0.f,Caller->TwinCallUntil-SimNow);
             const float Beat=CanJoin?.65f+.35f*FMath::Sin(SimNow*18.f):.8f;const FLinearColor Violet(.72f,.5f,1.f,Beat);
             Group(Width-24-384*UI,RowY,UI);
             Text(Mine?FString::Printf(TEXT("TWIN COLLAPSE CALLED  %.1fs  /  WAITING FOR YOUR PARTNER"),Left):(CanJoin?FString::Printf(TEXT("YOUR PARTNER CALLS TWIN COLLAPSE  /  PRESS %s  %.1fs"),*Key("Rune"),Left):FString::Printf(TEXT("YOUR PARTNER CALLS TWIN COLLAPSE  %.1fs"),Left)),12,0,CanJoin||Mine?Violet:ASHudMuted,.62f);
-            Bar(12,24,358,2,Left/ASTeam::TwinWindow,Violet);Group();
+            Bar(12,24,358,2,Left/ASTree::TwinWindowFor(Caller->TreeMask(),ASTeam::TwinWindow),Violet);Group();RowY-=36*UI;
+        }
+        if(SimNow<H->PierceUntil) { // 0.26 Phase 3, Piercing Rounds (the RANGED capstone): the window a perfect dash opened
+            const float Left=H->PierceUntil-SimNow;const FLinearColor Sky(.45f,.82f,1.f);
+            Group(Width-24-384*UI,RowY,UI);
+            Text(FString::Printf(TEXT("PIERCING ROUNDS  %.1fs  /  THROUGH %d ENEMIES"),Left,ASTree::PierceRounds),12,0,Sky,.62f);
+            Bar(12,24,358,2,Left/ASTree::PierceSeconds,Sky);Group();RowY-=36*UI;
         }
     }
     Group(Width-24-384*UI,Height-24-76*UI,UI);

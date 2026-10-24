@@ -53,6 +53,8 @@ public:
     bool bReduceMotion=false;
     bool bHoldBuild=false; // "Hold TAB to view build": the build panel shows only while the key is held. Default off (toggle).
     bool bRaiseStakes=false;
+    float MasterVolume=1.f,CombatVolume=1.f,WorldVolume=1.f,InterfaceVolume=1.f; // 0.26: Settings > SOUND (ASAudio.h), 0 to 2; this machine's own, saved in the settings file
+    void ApplyAudio();                                                             // clean the four levels (ASPresentation::VolumeLevel) and hand them to ASAudio
 private:
     FString Slot,BaseSlot;
     bool LoadCharacter();

@@ -9,6 +9,7 @@
 #include "ASGameState.h"
 #include "ASPlayerController.h"
 #include "ASCharacter.h"
+#include "ASGameInstance.h"
 #include "ASEnemy.h"
 #include "ASWorld.h"
 #include "ASSpell.h"
@@ -250,6 +251,40 @@ void Cast(const TArray<FString>& Args,UWorld* W) {
     UE_LOG(LogTemp,Display,TEXT("AshenDev: %s casts its F skill (%s)"),*H->GetName(),ASData::Abilities[FMath::Clamp(H->Build.Ability,0,ASAdventure::AbilityCount-1)].Name);
     H->CastRune_Implementation();
 }
+// as.dev.tree <set|status|ash|buy> ...: the 0.26 skill tree.
+//   set <all|none|lane0|lane1|lane2|nodes=a,b,c|mask=N> [other=1]   the hero's owned nodes, straight onto its build (the hero's own, or with other 1, run on the host, the guest's); replicates, then logs the status
+//   status [other=1]                                                 logs what the hero owns and every number the nodes change ('AshenTree:' lines)
+//   perfect [other=1]                                                the hero dodges perfectly (the real OnPerfectDash: the boost, and Piercing Rounds' window with the capstone)
+//   ash <n>                                                          this machine's profile Ash (the hub's purchases spend it)
+//   buy <node>                                                       buys the node through the real path (what a click on its tile does: Action 30): the hub rules, the Ash, the event, the save
+void Tree(const TArray<FString>& Args,UWorld* W) {
+    const FString Op=Args.IsValidIndex(0)?Args[0].ToLower():FString(TEXT("status"));
+    auto* PC=HostController(W);auto* GI=PC?PC->GetGameInstance<UASGameInstance>():nullptr;
+    if(Op==TEXT("ash")) {if(GI) {GI->Profile.Ash=FMath::Max(0,ArgInt(Args,1,0));UE_LOG(LogTemp,Display,TEXT("AshenTree: this profile has %d Ash"),GI->Profile.Ash);}return;}
+    if(Op==TEXT("buy")) {
+        if(!PC||!GI) return;const int32 Node=ArgInt(Args,1,0),Before=GI->Profile.Ash;
+        PC->Action(30,Node);
+        UE_LOG(LogTemp,Display,TEXT("AshenTree: buy node %d: \"%s\" (Ash %d -> %d, owns it now: %d)"),Node,*GI->LastMessage,Before,GI->Profile.Ash,ASTree::Owns(ASTree::FromRankData(GI->Profile.Build.Ranks.GetData(),GI->Profile.Build.Ranks.Num()),Node)?1:0);
+        return;
+    }
+    const bool Other=(Op==TEXT("status")||Op==TEXT("perfect"))?ArgInt(Args,1,0)!=0:ArgInt(Args,2,0)!=0;
+    AASCharacter* H=PickHero(W,Other);if(!H) {UE_LOG(LogTemp,Warning,TEXT("AshenTree: no such hero"));return;}
+    if(Op==TEXT("perfect")) {if(H->HasAuthority()) {H->OnPerfectDash();UE_LOG(LogTemp,Display,TEXT("AshenTree: %s dodges perfectly (the real OnPerfectDash)"),*H->GetName());}return;}
+    if(Op==TEXT("set")) {
+        if(!H->HasAuthority()) {UE_LOG(LogTemp,Warning,TEXT("AshenTree: set - not on the host"));return;}
+        const FString Which=Args.IsValidIndex(1)?Args[1].ToLower():FString(TEXT("all"));ASTree::Owned Mask=0;
+        if(Which==TEXT("all")) Mask=(ASTree::Owned(1)<<ASTree::Nodes)-1;
+        else if(Which.StartsWith(TEXT("lane"))) {const int32 L=FMath::Clamp(FCString::Atoi(*Which.Mid(4)),0,ASTree::Lanes-1);for(int32 S=0;S<ASTree::PerLane;++S) Mask|=ASTree::Bit(L*ASTree::PerLane+S);}
+        else if(Which.StartsWith(TEXT("nodes="))) {TArray<FString> Parts;Which.Mid(6).ParseIntoArray(Parts,TEXT(","),true);for(const FString& P:Parts) Mask|=ASTree::Bit(FCString::Atoi(*P));}
+        else if(Which.StartsWith(TEXT("mask="))) Mask=ASTree::Owned(FCString::Atoi64(*Which.Mid(5)))&((ASTree::Owned(1)<<ASTree::Nodes)-1);
+        FASBuild B=H->Build;B.Sanitize();for(int32 N=0;N<ASTree::Nodes;++N) B.Ranks[ASTree::FirstRank+N]=ASTree::Owns(Mask,N)?1:0;
+        H->ApplyBuild(B,false);H->Focus=FMath::Min(H->Focus,H->MaxFocus());H->ForceNetUpdate();
+    }
+    const ASTree::Owned M=H->TreeMask();
+    UE_LOG(LogTemp,Display,TEXT("AshenTree: %s owns %d nodes (melee %d, ranged %d, team %d), mask %u | max focus %.0f, magazine %d, reload %.2f s, running %.0f, reach x%.3f, critical %.3f, weapon damage x%.3f, leap x%.2f, guard %.2f"),
+        *H->GetName(),ASTree::CountInLane(M,0)+ASTree::CountInLane(M,1)+ASTree::CountInLane(M,2),ASTree::CountInLane(M,0),ASTree::CountInLane(M,1),ASTree::CountInLane(M,2),uint32(M),
+        H->MaxFocus(),H->MagazineCapacity(),H->ReloadDuration(),H->RunningSpeed(),H->MeleeReachMultiplier(),H->CriticalChanceNow(),H->DamageScale(true),ASTree::LeapScale(M),ASTree::MeleeGuard(M));
+}
 // as.dev.attack <seconds> [other=1]: holds the primary attack of the host hero (other 1: the guest's hero, held by the server; its aim is whatever the guest's own machine sends, so give that machine
 // as.dev.aimlock 1) for that long.
 double OtherAttackUntil=0.0;TWeakObjectPtr<AASCharacter> OtherAttacker;
@@ -340,6 +375,11 @@ void MenuPage(const TArray<FString>& Args,UWorld* W) {
     if(Args.IsValidIndex(1)) PC->ShopWeapon=FMath::Clamp(ArgInt(Args,1,0),0,ASRules::WeaponCount-1);
     if(Page<=0) {if(PC->MenuOpen()) PC->CloseMenu();} else PC->OpenMenu(Page);
     UE_LOG(LogTemp,Display,TEXT("AshenDev: menu page %d (open %d)"),Page,PC->MenuOpen()?1:0);
+}
+// as.dev.scroll <offset>: scrolls the open menu page to that offset (the page's own scroll box), for photographing a long page (the skill tree) in pieces.
+void MenuScroll(const TArray<FString>& Args,UWorld* W) {
+    auto* PC=HostController(W);if(!PC||!PC->MenuOpen()) return;
+    UE_LOG(LogTemp,Display,TEXT("AshenDev: menu scrolled to %.0f"),PC->ScrollMenu(ArgFloat(Args,0,0.f)));
 }
 // as.dev.clip <name> [full|upper=full] [seconds=0]: plays a hero clip (a name under /Game/Characters/Hero/Anims) on the host hero's body, stretched over <seconds> (0: its own length), for judging a clip
 // in motion with a few screenshots taken during a slowed playback.
@@ -702,6 +742,8 @@ AS_DEV_COMMAND("as.dev.weaponlook",WeaponLook,"Retunes the host hero's weapon ma
 AS_DEV_COMMAND("as.dev.weapon",Weapon,"Gives the host hero weapon <id> (0-9; 9 = Twin Claws); [other=1: the guest's hero, from the host].");
 AS_DEV_COMMAND("as.dev.ability",Ability,"Gives the host hero active skill <id> (0-8; 6 Ashen Brand, 7 Ember Tether, 8 Twin Collapse) with a full focus pool; [other=1: the guest's hero, from the host].");
 AS_DEV_COMMAND("as.dev.cast",Cast,"Casts the host hero's F skill; [other=1: the guest's hero, cast by the server as its own request would be].");
+AS_DEV_COMMAND("as.dev.scroll",MenuScroll,"Scrolls the open menu page to <offset>.");
+AS_DEV_COMMAND("as.dev.tree",Tree,"The skill tree: set <all|none|lane0-2|nodes=a,b,c|mask=N> [other=1] | status [other=1] | ash <n> | buy <node> (the real purchase path).");
 AS_DEV_COMMAND("as.dev.attack",AttackFor,"Holds the host hero's primary attack for <seconds>; [other=1: the guest's hero, held by the server (its aim comes from the guest's machine: as.dev.aimlock 1 there)].");
 AS_DEV_COMMAND("as.dev.fx",FxList,"Logs every live claw/team effect actor (AshenFx: lines).");
 AS_DEV_COMMAND("as.dev.ring",RingFx,"An effect ring on the floor at the host hero: <radius> <r> <g> <b> <seconds> [forward cm].");

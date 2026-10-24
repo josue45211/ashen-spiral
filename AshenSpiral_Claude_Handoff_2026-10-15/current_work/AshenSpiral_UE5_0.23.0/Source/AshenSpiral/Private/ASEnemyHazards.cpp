@@ -1,4 +1,5 @@
 #include "ASEnemyHazards.h"
+#include "ASAudio.h"
 #include "ASEnemy.h"
 #include "ASData.h"
 #include "ASEnemyAbilities.h"
@@ -132,7 +133,7 @@ void AASHazard::Tick(float Delta) {
             if(!bHeardArm&&Age<.5f) { // where it bites, a sound at the distance-scaled volume (a late joiner does not replay it)
                 bHeardArm=true;float Volume=.3f,Pitch=1.f;USoundBase* Cue=AASEnemy::ResolveCue(ER::HazardArmCue(Style),Volume,Pitch);
                 const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);Volume*=ER::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),Me)):0.f);
-                if(Cue&&Volume>=.02f) UGameplayStatics::PlaySoundAtLocation(this,Cue,Me,Volume,Pitch);
+                if(Cue&&Volume>=.02f) ASAudio::At(ASAudio::Bus::World,this,Cue,Me,Volume,Pitch);
             }
             if(Age>=0.f) bHeardArm=true;
         }

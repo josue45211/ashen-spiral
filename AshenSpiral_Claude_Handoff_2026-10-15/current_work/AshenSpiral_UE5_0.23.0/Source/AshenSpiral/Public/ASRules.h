@@ -25,7 +25,7 @@ constexpr int FirstGun=6, LastGun=8, Claws=9;
 inline bool IsGun(int Weapon) {return Weapon>=FirstGun&&Weapon<=LastGun;} // the three firearms; every "Weapon>=6" before 0.26 meant this
 constexpr int MaxEnemies = 42, MaxProjectiles = 180, MaxWells = 8;
 constexpr int MaxCurrency = 100000000;
-constexpr int HearthCount=20, RunUpgradeCount=6, MaxRunUpgradeRank=5, RunUpgradeOfferBase=100;
+constexpr int CoreHearthCount=20, HearthCount=44, RunUpgradeCount=6, MaxRunUpgradeRank=5, RunUpgradeOfferBase=100;
 constexpr float BaseSpiralCooldown=3.3f;
 constexpr float ReviveSeconds=2.f, ReviveRadius=300.f, ReviveVerticalReach=150.f;
 struct Random {

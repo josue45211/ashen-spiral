@@ -1,0 +1,2 @@
+PASS: 314 skill tree checks (the three lanes of eight and their prices, walking, spreading and refusing, the rank list's old and short forms, every node's bounded effect).
+Shared rules only; the menu, the purchases in a profile and the effects in a fight are not executed here.

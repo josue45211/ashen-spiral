@@ -776,6 +776,7 @@ void AASEnemy::RegisterCoopElement(EASHitKind Type,AASCharacter* Source,float Po
         const float SynergyDealt=SynergyKilled?SynergyBefore:FMath::Max(0.f,SynergyBefore-Target->Health);
         if(SynergyDealt>0) for(auto P:State->PlayerArray) if(auto* Player=Cast<AASPlayerState>(P)) if(auto* RecipientPC=Cast<AASPlayerController>(Player->GetOwner())) RecipientPC->SynergyNumber(Target->GetActorLocation()+FVector(0,0,80),SynergyDealt,Trigger);
     }
+    {FSynergyEcho Echo;Echo.Trigger=Trigger;Echo.At=At;Echo.Power=Power;Echo.Multiplier=ASBuild::SynergyDamageMultiplier(Source->TeamworkRank(),Partner?Partner->TeamworkRank():0);AASCharacter::QueueEcho(Source,Partner,Echo);} // 0.26 Phase 3: Synergy Echo
 }
 
 void AASEnemy::ConfineFlight(float CapsuleHalfHeight) {

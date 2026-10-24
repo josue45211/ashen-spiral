@@ -1,4 +1,5 @@
 #include "ASSpell.h"
+#include "ASAudio.h"
 #include "ASArsenalRules.h"
 #include "ASCharacter.h"
 #include "ASMovementComponent.h"
@@ -34,15 +35,18 @@ AASProjectile* AASProjectile::Fire(UWorld* W,const FVector& P,const FVector& D,A
     const FTransform T(D.Rotation(),P);auto* A=W->SpawnActorDeferred<AASProjectile>(StaticClass(),T,H,H,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
     if(!A) return nullptr;A->Hero=H;A->Weapon=Type;A->bEnemy=Enemy;A->Damage=Amount;A->bCritical=Critical;A->bSecondary=Secondary;
     A->bPractice=H&&S->Phase==EASPhase::Hub;A->bCosmetic=!Enemy&&S->Phase!=EASPhase::Hub&&S->Phase!=EASPhase::Combat;
-    A->Velocity=D.GetSafeNormal()*(Enemy?(Type==8?2300.f:870.f):(Type>=6?ASArsenal::Speed(Type):(Type==3?1600.f:2400.f)));
+    A->Velocity=D.GetSafeNormal()*(Enemy?(Type==8?2300.f:870.f):(Type>=6?ASArsenal::Speed(Type):(Type==3?1600.f:2400.f)))*(H&&!Enemy?ASTree::ProjectileSpeedScale(H->TreeMask()):1.f); // 0.26 Phase 3: Long Shot
     A->Bounces=H&&!Secondary?(H->Relic(20)?1:0)+H->TraitValue(ASBuild::Trait::Ricochet):0;
     A->Pierces=H&&!Secondary?H->TraitValue(ASBuild::Trait::Pierce):0;
     if(!Enemy&&Type==ASArsenal::Launcher) {A->Bounces=0;A->Pierces=0;}
+    else if(!Enemy&&H) if(const int32 Through=ASTree::PierceFor(H->TreeMask(),S->SimTime<H->PierceUntil);Through>0) {A->Pierces+=Through;A->bPiercing=true;} // 0.26 Phase 3: Piercing Rounds
+    if(!Enemy&&H&&AASCharacter::TreeLog()&&(A->bPiercing||ASTree::ProjectileSpeedScale(H->TreeMask())!=1.f)) UE_LOG(LogTemp,Display,TEXT("AshenTree: %s fires a round at %.0f cm/s with %d pierces%s"),*H->GetName(),A->Velocity.Size(),A->Pierces,A->bPiercing?TEXT(" (Piercing Rounds)"):TEXT(""));
     UGameplayStatics::FinishSpawningActor(A,T);return A;
 }
 void AASProjectile::BeginPlay() {
     Super::BeginPlay();if(auto* S=AS::State(this)) S->Projectiles.AddUnique(this);Expires=AS::Time(this)+(!bEnemy&&Weapon>=6?ASArsenal::Lifetime(Weapon):4.f);
-    const FLinearColor C=bEnemy?(Weapon==8?FLinearColor(1,.12f,.55f):FLinearColor(1,.14f,.04f)):(Hero?ASData::HitColor(ASData::WeaponElement(Weapon)):FLinearColor(1,.6f,.2f));
+    FLinearColor C=bEnemy?(Weapon==8?FLinearColor(1,.12f,.55f):FLinearColor(1,.14f,.04f)):(Hero?ASData::HitColor(ASData::WeaponElement(Weapon)):FLinearColor(1,.6f,.2f));
+    if(bPiercing&&!bEnemy) C=FLinearColor::LerpUsingHSV(C,FLinearColor(.55f,.86f,1.f),.7f); // 0.26 Phase 3: a round that will pass through burns pale blue
     // 0.24.2 aesthetics: a hero's bolts and thrown blades are light (M_Glow), and so is every trail; arrows stay solid wood, and enemy shots stay solid glowing orbs (something to
     // dodge reads best as a body, not a light, against the bright courtyard)
     if(bEnemy||Weapon==2) ASAssets::Style(Visual,!bEnemy&&Weapon==2?TEXT("SM_Arrow"):TEXT("Sphere"),C,0,5.f);
@@ -54,6 +58,7 @@ void AASProjectile::BeginPlay() {
         Visual->SetRelativeScale3D(Weapon==ASArsenal::Launcher?FVector(.60f,.20f,.20f):FVector(.18f,.05f,.05f));
         Trail->SetRelativeLocation(FVector(-35,0,0));Trail->SetRelativeScale3D(Weapon==ASArsenal::Launcher?FVector(.9f,.06f,.06f):FVector(.5f,.025f,.025f));
     }
+    if(bPiercing&&!bEnemy&&Weapon!=ASArsenal::Launcher) {Trail->SetRelativeLocation(FVector(-120,0,0));Trail->SetRelativeScale3D(FVector(2.4f,Weapon>=6?.04f:.10f,Weapon>=6?.04f:.10f));} // and trails a long thin streak
 }
 void AASProjectile::Detonate(const FVector& Position,AASEnemy* DirectTarget) {
     auto* State=AS::State(this);if(!State||bEnemy||Weapon!=ASArsenal::Launcher) return;
@@ -82,7 +87,7 @@ void AASProjectile::Detonate(const FVector& Position,AASEnemy* DirectTarget) {
 void AASProjectile::EndPlay(const EEndPlayReason::Type R) {if(auto* S=AS::State(this)) S->Projectiles.Remove(this);Super::EndPlay(R);}
 void AASProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AASProjectile,Velocity);DOREPLIFETIME(AASProjectile,bHoming);DOREPLIFETIME(AASProjectile,Hero);DOREPLIFETIME(AASProjectile,bEnemy);
-    DOREPLIFETIME(AASProjectile,Weapon);DOREPLIFETIME(AASProjectile,Damage);DOREPLIFETIME(AASProjectile,bCritical);DOREPLIFETIME(AASProjectile,bCosmetic);DOREPLIFETIME(AASProjectile,bPractice);DOREPLIFETIME(AASProjectile,bSecondary);
+    DOREPLIFETIME(AASProjectile,Weapon);DOREPLIFETIME(AASProjectile,Damage);DOREPLIFETIME(AASProjectile,bCritical);DOREPLIFETIME(AASProjectile,bCosmetic);DOREPLIFETIME(AASProjectile,bPractice);DOREPLIFETIME(AASProjectile,bSecondary);DOREPLIFETIME(AASProjectile,bPiercing);
 }
 void AASProjectile::Tick(float Delta) {
     Super::Tick(Delta);auto* S=AS::State(this);if(!S||S->Frozen()) return;
@@ -436,7 +441,7 @@ void AASShardBurst::Setup(const FVector& At,FLinearColor Color,float Tier) {
         Shards.Add({M,Dir*Burst.Speed*Rand.FRandRange(.55f,1.f),float(Rand.FRandRange(-720.f,720.f)),Base});
     }
     ++Active;
-    if(Burst.StopSeconds>0.f) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Tier>=2.5f?.7f:.4f,Tier>=2.5f?.7f:1.1f);
+    if(Burst.StopSeconds>0.f) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,Tier>=2.5f?.7f:.4f,Tier>=2.5f?.7f:1.1f);
 }
 void AASShardBurst::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;
@@ -465,8 +470,8 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         ASAssets::StyleGlowBand(Visual,Arc?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,14.f,Arc?.425f:.47f,Arc?.5f:.53f,1.f);
         Duration=bFinisherArc?.34f:.28f; // 0.24.1: a little longer, so the reach reads
         float Volume=.32f,Pitch=1.f;USoundBase* Delivered=Step==3?AASEnemy::ResolveCue(ASEnemyRules::CueSlashSwing,Volume,Pitch):nullptr; // a hostile swing uses E_SlashSwing once it is delivered
-        if(Delivered) UGameplayStatics::PlaySoundAtLocation(this,Delivered,At,Volume,Pitch);
-        else if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
+        if(Delivered) ASAudio::At(ASAudio::Bus::Combat,this,Delivered,At,Volume,Pitch);
+        else if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.32f);
         return;
     }
     if(Kind==18) {
@@ -487,7 +492,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         }
         if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) {
             const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);const float Gain=ASEnemyRules::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),At)):0.f);
-            if(Gain>.05f) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.10f*Gain,2.4f);
+            if(Gain>.05f) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.10f*Gain,2.4f);
         }
         return;
     }
@@ -498,7 +503,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         float Volume=.3f,Pitch=1.f;USoundBase* Cue=AASEnemy::ResolveCue(R>.5f?ASEnemyRules::CueEggHatch:ASEnemyRules::CueEggPop,Volume,Pitch);
         const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);
         Volume*=ASEnemyRules::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),At)):0.f);
-        if(Cue&&Volume>=.02f) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Volume,Pitch);
+        if(Cue&&Volume>=.02f) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,Volume,Pitch);
         return;
     }
     if(Kind==15) ASAssets::Style(Visual,TEXT("SM_Chest"),C,0,3); // the chest popping open is a solid chest
@@ -518,17 +523,17 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
     if(Kind==16) {
         // Melee hit-confirm: one faint tick per swing that connects (no visual).
         Visual->SetVisibility(false);
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.08f,1.5f);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.08f,1.5f);
         return;
     }
-    if(Kind==15) {if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.45f,.8f);return;}
+    if(Kind==15) {if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.45f,.8f);return;}
     if(Kind>=12) {
         // Pickup chime: warm and low for health, bright for shield, a quick tick for cinders. Placeholder assets, distinct pitch.
         const TCHAR* Chime=Kind==13?TEXT("S_Hit"):TEXT("S_Reward");const float Pitch=Kind==12?.85f:(Kind==13?1.6f:1.9f);
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Chime,Chime))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,Kind==14?.22f:.4f,Pitch);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Chime,Chime))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,Kind==14?.22f:.4f,Pitch);
         return;
     }
-    if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Sound,Sound))) UGameplayStatics::PlaySoundAtLocation(this,Cue,At,.32f);
+    if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Sound,Sound))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.32f);
 }
 void AASVisualEffect::Tick(float Delta) {
     Super::Tick(Delta);if(auto* S=AS::State(this)) if(S->Frozen()) return;

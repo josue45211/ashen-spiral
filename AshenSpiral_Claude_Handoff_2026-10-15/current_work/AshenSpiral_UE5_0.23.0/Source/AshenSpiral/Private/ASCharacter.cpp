@@ -1,4 +1,5 @@
 #include "ASCharacter.h"
+#include "ASAudio.h"
 #include "ASArsenalRules.h"
 #include "ASPose.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -78,6 +79,7 @@ void AASCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AASCharacter,AttackPoseStarted);DOREPLIFETIME(AASCharacter,MeleeStep);
     DOREPLIFETIME(AASCharacter,PounceState);DOREPLIFETIME(AASCharacter,PounceStateAt);DOREPLIFETIME(AASCharacter,PounceFlight);DOREPLIFETIME(AASCharacter,PounceTarget); // 0.26 Twin Claws
     DOREPLIFETIME(AASCharacter,LinkUntil);DOREPLIFETIME(AASCharacter,LinkMode);DOREPLIFETIME(AASCharacter,LinkPartner);DOREPLIFETIME(AASCharacter,LinkAnchor);DOREPLIFETIME(AASCharacter,TwinCallUntil); // 0.26 Phase 2: the team skills
+    DOREPLIFETIME(AASCharacter,PierceUntil); // 0.26 Phase 3: Piercing Rounds' window (the HUD reads it)
 }
 void AASCharacter::ApplyBuild(const FASBuild& V,bool Fresh) {
     if(!HasAuthority()) return;Build=V;Build.Sanitize();
@@ -142,8 +144,8 @@ void AASCharacter::ReloadCue_Implementation(bool Complete) {
     if(GetNetMode()==NM_DedicatedServer) return;
     const TCHAR* Name=Complete?TEXT("S_ReloadReady"):TEXT("S_ReloadStart");
     if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Name,Name))) {
-        if(IsLocallyControlled()) UGameplayStatics::PlaySound2D(this,Cue,.55f);
-        else UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.25f);
+        if(IsLocallyControlled()) ASAudio::Flat(ASAudio::Bus::Combat,this,Cue,.55f);
+        else ASAudio::At(ASAudio::Bus::Combat,this,Cue,GetActorLocation(),.25f);
     }
 }
 void AASCharacter::Tick(float Delta) {
@@ -165,7 +167,7 @@ void AASCharacter::Tick(float Delta) {
         // depends on which player's Tick happens first, and works in Reward too.
         if(S->bEndless) {BleedRemaining=ASExpedition::Bleed(BleedRemaining,Delta,Helper!=nullptr&&!bEliminated);if(BleedRemaining<=0) bEliminated=true;}
         if(bEliminated) {ReviveProgress=0;return;}
-        ReviveProgress=ASRules::AdvanceRevive(ReviveProgress,Delta,Helper!=nullptr);
+        ReviveProgress=ASRules::AdvanceRevive(ReviveProgress,Delta*(Helper?ASTree::ReviveScale(Helper->TreeMask()):1.f),Helper!=nullptr); // 0.26 Phase 3: Steadfast Hands lifts a partner 30% faster
         if(ReviveProgress>=ASRules::ReviveSeconds) {
             bDowned=false;BleedRemaining=25.f;Health=MaxHealth*.45f;InvulnerableUntil=Now+2.f;ReviveProgress=0;
             GetCharacterMovement()->StopMovementImmediately();
@@ -245,10 +247,10 @@ void AASCharacter::Attack() {
     float Haste=1;if(CombatBenefits()) for(auto W:S->Wells) if(W.IsValid()&&W->CanAffectGameplay()&&IsValid(W->Hero)&&W->Hero.Get()!=this&&W->Hero->Relic(5)&&FVector::DistSquared2D(GetActorLocation(),W->GetActorLocation())<FMath::Square(W->Radius)) Haste=1.25f;
     const bool Melee=ASMelee::IsMelee(Build.Weapon);
     if(Melee) {if(S->SimTime>LastMeleeEnd+(Build.Weapon==1?HammerComboWindow:.9f)) NextMeleeStep=0;if(Build.Weapon==1&&NextMeleeStep==2&&!Movement()->IsMovingOnGround()) return;MeleeStep=NextMeleeStep;NextMeleeStep=(MeleeStep+1)%ASMelee::ComboLength(Build.Weapon);}
-    const float Interval=ASRules::AttackInterval(ASData::Weapons[Build.Weapon].Rate,Rank(16),RunRank(1),Haste>1.f)*(Melee?ASMelee::TimeScale(Build.Weapon,MeleeStep):1.f);
+    const float Interval=ASRules::AttackInterval(ASData::Weapons[Build.Weapon].Rate,Rank(16),RunRank(1),Haste>1.f)*(Melee?ASMelee::TimeScale(Build.Weapon,MeleeStep)*ASTree::MeleeIntervalScale(TreeMask()):1.f); // 0.26 Phase 3: Quick Hands
     if(Build.Weapon==1) {HammerComboWindow=ASHammer::ComboWindow(Interval/ASMelee::TimeScale(1,MeleeStep));bHammerContact=false;if(MeleeStep==2) {bCharging=false;StopJumping();}}
     NextAttack=S->SimTime+Interval;AttackPoseDuration=Melee?Interval:FMath::Clamp(Interval*.9f,.08f,.28f);AttackPoseStarted=S->SimTime;++AttackSequence;OnAttackPose();
-    const bool Critical=(CombatBenefits()&&bNextCritical)||FMath::FRand()<ASRules::CriticalChance(Rank(19),RunRank(5));if(CombatBenefits()) bNextCritical=false;
+    const bool Critical=(CombatBenefits()&&bNextCritical)||FMath::FRand()<CriticalChanceNow();if(CombatBenefits()) bNextCritical=false;
     FVector Forward=(AimPoint-GetActorLocation()).GetSafeNormal2D();if(Forward.IsNearlyZero()) Forward=GetActorForwardVector();
     if(Melee) {
         bMeleePending=true;bMeleeMotionStarted=false;bMeleeCritical=Critical;PendingMeleeWeapon=Build.Weapon;
@@ -319,11 +321,24 @@ void AASCharacter::OnPerfectDash() {
     if(auto* Player=GetPlayerState<AASPlayerState>()) Player->RunPerfectDashes=FMath::Min(Player->RunPerfectDashes+1,100000);
     S->Effect(8,GetActorLocation()+FVector(0,0,40),FVector::UpVector,FLinearColor(1.f,.90f,.45f),130.f); // a gold ring: the blow found nothing
     if(auto* PC=Cast<AASPlayerController>(GetController())) PC->Notify(FString::Printf(TEXT("PERFECT DASH / +%d%% DAMAGE"),FMath::RoundToInt(ASPartC::PerfectDashBoost*100.f)));
+    if(HasNode(ASTree::PiercingRounds)) { // 0.26 Phase 3, Piercing Rounds (the RANGED capstone): the dodge also loads the next few seconds of rounds with a way through
+        PierceUntil=S->SimTime+ASTree::PierceSeconds;
+        if(TreeLog()) UE_LOG(LogTemp,Display,TEXT("AshenTree: %s's Piercing Rounds window opens until %.1f (%d enemies through)"),*GetName(),PierceUntil,ASTree::PierceRounds);
+        TeamCue(ASTeam::CuePierce,GetActorLocation(),FVector::ZeroVector,ASTree::PierceSeconds);
+        if(auto* PC=Cast<AASPlayerController>(GetController())) PC->RewardText(TEXT("PIERCING ROUNDS"),FLinearColor(.45f,.82f,1.f),true);
+    }
     ForceNetUpdate();
 }
 void AASCharacter::HitEnemy(AASEnemy* E,float Amount,bool Critical,EASHitKind Kind,bool ApplyElement,bool AllowProcs) {
     if(!HasAuthority()||!CanDamage(E)||E->Health<=0) return;auto* S=AS::State(this);if(!S) return;
     Amount*=DamageScale(ApplyElement);
+    // 0.26 Phase 3: what a weapon's own blow gets from the tree (ApplyElement marks it): the finish with a melee weapon (Executioner), a mark on the big ones with anything else (Marksman).
+    const bool MeleeBlow=ApplyElement&&ASMelee::IsMelee(Build.Weapon);
+    if(ApplyElement) {
+        const float Finish=MeleeBlow?ASTree::ExecutionerScale(TreeMask(),E->Health,E->MaxHealth):ASTree::MarksmanScale(TreeMask(),E->Boss()||E->Elite());
+        if(Finish!=1.f&&TreeLog()) UE_LOG(LogTemp,Display,TEXT("AshenTree: %s's %s x%.2f on %s (health %.0f of %.0f)"),*GetName(),MeleeBlow?TEXT("Executioner"):TEXT("Marksman"),Finish,*E->GetName(),E->Health,E->MaxHealth);
+        Amount*=Finish;
+    }
     if(E->Boss()) Amount*=1.f+.15f*TraitValue(ASBuild::Trait::BossHunter);
     else if(E->Elite()) Amount*=1.f+.15f*TraitValue(ASBuild::Trait::EliteHunter);
     if(E->Health>=E->MaxHealth*.99f) Amount*=1.f+.20f*TraitValue(ASBuild::Trait::Opener);
@@ -332,7 +347,7 @@ void AASCharacter::HitEnemy(AASEnemy* E,float Amount,bool Critical,EASHitKind Ki
     if(CombatBenefits()&&E->LastHitter.IsValid()&&E->LastHitter.Get()!=this&&S->SimTime-E->LastHitTime<.7f) Amount*=Talent(6)?1.18f:1.08f;
     if(Critical) Amount*=CriticalPower();
     E->LastHitter=this;E->LastHitTime=S->SimTime;
-    const FVector At=E->GetActorLocation();const bool Pulled=E->PulledUntil>S->SimTime;const bool ShowNumber=Critical||ApplyElement||E->NextDamageNumber<=S->SimTime;if(ShowNumber) E->NextDamageNumber=S->SimTime+.14f;const float Before=E->Health;const bool Killed=E->Hit(Amount,this);const float Dealt=Killed?Before:Before-E->Health;
+    const FVector At=E->GetActorLocation();const bool Pulled=E->PulledUntil>S->SimTime;const bool ShowNumber=Critical||ApplyElement||E->NextDamageNumber<=S->SimTime;if(ShowNumber) E->NextDamageNumber=S->SimTime+.14f;bBlowIsMelee=MeleeBlow;const float Before=E->Health;const bool Killed=E->Hit(Amount,this);bBlowIsMelee=false;const float Dealt=Killed?Before:Before-E->Health; // bBlowIsMelee: a kill inside this call is a melee kill (OnKill: Blood Rush, Predator)
     if(!Killed&&Kind==EASHitKind::Shock&&IsValid(E)) E->RegisterCoopElement(Kind,this,DamageScale(false));
     if(!Killed&&ApplyElement&&IsValid(E)) {const float Scale=OnHitScale();E->ApplyElement(Kind,this,DamageScale(true)*Scale,Scale,Dealt*ASRules::OwnElementShare*Scale);} // 0.24: the weapon's own element is an on-hit reward too (damage-over-time strength and frost buildup scale with the weapon's base rate)
     if(ShowNumber) if(auto* PC=Cast<AASPlayerController>(GetController())) PC->DamageNumber(At+FVector(0,0,80),Dealt,Critical,Kind);
@@ -355,6 +370,7 @@ void AASCharacter::Hurt(float Amount,AASEnemy* Source,bool EnemyAttack) {
     if(FMath::FRand()<FMath::Min(.25f,.04f*TraitValue(ASBuild::Trait::Evasion))) {S->Effect(4,GetActorLocation(),GetActorForwardVector(),FLinearColor(.3f,1,1),65);return;}
     float Reduction=ASBuild::DamageReduction(TraitValue(ASBuild::Trait::Armor),TraitValue(ASBuild::Trait::Defiance),S->SimTime-LastDamageAt<3.f);
     if(Talent(1)) Reduction+=Health<MaxHealth*.4f?.12f:.08f;
+    if(ASMelee::IsMelee(Build.Weapon)) Reduction+=ASTree::MeleeGuard(TreeMask()); // 0.26 Phase 3: Iron Skin
     Amount*=1.f-FMath::Min(.65f,Reduction);Amount*=1.f+.10f*CurseStacks;
     if(Source||EnemyAttack) Amount*=ASBuild::ChallengeDamage(S->Challenge)*ASExpedition::EnemyDamageScale(S->Difficulty,S->bEndless?S->EndlessWave:0,Source?(Source->Boss()?2:(Source->Elite()?1:0)):0);
     LastDamageAt=S->SimTime;if(auto* PS=GetPlayerState<AASPlayerState>()) PS->bRoomDamaged=true;

@@ -3,6 +3,7 @@
 #include "ASRules.h"
 #include "ASBuildRules.h"
 #include "ASAdventureRules.h"
+#include "ASTreeRules.h"
 #include "ASCareerRules.h"
 #include "ASPresentationRules.h"
 #include "ASData.generated.h"

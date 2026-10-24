@@ -21,7 +21,9 @@ private:
     void RewardScreen();
     TSharedRef<SWidget> ChoiceTile(const FString& Title,const FString& Brief,const FString& Detail,const FString& Type,int32 Icon,int32 Rarity,const FString& Label,int32 Code,int32 Index,bool Enabled=true,float TileWidth=200.f,FLinearColor Emblem=FLinearColor(0.f,0.f,0.f,0.f)); // Emblem: the colour of the icon (alpha 0 = the rarity colour)
     TSharedRef<SWidget> DetailStrip();
+    TSharedRef<SWidget> TreeTile(int32 Node,uint32 OwnedMask,int32 Ash,bool Hub);   // 0.26 Phase 3: one node of the skill tree page
     void Input(const FString& Label,int32 Field);
     void KeyRow(const FString& Label,FName Binding);
     void CameraSlider(const FString& Label,float UASGameInstance::* Setting,float Min,float Max,float Step,const FString& Unit);
+    void AudioSlider(const FString& Label,float UASGameInstance::* Setting,int32 SampleKind); // 0.26: a loudness slider (Settings > SOUND): 0 to 200%, applies as it moves, saves and plays its bus's sample when let go
 };

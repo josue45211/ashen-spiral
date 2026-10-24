@@ -112,7 +112,7 @@ void AASCharacter::RequestPounce_Implementation(FVector_NetQuantize Origin,FVect
     }
     CancelMelee(true);bCharging=false;StopJumping();
     PounceTarget=Target;PounceLanding=Landing;PounceOutward=Outward;bPounceDashBroke=false;
-    PounceState=1;PounceStateAt=S->SimTime;NextHammerLeap=S->SimTime+ASClaws::Cooldown(Whiff);
+    PounceState=1;PounceStateAt=S->SimTime;NextHammerLeap=S->SimTime+ASClaws::Cooldown(Whiff)*ASTree::LeapScale(TreeMask()); // 0.26 Phase 3: Leap Master
     PendingMeleePhase=int32(S->Phase);PendingMeleeGeneration=S->Arena?S->Arena->Config.Epoch:-1;
     M->StopMovementImmediately();
     if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: request by %s target=%s whiff=%d landing=%s cooldown %.1fs"),*GetName(),*GetNameSafe(Target),int32(Whiff),*Landing.ToString(),ASClaws::Cooldown(Whiff));
@@ -169,7 +169,7 @@ void AASCharacter::BeginLatch(float Now) {
     }
     PounceState=3;PounceStateAt=Now;PounceOffRing=PounceAirborneFor=0.f;PounceLastTarget=T->GetActorLocation();
     const FVector Toward=(T->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
-    const bool Critical=(CombatBenefits()&&bNextCritical)||FMath::FRand()<ASRules::CriticalChance(Rank(19),RunRank(5));if(CombatBenefits()) bNextCritical=false;
+    const bool Critical=(CombatBenefits()&&bNextCritical)||FMath::FRand()<CriticalChanceNow();if(CombatBenefits()) bNextCritical=false;
     PounceCue(2,T->GetActorLocation(),Toward);
     if(CVarASPounceLog.GetValueOnGameThread()) UE_LOG(LogTemp,Display,TEXT("AshenPounce: %s latched onto %s (hero %s, target %s)"),*GetName(),*GetNameSafe(T),*GetActorLocation().ToString(),*T->GetActorLocation().ToString()); // before the blow: it may kill the target
     HitEnemy(T,ASArsenal::Damage(Build.Weapon,PrimaryDamageBonus())*ASClaws::StrikeDamageScale,Critical,ASData::WeaponElement(Build.Weapon),true); // the arrival strike

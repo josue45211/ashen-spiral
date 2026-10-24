@@ -1,4 +1,5 @@
 #include "ASPlayerController.h"
+#include "ASAudio.h"
 #include "ASCharacter.h"
 #include "ASEnemy.h"
 #include "ASMovementComponent.h"
@@ -377,7 +378,7 @@ void AASPlayerController::SynergyCue_Implementation(int32 Trigger) {
     if(Trigger<0||Trigger>5) return;
     if(Trigger<=2) { // placeholder cues reuse existing assets with distinct pitch per synergy; P2 audio pass to replace
         const TCHAR* Cues[]={TEXT("S_Hit"),TEXT("S_Collapse"),TEXT("S_Spiral")};const float Pitch[]={1.45f,1.f,.8f};
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) UGameplayStatics::PlaySound2D(this,Cue,.8f,Pitch[Trigger]);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,*FString::Printf(TEXT("/Game/Audio/%s.%s"),Cues[Trigger],Cues[Trigger]))) ASAudio::Flat(ASAudio::Bus::Combat,this,Cue,.8f,Pitch[Trigger]);
     }
     static const TCHAR* Words[]={TEXT("LIGHTNING BLAST"),TEXT("STORMBREAK"),TEXT("WILDFIRE"),TEXT("BRAND BURST"),TEXT("EMBER TETHER"),TEXT("TWIN COLLAPSE")};
     static const FLinearColor Colors[]={FLinearColor(.86f,.74f,1.f),FLinearColor(.12f,1.f,1.f),FLinearColor(1.f,.35f,.05f),FLinearColor(1.f,.78f,.22f),FLinearColor(1.f,.52f,.14f),FLinearColor(.72f,.5f,1.f)};
@@ -396,7 +397,7 @@ void AASPlayerController::RewardText_Implementation(const FString& InText,FLinea
     if(FloatTexts.Num()>=6) FloatTexts.RemoveAt(0);
     FloatTexts.Add({Text.Left(60),Color,Now,Big,FloatSlot,Anchor});FloatSlot=(FloatSlot+1)%4;
     // Placeholder audio hook for trait acquisition; P2 audio pass to replace.
-    if(Big) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) UGameplayStatics::PlaySound2D(this,Cue,.7f,1.15f);
+    if(Big) if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Reward.S_Reward"))) ASAudio::Flat(ASAudio::Bus::Interface,this,Cue,.7f,1.15f);
 }
 void AASPlayerController::SynergyNumber_Implementation(FVector_NetQuantize Position,float Value,int32 Trigger) {
     if(Trigger<0||Trigger>5) return;
@@ -427,14 +428,22 @@ void AASPlayerController::Rebind(FName Binding,FKey Key) {
     Settings->SaveKeyMappings();Settings->SaveConfig();Settings->ForceRebuildKeymaps();
     Notice=TEXT("Binding saved. Avoid assigning the same key to different gameplay actions.");
 }
+// 0.26 Phase 3: buying a node is an event. The sound is here (a chime for a node, a chord and a swell for a capstone); the page draws the banner and the burst from TreeEventNode / TreeEventAt.
+void AASPlayerController::SkillTreeEvent(int32 Node) {
+    if(!ASTree::Valid(Node)) return;
+    TreeEventNode=Node;TreeEventAt=FPlatformTime::Seconds();
+    const bool Capstone=ASTree::IsCapstone(Node);
+    if(auto* Cue=LoadObject<USoundBase>(nullptr,Capstone?TEXT("/Game/Audio/S_TreeCapstone.S_TreeCapstone"):TEXT("/Game/Audio/S_TreeUnlock.S_TreeUnlock"),nullptr,LOAD_NoWarn|LOAD_Quiet)) ASAudio::Flat(ASAudio::Bus::Interface,this,Cue,Capstone?1.f:.8f);
+}
+float AASPlayerController::ScrollMenu(float Offset) {if(!Menu.IsValid()) return 0.f;Menu->SetScrollOffset(Offset);return Menu->ScrollOffset();}
 void AASPlayerController::Action(int32 Code,int32 Index) {
     auto* GI=GetGameInstance<UASGameInstance>();auto* S=AS::State(this);auto* PS=GetPlayerState<AASPlayerState>();if(!GI||!S) return;
     const int32 CurrentPage=Menu.IsValid()?Menu->Page:0;
     if(Code==0) {CloseMenu();SetPartyPaused(false);return;}
     if(Code==10) {OpenMenu(Index);return;}
-    if(Code>=20&&Code<=29) {
+    if(Code>=20&&Code<=30) { // 20-29 the profile's purchases by category; 30 a skill tree node (category 10)
         if(S->Phase!=EASPhase::Hub) {Notice=TEXT("Permanent loadouts can only be changed in the hub.");return;}
-        if(GI->Purchase(Code-20,Index)) ResubmitProfile();
+        if(GI->Purchase(Code-20,Index)) {ResubmitProfile();if(Code==30) SkillTreeEvent(Index);}
         Notice=GI->LastMessage;OpenMenu(CurrentPage,true);return;
     }
     if(Code==31) {Notice=TEXT("Choose Ember, Ashen or Blood at the three hub portals. Press E at an archway to depart.");}
@@ -493,6 +502,7 @@ void AASPlayerController::Action(int32 Code,int32 Index) {
     }
     else if(Code==77) {GI->bHoldBuild=!GI->bHoldBuild;GI->SaveCameraSettings();Notice=GI->bHoldBuild?TEXT("Hold TAB to view your build."):TEXT("TAB toggles your build panel.");OpenMenu(CurrentPage,true);return;}
     else if(Code==70) {GI->bReduceMotion=!GI->bReduceMotion;GI->SaveCameraSettings();ApplyCameraSettings();}
+    else if(Code==78) {GI->MasterVolume=GI->CombatVolume=GI->WorldVolume=GI->InterfaceVolume=1.f;GI->ApplyAudio();GI->SaveHUDSettings();ASAudio::Sample(this,0);Notice=TEXT("Sound levels reset to 100%.");} // 0.26: Settings > SOUND
     else if(Code==54) {GI->ResetCameraSettings();ApplyCameraSettings();Notice=TEXT("Camera defaults restored and saved. Close this menu to check your view.");}
     else if(Code==55) {GI->CrosshairStyle=(GI->CrosshairStyle+1)%4;GI->SaveHUDSettings();}
     else if(Code==56) {GI->CrosshairColorIndex=(GI->CrosshairColorIndex+1)%8;GI->SaveHUDSettings();}

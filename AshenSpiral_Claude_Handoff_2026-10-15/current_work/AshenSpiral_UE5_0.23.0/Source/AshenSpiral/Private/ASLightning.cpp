@@ -1,4 +1,5 @@
 #include "ASLightning.h"
+#include "ASAudio.h"
 #include "ASGameState.h"
 #include "ASCharacter.h"
 #include "ASEnemy.h"
@@ -58,7 +59,7 @@ void AASLightningStrike::BeginPlay() {
     for(int32 I=0;I<Channel.Num();++I) if(auto* Segment=Channel[I].Get()) {ASAssets::Style(Segment,TEXT("Cube"),Core,0,40.f);Segment->SetCastShadow(false);Segment->SetCollisionEnabled(ECollisionEnabled::NoCollision);Segment->SetVisibility(false);}
     Flash->SetLightColor(FLinearColor(.82f,.74f,1.f));Flash->SetRelativeLocation(FVector(0,0,260));
     // A faint crackle when the warning appears (placeholder: existing sound, pitched up); two more, higher, follow as the strike nears.
-    if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.16f,1.6f);
+    if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) ASAudio::At(ASAudio::Bus::World,this,Cue,GetActorLocation(),.16f,1.6f);
 }
 void AASLightningStrike::ShapeBolt(int32 Seed) {
     // A main channel from high in the sky to the floor: every joint wanders sideways, most in the middle of the fall and least at the ends, so the bolt meets the floor at the
@@ -117,8 +118,8 @@ void AASLightningStrike::Tick(float Delta) {
         for(auto& Spoke:Spokes) Glow(Spoke.Get(),3.f+5.f*Fraction);
         const float Height=FMath::Lerp(.5f,17.f,Fraction*Fraction),Flicker=.6f+.4f*FMath::Abs(FMath::Sin(Now*61.f)); // cylinder is 100 cm tall: scale 17 is a 1700 cm column
         Bolt->SetRelativeScale3D(FVector(.05f*Flicker,.05f*Flicker,Height));Bolt->SetRelativeLocation(FVector(0,0,ASLightningLook::ChannelTop-Height*50.f));Glow(Bolt,(3.f+9.f*Fraction)*Flicker);
-        if(WarnTicks<1&&Fraction>=.45f) {WarnTicks=1;if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.18f,2.1f);}
-        if(WarnTicks<2&&Fraction>=.75f) {WarnTicks=2;if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.22f,2.7f);}
+        if(WarnTicks<1&&Fraction>=.45f) {WarnTicks=1;if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) ASAudio::At(ASAudio::Bus::World,this,Cue,GetActorLocation(),.18f,2.1f);}
+        if(WarnTicks<2&&Fraction>=.75f) {WarnTicks=2;if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) ASAudio::At(ASAudio::Bus::World,this,Cue,GetActorLocation(),.22f,2.7f);}
         return;
     }
     if(!bFlashed) {
@@ -126,8 +127,8 @@ void AASLightningStrike::Tick(float Delta) {
         Shape=0;ShapeBolt(int32(GetUniqueID())*7919+1);Flash->SetVisibility(true);
         Scorch->SetVisibility(true);Scorch->SetRelativeScale3D(FVector(Radius*.62f/50.f,Radius*.62f/50.f,.012f));
         // Placeholder thunder: existing sounds, pitched - a crack at once, and the roll a moment later.
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_HammerSmash.S_HammerSmash"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.85f,.75f);
-        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) UGameplayStatics::PlaySoundAtLocation(this,Cue,GetActorLocation(),.45f,1.4f);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_HammerSmash.S_HammerSmash"))) ASAudio::At(ASAudio::Bus::World,this,Cue,GetActorLocation(),.85f,.75f);
+        if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Collapse.S_Collapse"))) ASAudio::At(ASAudio::Bus::World,this,Cue,GetActorLocation(),.45f,1.4f);
     }
     FlashAge+=Delta;
     // The bolt: bright, jumping to a new shape twice, dimming between, gone at BoltLife.

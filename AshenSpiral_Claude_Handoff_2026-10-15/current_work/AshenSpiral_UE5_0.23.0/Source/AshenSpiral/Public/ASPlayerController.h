@@ -25,8 +25,11 @@ public:
     void Rebind(FName Binding,FKey Key);
     FKey BoundKey(FName Binding) const;
     bool MenuOpen() const {return Menu.IsValid();}
+    float ScrollMenu(float Offset);                                    // dev (as.dev.scroll): the open page's scroll box to that offset; returns where it is now
     bool bShowStats=false;
     FString JoinAddress=TEXT("127.0.0.1"),JoinCode,SeedText=TEXT("1103"),Notice;
+    int32 TreeEventNode=-1;double TreeEventAt=-100.0;  // 0.26 Phase 3: the last skill tree node bought and when (FPlatformTime::Seconds): the tree page draws its event from them
+    void SkillTreeEvent(int32 Node);                   // the event of buying a node: its sound, and the page's banner and burst (ASPlayerController.cpp)
     TArray<FASDamageNumber> DamageNumbers;
     TArray<FASNotice> Notifications;
     TArray<FASFloatText> FloatTexts;
