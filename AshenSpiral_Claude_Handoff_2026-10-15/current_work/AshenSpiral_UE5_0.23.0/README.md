@@ -2,7 +2,7 @@
 
 **Grav Hammer rework. Unreal Engine 5.8.3 source prototype.**
 
-Extract the complete ZIP into a new folder and run **Play_Standalone.bat**. Both co-op players need **0.24.2 / protocol 2402**. Profile schema 1, migration 20 and the shared per-user progress folder remain supported.
+Extract the complete ZIP into a new folder and run **Play_Standalone.bat**. Both co-op players need **0.26.0 / protocol 2600** (what is new and what to look at: `Docs/WHATS_NEW_0.26.0.md`). Profile schema 1, migration 20 and the shared per-user progress folder remain supported.
 
 ## Hammer changes
 

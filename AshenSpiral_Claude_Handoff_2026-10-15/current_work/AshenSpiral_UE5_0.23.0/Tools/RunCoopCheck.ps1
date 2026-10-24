@@ -11,7 +11,7 @@ foreach($L in @($HostLog,$GuestLog)){if(Test-Path $L){Remove-Item $L -Force}}
 $HostArgs="`"$Uproject`" /Game/Maps/AshenSpiral?listen?Session=LOCAL2 -game -windowed -ResX=$ResX -ResY=$ResY -WinX=10 -WinY=30 -ProfileSlot=90 -log -abslog=`"$HostLog`" -ExecCmds=`"as.dev.script Tools/DevScripts/$HostScript.txt`""
 $H=Start-Process -FilePath $Editor -ArgumentList $HostArgs -PassThru
 Start-Sleep -Seconds $GuestDelaySec # the host must be listening before the guest dials in
-$GuestArgs="`"$Uproject`" 127.0.0.1:24567?Code=LOCAL2?Protocol=2402 -game -windowed -ResX=$ResX -ResY=$ResY -WinX=640 -WinY=200 -ProfileSlot=91 -log -abslog=`"$GuestLog`" -ExecCmds=`"as.dev.script Tools/DevScripts/$GuestScript.txt`""
+$GuestArgs="`"$Uproject`" 127.0.0.1:24567?Code=LOCAL2?Protocol=2600 -game -windowed -ResX=$ResX -ResY=$ResY -WinX=640 -WinY=200 -ProfileSlot=91 -log -abslog=`"$GuestLog`" -ExecCmds=`"as.dev.script Tools/DevScripts/$GuestScript.txt`""
 $G=Start-Process -FilePath $Editor -ArgumentList $GuestArgs -PassThru
 $Deadline=(Get-Date).AddSeconds($TimeoutSec)
 while((Get-Date) -lt $Deadline -and (-not $H.HasExited -or -not $G.HasExited)){Start-Sleep -Seconds 2}

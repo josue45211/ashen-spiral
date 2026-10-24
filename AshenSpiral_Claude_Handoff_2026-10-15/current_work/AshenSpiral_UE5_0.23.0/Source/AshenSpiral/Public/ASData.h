@@ -128,6 +128,7 @@ namespace ASData {
     struct FWeaponFinish {FLinearColor Shade;float Metallic,Roughness;};
     FWeaponFinish WeaponFinish(int32 Weapon);
     // 0.24 changed replicated state (enemy Ability byte, GameState.bCoverSolid; bReady and SetReady removed), so 0.23 and 0.24 players cannot join each other.
-    constexpr int32 Protocol=2402;
-    constexpr const TCHAR* Version=TEXT("0.24.2"); // menu label and join-error text; keep equal to ProjectVersion in Config/DefaultGame.ini (run_tests.py checks)
+    // 0.26 changed replicated state again (the claws' pounce, the team skills' tether/call/brand fields, Piercing Rounds' window and the pierce flag on projectiles) and the hearth's rank list grew by the skill tree, so 0.24 and 0.26 players cannot join each other.
+    constexpr int32 Protocol=2600;
+    constexpr const TCHAR* Version=TEXT("0.26.0"); // menu label and join-error text; keep equal to ProjectVersion in Config/DefaultGame.ini (run_tests.py checks)
 }
