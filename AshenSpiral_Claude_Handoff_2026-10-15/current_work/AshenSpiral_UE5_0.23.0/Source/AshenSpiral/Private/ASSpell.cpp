@@ -470,7 +470,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         ASAssets::StyleGlowBand(Visual,Arc?TEXT("SM_SwingArc"):TEXT("SM_Slash"),Tint,14.f,Arc?.425f:.47f,Arc?.5f:.53f,1.f);
         Duration=bFinisherArc?.34f:.28f; // 0.24.1: a little longer, so the reach reads
         float Volume=.32f,Pitch=1.f;USoundBase* Delivered=Step==3?AASEnemy::ResolveCue(ASEnemyRules::CueSlashSwing,Volume,Pitch):nullptr; // a hostile swing uses E_SlashSwing once it is delivered
-        if(Delivered) ASAudio::At(ASAudio::Bus::Combat,this,Delivered,At,Volume,Pitch);
+        if(Delivered) ASAudio::At(ASAudio::Bus::World,this,Delivered,At,Volume,Pitch); // an enemy's swing is on the Enemies & world bus
         else if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Attack.S_Attack"))) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.32f);
         return;
     }
@@ -492,7 +492,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         }
         if(auto* Cue=LoadObject<USoundBase>(nullptr,TEXT("/Game/Audio/S_Hit.S_Hit"))) {
             const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);const float Gain=ASEnemyRules::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),At)):0.f);
-            if(Gain>.05f) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,.10f*Gain,2.4f);
+            if(Gain>.05f) ASAudio::At(ASAudio::Bus::World,this,Cue,At,.10f*Gain,2.4f); // the telegraph before an enemy's blow: Enemies & world
         }
         return;
     }
@@ -503,7 +503,7 @@ void AASVisualEffect::Setup(uint8 T,const FVector& At,const FVector& D,FLinearCo
         float Volume=.3f,Pitch=1.f;USoundBase* Cue=AASEnemy::ResolveCue(R>.5f?ASEnemyRules::CueEggHatch:ASEnemyRules::CueEggPop,Volume,Pitch);
         const APawn* Local=UGameplayStatics::GetPlayerPawn(this,0);
         Volume*=ASEnemyRules::CueDistanceGain(Local?float(FVector::Dist(Local->GetActorLocation(),At)):0.f);
-        if(Cue&&Volume>=.02f) ASAudio::At(ASAudio::Bus::Combat,this,Cue,At,Volume,Pitch);
+        if(Cue&&Volume>=.02f) ASAudio::At(ASAudio::Bus::World,this,Cue,At,Volume,Pitch); // a brood egg: Enemies & world
         return;
     }
     if(Kind==15) ASAssets::Style(Visual,TEXT("SM_Chest"),C,0,3); // the chest popping open is a solid chest
