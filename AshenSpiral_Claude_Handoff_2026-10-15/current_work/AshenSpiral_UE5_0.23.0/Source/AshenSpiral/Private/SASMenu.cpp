@@ -257,6 +257,7 @@ void SASMenu::Construct(const FArguments& Args) {
                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("OVERVIEW"),10,0)]
                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("CONTROLS"),10,11)]
                                 +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[Button(TEXT("SETTINGS"),10,8)]
+                                +SHorizontalBox::Slot().AutoWidth().Padding(0,0,8,0)[SNew(SBox).Visibility(Hub?EVisibility::Visible:EVisibility::Collapsed)[Button(TEXT("SKILL TREE"),10,24)]] // 0.26 playtest #1: the tree was a card at the foot of two long pages and nobody found it; it is one click from every hub page now
                                 +SHorizontalBox::Slot().FillWidth(1).HAlign(HAlign_Right).VAlign(VAlign_Center)
                                     [SNew(STextBlock).Text(Txt(FString::Printf(TEXT("ASHEN SPIRAL  %s"),ASData::Version))).Font(Font(11)).ColorAndOpacity(ASMenuMuted)]]]]]]];
     if(!GI||!S) {Text(TEXT("Loading the world and personal profile..."));return;}
@@ -278,10 +279,10 @@ void SASMenu::Construct(const FArguments& Args) {
         Text(BuildSummary(ActiveBuild,ActiveRun,Hero),14,ASMenuGold);
         Text(Hub?TEXT("An ember survives. Choose your weapon, shape your gravity, then descend together."):TEXT("The expedition is paused only when the shared pause indicator is shown. Escape resumes."));
         Card(TEXT("Expedition"),TEXT("Four wards. Eight rooms per ward. Automatic waves and personal rewards; either player can continue once both have chosen."),Hub?TEXT("PREPARE"):TEXT("RESUME"),Hub?10:0,1);
+        if(Hub) Card(TEXT("The Skill Tree"),TEXT("Three lanes of permanent nodes bought with Ash: Melee, Ranged and Team. Each lane ends in a capstone that changes how you play."),TEXT("SKILL TREE"),10,24);
         if(Hub) Input(TEXT("Deterministic expedition seed (the host's seed is used at the story archways)"),2); // 0.24: the seed is entered here only
         if(Hub) {Card(TEXT("Armory and Sanctum"),TEXT("Walk to a displayed weapon and press E to try or buy it. Test weapons and Spiral on the practice target. Purchases save immediately."),TEXT("LOADOUT"),10,2);
             Card(TEXT("Permanent upgrades"),TEXT("Ability cooldown, attack speed, damage, health, movement speed, critical chance, and more."),TEXT("UPGRADES"),10,4);
-            Card(TEXT("The Skill Tree"),TEXT("Three lanes of permanent nodes bought with Ash: Melee, Ranged and Team. Each lane ends in a capstone that changes how you play."),TEXT("SKILL TREE"),10,24);
             Card(TEXT("Ione and the Constellations"),TEXT("Craft permanent skill points, spend materials, and strengthen your next expedition."),TEXT("WORKBENCH"),10,5);}
         Card(TEXT("Run traits and synergies"),TEXT("Inspect every trait, its stacking limit, owned ranks and evolutions. Rune Lance uses Focus; primary hits can recharge skills with Battle Conduit."),TEXT("YOUR BUILD"),10,17);
         Card(TEXT("Character and achievements"),TEXT("Cosmetic levels, lifetime kills, clean clears, co-op rescues and 36 achievement milestones."),TEXT("ACHIEVEMENTS"),10,19);
@@ -427,6 +428,7 @@ void SASMenu::Construct(const FArguments& Args) {
     } else if(Page==4) {
         Text(TEXT("Permanent upgrades carry into every run. Room-chest upgrades stack for the current run only. Costs increase with each rank; purchases keep your scroll position."));
         Text(BuildSummary(P.Build,EmptyRun),14,ASMenuGold);
+        Card(TEXT("The Skill Tree"),TEXT("Melee, Ranged and Team lanes of permanent nodes, each ending in a capstone. Bought with Ash."),TEXT("SKILL TREE"),10,24);
         Text(TEXT("CORE BUILD UPGRADES"),19,ASMenuGold);
         for(int32 Stat=0;Stat<ASRules::RunUpgradeCount;++Stat) {
             const int32 I=PermanentStatIndex(Stat);const auto& N=ASData::Hearth[I];
@@ -441,7 +443,6 @@ void SASMenu::Construct(const FArguments& Args) {
             const int32 Rank=P.Build.Rank(I),Cost=ASRules::Cost(N.Cost,Rank,N.MaxRank);
             Card(FString::Printf(TEXT("%s   %d / %d"),N.Name,Rank,N.MaxRank),N.Desc,Cost<0?TEXT("MAX RANK"):FString::Printf(TEXT("%d ASH"),Cost),22,I,Hub&&Cost>=0&&P.Ash>=Cost);
         }
-        Card(TEXT("The Skill Tree"),TEXT("Melee, Ranged and Team lanes of permanent nodes, each ending in a capstone. Bought with Ash."),TEXT("SKILL TREE"),10,24);
         Card(TEXT("Constellations"),TEXT("Spend permanent skill points on Survivor, Tactician, and Scavenger talents."),TEXT("OPEN TREE"),10,6);
     } else if(Page==5) {
         FString Materials;for(int32 I:{0,1,4}) Materials+=FString::Printf(TEXT("%s: %d%s"),ASData::Materials[I],P.Materials[I],I==4?TEXT(""):TEXT("    "));Text(Materials,15,ASMenuGold);

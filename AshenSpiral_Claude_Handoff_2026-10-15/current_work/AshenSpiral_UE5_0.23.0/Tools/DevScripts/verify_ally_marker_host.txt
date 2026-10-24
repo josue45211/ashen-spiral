@@ -1,0 +1,32 @@
+# 0.26 playtest #1: the ally's triangle + "P2" label must sit close above the head (it floated a whole body too high). Host, test profile 90; pairs with verify_ally_marker_client.txt:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunCoopCheck.ps1 -HostScript verify_ally_marker_host -GuestScript verify_ally_marker_client
+# Shots: the living guest from a close and a far follow camera, then the downed guest.
+t.MaxFPS 60
+waitfor players 150
+wait 4
+as.dev.god 1
+as.dev.endless 4242
+waitfor combat 40
+wait 3
+as.dev.killall
+as.dev.keeper
+as.dev.clearing 900
+as.dev.face 0
+wait 3
+as.dev.shot ally_marker_a_living_game_camera
+as.dev.follow 520 140 60 60 0 1
+wait 1.5
+as.dev.shot ally_marker_b_living_follow
+wait 0.5
+as.dev.follow off
+wait 1
+as.dev.hurt 999 1
+wait 2.5
+as.dev.shot ally_marker_c_downed_game_camera
+as.dev.follow 520 140 60 60 0 1
+wait 1.5
+as.dev.shot ally_marker_d_downed_follow
+wait 0.5
+as.dev.follow off
+wait 1
+quit

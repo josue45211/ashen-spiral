@@ -1,0 +1,5 @@
+# 0.26 playtest #1: the guest's half of verify_ally_marker_host.txt (test profile 91): it only waits; the HOST photographs the guest's marker.
+t.MaxFPS 60
+waitfor combat 240
+wait 24
+quit

@@ -557,7 +557,7 @@ void AASHUD::DrawAllyMarkers(AASGameState* S,AASPlayerController* PC,AASCharacte
         const auto* AllyState=Ally->GetPlayerState<AASPlayerState>();const int32 Number=AllyState?AllyState->PlayerIndex+1:2;
         const FLinearColor Base=Ally->bDowned?ASHudDown(S):FLinearColor(ASPresentation::AllyMarkerColor.R,ASPresentation::AllyMarkerColor.G,ASPresentation::AllyMarkerColor.B);
         const FLinearColor Fill(Base.R,Base.G,Base.B,Ally->bDowned?Pulse:.95f);
-        const FVector Head=Ally->GetActorLocation()+FVector(0,0,Ally->bDowned?150.f:225.f);
+        const FVector Head=Ally->GetActorLocation()+FVector(0,0,Ally->bDowned?98.f:102.f); // 0.26 playtest #1: the capsule's half height is 88 and the head tops out near +92, so the tip sits a hand above the head (it was 225 / 150 downed: a whole body too high; a downed hero still stands, red, waiting for the revive)
         const float Meters=FVector::Dist(Local->GetActorLocation(),Ally->GetActorLocation())/100.f;
         const float Size=FMath::Clamp(26.f-Meters*.4f,16.f,26.f)*Scale; // pixels; shrinks a little with distance
         const float Margin=60.f*Scale;

@@ -1,0 +1,14 @@
+# 0.26 playtest #1: the skill tree must be one click from every hub page (nav-bar button) and the first card on Overview and Ashen Hearth. Test profile 95:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File Tools\RunDevScript.ps1 -Script verify_tree_entry
+waitfor ready 60
+wait 8
+as.dev.menu 4
+wait 1.5
+as.dev.shot te_01_hearth_top 1
+as.dev.menu 8
+wait 1.5
+as.dev.shot te_02_settings_nav 1
+as.dev.menu 24
+wait 1.5
+as.dev.shot te_03_tree 1
+quit

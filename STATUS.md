@@ -1,8 +1,42 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-23 17:36 PDT
-phase: 0.26.0 playtest build READY (Phases 0-3 and the version step done, zip exported); Phase 4 polish waits on Josue and P2's playtest
-current_item: Handed over: Josue and P2 playtest C:\Games\AshenSpiral_UE5_0.26.0_Playtest.zip (HEAD ddf13eb); no more in-engine runs this session, by Josue
+updated: 2026-10-23 20:05 PDT
+phase: 0.26.0 playtest-blocking fix batch (skill tree findability + ally header height) DONE and pushed; Phase 4 polish still waits on the next playtest
+current_item: Playtest report #1 batch done; next: pounce latch flurry (polish list), then the next playtest
+
+## PLAYTEST REPORT #1 (0.26.0) - findings and fixes (2026-10-23 evening)
+**Push (Josue 17:40 order): DONE.** astra/0.23-handoff pushed 49c2e1e..7cc6b94; origin matched HEAD 7cc6b94 right after the push. (The fix commit below is pushed too, see the end of this section.)
+
+**Skill tree "did not load": diagnosis**
+1. Was the zip exported from the Phase 3 commit? YES. The zip (HEAD ddf13eb, which contains feabcc3 and 815fae6) holds ASTreeRules.h, tree_026_tests.cpp, the six S_Tree*.wav, and SASMenu.cpp with "The Skill Tree" (2 cards), the SKILL TREE page 24 and the SOUND sliders; version string 0.26.0.
+2. Fresh-folder run of THE SHIPPED ZIP (extracted to C:\Games\_fresh0.26, its own Setup: build "Result: Succeeded", import success 144 assets, 0 errors; then the game launched in-engine): the page loads (THE SKILL TREE, Melee lane, tiles), and the Ashen Hearth page shows "The Skill Tree" card with its SKILL TREE button. So the feature IS in the shipped build and works. I could not reproduce "did not load".
+3. SETTINGS > SOUND shipped: master + Combat & effects + Enemies & world + Interface sliders and RESET SOUND, label 0.26.0 (screenshot from the fresh zip run).
+Most likely cause (not provable from here): the card was hard to find. It was the fifth card on OVERVIEW and the LAST-BUT-ONE card at the foot of ASHEN HEARTH (below ~20 upgrade cards), the hub opens on the ENTER THE SPIRAL page, and nothing pointed at it. If Josue's PC showed no card even on those pages, the likely culprit is a stale editor module (an old extract folder reused, or Setup's build step skipped); please tell me the folder name and the version label in the menu footer if it happens again.
+Also noticed: the dev test profile slot 95 keeps Ash/nodes across folders (it lives outside the project), so a fresh folder showed 75 Ash and owned nodes. Cosmetic for the dev harness only.
+
+**Fixes (commit pushed with this STATUS):**
+- Skill tree findability: a SKILL TREE button in the menu's bottom nav bar (hub only, so it is one click from every page), and the card is now the first card under the intro on ASHEN HEARTH and right after "Expedition" on OVERVIEW.
+- Ally header: the P1/P2 triangle and label were anchored 225 uu above the actor centre (150 downed); the capsule half height is 88 so the head tops at about +92. Now 102 (98 downed; a downed hero still stands, red, waiting for the revive).
+Definition of done: UBT editor build unity clean and -DisableUnity clean (0 errors; only the engine-header C4996 deprecation warnings), Tests/run_tests.py exit 0, in-engine: verify_tree_entry (nav button on Settings and Hearth pages, card first on Hearth, tree page opens) and verify_ally_marker (co-op host + guest: the marker sits just above the guest's head, living and downed). Screenshots in Saved/Screenshots/Dev: te_*.png, ally_marker_*.png.
+UNVERIFIED by humans: that the nav button and card placement fix what Josue hit; the marker's distance feels right in play (a hand above the head).
+Not touched, per the report: pounce latch flurry (Warwick-style) is queued on the polish list behind these fixes; the not-yet-tested list (pounce, team skills, SOUND, roar, G1-G8, wall slams, pile-ups, elemental fairness) is still open.
+
+**Standing order (19:23): GitHub is the code-sharing route again.** Paste on each PC after a push:
+Josue (C:\Games\AshenSpiral):
+```
+cd C:\Games\AshenSpiral
+git fetch origin
+git checkout astra/0.23-handoff
+git pull origin astra/0.23-handoff
+```
+P2 (his clone; same commands from his clone's folder):
+```
+cd <path to P2's clone>
+git fetch origin
+git checkout astra/0.23-handoff
+git pull origin astra/0.23-handoff
+```
+Same-build warning: protocol is 2600 (0.26.0) on both PCs; a 0.24.2 build cannot join. After pulling, rebuild the editor module (Tools\Setup.ps1 or Setup_and_Open.bat) before playing; the menu footer must read ASHEN SPIRAL 0.26.0.
 
 <!-- 0.26-RUN:BEGIN -->
 ## 0.26 RUN - started 2026-10-23 (Edison's "0.26 Huge Update Plan", inbox 2026-10-22 22:02 parts 1+2; Josue + P2 locked it 2026-10-22)
