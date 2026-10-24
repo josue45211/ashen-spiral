@@ -1,8 +1,17 @@
 # Ashen Spiral Agent Status
 
-updated: 2026-10-23 20:05 PDT
+updated: 2026-10-23 20:30 PDT
 phase: 0.26.0 playtest-blocking fix batch (skill tree findability + ally header height) DONE and pushed; Phase 4 polish still waits on the next playtest
 current_item: Playtest report #1 batch done; next: pounce latch flurry (polish list), then the next playtest
+
+## FRESH PLAYTEST ZIP (Edison 20:12 request) - READY - for Josue and P2; both PCs must run this exact file
+- Path: C:\Games\AshenSpiral_UE5_0.26.0_Playtest.zip (REPLACES the earlier zip of the same name: delete the old one, and extract this to a NEW folder)
+- Size: 778,894,015 bytes (742.8 MB), 1036 entries. SHA-256 d31c260bd5835f446c2adcee6b43c4d95359b7c5cd7e99925bf675c8bb38bde7
+- Version 0.26.0, network protocol 2600: UNCHANGED (the fixes are UI-only), so the earlier 0.26.0 zip still joins, but both PCs should use this one so the code and art match. Built from HEAD 8a5ba55 (skill-tree nav button + card first, ally header fix) by Tools/export_playtest_zip.py: git archive plus the 455 local gitignored assets (the Mannequin hero and clips, Dragon Cave ruins, floor, hammer, footsteps, roars). This is the full art in one file, which is what P2's Download-ZIP/GitHub copy lacked (his client fell back to the old armour rig).
+- Checked from a fresh folder (C:\Games\_fresh0.26b): extracted, its own Setup built and imported (Result: Succeeded, 144 assets, 0 errors), the game launched in-engine: menu footer ASHEN SPIRAL 0.26.0, SKILL TREE button in the nav bar, the Skill Tree card first on Ashen Hearth, 0 errors in the log.
+- On each PC: extract to a NEW folder, run Setup_and_Open.bat (or Tools\Setup.ps1), then play. Do NOT mix with the GitHub/Download-ZIP copy for play: it has no local art.
+- Code sharing stays on GitHub (pull blocks above); the zip is only the matched-build play route.
+- Logged (Edison 20:06): a Download-ZIP/GitHub copy lacks the gitignored local content, so the Mannequin falls back to the armour rig. Route fix (a Setup/START_HERE warning pointing at the playtest zip) is queued behind the pounce flurry; not a game bug.
 
 ## PLAYTEST REPORT #1 (0.26.0) - findings and fixes (2026-10-23 evening)
 **Push (Josue 17:40 order): DONE.** astra/0.23-handoff pushed 49c2e1e..7cc6b94; origin matched HEAD 7cc6b94 right after the push. (The fix commit below is pushed too, see the end of this section.)
